@@ -1,0 +1,23 @@
+
+> guira@0.1.0 lint
+> eslint
+
+
+C:\Users\MIGUEL\Desktop\witronix\Guira\guira\features\activity\components\activity-list.tsx
+  22:16  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\MIGUEL\Desktop\witronix\Guira\guira\features\activity\components\audit-list.tsx
+  19:16  warning  'err' is defined but never used           @typescript-eslint/no-unused-vars
+  55:61  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\MIGUEL\Desktop\witronix\Guira\guira\features\support\components\staff-support-list.tsx
+  62:64  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\MIGUEL\Desktop\witronix\Guira\guira\features\support\components\support-form.tsx
+  3:10  warning  'useState' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\MIGUEL\Desktop\witronix\Guira\guira\features\support\components\support-list.tsx
+  30:6  warning  React Hook useEffect has a missing dependency: 'fetchTickets'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+Ô£û 6 problems (2 errors, 4 warnings)
+
