@@ -1,5 +1,5 @@
 export type OnboardingType = 'personal' | 'company'
-export type OnboardingStatus = 'draft' | 'submitted' | 'under_review' | 'verified' | 'rejected' | 'needs_changes'
+export type OnboardingStatus = 'draft' | 'submitted' | 'under_review' | 'waiting_ubo_kyc' | 'verified' | 'rejected' | 'needs_changes'
 
 export interface Onboarding {
   id: string

@@ -10,7 +10,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { LogOut, User } from 'lucide-react'
 import { toast } from 'sonner'
@@ -29,22 +28,20 @@ export function UserMenu() {
   const handleLogout = async () => {
     try {
       await AuthService.logout()
-      toast.success('Sesión cerrada')
+      toast.success('Sesion cerrada')
       router.push('/login')
     } catch (error) {
       console.error(error)
-      toast.error('Error al cerrar sesión')
+      toast.error('Error al cerrar sesion')
     }
   }
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-          <Avatar className="h-8 w-8">
-            <AvatarFallback>{getInitials(profile.full_name)}</AvatarFallback>
-          </Avatar>
-        </Button>
+      <DropdownMenuTrigger className="relative inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+        <Avatar className="h-8 w-8">
+          <AvatarFallback>{getInitials(profile.full_name)}</AvatarFallback>
+        </Avatar>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end">
         <DropdownMenuLabel className="font-normal">
@@ -63,7 +60,7 @@ export function UserMenu() {
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4 text-destructive" />
-          <span className="text-destructive">Cerrar Sesión</span>
+          <span className="text-destructive">Cerrar Sesion</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

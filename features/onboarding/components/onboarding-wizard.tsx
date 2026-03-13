@@ -28,29 +28,25 @@ export function OnboardingWizard() {
       try {
         const latest = await OnboardingService.getLatestOnboarding(user.id)
         if (!mounted) return
-        
+
         if (latest) {
           setStatus(latest.status)
           if (latest.observations) setObservations(latest.observations)
-          
+
           if (latest.status === 'draft' || latest.status === 'needs_changes') {
-            // Check local storage for newer unsaved drafts? 
-            // In a simple flow, DB is source of truth if we just loaded it
             setId(latest.id)
             setType(latest.type)
             if (latest.data) {
               updateFormData(latest.data as Record<string, unknown>)
             }
-            // Recover step from localStorage if exists
             const savedStep = localStorage.getItem(`guira_onboarding_step_${user.id}`)
             if (savedStep) setStep(parseInt(savedStep, 10))
           }
         } else {
-          // New onboarding, try load state
           const savedType = localStorage.getItem(`guira_onboarding_type_${user.id}`)
           const savedData = localStorage.getItem(`guira_onboarding_data_${user.id}`)
           const savedStep = localStorage.getItem(`guira_onboarding_step_${user.id}`)
-          
+
           if (savedType) setType(savedType as 'personal' | 'company')
           if (savedData) updateFormData(JSON.parse(savedData))
           if (savedStep) setStep(parseInt(savedStep, 10))
@@ -65,7 +61,6 @@ export function OnboardingWizard() {
     return () => { mounted = false }
   }, [user, setId, setType, updateFormData, setStep])
 
-  // Automatic Local Savings
   useEffect(() => {
     if (user && !loading && (status === 'draft' || status === 'needs_changes' || status === null)) {
       if (type) localStorage.setItem(`guira_onboarding_type_${user.id}`, type)
@@ -74,6 +69,14 @@ export function OnboardingWizard() {
     }
   }, [step, type, formData, user, loading, status])
 
+  const shouldRedirectToPanel = profile?.onboarding_status === 'verified' || status === 'verified'
+
+  useEffect(() => {
+    if (shouldRedirectToPanel) {
+      router.replace('/panel')
+    }
+  }, [router, shouldRedirectToPanel])
+
   const handleClear = () => {
     if (user) {
       localStorage.removeItem(`guira_onboarding_type_${user.id}`)
@@ -81,44 +84,41 @@ export function OnboardingWizard() {
       localStorage.removeItem(`guira_onboarding_data_${user.id}`)
       setType(null)
       setStep(1)
-      updateFormData({}) // reset
+      updateFormData({})
     }
   }
 
   if (loading) return <div className="p-8 text-center text-muted-foreground">Cargando estado...</div>
 
-  // Read Only states
+  if (shouldRedirectToPanel) {
+    return <div className="p-8 text-center text-muted-foreground">Redirigiendo al panel...</div>
+  }
+
   if (status === 'submitted' || status === 'under_review' || status === 'waiting_ubo_kyc') {
     return (
       <div className="max-w-xl mx-auto mt-12 px-4">
-         <Card>
+        <Card>
           <CardHeader className="text-center">
             <CheckCircle2 className="w-16 h-16 text-primary mx-auto mb-4" />
-            <CardTitle className="text-2xl">En revisión</CardTitle>
+            <CardTitle className="text-2xl">En revision</CardTitle>
             <CardDescription>
-              Hemos recibido tus datos y documentos. Nuestro equipo los validará a la brevedad.
+              Hemos recibido tus datos y documentos. Nuestro equipo los validara a la brevedad.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
-             <Button variant="outline" onClick={() => router.push('/login')}>Volver</Button>
+            <Button variant="outline" onClick={() => router.push('/login')}>Volver</Button>
           </CardContent>
-         </Card>
+        </Card>
       </div>
     )
   }
-  
-  if (profile?.onboarding_status === 'verified' || status === 'verified') {
-     router.push('/panel')
-     return null
-  }
 
-  // Type Selection
   if (!type && step === 1) {
     return (
       <div className="max-w-xl mx-auto mt-12 px-4">
         <h1 className="text-3xl font-bold mb-6">Completa tu perfil</h1>
         <p className="text-muted-foreground mb-8">
-          Para operar en Guira necesitamos conocerte y validar tu identidad por regulación financiera.
+          Para operar en Guira necesitamos conocerte y validar tu identidad por regulacion financiera.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -142,11 +142,11 @@ export function OnboardingWizard() {
   return (
     <div className="max-w-2xl mx-auto mt-12 px-4 pb-20">
       <div className="mb-6 flex items-center justify-between">
-         <div>
+        <div>
           <h1 className="text-2xl font-bold">Registro {type === 'personal' ? 'Personal' : 'Empresarial'}</h1>
           <p className="text-sm text-muted-foreground">Paso {step}</p>
-         </div>
-         <Button variant="ghost" size="sm" onClick={handleClear}>Cambiar de tipo (Reiniciar)</Button>
+        </div>
+        <Button variant="ghost" size="sm" onClick={handleClear}>Cambiar de tipo (Reiniciar)</Button>
       </div>
 
       {status === 'needs_changes' && (
@@ -159,7 +159,6 @@ export function OnboardingWizard() {
         </div>
       )}
 
-      {/* Forms will handle their own inner steps layout and logic */}
       {type === 'personal' && <PersonalForm status={status} userId={user!.id} />}
       {type === 'company' && <CompanyForm status={status} userId={user!.id} />}
     </div>

@@ -1,3 +1,5 @@
+import { StaffReadonlyPanel } from '@/features/staff/components/staff-readonly-panel'
+
 export default function AdminPage() {
-  return <div>Staff/Admin Dashboard Placeholder</div>
+  return <StaffReadonlyPanel />
 }

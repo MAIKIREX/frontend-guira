@@ -1,16 +1,19 @@
 import { createClient } from '@/lib/supabase/browser'
-
-const supabase = createClient()
+import type { Profile } from '@/types/profile'
 
 export const ProfileService = {
-  async getProfile(userId: string) {
+  async getProfile(userId: string): Promise<Profile | null> {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .single()
-      
-    if (error) throw error
-    return data
-  }
+      .maybeSingle()
+
+    if (error) {
+      throw new Error(error.message || 'No se pudo cargar el perfil.')
+    }
+
+    return (data as Profile | null) ?? null
+  },
 }

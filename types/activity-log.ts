@@ -13,6 +13,7 @@ export interface AuditLog {
   action: string
   table_name: string
   record_id: string
+  affected_fields?: string[]
   previous_values: Record<string, unknown>
   new_values: Record<string, unknown>
   reason: string
