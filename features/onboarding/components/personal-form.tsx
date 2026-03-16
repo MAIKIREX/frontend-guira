@@ -11,8 +11,8 @@ import { OnboardingService } from '@/services/onboarding.service'
 import { toast } from 'sonner'
 import { useState } from 'react'
 
-export function PersonalForm({ userId }: { status: string | null; userId: string }) {
-  const { step, setStep, formData, updateFormData, id } = useOnboardingStore()
+export function PersonalForm({ userId, onStatusChange }: { status: string | null; userId: string; onStatusChange: (status: string) => void }) {
+  const { step, setStep, formData, updateFormData, id, reset } = useOnboardingStore()
   const [isUploading, setIsUploading] = useState(false)
 
   const form = useForm<PersonalOnboardingValues>({
@@ -36,9 +36,7 @@ export function PersonalForm({ userId }: { status: string | null; userId: string
     },
   })
 
-  // Listen to step changes to sync form -> store
   const handleNext = async () => {
-    // Validate current step
     let isValid = false
     if (step === 2) {
       isValid = await form.trigger(['first_names', 'last_names', 'dob', 'nationality', 'id_document_type', 'id_number', 'id_expiry'])
@@ -51,13 +49,12 @@ export function PersonalForm({ userId }: { status: string | null; userId: string
     if (isValid) {
       const currentValues = form.getValues()
       updateFormData(currentValues)
-      // trigger save draft
       try {
         await OnboardingService.saveDraft({
           id: id || undefined,
           user_id: userId,
           type: 'personal',
-          data: { ...formData, ...currentValues }
+          data: { ...formData, ...currentValues },
         })
         setStep(step + 1)
       } catch {
@@ -73,16 +70,15 @@ export function PersonalForm({ userId }: { status: string | null; userId: string
       const path = await OnboardingService.uploadDocument(userId, docKey as string, file, true)
       form.setValue(docKey, path)
       updateFormData({ [docKey]: path })
-      
-      // Assume onboarding_id exists now because we saved draft on step transitions. If not, save draft first.
+
       if (id) {
         await OnboardingService.saveDocumentReference({
-           onboarding_id: id,
-           user_id: userId,
-           doc_type: docKey as string,
-           storage_path: path,
-           mime_type: file.type,
-           file_size: file.size
+          onboarding_id: id,
+          user_id: userId,
+          doc_type: docKey as string,
+          storage_path: path,
+          mime_type: file.type,
+          file_size: file.size,
         })
       }
       toast.success('Documento subido')
@@ -95,8 +91,8 @@ export function PersonalForm({ userId }: { status: string | null; userId: string
 
   async function onSubmit(data: PersonalOnboardingValues) {
     if (!data.id_front || !data.id_back || !data.selfie || !data.proof_of_address) {
-       toast.error('Faltan documentos por subir')
-       return
+      toast.error('Faltan documentos por subir')
+      return
     }
 
     try {
@@ -104,15 +100,16 @@ export function PersonalForm({ userId }: { status: string | null; userId: string
         id: id || undefined,
         user_id: userId,
         type: 'personal',
-        data: { ...formData, ...data }
+        data: { ...formData, ...data },
       })
-      toast.success('Onboarding enviado con éxito')
-      setTimeout(() => window.location.reload(), 1000)
+      toast.success('Onboarding enviado con exito')
+      onStatusChange('submitted')
+      reset()
     } catch (err: unknown) {
       if (err instanceof Error) {
-        toast.error(err.message || 'Ocurrió un error al enviar')
+        toast.error(err.message || 'Ocurrio un error al enviar')
       } else {
-         toast.error('Ocurrió un error al enviar')
+        toast.error('Ocurrio un error al enviar')
       }
     }
   }
@@ -120,10 +117,9 @@ export function PersonalForm({ userId }: { status: string | null; userId: string
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        
         {step === 2 && (
           <div className="space-y-4">
-            <h2 className="text-xl font-medium">Información Personal</h2>
+            <h2 className="text-xl font-medium">Informacion Personal</h2>
             <div className="grid grid-cols-2 gap-4">
               <FormField control={form.control} name="first_names" render={({ field }) => (
                 <FormItem><FormLabel>Nombres</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
@@ -137,15 +133,13 @@ export function PersonalForm({ userId }: { status: string | null; userId: string
               <FormField control={form.control} name="nationality" render={({ field }) => (
                 <FormItem><FormLabel>Nacionalidad</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-               <FormField control={form.control} name="id_document_type" render={({ field }) => (
-                <FormItem><FormLabel>Tipo de Documento</FormLabel><FormControl>
-                  <Input placeholder="CI / Pasaporte" {...field} />
-                </FormControl><FormMessage /></FormItem>
+              <FormField control={form.control} name="id_document_type" render={({ field }) => (
+                <FormItem><FormLabel>Tipo de Documento</FormLabel><FormControl><Input placeholder="CI / Pasaporte" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-               <FormField control={form.control} name="id_number" render={({ field }) => (
+              <FormField control={form.control} name="id_number" render={({ field }) => (
                 <FormItem><FormLabel>Nro Documento</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-               <FormField control={form.control} name="id_expiry" render={({ field }) => (
+              <FormField control={form.control} name="id_expiry" render={({ field }) => (
                 <FormItem><FormLabel>Vencimiento Doc.</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
             </div>
@@ -157,23 +151,23 @@ export function PersonalForm({ userId }: { status: string | null; userId: string
 
         {step === 3 && (
           <div className="space-y-4">
-            <h2 className="text-xl font-medium">Dirección</h2>
+            <h2 className="text-xl font-medium">Direccion</h2>
             <div className="grid grid-cols-2 gap-4">
-               <FormField control={form.control} name="street" render={({ field }) => (
-                <FormItem className="col-span-2"><FormLabel>Calle y Número</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              <FormField control={form.control} name="street" render={({ field }) => (
+                <FormItem className="col-span-2"><FormLabel>Calle y Numero</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
               <FormField control={form.control} name="city" render={({ field }) => (
                 <FormItem><FormLabel>Ciudad</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-               <FormField control={form.control} name="state_province" render={({ field }) => (
+              <FormField control={form.control} name="state_province" render={({ field }) => (
                 <FormItem><FormLabel>Estado / Provincia</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-               <FormField control={form.control} name="country" render={({ field }) => (
-                <FormItem><FormLabel>País</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              <FormField control={form.control} name="country" render={({ field }) => (
+                <FormItem><FormLabel>Pais</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
             </div>
             <div className="flex justify-between pt-4">
-              <Button type="button" variant="outline" onClick={() => setStep(step - 1)}>Atrás</Button>
+              <Button type="button" variant="outline" onClick={() => setStep(step - 1)}>Atras</Button>
               <Button type="button" onClick={handleNext}>Siguiente</Button>
             </div>
           </div>
@@ -181,15 +175,15 @@ export function PersonalForm({ userId }: { status: string | null; userId: string
 
         {step === 4 && (
           <div className="space-y-4">
-            <h2 className="text-xl font-medium">Información Financiera</h2>
+            <h2 className="text-xl font-medium">Informacion Financiera</h2>
             <div className="grid grid-cols-2 gap-4">
               <FormField control={form.control} name="occupation" render={({ field }) => (
-                <FormItem><FormLabel>Ocupación</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Ocupacion</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-               <FormField control={form.control} name="purpose" render={({ field }) => (
-                <FormItem><FormLabel>Propósito de la cuenta</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              <FormField control={form.control} name="purpose" render={({ field }) => (
+                <FormItem><FormLabel>Proposito de la cuenta</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-               <FormField control={form.control} name="source_of_funds" render={({ field }) => (
+              <FormField control={form.control} name="source_of_funds" render={({ field }) => (
                 <FormItem><FormLabel>Origen de fondos</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
               <FormField control={form.control} name="estimated_monthly_volume" render={({ field }) => (
@@ -197,7 +191,7 @@ export function PersonalForm({ userId }: { status: string | null; userId: string
               )} />
             </div>
             <div className="flex justify-between pt-4">
-              <Button type="button" variant="outline" onClick={() => setStep(step - 1)}>Atrás</Button>
+              <Button type="button" variant="outline" onClick={() => setStep(step - 1)}>Atras</Button>
               <Button type="button" onClick={handleNext}>Siguiente</Button>
             </div>
           </div>
@@ -206,47 +200,47 @@ export function PersonalForm({ userId }: { status: string | null; userId: string
         {step === 5 && (
           <div className="space-y-6">
             <h2 className="text-xl font-medium">Documentos</h2>
-            <p className="text-sm text-muted-foreground">Sube tus documentos legibles para acelerar la verificación.</p>
-            
+            <p className="text-sm text-muted-foreground">Sube tus documentos legibles para acelerar la verificacion.</p>
+
             <div className="space-y-4">
               <div className="border p-4 rounded bg-muted/20">
                 <FormLabel className="block mb-2">Documento de Identidad (Frente)</FormLabel>
                 <Input type="file" accept="image/*,.pdf" onChange={(e) => {
                   if (e.target.files && e.target.files[0]) handleDocUpload('id_front', e.target.files[0])
                 }} />
-                {form.getValues('id_front') && <p className="text-xs text-green-600 mt-2">✓ Archivo cargado ({String(form.getValues('id_front'))})</p>}
+                {form.getValues('id_front') && <p className="text-xs text-green-600 mt-2">Archivo cargado ({String(form.getValues('id_front'))})</p>}
               </div>
 
-               <div className="border p-4 rounded bg-muted/20">
+              <div className="border p-4 rounded bg-muted/20">
                 <FormLabel className="block mb-2">Documento de Identidad (Reverso)</FormLabel>
                 <Input type="file" accept="image/*,.pdf" onChange={(e) => {
                   if (e.target.files && e.target.files[0]) handleDocUpload('id_back', e.target.files[0])
                 }} />
-                 {form.getValues('id_back') && <p className="text-xs text-green-600 mt-2">✓ Archivo cargado ({String(form.getValues('id_back'))})</p>}
+                {form.getValues('id_back') && <p className="text-xs text-green-600 mt-2">Archivo cargado ({String(form.getValues('id_back'))})</p>}
               </div>
 
-               <div className="border p-4 rounded bg-muted/20">
+              <div className="border p-4 rounded bg-muted/20">
                 <FormLabel className="block mb-2">Selfie Sosteniendo el Documento</FormLabel>
                 <Input type="file" accept="image/*" onChange={(e) => {
                   if (e.target.files && e.target.files[0]) handleDocUpload('selfie', e.target.files[0])
                 }} />
-                 {form.getValues('selfie') && <p className="text-xs text-green-600 mt-2">✓ Archivo cargado ({String(form.getValues('selfie'))})</p>}
+                {form.getValues('selfie') && <p className="text-xs text-green-600 mt-2">Archivo cargado ({String(form.getValues('selfie'))})</p>}
               </div>
 
-               <div className="border p-4 rounded bg-muted/20">
+              <div className="border p-4 rounded bg-muted/20">
                 <FormLabel className="block mb-2">Comprobante de Domicilio</FormLabel>
                 <Input type="file" accept="image/*,.pdf" onChange={(e) => {
                   if (e.target.files && e.target.files[0]) handleDocUpload('proof_of_address', e.target.files[0])
                 }} />
-                 {form.getValues('proof_of_address') && <p className="text-xs text-green-600 mt-2">✓ Archivo cargado ({String(form.getValues('proof_of_address'))})</p>}
+                {form.getValues('proof_of_address') && <p className="text-xs text-green-600 mt-2">Archivo cargado ({String(form.getValues('proof_of_address'))})</p>}
               </div>
             </div>
 
             <div className="flex justify-between pt-4">
-               <Button type="button" variant="outline" onClick={() => setStep(step - 1)}>Atrás</Button>
-               <Button type="submit" disabled={isUploading || form.formState.isSubmitting}>
-                 {form.formState.isSubmitting ? 'Enviando...' : 'Finalizar Envío'}
-               </Button>
+              <Button type="button" variant="outline" onClick={() => setStep(step - 1)}>Atras</Button>
+              <Button type="submit" disabled={isUploading || form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? 'Enviando...' : 'Finalizar Envio'}
+              </Button>
             </div>
           </div>
         )}

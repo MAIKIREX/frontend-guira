@@ -43,9 +43,12 @@ export function usePaymentsModule(userId?: string) {
   const mergeOrder = useCallback((updatedOrder: PaymentOrder) => {
     setSnapshot((current) => {
       if (!current) return current
+      const exists = current.paymentOrders.some((entry) => entry.id === updatedOrder.id)
       return {
         ...current,
-        paymentOrders: current.paymentOrders.map((entry) => (entry.id === updatedOrder.id ? updatedOrder : entry)),
+        paymentOrders: exists
+          ? current.paymentOrders.map((entry) => (entry.id === updatedOrder.id ? updatedOrder : entry))
+          : [updatedOrder, ...current.paymentOrders],
       }
     })
   }, [])
@@ -97,9 +100,9 @@ export function usePaymentsModule(userId?: string) {
       order = upload.order
     }
 
-    await load()
+    mergeOrder(order)
     return order
-  }, [load, userId])
+  }, [mergeOrder, userId])
 
   const uploadOrderFile = useCallback(async (orderId: string, field: OrderFileField, file: File) => {
     if (!userId) {
@@ -112,22 +115,21 @@ export function usePaymentsModule(userId?: string) {
     }
 
     const result = await PaymentsService.updateOrderFile(order, field, file, userId)
-    await load()
+    mergeOrder(result.order)
     return result.order
-  }, [load, snapshot?.paymentOrders, userId])
+  }, [mergeOrder, snapshot?.paymentOrders, userId])
 
   const confirmOrderQuote = useCallback(async (order: PaymentOrder) => {
     const updatedOrder = await PaymentsService.confirmOrderQuote(order)
-    await load()
+    mergeOrder(updatedOrder)
     return updatedOrder
-  }, [load])
+  }, [mergeOrder])
 
   const cancelOrder = useCallback(async (order: PaymentOrder) => {
     const updatedOrder = await PaymentsService.cancelOrder(order)
     mergeOrder(updatedOrder)
-    await load()
     return updatedOrder
-  }, [load, mergeOrder])
+  }, [mergeOrder])
 
   return {
     snapshot,

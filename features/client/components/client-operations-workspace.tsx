@@ -1,5 +1,6 @@
 'use client'
 
+import { useCallback } from 'react'
 import { Loader2, RefreshCw, ShieldAlert, Waypoints, WalletCards } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -57,6 +58,35 @@ export function ClientOperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const { profile } = useProfileStore()
   const payments = usePaymentsModule(user?.id)
   const wallet = useWalletDashboard(user?.id)
+  const refreshWalletSnapshot = useCallback(() => {
+    if (mode === 'transacciones') {
+      void wallet.reload()
+    }
+  }, [mode, wallet])
+
+  const handleCreateOrder = useCallback(async (...args: Parameters<typeof payments.createOrder>) => {
+    const result = await payments.createOrder(...args)
+    refreshWalletSnapshot()
+    return result
+  }, [payments, refreshWalletSnapshot])
+
+  const handleUploadOrderFile = useCallback(async (...args: Parameters<typeof payments.uploadOrderFile>) => {
+    const result = await payments.uploadOrderFile(...args)
+    refreshWalletSnapshot()
+    return result
+  }, [payments, refreshWalletSnapshot])
+
+  const handleConfirmOrderQuote = useCallback(async (...args: Parameters<typeof payments.confirmOrderQuote>) => {
+    const result = await payments.confirmOrderQuote(...args)
+    refreshWalletSnapshot()
+    return result
+  }, [payments, refreshWalletSnapshot])
+
+  const handleCancelOrder = useCallback(async (...args: Parameters<typeof payments.cancelOrder>) => {
+    const result = await payments.cancelOrder(...args)
+    refreshWalletSnapshot()
+    return result
+  }, [payments, refreshWalletSnapshot])
 
   if (payments.loading || (mode === 'transacciones' && wallet.loading)) {
     return (
@@ -84,7 +114,7 @@ export function ClientOperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
 
   return (
     <div className="space-y-6">
-      <section className="grid gap-4 xl:grid-cols-[1.45fr_0.95fr]">
+      {/*<section className="grid gap-4 xl:grid-cols-[1.45fr_0.95fr]">
         <Card className="border-border/80 bg-muted/10">
           <CardHeader className="gap-3 md:flex-row md:items-start md:justify-between">
             <div className="space-y-2">
@@ -129,7 +159,7 @@ export function ClientOperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
             <MetricRow label="Transferencias activas" value={String(wallet.snapshot?.pendingBridgeTransfers.length ?? 0)} />
           </CardContent>
         </Card>
-      </section>
+      </section>*/}
 
       {mode === 'depositar' || mode === 'enviar' ? (
         <CreatePaymentOrderForm
@@ -138,7 +168,7 @@ export function ClientOperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
           defaultRoute={config.defaultRoute!}
           disabled={!canOperate}
           feesConfig={payments.snapshot.feesConfig}
-          onCreateOrder={payments.createOrder}
+          onCreateOrder={handleCreateOrder}
           psavConfigs={payments.snapshot.psavConfigs}
           suppliers={payments.snapshot.suppliers}
           userId={user.id}
@@ -158,12 +188,12 @@ export function ClientOperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
 
       {mode === 'transacciones' ? (
         <div className="space-y-6">
-          <WalletSummaryCards snapshot={wallet.snapshot!} />
+          {/*<WalletSummaryCards snapshot={wallet.snapshot!} />*/}
 
           <Card>
             <CardHeader>
-              <CardTitle>Transacciones</CardTitle>
-              <CardDescription>Separacion clara entre historial operativo y expedientes que aun requieren accion.</CardDescription>
+              <CardTitle className='text-2xl font-semibold'>Transacciones</CardTitle>
+              {/*<CardDescription>Separacion clara entre historial operativo y expedientes que aun requieren accion.</CardDescription>*/}
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="movements" className="gap-4">
@@ -176,15 +206,15 @@ export function ClientOperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
                     bridgeTransfers={wallet.snapshot!.pendingBridgeTransfers}
                     paymentOrders={wallet.snapshot!.activePaymentOrders}
                   />
-                  <MovementHistoryTable movements={wallet.snapshot!.movements} />
+                  {/*<MovementHistoryTable movements={wallet.snapshot!.movements} />*/}
                 </TabsContent>
                 <TabsContent value="orders">
                   <PaymentsHistoryTable
                     activityLogs={payments.snapshot.activityLogs}
                     disabled={!canOperate}
-                    onCancelOrder={payments.cancelOrder}
-                    onConfirmOrderQuote={payments.confirmOrderQuote}
-                    onUploadOrderFile={payments.uploadOrderFile}
+                    onCancelOrder={handleCancelOrder}
+                    onConfirmOrderQuote={handleConfirmOrderQuote}
+                    onUploadOrderFile={handleUploadOrderFile}
                     orders={payments.snapshot.paymentOrders}
                     suppliers={payments.snapshot.suppliers}
                   />

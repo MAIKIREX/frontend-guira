@@ -30,9 +30,9 @@ interface PaymentsHistoryTableProps {
   suppliers: Supplier[]
   activityLogs: ActivityLog[]
   disabled?: boolean
-  onUploadOrderFile: (orderId: string, field: OrderFileField, file: File) => Promise<void>
-  onConfirmOrderQuote: (order: PaymentOrder) => Promise<void>
-  onCancelOrder: (order: PaymentOrder) => Promise<void>
+  onUploadOrderFile: (orderId: string, field: OrderFileField, file: File) => Promise<unknown>
+  onConfirmOrderQuote: (order: PaymentOrder) => Promise<unknown>
+  onCancelOrder: (order: PaymentOrder) => Promise<unknown>
 }
 
 export function PaymentsHistoryTable({
@@ -149,8 +149,8 @@ export function PaymentsHistoryTable({
       await onConfirmOrderQuote(order)
       toast.success('Cotizacion aceptada. Tu orden ya entro en ejecucion.')
     } catch (error) {
-      console.error('Failed to confirm quote', error)
-      toast.error(error instanceof Error ? error.message : 'No se pudo aceptar la cotizacion.')
+      const message = getErrorMessage(error, 'No se pudo aceptar la cotizacion.')
+      toast.error(message)
     } finally {
       setBusyKey(null)
     }
@@ -249,9 +249,10 @@ export function PaymentsHistoryTable({
                   </Button>
                   {canConfirmQuote ? (
                     <Button
+                      className="h-11 min-w-52 bg-sky-600 text-white hover:bg-sky-700"
                       disabled={disabled || busyKey === `${order.id}-confirm-quote` || !hasReadyQuote(order)}
                       onClick={() => handleConfirmQuote(order)}
-                      size="sm"
+                      size="lg"
                       type="button"
                     >
                       <HandCoins />
@@ -348,6 +349,8 @@ function StatusRail({ order }: { order: PaymentOrder }) {
 }
 
 function QuoteCard({ order, quoteAcceptedAt, quotePreparedAt }: { order: PaymentOrder; quotePreparedAt: string | null; quoteAcceptedAt: string | null }) {
+  const quoteChanges = getQuoteChanges(order)
+
   return (
     <div className="rounded-2xl border border-border/70 bg-background/85 p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -355,12 +358,30 @@ function QuoteCard({ order, quoteAcceptedAt, quotePreparedAt }: { order: Payment
           <div className="text-sm font-medium text-foreground">Cotizacion final</div>
           <div className="text-xs text-muted-foreground">Lo que el cliente debe revisar antes de autorizar `processing`.</div>
         </div>
-        {quotePreparedAt ? <Badge variant="outline">Lista {format(new Date(quotePreparedAt), 'dd/MM HH:mm')}</Badge> : null}
+        <div className="flex flex-wrap gap-2">
+          {quoteChanges.length > 0 ? <Badge variant="default">Actualizado por staff</Badge> : null}
+          {quotePreparedAt ? <Badge variant="outline">Lista {format(new Date(quotePreparedAt), 'dd/MM HH:mm')}</Badge> : null}
+        </div>
       </div>
       <div className="grid gap-3 md:grid-cols-3">
-        <InfoBlock label="Tipo de cambio" value={String(order.exchange_rate_applied ?? 0)} />
-        <InfoBlock label="Monto convertido" value={`${order.amount_converted ?? 0} ${order.destination_currency}`} />
-        <InfoBlock label="Fee total" value={`${order.fee_total ?? 0} ${order.origin_currency}`} />
+        <InfoBlock
+          highlight={quoteChanges.includes('exchange_rate_applied')}
+          label="Tipo de cambio"
+          subtitle={readPreviousQuote(order, 'exchange_rate_applied')}
+          value={String(order.exchange_rate_applied ?? 0)}
+        />
+        <InfoBlock
+          highlight={quoteChanges.includes('amount_converted')}
+          label="Monto convertido"
+          subtitle={readPreviousQuote(order, 'amount_converted')}
+          value={`${order.amount_converted ?? 0} ${order.destination_currency}`}
+        />
+        <InfoBlock
+          highlight={quoteChanges.includes('fee_total')}
+          label="Fee total"
+          subtitle={readPreviousQuote(order, 'fee_total')}
+          value={`${order.fee_total ?? 0} ${order.origin_currency}`}
+        />
       </div>
       <div className="mt-3 rounded-xl border border-dashed border-border/70 px-3 py-2 text-sm text-muted-foreground">
         {quoteAcceptedAt
@@ -568,11 +589,12 @@ function AttachmentUploader({
   )
 }
 
-function InfoBlock({ label, value }: { label: string; value: string }) {
+function InfoBlock({ label, value, highlight, subtitle }: { label: string; value: string; highlight?: boolean; subtitle?: string | null }) {
   return (
-    <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-3">
+    <div className={`rounded-xl border px-3 py-3 ${highlight ? 'border-sky-400/70 bg-sky-50' : 'border-border/60 bg-muted/20'}`}>
       <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
       <div className="mt-1 text-sm font-medium text-foreground">{value}</div>
+      {subtitle ? <div className="mt-1 text-xs text-muted-foreground">Antes: {subtitle}</div> : null}
     </div>
   )
 }
@@ -633,6 +655,44 @@ function humanizeActivity(action: string) {
     default:
       return action
   }
+}
+
+function getErrorMessage(error: unknown, fallbackMessage: string) {
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+
+  if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
+    return error.message
+  }
+
+  return fallbackMessage
+}
+
+function getQuoteChanges(order: PaymentOrder) {
+  const previous = getPreviousQuote(order)
+  if (!previous) return []
+
+  return (['exchange_rate_applied', 'amount_converted', 'fee_total'] as const).filter((key) => {
+    const previousValue = previous[key]
+    const currentValue = order[key]
+    return Number(previousValue ?? 0) !== Number(currentValue ?? 0)
+  })
+}
+
+function getPreviousQuote(order: PaymentOrder) {
+  const metadata = order.metadata
+  if (!metadata || typeof metadata !== 'object' || !('quote_previous' in metadata)) return null
+  const previous = metadata.quote_previous
+  return previous && typeof previous === 'object'
+    ? (previous as Partial<Record<'exchange_rate_applied' | 'amount_converted' | 'fee_total', number>>)
+    : null
+}
+
+function readPreviousQuote(order: PaymentOrder, key: 'exchange_rate_applied' | 'amount_converted' | 'fee_total') {
+  const previous = getPreviousQuote(order)
+  if (!previous || previous[key] === undefined || previous[key] === null) return null
+  return String(previous[key])
 }
 
 

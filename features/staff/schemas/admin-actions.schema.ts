@@ -28,8 +28,18 @@ export const adminJsonRecordSchema = z.object({
   reason: z.string().trim().min(5, 'Ingresa un motivo descriptivo.'),
 })
 
+export const adminPsavRecordSchema = z.object({
+  name: z.string().trim().min(2, 'Ingresa un nombre.'),
+  bank_name: z.string().trim().min(2, 'Ingresa el banco.'),
+  account_number: z.string().trim().min(2, 'Ingresa el número.'),
+  currency: z.string().trim().min(1, 'Ingresa la moneda.'),
+  is_active: z.boolean(),
+  reason: z.string().trim().min(5, 'Ingresa un motivo descriptivo.'),
+})
+
 export type AdminCreateUserValues = z.infer<typeof adminCreateUserSchema>
 export type AdminReasonValues = z.infer<typeof adminReasonSchema>
 export type AdminFeeConfigValues = z.infer<typeof adminFeeConfigSchema>
 export type AdminAppSettingValues = z.infer<typeof adminAppSettingSchema>
 export type AdminJsonRecordValues = z.infer<typeof adminJsonRecordSchema>
+export type AdminPsavRecordValues = z.infer<typeof adminPsavRecordSchema>

@@ -181,9 +181,12 @@ export function PaymentsPanel() {
 
         <TabsContent value="create">
           <CreatePaymentOrderForm
+            appSettings={snapshot.appSettings}
             defaultRoute={getDefaultRouteForAction(action)}
             disabled={!canOperate}
+            feesConfig={snapshot.feesConfig}
             onCreateOrder={createOrder}
+            psavConfigs={snapshot.psavConfigs}
             suppliers={snapshot.suppliers}
             userId={user.id}
           />

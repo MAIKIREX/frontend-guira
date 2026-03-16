@@ -6,7 +6,7 @@ import type { NotificationType } from '@/types/notification'
 import type { OnboardingStatus, Onboarding } from '@/types/onboarding'
 import type { AppSettingRow, FeeConfigRow, PaymentOrder, PsavConfigRow } from '@/types/payment-order'
 import type { Profile } from '@/types/profile'
-import type { StaffActor, StaffOnboardingRecord, StaffSnapshot, StaffSupportTicket } from '@/types/staff'
+import type { StaffActor, StaffDocumentRecord, StaffOnboardingDetail, StaffOnboardingRecord, StaffSnapshot, StaffSupportTicket } from '@/types/staff'
 import type { TicketStatus } from '@/types/support'
 import type { Wallet } from '@/types/wallet'
 
@@ -65,6 +65,47 @@ export const StaffService = {
         'La tab de `transfers` se mantiene sin acciones porque la documentacion no define transiciones de estado suficientes para mutarla con seguridad.',
         'El paso `deposit_received -> processing` ahora requiere aceptacion explicita del cliente, alineado a `FLUJO_Y_VALOR.md`.',
       ],
+    }
+  },
+
+  async getOnboardingDetail(onboardingId: string): Promise<StaffOnboardingDetail> {
+    const supabase = createClient()
+    const { data: record, error: recordError } = await supabase
+      .from('onboarding')
+      .select('*, profiles(full_name, email, onboarding_status)')
+      .eq('id', onboardingId)
+      .single()
+
+    if (recordError) throw recordError
+
+    const { data: documents, error: documentsError } = await supabase
+      .from('documents')
+      .select('*')
+      .eq('onboarding_id', onboardingId)
+      .order('created_at', { ascending: false })
+
+    if (documentsError) throw documentsError
+
+    const documentsWithUrls = await Promise.all(
+      ((documents ?? []) as StaffDocumentRecord[]).map(async (document) => {
+        if (!document.storage_path) {
+          return { ...document, signed_url: null }
+        }
+
+        const { data } = await supabase.storage
+          .from('onboarding_docs')
+          .createSignedUrl(document.storage_path, 60 * 60)
+
+        return {
+          ...document,
+          signed_url: data?.signedUrl ?? null,
+        }
+      })
+    )
+
+    return {
+      record: record as StaffOnboardingRecord,
+      documents: documentsWithUrls,
     }
   },
 
@@ -128,6 +169,11 @@ export const StaffService = {
     const supabase = createClient()
     const metadata = {
       ...(args.order.metadata ?? {}),
+      quote_previous: {
+        exchange_rate_applied: args.order.exchange_rate_applied,
+        amount_converted: args.order.amount_converted,
+        fee_total: args.order.fee_total,
+      },
       quote_prepared_at: new Date().toISOString(),
       quote_prepared_by: args.actor.userId,
     }

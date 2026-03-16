@@ -7,6 +7,7 @@ import {
   useWatch,
   type Control,
   type FieldPath,
+  type Resolver,
 } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -64,7 +65,7 @@ interface CreatePaymentOrderFormProps {
   defaultRoute: SupportedPaymentRoute
   allowedRoutes?: SupportedPaymentRoute[]
   disabled?: boolean
-  onCreateOrder: (input: CreatePaymentOrderInput, supportFile?: File | null) => Promise<void>
+  onCreateOrder: (input: CreatePaymentOrderInput, supportFile?: File | null) => Promise<unknown>
   feesConfig: FeeConfigRow[]
   appSettings: AppSettingRow[]
   psavConfigs: PsavConfigRow[]
@@ -132,7 +133,7 @@ export function CreatePaymentOrderForm({
     : routeOptions[0]?.key ?? supportedPaymentRoutes[0].key
 
   const form = useForm<PaymentOrderFormValues>({
-    resolver: zodResolver(paymentOrderSchema),
+    resolver: zodResolver(paymentOrderSchema) as Resolver<PaymentOrderFormValues>,
     defaultValues: getDefaultValues(resolvedDefaultRoute),
   })
 
@@ -155,12 +156,12 @@ export function CreatePaymentOrderForm({
       route: currentRoute.key,
       psavConfigs,
       selectedSupplier,
-    }),
+    }) as DepositInstruction[],
     [currentRoute.key, psavConfigs, selectedSupplier]
   )
   const reviewItems = useMemo(
     () => buildReviewItems({
-      values: form.getValues(),
+      values: form.getValues() as PaymentOrderFormValues,
       routeLabel: currentRoute.label,
       supplierName: selectedSupplier?.name ?? 'Sin proveedor',
       supportFileName: supportFile?.name,
@@ -291,7 +292,7 @@ export function CreatePaymentOrderForm({
                     title="Escoge la ruta del expediente"
                     description="La ruta define el tipo de orden, el rail y las instrucciones que se mostraran al final."
                   />
-                  <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="grid gap-4">
                     <FormField
                       control={form.control}
                       name="route"
@@ -325,15 +326,7 @@ export function CreatePaymentOrderForm({
                       )}
                     />
 
-                    <InfoPanel
-                      title={routeCopy.routeTitle}
-                      description="El formulario solo mostrara los campos necesarios para esta operacion."
-                      rows={[
-                        { label: 'Rail principal', value: getRouteRail(currentRoute.key) },
-                        { label: 'Moneda origen', value: form.getValues('origin_currency') || 'Pendiente' },
-                        { label: 'Moneda destino', value: form.getValues('destination_currency') || 'Pendiente' },
-                      ]}
-                    />
+
                   </div>
 
                   <div className="flex justify-end">
@@ -353,13 +346,7 @@ export function CreatePaymentOrderForm({
                     description={routeCopy.detailDescription}
                   />
 
-                  <div className="grid gap-4 lg:grid-cols-3">
-                    <ReadOnlyNumericField control={form.control} label="Monto destino estimado" name="amount_converted" />
-                    <ReadOnlyNumericField control={form.control} label="Tipo de cambio" name="exchange_rate_applied" />
-                    <ReadOnlyNumericField control={form.control} label="Fee total" name="fee_total" />
-                  </div>
-
-                  <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="grid gap-4 ">
                     <NumericField control={form.control} disabled={disabled} label={getAmountLabel(currentRoute.key)} name="amount_origin" />
                     <FormField
                       control={form.control}
@@ -424,7 +411,7 @@ export function CreatePaymentOrderForm({
                     />
                   </div>
 
-                  <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="grid gap-4">
                     <TextField control={form.control} disabled={disabled} label="Motivo del pago" name="payment_reason" />
                     <NumericField control={form.control} disabled={disabled} label="Monto pretendido" name="intended_amount" />
                   </div>
@@ -614,7 +601,15 @@ export function CreatePaymentOrderForm({
             <PreviewRow icon={Landmark} label="Tipo de cambio" value={String(form.getValues('exchange_rate_applied') || 0)} />
           </CardContent>
         </Card>
-
+        <InfoPanel
+          title={routeCopy.routeTitle}
+          description="El formulario solo mostrara los campos necesarios para esta operacion."
+          rows={[
+            { label: 'Rail principal', value: getRouteRail(currentRoute.key) },
+            { label: 'Moneda origen', value: form.getValues('origin_currency') || 'Pendiente' },
+            { label: 'Moneda destino', value: form.getValues('destination_currency') || 'Pendiente' },
+          ]}
+        />
         <Card className="border-border/70">
           <CardHeader>
             <CardTitle>Documentos visibles</CardTitle>
@@ -630,6 +625,7 @@ export function CreatePaymentOrderForm({
             </div>
           </CardContent>
         </Card>
+
       </div>
     </div>
   )
@@ -732,13 +728,12 @@ function ProgressRail({ currentStep }: { currentStep: StepKey }) {
         return (
           <div
             key={step}
-            className={`rounded-2xl border px-4 py-3 text-sm ${
-              isCurrent
-                ? 'border-sky-400/70 bg-sky-50'
-                : isReached
-                  ? 'border-emerald-400/40 bg-emerald-50'
-                  : 'border-border/60 bg-muted/20'
-            }`}
+            className={`rounded-2xl border px-4 py-3 text-sm ${isCurrent
+              ? 'border-sky-400/70 bg-sky-50'
+              : isReached
+                ? 'border-emerald-400/40 bg-emerald-50'
+                : 'border-border/60 bg-muted/20'
+              }`}
           >
             <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
               {String(index + 1).padStart(2, '0')}

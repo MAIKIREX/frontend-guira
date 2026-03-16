@@ -15,11 +15,21 @@ import { CompanyForm } from './company-form'
 export function OnboardingWizard() {
   const router = useRouter()
   const { user } = useAuthStore()
-  const { profile } = useProfileStore()
+  const { profile, setProfile } = useProfileStore()
   const { step, type, formData, setStep, setType, setId, updateFormData } = useOnboardingStore()
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState<string | null>(null)
   const [observations, setObservations] = useState<string>('')
+
+  const handleStatusChange = (nextStatus: string) => {
+    setStatus(nextStatus)
+    if (profile) {
+      setProfile({
+        ...profile,
+        onboarding_status: nextStatus,
+      })
+    }
+  }
 
   useEffect(() => {
     let mounted = true
@@ -159,8 +169,8 @@ export function OnboardingWizard() {
         </div>
       )}
 
-      {type === 'personal' && <PersonalForm status={status} userId={user!.id} />}
-      {type === 'company' && <CompanyForm status={status} userId={user!.id} />}
+      {type === 'personal' && <PersonalForm onStatusChange={handleStatusChange} status={status} userId={user!.id} />}
+      {type === 'company' && <CompanyForm onStatusChange={handleStatusChange} status={status} userId={user!.id} />}
     </div>
   )
 }

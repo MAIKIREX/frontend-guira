@@ -13,6 +13,23 @@ export interface StaffOnboardingRecord extends Onboarding {
   } | null
 }
 
+export interface StaffDocumentRecord {
+  id?: string
+  onboarding_id: string
+  user_id: string
+  doc_type: string
+  storage_path: string
+  mime_type?: string | null
+  file_size?: number | null
+  created_at?: string
+  signed_url?: string | null
+}
+
+export interface StaffOnboardingDetail {
+  record: StaffOnboardingRecord
+  documents: StaffDocumentRecord[]
+}
+
 export interface StaffSupportTicket extends SupportTicket {
   profiles?: {
     full_name?: string

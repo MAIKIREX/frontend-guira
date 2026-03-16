@@ -1,6 +1,7 @@
 'use client'
 
 import { format } from 'date-fns'
+import Link from 'next/link'
 import {
   AlertTriangle,
   ArrowRightLeft,
@@ -18,7 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useAuthStore } from '@/stores/auth-store'
 import { useProfileStore } from '@/stores/profile-store'
 import { useStaffDashboard } from '@/features/staff/hooks/use-staff-dashboard'
-import { OnboardingActions, OrderActions, SupportTicketActions } from '@/features/staff/components/staff-action-dialogs'
+import { OrderDetailDialog, SupportTicketActions } from '@/features/staff/components/staff-action-dialogs'
 import {
   AppSettingDialog,
   CreateUserDialog,
@@ -49,7 +50,21 @@ const PANEL_TABS = [
 export function StaffReadonlyPanel() {
   const { user } = useAuthStore()
   const { profile } = useProfileStore()
-  const { snapshot, loading, error, reload } = useStaffDashboard()
+  const {
+    snapshot,
+    loading,
+    error,
+    reload,
+    replaceOrder,
+    replaceSupportTicket,
+    addUser,
+    replaceUser,
+    removeUser,
+    replaceFeeConfig,
+    replaceAppSetting,
+    replacePsavConfig,
+    removePsavConfig,
+  } = useStaffDashboard()
 
   if (loading) {
     return (
@@ -148,13 +163,13 @@ export function StaffReadonlyPanel() {
           <OverviewPanel auditCount={snapshot.auditLogs.length} isAdmin={isAdmin} />
         </TabsContent>
         <TabsContent value="onboarding">
-          <OnboardingTable actor={actor} onUpdated={reload} records={snapshot.onboarding} />
+          <OnboardingTable records={snapshot.onboarding} />
         </TabsContent>
         <TabsContent value="orders">
-          <OrdersTable actor={actor} onUpdated={reload} orders={snapshot.orders} />
+          <OrdersTable actor={actor} onUpdated={replaceOrder} orders={snapshot.orders} />
         </TabsContent>
         <TabsContent value="support">
-          <SupportTable actor={actor} onUpdated={reload} tickets={snapshot.support} />
+          <SupportTable actor={actor} onUpdated={replaceSupportTicket} tickets={snapshot.support} />
         </TabsContent>
         <TabsContent value="audit">
           <AuditTable logs={snapshot.auditLogs} />
@@ -170,13 +185,22 @@ export function StaffReadonlyPanel() {
           <TransfersTable transfers={snapshot.transfers} />
         </TabsContent>
         <TabsContent value="users">
-          <UsersTable actor={actor} isAdmin={isAdmin} onUpdated={reload} users={snapshot.users} />
+          <UsersTable actor={actor} isAdmin={isAdmin} onAddUser={addUser} onChangeUser={replaceUser} onRemoveUser={removeUser} users={snapshot.users} />
         </TabsContent>
         <TabsContent value="config">
-          <ConfigPanel actor={actor} appSettings={snapshot.appSettings} feesConfig={snapshot.feesConfig} isAdmin={isAdmin} onUpdated={reload} />
+          <ConfigPanel actor={actor} appSettings={snapshot.appSettings} feesConfig={snapshot.feesConfig} isAdmin={isAdmin} onUpdateAppSetting={replaceAppSetting} onUpdateFeeConfig={replaceFeeConfig} />
         </TabsContent>
         <TabsContent value="psav">
-          <PsavPanel actor={actor} isAdmin={isAdmin} onUpdated={reload} records={snapshot.psavConfigs} />
+          <PsavPanel actor={actor} isAdmin={isAdmin} onChangeRecord={(record, mode) => {
+            if (mode === 'remove' && record) {
+              removePsavConfig(record.id)
+              return
+            }
+
+            if (record) {
+              replacePsavConfig(record)
+            }
+          }} records={snapshot.psavConfigs} />
         </TabsContent>
       </Tabs>
     </div>
@@ -285,7 +309,7 @@ function AuditTable({ logs }: { logs: AuditLog[] }) {
   )
 }
 
-function OnboardingTable({ actor, onUpdated, records }: { actor: StaffActor; onUpdated: () => Promise<void>; records: StaffOnboardingRecord[] }) {
+function OnboardingTable({ records }: { records: StaffOnboardingRecord[] }) {
   return (
     <Card>
       <CardHeader>
@@ -318,7 +342,16 @@ function OnboardingTable({ actor, onUpdated, records }: { actor: StaffActor; onU
                   <TableCell><StatusBadge value={record.status} /></TableCell>
                   <TableCell>{formatDate(record.updated_at)}</TableCell>
                   <TableCell className="max-w-[280px] truncate">{record.observations || 'Sin observaciones'}</TableCell>
-                  <TableCell><div className="flex justify-end"><OnboardingActions actor={actor} onUpdated={onUpdated} record={record} /></div></TableCell>
+                  <TableCell>
+                    <div className="flex justify-end">
+                      <Link
+                        className="inline-flex h-7 items-center justify-center rounded-[min(var(--radius-md),12px)] border border-border bg-background px-2.5 text-[0.8rem] font-medium transition-colors hover:bg-muted"
+                        href={`/admin/onboarding/${record.id}`}
+                      >
+                        Ver detalles
+                      </Link>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))
             )}
@@ -370,7 +403,7 @@ function TransfersTable({ transfers }: { transfers: BridgeTransfer[] }) {
   )
 }
 
-function OrdersTable({ actor, onUpdated, orders }: { actor: StaffActor; onUpdated: () => Promise<void>; orders: PaymentOrder[] }) {
+function OrdersTable({ actor, onUpdated, orders }: { actor: StaffActor; onUpdated: (order: PaymentOrder) => Promise<void> | void; orders: PaymentOrder[] }) {
   return (
     <Card>
       <CardHeader>
@@ -419,7 +452,7 @@ function OrdersTable({ actor, onUpdated, orders }: { actor: StaffActor; onUpdate
                       {!order.support_document_url && !order.evidence_url && !order.staff_comprobante_url ? <span className="text-xs text-muted-foreground">Sin archivos</span> : null}
                     </div>
                   </TableCell>
-                  <TableCell><div className="flex justify-end"><OrderActions actor={actor} onUpdated={onUpdated} order={order} /></div></TableCell>
+                  <TableCell><div className="flex justify-end"><OrderDetailDialog actor={actor} onUpdated={onUpdated} order={order} /></div></TableCell>
                 </TableRow>
               ))
             )}
@@ -430,7 +463,32 @@ function OrdersTable({ actor, onUpdated, orders }: { actor: StaffActor; onUpdate
   )
 }
 
-function UsersTable({ actor, isAdmin, onUpdated, users }: { actor: StaffActor; isAdmin: boolean; onUpdated: () => Promise<void>; users: Profile[] }) {
+function UsersTable({
+  actor,
+  isAdmin,
+  onAddUser,
+  onChangeUser,
+  onRemoveUser,
+  users,
+}: {
+  actor: StaffActor
+  isAdmin: boolean
+  onAddUser: (user: Profile) => void
+  onChangeUser: (user: Profile) => void
+  onRemoveUser: (userId: string) => void
+  users: Profile[]
+}) {
+  const handleUserUpdated = async (user: Profile | null, mode: 'replace' | 'remove' | 'noop') => {
+    if (mode === 'remove' && user) {
+      onRemoveUser(user.id)
+      return
+    }
+
+    if (mode === 'replace' && user) {
+      onChangeUser(user)
+    }
+  }
+
   return (
     <Card>
       <CardHeader className="gap-3 md:flex-row md:items-start md:justify-between">
@@ -438,7 +496,9 @@ function UsersTable({ actor, isAdmin, onUpdated, users }: { actor: StaffActor; i
           <CardTitle>Usuarios</CardTitle>
           <CardDescription>Lectura de `profiles` con herramientas administrativas solo para `admin`.</CardDescription>
         </div>
-        {isAdmin ? <CreateUserDialog actor={actor} onUpdated={onUpdated} /> : null}
+        {isAdmin ? <CreateUserDialog actor={actor} onUpdated={(profile) => {
+          if (profile) onAddUser(profile)
+        }} /> : null}
       </CardHeader>
       <CardContent className="space-y-4">
         {!isAdmin ? <AdminOnlyNotice /> : null}
@@ -469,7 +529,7 @@ function UsersTable({ actor, isAdmin, onUpdated, users }: { actor: StaffActor; i
                   <TableCell>{formatDate(user.created_at)}</TableCell>
                   <TableCell>
                     <div className="flex justify-end">
-                      {isAdmin ? <UserAdminActions actor={actor} onUpdated={onUpdated} user={user} /> : <span className="text-xs text-muted-foreground">Solo admin</span>}
+                      {isAdmin ? <UserAdminActions actor={actor} onUpdated={handleUserUpdated} user={user} /> : <span className="text-xs text-muted-foreground">Solo admin</span>}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -482,7 +542,7 @@ function UsersTable({ actor, isAdmin, onUpdated, users }: { actor: StaffActor; i
   )
 }
 
-function SupportTable({ actor, onUpdated, tickets }: { actor: StaffActor; onUpdated: () => Promise<void>; tickets: StaffSupportTicket[] }) {
+function SupportTable({ actor, onUpdated, tickets }: { actor: StaffActor; onUpdated: (ticket: StaffSupportTicket) => Promise<void> | void; tickets: StaffSupportTicket[] }) {
   return (
     <Card>
       <CardHeader>
@@ -526,7 +586,21 @@ function SupportTable({ actor, onUpdated, tickets }: { actor: StaffActor; onUpda
   )
 }
 
-function ConfigPanel({ actor, appSettings, feesConfig, isAdmin, onUpdated }: { actor: StaffActor; appSettings: AppSettingRow[]; feesConfig: FeeConfigRow[]; isAdmin: boolean; onUpdated: () => Promise<void> }) {
+function ConfigPanel({
+  actor,
+  appSettings,
+  feesConfig,
+  isAdmin,
+  onUpdateAppSetting,
+  onUpdateFeeConfig,
+}: {
+  actor: StaffActor
+  appSettings: AppSettingRow[]
+  feesConfig: FeeConfigRow[]
+  isAdmin: boolean
+  onUpdateAppSetting: (record: AppSettingRow) => void
+  onUpdateFeeConfig: (record: FeeConfigRow) => void
+}) {
   return (
     <div className="grid gap-6 xl:grid-cols-2">
       <Card>
@@ -546,7 +620,7 @@ function ConfigPanel({ actor, appSettings, feesConfig, isAdmin, onUpdated }: { a
                     <div className="font-medium">{record.type}</div>
                     <div className="text-xs text-muted-foreground">{record.fee_type}</div>
                   </div>
-                  {isAdmin ? <FeeConfigDialog actor={actor} onUpdated={onUpdated} record={record} /> : null}
+                  {isAdmin ? <FeeConfigDialog actor={actor} onUpdated={onUpdateFeeConfig} record={record} /> : null}
                 </div>
                 <div className="text-sm text-muted-foreground">{record.value} {record.currency}</div>
               </div>
@@ -572,7 +646,7 @@ function ConfigPanel({ actor, appSettings, feesConfig, isAdmin, onUpdated }: { a
                     <div className="font-medium">{String(record.key ?? record.name ?? `setting-${index + 1}`)}</div>
                     <div className="text-xs text-muted-foreground">Valor actual</div>
                   </div>
-                  {isAdmin ? <AppSettingDialog actor={actor} onUpdated={onUpdated} record={record} /> : null}
+                  {isAdmin ? <AppSettingDialog actor={actor} onUpdated={onUpdateAppSetting} record={record} /> : null}
                 </div>
                 <div className="text-sm text-muted-foreground">{String(record.value ?? 'sin valor')}</div>
               </div>
@@ -584,7 +658,7 @@ function ConfigPanel({ actor, appSettings, feesConfig, isAdmin, onUpdated }: { a
   )
 }
 
-function PsavPanel({ actor, isAdmin, onUpdated, records }: { actor: StaffActor; isAdmin: boolean; onUpdated: () => Promise<void>; records: PsavConfigRow[] }) {
+function PsavPanel({ actor, isAdmin, onChangeRecord, records }: { actor: StaffActor; isAdmin: boolean; onChangeRecord: (record: PsavConfigRow | null, mode: 'replace' | 'remove') => void; records: PsavConfigRow[] }) {
   return (
     <Card>
       <CardHeader className="gap-3 md:flex-row md:items-start md:justify-between">
@@ -592,7 +666,7 @@ function PsavPanel({ actor, isAdmin, onUpdated, records }: { actor: StaffActor; 
           <CardTitle>PSAV configs</CardTitle>
           <CardDescription>Gestion generica con `upsert` y `delete` porque el contrato no expone columnas exactas.</CardDescription>
         </div>
-        {isAdmin ? <PsavCreateDialog actor={actor} onUpdated={onUpdated} /> : null}
+        {isAdmin ? <PsavCreateDialog actor={actor} onUpdated={onChangeRecord} /> : null}
       </CardHeader>
       <CardContent className="space-y-3">
         {!isAdmin ? <AdminOnlyNotice /> : null}
@@ -606,7 +680,7 @@ function PsavPanel({ actor, isAdmin, onUpdated, records }: { actor: StaffActor; 
                   <div className="font-medium">{record.id}</div>
                   <div className="text-xs text-muted-foreground">{record.is_active === false ? 'inactive' : 'active'}</div>
                 </div>
-                {isAdmin ? <PsavConfigDialogs actor={actor} onUpdated={onUpdated} record={record} /> : null}
+                {isAdmin ? <PsavConfigDialogs actor={actor} onUpdated={onChangeRecord} record={record} /> : null}
               </div>
               <pre className="overflow-x-auto text-xs leading-5 text-foreground/85">{JSON.stringify(record, null, 2)}</pre>
             </div>

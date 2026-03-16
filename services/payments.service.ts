@@ -174,11 +174,47 @@ export const PaymentsService = {
       .eq('id', order.id)
       .eq('updated_at', order.updated_at)
       .select('*')
-      .single()
+      .returns<PaymentOrder[]>()
 
-    if (error) throw error
+    if (error) {
+      throw toAppError(error, 'No se pudo aceptar la cotizacion final.')
+    }
 
-    const updatedOrder = data as PaymentOrder
+    const updatedRows = data ?? []
+
+    if (updatedRows.length === 0) {
+      const { data: latestOrder, error: latestOrderError } = await supabase
+        .from('payment_orders')
+        .select('*')
+        .eq('id', order.id)
+        .maybeSingle()
+
+      if (latestOrderError) {
+        throw toAppError(latestOrderError, 'No se pudo verificar el estado actual de la orden.')
+      }
+
+      if (!latestOrder) {
+        throw new Error('La orden ya no esta disponible. Recarga el historial e intenta nuevamente.')
+      }
+
+      const currentOrder = latestOrder as PaymentOrder
+
+      if (currentOrder.status === 'processing') {
+        return currentOrder
+      }
+
+      if (currentOrder.status !== 'deposit_received') {
+        throw new Error(`La orden ya cambio a ${currentOrder.status}. Recarga el historial para continuar.`)
+      }
+
+      if (!hasReadyQuote(currentOrder)) {
+        throw new Error('La cotizacion final ya no esta completa. Recarga el historial para revisar los valores actualizados.')
+      }
+
+      throw new Error('La cotizacion fue actualizada recientemente. Recarga el historial y acepta la version mas nueva.')
+    }
+
+    const updatedOrder = updatedRows[0] as PaymentOrder
     await logActivitySafely(updatedOrder.user_id, 'payment_order_quote_accepted', {
       order_id: updatedOrder.id,
       status: updatedOrder.status,
@@ -222,6 +258,25 @@ export const PaymentsService = {
 
     return updatedOrder
   },
+}
+
+function toAppError(error: unknown, fallbackMessage: string) {
+  if (error instanceof Error && error.message) {
+    return error
+  }
+
+  if (error && typeof error === 'object') {
+    const maybeMessage = 'message' in error && typeof error.message === 'string' ? error.message : null
+    const maybeDetails = 'details' in error && typeof error.details === 'string' ? error.details : null
+    const maybeHint = 'hint' in error && typeof error.hint === 'string' ? error.hint : null
+    const message = [maybeMessage, maybeDetails, maybeHint].filter(Boolean).join(' ').trim()
+
+    if (message) {
+      return new Error(message)
+    }
+  }
+
+  return new Error(fallbackMessage)
 }
 
 function hasReadyQuote(order: PaymentOrder) {

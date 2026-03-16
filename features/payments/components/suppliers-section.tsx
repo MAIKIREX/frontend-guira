@@ -15,9 +15,9 @@ interface SuppliersSectionProps {
   userId: string
   suppliers: Supplier[]
   disabled?: boolean
-  onCreateSupplier: (input: SupplierUpsertInput) => Promise<void>
-  onUpdateSupplier: (supplierId: string, input: Partial<SupplierUpsertInput>) => Promise<void>
-  onDeleteSupplier: (supplierId: string) => Promise<void>
+  onCreateSupplier: (input: SupplierUpsertInput) => Promise<unknown>
+  onUpdateSupplier: (supplierId: string, input: Partial<SupplierUpsertInput>) => Promise<unknown>
+  onDeleteSupplier: (supplierId: string) => Promise<unknown>
 }
 
 export function SuppliersSection({

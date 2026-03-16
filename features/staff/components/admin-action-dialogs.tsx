@@ -1,13 +1,17 @@
 'use client'
 
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+import { createClient } from '@/lib/supabase/browser'
+import { ACCEPTED_UPLOADS, safeFileExtension } from '@/lib/file-validation'
 import {
   Dialog,
   DialogContent,
@@ -31,17 +35,19 @@ import {
   adminFeeConfigSchema,
   adminJsonRecordSchema,
   adminReasonSchema,
+  adminPsavRecordSchema,
   type AdminAppSettingValues,
   type AdminCreateUserValues,
   type AdminFeeConfigValues,
   type AdminJsonRecordValues,
   type AdminReasonValues,
+  type AdminPsavRecordValues,
 } from '@/features/staff/schemas/admin-actions.schema'
 import type { AppSettingRow, FeeConfigRow, PsavConfigRow } from '@/types/payment-order'
 import type { Profile } from '@/types/profile'
 import type { StaffActor } from '@/types/staff'
 
-export function CreateUserDialog({ actor, onUpdated }: { actor: StaffActor; onUpdated: () => Promise<void> | void }) {
+export function CreateUserDialog({ actor, onUpdated }: { actor: StaffActor; onUpdated: (profile: Profile | null) => Promise<void> | void }) {
   const [open, setOpen] = useState(false)
   const form = useForm<AdminCreateUserValues>({
     resolver: zodResolver(adminCreateUserSchema),
@@ -56,7 +62,7 @@ export function CreateUserDialog({ actor, onUpdated }: { actor: StaffActor; onUp
 
   async function submit(values: AdminCreateUserValues) {
     try {
-      await AdminService.createUser({
+      const result = await AdminService.createUser({
         actor,
         email: values.email,
         password: values.password,
@@ -67,7 +73,7 @@ export function CreateUserDialog({ actor, onUpdated }: { actor: StaffActor; onUp
       toast.success('Usuario creado.')
       setOpen(false)
       form.reset()
-      await onUpdated()
+      await onUpdated(result.profile)
     } catch (error) {
       console.error('Failed to create user', error)
       toast.error('No se pudo crear el usuario.')
@@ -140,7 +146,38 @@ export function CreateUserDialog({ actor, onUpdated }: { actor: StaffActor; onUp
   )
 }
 
-export function UserAdminActions({ actor, onUpdated, user }: { actor: StaffActor; onUpdated: () => Promise<void> | void; user: Profile }) {
+export function UserDetailDialog({ actor, onUpdated, user }: { actor: StaffActor; onUpdated: (user: Profile | null, mode: 'replace' | 'remove' | 'noop') => Promise<void> | void; user: Profile }) {
+  return (
+    <Dialog>
+      <DialogTrigger render={<Button size="sm" variant="secondary" />}>Administrar</DialogTrigger>
+      <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader className="mb-2">
+          <DialogTitle>Administrar Usuario</DialogTitle>
+          <DialogDescription>Gestión de identidad y seguridad de acceso.</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 pt-4">
+          <div className="grid grid-cols-2 gap-4 text-sm bg-muted/20 p-4 rounded-xl border border-border/70">
+            <div><span className="text-muted-foreground block text-xs">Nombre:</span> <span className="font-medium">{user.full_name || 'Sin nombre'}</span></div>
+            <div><span className="text-muted-foreground block text-xs">Email:</span> <span className="font-medium">{user.email}</span></div>
+            <div><span className="text-muted-foreground block text-xs">Rol:</span> <Badge variant="outline">{user.role}</Badge></div>
+            <div><span className="text-muted-foreground block text-xs">Archivado:</span> <span className={"font-semibold " + (user.is_archived ? "text-yellow-600" : "text-green-600")}>{user.is_archived ? 'Sí' : 'No'}</span></div>
+          </div>
+          
+          <div className="text-xs text-muted-foreground mt-4">
+            Acciones disponibles sobre este usuario:
+          </div>
+        </div>
+
+        <DialogFooter className="mt-6 border-t pt-4 sm:justify-start">
+          <UserAdminActions actor={actor} onUpdated={onUpdated} user={user} />
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export function UserAdminActions({ actor, onUpdated, user }: { actor: StaffActor; onUpdated: (user: Profile | null, mode: 'replace' | 'remove' | 'noop') => Promise<void> | void; user: Profile }) {
   return (
     <div className="flex flex-wrap justify-end gap-2">
       <ResetPasswordDialog actor={actor} email={user.email} onUpdated={onUpdated} />
@@ -156,7 +193,7 @@ export function UserAdminActions({ actor, onUpdated, user }: { actor: StaffActor
   )
 }
 
-function ArchiveDeleteUserDialog({ action, actor, onUpdated, user }: { action: 'archive' | 'delete'; actor: StaffActor; onUpdated: () => Promise<void> | void; user: Profile }) {
+function ArchiveDeleteUserDialog({ action, actor, onUpdated, user }: { action: 'archive' | 'delete'; actor: StaffActor; onUpdated: (user: Profile | null, mode: 'replace' | 'remove' | 'noop') => Promise<void> | void; user: Profile }) {
   const [open, setOpen] = useState(false)
   const form = useForm<AdminReasonValues>({ resolver: zodResolver(adminReasonSchema), defaultValues: { reason: '' } })
 
@@ -166,7 +203,7 @@ function ArchiveDeleteUserDialog({ action, actor, onUpdated, user }: { action: '
       toast.success(action === 'archive' ? 'Usuario archivado.' : 'Solicitud de eliminacion enviada.')
       setOpen(false)
       form.reset()
-      await onUpdated()
+      await onUpdated(action === 'archive' ? { ...user, is_archived: true } : user, action === 'archive' ? 'replace' : 'remove')
     } catch (error) {
       console.error('Failed to archive/delete user', error)
       toast.error('No se pudo ejecutar la accion sobre el usuario.')
@@ -180,7 +217,7 @@ function ArchiveDeleteUserDialog({ action, actor, onUpdated, user }: { action: '
         <DialogHeader>
           <DialogTitle>{action === 'archive' ? 'Archivar usuario' : 'Eliminar usuario'}</DialogTitle>
           <DialogDescription>
-            Invoca `admin-delete-user` con accion `{action}` y registra auditoria local.
+            Invoca \`admin-delete-user\` con accion \`{action}\` y registra auditoria local.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -202,7 +239,7 @@ function ArchiveDeleteUserDialog({ action, actor, onUpdated, user }: { action: '
   )
 }
 
-function UnarchiveUserDialog({ actor, onUpdated, user }: { actor: StaffActor; onUpdated: () => Promise<void> | void; user: Profile }) {
+function UnarchiveUserDialog({ actor, onUpdated, user }: { actor: StaffActor; onUpdated: (user: Profile | null, mode: 'replace' | 'remove' | 'noop') => Promise<void> | void; user: Profile }) {
   const [open, setOpen] = useState(false)
   const form = useForm<AdminReasonValues>({ resolver: zodResolver(adminReasonSchema), defaultValues: { reason: '' } })
 
@@ -212,7 +249,7 @@ function UnarchiveUserDialog({ actor, onUpdated, user }: { actor: StaffActor; on
       toast.success('Usuario desarchivado.')
       setOpen(false)
       form.reset()
-      await onUpdated()
+      await onUpdated({ ...user, is_archived: false }, 'replace')
     } catch (error) {
       console.error('Failed to unarchive user', error)
       toast.error('No se pudo desarchivar el usuario.')
@@ -225,7 +262,7 @@ function UnarchiveUserDialog({ actor, onUpdated, user }: { actor: StaffActor; on
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Desarchivar usuario</DialogTitle>
-          <DialogDescription>Invoca `admin-unarchive-user` y deja trazabilidad local.</DialogDescription>
+          <DialogDescription>Invoca \`admin-unarchive-user\` y deja trazabilidad local.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form className="space-y-4" onSubmit={form.handleSubmit(submit)}>
@@ -246,7 +283,7 @@ function UnarchiveUserDialog({ actor, onUpdated, user }: { actor: StaffActor; on
   )
 }
 
-function ResetPasswordDialog({ actor, email, onUpdated }: { actor: StaffActor; email: string; onUpdated: () => Promise<void> | void }) {
+function ResetPasswordDialog({ actor, email, onUpdated }: { actor: StaffActor; email: string; onUpdated: (user: Profile | null, mode: 'replace' | 'remove' | 'noop') => Promise<void> | void }) {
   const [open, setOpen] = useState(false)
   const form = useForm<AdminReasonValues>({ resolver: zodResolver(adminReasonSchema), defaultValues: { reason: '' } })
 
@@ -256,7 +293,7 @@ function ResetPasswordDialog({ actor, email, onUpdated }: { actor: StaffActor; e
       toast.success('Reset de password solicitado.')
       setOpen(false)
       form.reset()
-      await onUpdated()
+      await onUpdated(null, 'noop')
     } catch (error) {
       console.error('Failed to reset password', error)
       toast.error('No se pudo solicitar el reset de password.')
@@ -269,7 +306,7 @@ function ResetPasswordDialog({ actor, email, onUpdated }: { actor: StaffActor; e
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Resetear password</DialogTitle>
-          <DialogDescription>Invoca `admin-reset-password` y dispara el recovery al email del usuario.</DialogDescription>
+          <DialogDescription>Invoca \`admin-reset-password\` y dispara el recovery al email del usuario.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form className="space-y-4" onSubmit={form.handleSubmit(submit)}>
@@ -290,19 +327,19 @@ function ResetPasswordDialog({ actor, email, onUpdated }: { actor: StaffActor; e
   )
 }
 
-export function FeeConfigDialog({ actor, onUpdated, record }: { actor: StaffActor; onUpdated: () => Promise<void> | void; record: FeeConfigRow }) {
+export function FeeConfigDialog({ actor, onUpdated, record }: { actor: StaffActor; onUpdated: (record: FeeConfigRow) => Promise<void> | void; record: FeeConfigRow }) {
   const [open, setOpen] = useState(false)
   const form = useForm<AdminFeeConfigValues>({
-    resolver: zodResolver(adminFeeConfigSchema),
+    resolver: zodResolver(adminFeeConfigSchema) as Resolver<AdminFeeConfigValues>,
     defaultValues: { value: record.value, currency: record.currency, reason: '' },
   })
 
   async function submit(values: AdminFeeConfigValues) {
     try {
-      await AdminService.updateFeeConfig({ actor, record, value: values.value, currency: values.currency, reason: values.reason })
+      const updatedRecord = await AdminService.updateFeeConfig({ actor, record, value: values.value, currency: values.currency, reason: values.reason })
       toast.success('Fee config actualizada.')
       setOpen(false)
-      await onUpdated()
+      await onUpdated(updatedRecord)
     } catch (error) {
       console.error('Failed to update fee config', error)
       toast.error('No se pudo actualizar la fee config.')
@@ -315,7 +352,7 @@ export function FeeConfigDialog({ actor, onUpdated, record }: { actor: StaffActo
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Editar fee config</DialogTitle>
-          <DialogDescription>Ajusta `value` y `currency` sin tocar la estructura del registro.</DialogDescription>
+          <DialogDescription>Ajusta \`value\` y \`currency\` sin tocar la estructura del registro.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form className="space-y-4" onSubmit={form.handleSubmit(submit)}>
@@ -348,7 +385,7 @@ export function FeeConfigDialog({ actor, onUpdated, record }: { actor: StaffActo
   )
 }
 
-export function AppSettingDialog({ actor, onUpdated, record }: { actor: StaffActor; onUpdated: () => Promise<void> | void; record: AppSettingRow }) {
+export function AppSettingDialog({ actor, onUpdated, record }: { actor: StaffActor; onUpdated: (record: AppSettingRow) => Promise<void> | void; record: AppSettingRow }) {
   const [open, setOpen] = useState(false)
   const valueKind = getAppSettingValueKind(record.value)
   const form = useForm<AdminAppSettingValues>({
@@ -359,10 +396,10 @@ export function AppSettingDialog({ actor, onUpdated, record }: { actor: StaffAct
   async function submit(values: AdminAppSettingValues) {
     try {
       const nextValue = parseAppSettingValue(values.value, record.value)
-      await AdminService.updateAppSetting({ actor, record, value: nextValue, reason: values.reason })
+      const updatedRecord = await AdminService.updateAppSetting({ actor, record, value: nextValue, reason: values.reason })
       toast.success('App setting actualizado.')
       setOpen(false)
-      await onUpdated()
+      await onUpdated(updatedRecord)
     } catch (error) {
       console.error('Failed to update app setting', error)
       toast.error(error instanceof Error ? error.message : 'No se pudo actualizar el app setting.')
@@ -376,7 +413,7 @@ export function AppSettingDialog({ actor, onUpdated, record }: { actor: StaffAct
         <DialogHeader>
           <DialogTitle>Editar app setting</DialogTitle>
           <DialogDescription>
-            Preserva el tipo actual del valor. Tipo detectado: `{valueKind}`.
+            Preserva el tipo actual del valor. Tipo detectado: \`{valueKind}\`.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -408,7 +445,7 @@ export function AppSettingDialog({ actor, onUpdated, record }: { actor: StaffAct
   )
 }
 
-export function PsavConfigDialogs({ actor, onUpdated, record }: { actor: StaffActor; onUpdated: () => Promise<void> | void; record: PsavConfigRow }) {
+export function PsavConfigDialogs({ actor, onUpdated, record }: { actor: StaffActor; onUpdated: (record: PsavConfigRow | null, mode: 'replace' | 'remove') => Promise<void> | void; record: PsavConfigRow }) {
   return (
     <div className="flex flex-wrap justify-end gap-2">
       <PsavUpsertDialog actor={actor} label="Editar" onUpdated={onUpdated} record={record} />
@@ -417,50 +454,112 @@ export function PsavConfigDialogs({ actor, onUpdated, record }: { actor: StaffAc
   )
 }
 
-export function PsavCreateDialog({ actor, onUpdated }: { actor: StaffActor; onUpdated: () => Promise<void> | void }) {
+export function PsavCreateDialog({ actor, onUpdated }: { actor: StaffActor; onUpdated: (record: PsavConfigRow | null, mode: 'replace' | 'remove') => Promise<void> | void }) {
   return <PsavUpsertDialog actor={actor} label="Nuevo PSAV" onUpdated={onUpdated} />
 }
 
-function PsavUpsertDialog({ actor, label, onUpdated, record }: { actor: StaffActor; label: string; onUpdated: () => Promise<void> | void; record?: PsavConfigRow }) {
+function PsavUpsertDialog({ actor, label, onUpdated, record }: { actor: StaffActor; label: string; onUpdated: (record: PsavConfigRow | null, mode: 'replace' | 'remove') => Promise<void> | void; record?: PsavConfigRow }) {
   const [open, setOpen] = useState(false)
-  const form = useForm<AdminJsonRecordValues>({
-    resolver: zodResolver(adminJsonRecordSchema),
+  const [file, setFile] = useState<File | null>(null)
+  const form = useForm<AdminPsavRecordValues>({
+    resolver: zodResolver(adminPsavRecordSchema),
     defaultValues: {
-      payload: JSON.stringify(record ?? { is_active: true }, null, 2),
+      name: (record?.name as string) ?? '',
+      bank_name: (record?.bank_name as string) ?? '',
+      account_number: (record?.account_number as string) ?? '',
+      currency: (record?.currency as string) ?? '',
+      is_active: record?.is_active ?? true,
       reason: '',
     },
   })
 
-  async function submit(values: AdminJsonRecordValues) {
+  async function submit(values: AdminPsavRecordValues) {
     try {
-      const payload = JSON.parse(values.payload) as Record<string, unknown>
-      await AdminService.upsertPsavConfig({ actor, payload, reason: values.reason })
+      let qrUrl = record?.qr_url
+      if (file) {
+        const supabase = createClient()
+        const extension = safeFileExtension(file.name)
+        const path = `psav/${Date.now()}.${extension}`
+        const { error: uploadError } = await supabase.storage.from('public-assets').upload(path, file, { upsert: true })
+        if (uploadError) throw uploadError
+        const { data } = supabase.storage.from('public-assets').getPublicUrl(path)
+        qrUrl = data.publicUrl
+      }
+
+      const payload: Record<string, unknown> = {
+        name: values.name,
+        bank_name: values.bank_name,
+        account_number: values.account_number,
+        currency: values.currency,
+        is_active: values.is_active,
+        qr_url: qrUrl,
+      }
+      if (record?.id) payload.id = record.id
+
+      const updatedRecord = await AdminService.upsertPsavConfig({ actor, payload, reason: values.reason })
       toast.success(record ? 'PSAV actualizado.' : 'PSAV creado.')
       setOpen(false)
-      await onUpdated()
+      setFile(null)
+      await onUpdated(updatedRecord, 'replace')
     } catch (error) {
       console.error('Failed to upsert psav config', error)
-      toast.error('No se pudo guardar el PSAV config. Verifica que el JSON sea valido.')
+      toast.error('No se pudo guardar el PSAV config. Verifica los datos o la imagen.')
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button size="sm" variant="outline" />}>{label}</DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{record ? 'Editar PSAV config' : 'Crear PSAV config'}</DialogTitle>
-          <DialogDescription>Se usa `upsert` generico porque el contrato no detalla columnas exactas de `psav_configs`.</DialogDescription>
+          <DialogDescription>Completa el formulario; la información se guardará en `psav_configs`.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form className="space-y-4" onSubmit={form.handleSubmit(submit)}>
-            <FormField control={form.control} name="payload" render={({ field }) => (
+            <FormField control={form.control} name="name" render={({ field }) => (
               <FormItem>
-                <FormLabel>Payload JSON</FormLabel>
-                <FormControl><Textarea {...field} className="min-h-[220px] font-mono text-xs" /></FormControl>
+                <FormLabel>Nombre del Canal</FormLabel>
+                <FormControl><Input {...field} placeholder="Punto de Pago, Cajero..." /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />
+            <FormField control={form.control} name="bank_name" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Banco</FormLabel>
+                <FormControl><Input {...field} placeholder="Banco Local" /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="account_number" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Número de Cuenta</FormLabel>
+                <FormControl><Input {...field} placeholder="1234567890" /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="currency" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Moneda</FormLabel>
+                <FormControl><Input {...field} placeholder="BOB, USD..." /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="is_active" render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm">
+                <div className="space-y-0.5">
+                  <FormLabel className="text-base">Activo</FormLabel>
+                </div>
+                <FormControl>
+                  <Switch checked={field.value} onCheckedChange={field.onChange} />
+                </FormControl>
+              </FormItem>
+            )} />
+            <div className="space-y-2 text-sm font-medium">
+              <FormLabel>Código QR (Imagen)</FormLabel>
+              {record?.qr_url && <img src={record.qr_url as string} alt="QR actual" className="w-24 h-24 object-contain rounded-md block mb-2 border border-border" />}
+              <Input accept={ACCEPTED_UPLOADS} onChange={(event) => setFile(event.target.files?.[0] ?? null)} type="file" />
+            </div>
             <FormField control={form.control} name="reason" render={({ field }) => (
               <FormItem>
                 <FormLabel>Motivo</FormLabel>
@@ -476,7 +575,7 @@ function PsavUpsertDialog({ actor, label, onUpdated, record }: { actor: StaffAct
   )
 }
 
-function PsavDeleteDialog({ actor, onUpdated, record }: { actor: StaffActor; onUpdated: () => Promise<void> | void; record: PsavConfigRow }) {
+function PsavDeleteDialog({ actor, onUpdated, record }: { actor: StaffActor; onUpdated: (record: PsavConfigRow | null, mode: 'replace' | 'remove') => Promise<void> | void; record: PsavConfigRow }) {
   const [open, setOpen] = useState(false)
   const form = useForm<AdminReasonValues>({ resolver: zodResolver(adminReasonSchema), defaultValues: { reason: '' } })
 
@@ -486,7 +585,7 @@ function PsavDeleteDialog({ actor, onUpdated, record }: { actor: StaffActor; onU
       toast.success('PSAV eliminado.')
       setOpen(false)
       form.reset()
-      await onUpdated()
+      await onUpdated(record, 'remove')
     } catch (error) {
       console.error('Failed to delete psav config', error)
       toast.error('No se pudo eliminar el PSAV config.')
@@ -536,11 +635,11 @@ function getAppSettingValueKind(value: unknown) {
 function getAppSettingHelpText(kind: ReturnType<typeof getAppSettingValueKind>) {
   switch (kind) {
     case 'boolean':
-      return 'Usa `true` o `false` para conservar el tipo booleano.'
+      return 'Usa \`true\` o \`false\` para conservar el tipo booleano.'
     case 'number':
       return 'Ingresa un numero valido; se guardara como numero, no como texto.'
     case 'json':
-      return 'Mantiene el valor como JSON. Usa un objeto, arreglo, numero, booleano o `null` valido.'
+      return 'Mantiene el valor como JSON. Usa un objeto, arreglo, numero, booleano o \`null\` valido.'
     default:
       return 'Este valor se guardara como texto.'
   }
@@ -553,7 +652,7 @@ function parseAppSettingValue(rawValue: string, previousValue: unknown) {
   switch (kind) {
     case 'boolean':
       if (trimmed !== 'true' && trimmed !== 'false') {
-        throw new Error('El valor debe ser `true` o `false`.')
+        throw new Error('El valor debe ser \`true\` o \`false\`.')
       }
       return trimmed === 'true'
     case 'number': {
