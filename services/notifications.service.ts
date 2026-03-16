@@ -1,5 +1,7 @@
-﻿import { createClient } from '@/lib/supabase/browser'
+import { createClient } from '@/lib/supabase/browser'
 import { Notification } from '@/types/notification'
+
+const NOTIFICATIONS_LIMIT = 20
 
 export const NotificationsService = {
   async getLatest(userId: string): Promise<Notification[]> {
@@ -9,7 +11,7 @@ export const NotificationsService = {
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-      .limit(20)
+      .limit(NOTIFICATIONS_LIMIT)
 
     if (error) throw error
     return data as Notification[]
@@ -36,9 +38,22 @@ export const NotificationsService = {
     if (error) throw error
   },
 
-  subscribe(userId: string, onInsert: (payload: Notification) => void) {
+  subscribe(
+    userId: string,
+    onInsert: (payload: Notification) => void,
+    options?: { onDisconnect?: () => void }
+  ) {
     const supabase = createClient()
-    const channel = supabase.channel(`notifications:${userId}`)
+    const channelName = `notifications:${userId}`
+    const channel = supabase.channel(channelName)
+    let disconnected = false
+
+    void supabase.auth.getSession().then(({ data }) => {
+      const accessToken = data.session?.access_token
+      if (accessToken) {
+        void supabase.realtime.setAuth(accessToken)
+      }
+    })
 
     channel
       .on(
@@ -54,8 +69,24 @@ export const NotificationsService = {
         }
       )
       .subscribe((status, error) => {
-        if (status === 'CHANNEL_ERROR') {
-          console.error('Notifications realtime channel error', error)
+        if (status === 'SUBSCRIBED') {
+          disconnected = false
+          return
+        }
+
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          if (!disconnected) {
+            disconnected = true
+            options?.onDisconnect?.()
+          }
+
+          if (process.env.NODE_ENV === 'development' && error) {
+            console.warn('Notifications realtime unavailable; using polling fallback', {
+              channel: channelName,
+              status,
+              error,
+            })
+          }
         }
       })
 

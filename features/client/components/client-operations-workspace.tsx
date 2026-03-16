@@ -133,10 +133,13 @@ export function ClientOperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
 
       {mode === 'depositar' || mode === 'enviar' ? (
         <CreatePaymentOrderForm
+          appSettings={payments.snapshot.appSettings}
           allowedRoutes={config.allowedRoutes}
           defaultRoute={config.defaultRoute!}
           disabled={!canOperate}
+          feesConfig={payments.snapshot.feesConfig}
           onCreateOrder={payments.createOrder}
+          psavConfigs={payments.snapshot.psavConfigs}
           suppliers={payments.snapshot.suppliers}
           userId={user.id}
         />
@@ -159,37 +162,36 @@ export function ClientOperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
 
           <Card>
             <CardHeader>
-              <CardTitle>Transferencias y movimientos</CardTitle>
-              <CardDescription>Seguimiento separado entre lo activo y lo ya consolidado.</CardDescription>
+              <CardTitle>Transacciones</CardTitle>
+              <CardDescription>Separacion clara entre historial operativo y expedientes que aun requieren accion.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="active" className="gap-4">
+              <Tabs defaultValue="movements" className="gap-4">
                 <TabsList>
-                  <TabsTrigger value="active">Activas</TabsTrigger>
-                  <TabsTrigger value="history">Historico wallet</TabsTrigger>
+                  <TabsTrigger value="movements">Transferencias y movimientos</TabsTrigger>
+                  <TabsTrigger value="orders">Expedientes</TabsTrigger>
                 </TabsList>
-                <TabsContent value="active">
+                <TabsContent value="movements" className="space-y-4">
                   <ActiveTransfersTable
                     bridgeTransfers={wallet.snapshot!.pendingBridgeTransfers}
                     paymentOrders={wallet.snapshot!.activePaymentOrders}
                   />
-                </TabsContent>
-                <TabsContent value="history">
                   <MovementHistoryTable movements={wallet.snapshot!.movements} />
+                </TabsContent>
+                <TabsContent value="orders">
+                  <PaymentsHistoryTable
+                    activityLogs={payments.snapshot.activityLogs}
+                    disabled={!canOperate}
+                    onCancelOrder={payments.cancelOrder}
+                    onConfirmOrderQuote={payments.confirmOrderQuote}
+                    onUploadOrderFile={payments.uploadOrderFile}
+                    orders={payments.snapshot.paymentOrders}
+                    suppliers={payments.snapshot.suppliers}
+                  />
                 </TabsContent>
               </Tabs>
             </CardContent>
           </Card>
-
-          <PaymentsHistoryTable
-            activityLogs={payments.snapshot.activityLogs}
-            disabled={!canOperate}
-            onCancelOrder={payments.cancelOrder}
-            onConfirmOrderQuote={payments.confirmOrderQuote}
-            onUploadOrderFile={payments.uploadOrderFile}
-            orders={payments.snapshot.paymentOrders}
-            suppliers={payments.snapshot.suppliers}
-          />
         </div>
       ) : null}
     </div>

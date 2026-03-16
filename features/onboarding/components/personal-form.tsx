@@ -193,7 +193,7 @@ export function PersonalForm({ userId }: { status: string | null; userId: string
                 <FormItem><FormLabel>Origen de fondos</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
               <FormField control={form.control} name="estimated_monthly_volume" render={({ field }) => (
-                <FormItem><FormLabel>Vol. Mensual Est. (USD)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Vol. Mensual Est. (USD)</FormLabel><FormControl><Input min={0} step="0.01" type="number" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
             </div>
             <div className="flex justify-between pt-4">

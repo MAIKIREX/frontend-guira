@@ -377,7 +377,7 @@ function ProcessingNumberField({ control, label, name }: { control: Control<Staf
     <FormField control={control} name={name} render={({ field }) => (
       <FormItem>
         <FormLabel>{label}</FormLabel>
-        <FormControl><Input {...field} step="0.01" type="number" /></FormControl>
+        <FormControl><Input {...field} min={0} step="0.01" type="number" /></FormControl>
         <FormMessage />
       </FormItem>
     )} />

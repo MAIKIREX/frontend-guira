@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Image from 'next/image'
 import {
   useForm,
   useWatch,
@@ -8,7 +9,18 @@ import {
   type FieldPath,
 } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ArrowRight, Banknote, FileCheck2, Landmark, ShieldCheck, Wallet } from 'lucide-react'
+import {
+  ArrowRight,
+  Banknote,
+  CheckCircle2,
+  FileCheck2,
+  FileText,
+  Landmark,
+  Network,
+  ShieldCheck,
+  Upload,
+  Wallet,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -27,13 +39,24 @@ import {
   type SupportedPaymentRoute,
 } from '@/features/payments/lib/payment-routes'
 import {
+  buildDepositInstructions,
+  estimateRouteValues,
+  type DepositInstruction,
+} from '@/features/payments/lib/deposit-instructions'
+import {
   paymentOrderSchema,
   type PaymentOrderFormValues,
 } from '@/features/payments/schemas/payment-order.schema'
-import type { CreatePaymentOrderInput } from '@/types/payment-order'
+import type {
+  AppSettingRow,
+  CreatePaymentOrderInput,
+  FeeConfigRow,
+  PsavConfigRow,
+} from '@/types/payment-order'
 import type { Supplier } from '@/types/supplier'
-
 import { ACCEPTED_UPLOADS } from '@/lib/file-validation'
+
+type StepKey = 'route' | 'detail' | 'review' | 'finish'
 
 interface CreatePaymentOrderFormProps {
   userId: string
@@ -42,37 +65,48 @@ interface CreatePaymentOrderFormProps {
   allowedRoutes?: SupportedPaymentRoute[]
   disabled?: boolean
   onCreateOrder: (input: CreatePaymentOrderInput, supportFile?: File | null) => Promise<void>
+  feesConfig: FeeConfigRow[]
+  appSettings: AppSettingRow[]
+  psavConfigs: PsavConfigRow[]
 }
 
-const ROUTE_PLAYBOOK: Record<SupportedPaymentRoute, Array<{ title: string; body: string }>> = {
-  bolivia_to_exterior: [
-    { title: '1. Orden primero', body: 'Registras beneficiario, monto y motivo antes de mover fondos.' },
-    { title: '2. Fondeo local', body: 'Guira te mostrara el riel local y luego subiras tu comprobante.' },
-    { title: '3. Validacion de staff', body: 'Staff confirma el deposito y prepara la cotizacion final.' },
-    { title: '4. Aceptacion del cliente', body: 'Veras fee y tipo de cambio final antes de autorizar la ejecucion.' },
-    { title: '5. Cierre documentado', body: 'Cuando el envio se complete recibiras evidencia y PDF.' },
-  ],
-  us_to_bolivia: [
-    { title: '1. Declaracion de retorno', body: 'Creas el expediente con monto y destino boliviano.' },
-    { title: '2. Fondeo externo', body: 'Envias el dinero al riel internacional y subes respaldo.' },
-    { title: '3. Validacion de origen', body: 'Staff verifica llegada de fondos y prepara cotizacion final.' },
-    { title: '4. Aceptacion', body: 'Apruebas la cotizacion antes del desembolso local.' },
-    { title: '5. Desembolso y PDF', body: 'Guira deposita en Bolivia y deja comprobante final.' },
-  ],
-  us_to_wallet: [
-    { title: '1. Configuracion ACH', body: 'Defines monto, wallet y red de destino.' },
-    { title: '2. Instrucciones PSAV', body: 'La operacion queda registrada antes de cualquier deposito.' },
-    { title: '3. Fondeo y validacion', body: 'Subes evidencia y staff confirma recepcion en EE.UU.' },
-    { title: '4. Aceptacion', body: 'Autorizas la cotizacion final antes de liberar la ejecucion.' },
-    { title: '5. Hash y cierre', body: 'El envio queda documentado con hash o referencia y PDF.' },
-  ],
-  crypto_to_crypto: [
-    { title: '1. Seleccion de redes', body: 'Creas el expediente con wallet y red de destino.' },
-    { title: '2. Deposito supervisado', body: 'Envias a la direccion indicada y subes hash o captura.' },
-    { title: '3. Verificacion', body: 'Staff revisa el origen y prepara condiciones finales.' },
-    { title: '4. Aceptacion', body: 'Confirmas la cotizacion final antes del puente.' },
-    { title: '5. Evidencia de salida', body: 'Recibes hash/comprobante final y PDF de respaldo.' },
-  ],
+const STEP_ORDER: StepKey[] = ['route', 'detail', 'review', 'finish']
+
+const ROUTE_STAGE_COPY: Record<SupportedPaymentRoute, {
+  routeTitle: string
+  detailTitle: string
+  detailDescription: string
+  finishTitle: string
+  finishDescription: string
+}> = {
+  us_to_bolivia: {
+    routeTitle: 'Exterior a Bolivia',
+    detailTitle: 'Declara el retorno',
+    detailDescription: 'Registra monto, cuenta destino y respaldo inicial antes de que el equipo revise el expediente.',
+    finishTitle: 'Entrega comprobante del deposito',
+    finishDescription: 'Puedes subirlo ahora o continuar luego desde Transacciones.',
+  },
+  us_to_wallet: {
+    routeTitle: 'USA a Wallet',
+    detailTitle: 'Configura la recepcion cripto',
+    detailDescription: 'Indica monto, billetera y red para crear la orden antes de fondear.',
+    finishTitle: 'Usa las instrucciones de fondeo',
+    finishDescription: 'Veras los datos PSAV disponibles y podras adjuntar el comprobante ahora o mas tarde.',
+  },
+  bolivia_to_exterior: {
+    routeTitle: 'Bolivia a Exterior',
+    detailTitle: 'Crea el expediente de pago',
+    detailDescription: 'Selecciona proveedor, declara el motivo y deja el respaldo documental desde el inicio.',
+    finishTitle: 'Deposita contra esta orden',
+    finishDescription: 'La orden queda lista con instrucciones de cuenta o QR de Guira para que subas el comprobante despues.',
+  },
+  crypto_to_crypto: {
+    routeTitle: 'Cripto a Cripto',
+    detailTitle: 'Registra el destino de la red',
+    detailDescription: 'La orden se crea primero y luego se muestran las wallets de Guira para fondearla.',
+    finishTitle: 'Deposita a la wallet de Guira',
+    finishDescription: 'Puedes ver las direcciones activas y dejar el hash o captura cuando tengas el comprobante.',
+  },
 }
 
 export function CreatePaymentOrderForm({
@@ -82,13 +116,20 @@ export function CreatePaymentOrderForm({
   allowedRoutes,
   disabled,
   onCreateOrder,
+  feesConfig,
+  appSettings,
+  psavConfigs,
 }: CreatePaymentOrderFormProps) {
+  const [step, setStep] = useState<StepKey>('route')
   const [supportFile, setSupportFile] = useState<File | null>(null)
+  const [evidenceFile, setEvidenceFile] = useState<File | null>(null)
   const routeOptions = useMemo(
     () => supportedPaymentRoutes.filter((entry) => !allowedRoutes || allowedRoutes.includes(entry.key)),
     [allowedRoutes]
   )
-  const resolvedDefaultRoute = routeOptions.some((entry) => entry.key === defaultRoute) ? defaultRoute : routeOptions[0]?.key ?? supportedPaymentRoutes[0].key
+  const resolvedDefaultRoute = routeOptions.some((entry) => entry.key === defaultRoute)
+    ? defaultRoute
+    : routeOptions[0]?.key ?? supportedPaymentRoutes[0].key
 
   const form = useForm<PaymentOrderFormValues>({
     resolver: zodResolver(paymentOrderSchema),
@@ -98,13 +139,34 @@ export function CreatePaymentOrderForm({
   const route = useWatch({ control: form.control, name: 'route' })
   const deliveryMethod = useWatch({ control: form.control, name: 'delivery_method' })
   const amountOrigin = useWatch({ control: form.control, name: 'amount_origin' })
-  const amountConverted = useWatch({ control: form.control, name: 'amount_converted' })
-  const feeTotal = useWatch({ control: form.control, name: 'fee_total' })
-  const exchangeRateApplied = useWatch({ control: form.control, name: 'exchange_rate_applied' })
+  const supplierId = useWatch({ control: form.control, name: 'supplier_id' })
 
   const currentRoute = useMemo(
     () => routeOptions.find((entry) => entry.key === route) ?? routeOptions[0] ?? supportedPaymentRoutes[0],
     [route, routeOptions]
+  )
+  const selectedSupplier = useMemo(
+    () => suppliers.find((supplier) => supplier.id === supplierId) ?? null,
+    [supplierId, suppliers]
+  )
+  const routeCopy = ROUTE_STAGE_COPY[currentRoute.key]
+  const depositInstructions = useMemo(
+    () => buildDepositInstructions({
+      route: currentRoute.key,
+      psavConfigs,
+      selectedSupplier,
+    }),
+    [currentRoute.key, psavConfigs, selectedSupplier]
+  )
+  const reviewItems = useMemo(
+    () => buildReviewItems({
+      values: form.getValues(),
+      routeLabel: currentRoute.label,
+      supplierName: selectedSupplier?.name ?? 'Sin proveedor',
+      supportFileName: supportFile?.name,
+      evidenceFileName: evidenceFile?.name,
+    }),
+    [currentRoute.label, evidenceFile?.name, form, selectedSupplier?.name, supportFile?.name]
   )
 
   useEffect(() => {
@@ -121,179 +183,238 @@ export function CreatePaymentOrderForm({
     if (route === 'bolivia_to_exterior') {
       form.setValue('origin_currency', 'Bs')
       form.setValue('destination_currency', 'USD')
+      if (!form.getValues('funding_method')) form.setValue('funding_method', 'bs')
     }
     if (route === 'us_to_bolivia') {
       form.setValue('origin_currency', 'USD')
       form.setValue('destination_currency', 'Bs')
+      if (!form.getValues('funding_method')) form.setValue('funding_method', 'ach')
     }
     if (route === 'us_to_wallet') {
       form.setValue('origin_currency', 'USD')
       form.setValue('destination_currency', 'USD')
+      form.setValue('delivery_method', 'ach')
+      form.setValue('funding_method', undefined)
+      form.setValue('stablecoin', 'USDC')
     }
     if (route === 'crypto_to_crypto') {
-      form.setValue('origin_currency', 'USDT')
+      form.setValue('origin_currency', 'USDC')
       form.setValue('destination_currency', 'USDC')
+      form.setValue('delivery_method', 'crypto')
+      form.setValue('funding_method', undefined)
+      form.setValue('stablecoin', 'USDC')
     }
   }, [currentRoute, form, route])
+
+  useEffect(() => {
+    if (!selectedSupplier) return
+
+    if (selectedSupplier.payment_method === 'bank' && selectedSupplier.bank_details) {
+      form.setValue('destination_address', selectedSupplier.address || selectedSupplier.bank_details.account_number || '')
+      form.setValue('delivery_method', currentRoute.key === 'us_to_wallet' ? 'ach' : 'swift')
+      form.setValue('swift_bank_name', selectedSupplier.bank_details.bank_name || '')
+      form.setValue('swift_code', selectedSupplier.bank_details.swift_code || '')
+      form.setValue('swift_country', selectedSupplier.bank_details.bank_country || selectedSupplier.country || '')
+      form.setValue('swift_iban', selectedSupplier.bank_details.account_number || '')
+      form.setValue('swift_bank_address', selectedSupplier.address || '')
+    }
+
+    if (selectedSupplier.payment_method === 'crypto' && selectedSupplier.crypto_details?.address) {
+      form.setValue('delivery_method', 'crypto')
+      form.setValue('destination_address', selectedSupplier.crypto_details.address)
+      form.setValue('crypto_address', selectedSupplier.crypto_details.address)
+      form.setValue('crypto_network', selectedSupplier.country || 'Polygon')
+    }
+  }, [currentRoute.key, form, selectedSupplier])
+
+  useEffect(() => {
+    const estimate = estimateRouteValues({
+      amountOrigin: Number(amountOrigin) || 0,
+      route: currentRoute.key,
+      appSettings,
+      feesConfig,
+    })
+
+    form.setValue('amount_converted', estimate.amountConverted)
+    form.setValue('exchange_rate_applied', estimate.exchangeRateApplied)
+    form.setValue('fee_total', estimate.feeTotal)
+    form.setValue('intended_amount', estimate.amountConverted || 0)
+  }, [amountOrigin, appSettings, currentRoute.key, feesConfig, form])
 
   async function submit(values: PaymentOrderFormValues) {
     try {
       await onCreateOrder(buildPaymentOrderPayload(values, userId), supportFile)
-      toast.success('Expediente creado.')
+      toast.success('Expediente creado. Puedes completar el comprobante desde Transacciones.')
       form.reset(getDefaultValues(values.route))
       setSupportFile(null)
+      setEvidenceFile(null)
+      setStep('route')
     } catch (error) {
       console.error('Failed to create payment order', error)
       toast.error('No se pudo crear el expediente.')
     }
   }
 
+  function handleNext() {
+    const currentIndex = STEP_ORDER.indexOf(step)
+    const nextStep = STEP_ORDER[currentIndex + 1]
+    if (!nextStep) return
+    setStep(nextStep)
+  }
+
+  function handleBack() {
+    const currentIndex = STEP_ORDER.indexOf(step)
+    const previousStep = STEP_ORDER[currentIndex - 1]
+    if (!previousStep) return
+    setStep(previousStep)
+  }
+
   return (
-    <div className="grid gap-6 xl:grid-cols-[1.35fr_0.9fr]">
+    <div className="grid gap-6 xl:grid-cols-[1.45fr_0.95fr]">
       <Card className="border-border/70 bg-muted/10">
-        <CardHeader>
-          <CardTitle>Orden primero, dinero despues</CardTitle>
+        <CardHeader className="border-b border-border/60 bg-background/90">
+          <CardTitle>{currentRoute.key === 'bolivia_to_exterior' || currentRoute.key === 'crypto_to_crypto' ? 'Enviar por expediente' : 'Depositar por expediente'}</CardTitle>
           <CardDescription>
-            Cada expediente nace con ruta, destino y documentacion antes de mover fondos reales.
+            El cliente ve una ruta guiada: primero se crea la orden, luego se muestran instrucciones, y por ultimo se cargan respaldos o comprobantes.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6 p-6">
+          <ProgressRail currentStep={step} />
+
           <Form {...form}>
             <form className="space-y-6" onSubmit={form.handleSubmit(submit)}>
-              <section className="space-y-4 rounded-2xl border border-border/70 bg-background/90 p-4">
-                <SectionHeading
-                  icon={Landmark}
-                  eyebrow="Paso 1"
-                  title="Define la ruta y el expediente"
-                  description="Esta decision fija el rail, las monedas y la documentacion que seguira la orden."
-                />
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="route"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Ruta soportada</FormLabel>
-                        <FormControl>
-                          <Select value={field.value} onValueChange={field.onChange} disabled={disabled}>
-                            <SelectTrigger className="w-full">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {routeOptions.map((entry) => (
-                                <SelectItem key={entry.key} value={entry.key}>
-                                  {entry.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </FormControl>
-                        <p className="text-xs text-muted-foreground">{currentRoute.description}</p>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+              {step === 'route' ? (
+                <section className="space-y-4 rounded-2xl border border-border/70 bg-background/90 p-5">
+                  <SectionHeading
+                    icon={Landmark}
+                    eyebrow="Etapa 1"
+                    title="Escoge la ruta del expediente"
+                    description="La ruta define el tipo de orden, el rail y las instrucciones que se mostraran al final."
                   />
-
-                  <FormField
-                    control={form.control}
-                    name="supplier_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Proveedor</FormLabel>
-                        <FormControl>
-                          <Select
-                            value={field.value || 'none'}
-                            onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
-                            disabled={disabled}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Sin proveedor" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">Sin proveedor</SelectItem>
-                              {suppliers.map((supplier) => (
-                                <SelectItem key={supplier.id} value={supplier.id ?? supplier.name}>
-                                  {supplier.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid gap-4 lg:grid-cols-4">
-                  <NumericField control={form.control} disabled={disabled} label="Monto origen" name="amount_origin" />
-                  <NumericField control={form.control} disabled={disabled} label="Monto destino" name="amount_converted" />
-                  <NumericField control={form.control} disabled={disabled} label="Tipo de cambio" name="exchange_rate_applied" />
-                  <NumericField control={form.control} disabled={disabled} label="Fee total" name="fee_total" />
-                </div>
-              </section>
-
-              <section className="space-y-4 rounded-2xl border border-border/70 bg-background/90 p-4">
-                <SectionHeading
-                  icon={Wallet}
-                  eyebrow="Paso 2"
-                  title="Configura el destino"
-                  description="El sistema valida los campos segun el rail de entrega para evitar destinos incompletos."
-                />
-                <div className="grid gap-4 lg:grid-cols-3">
-                  <TextField control={form.control} disabled={disabled} label="Moneda origen" name="origin_currency" />
-                  <TextField control={form.control} disabled={disabled} label="Moneda destino" name="destination_currency" />
-                  <FormField
-                    control={form.control}
-                    name="delivery_method"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Delivery method</FormLabel>
-                        <FormControl>
-                          <Select value={field.value} onValueChange={field.onChange} disabled={disabled}>
-                            <SelectTrigger className="w-full">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {currentRoute.supportedDeliveryMethods.map((method) => (
-                                <SelectItem key={method} value={method}>
-                                  {method}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <TextField control={form.control} disabled={disabled} label="Motivo" name="payment_reason" />
-                  <NumericField control={form.control} disabled={disabled} label="Intended amount" name="intended_amount" />
-                </div>
-
-                <div className="grid gap-4 lg:grid-cols-3">
-                  <TextField control={form.control} disabled={disabled} label="Destination address" name="destination_address" />
-                  <TextField control={form.control} disabled={disabled} label="Stablecoin" name="stablecoin" />
-                  {(route === 'bolivia_to_exterior' || route === 'us_to_bolivia') ? (
+                  <div className="grid gap-4 lg:grid-cols-2">
                     <FormField
                       control={form.control}
-                      name="funding_method"
+                      name="route"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Funding method</FormLabel>
+                          <FormLabel>Ruta soportada</FormLabel>
+                          <FormControl>
+                            <Select
+                              value={field.value}
+                              onValueChange={(value) => {
+                                field.onChange(value)
+                                setStep('route')
+                              }}
+                              disabled={disabled}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {routeOptions.map((entry) => (
+                                  <SelectItem key={entry.key} value={entry.key}>
+                                    {entry.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <p className="text-xs text-muted-foreground">{currentRoute.description}</p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <InfoPanel
+                      title={routeCopy.routeTitle}
+                      description="El formulario solo mostrara los campos necesarios para esta operacion."
+                      rows={[
+                        { label: 'Rail principal', value: getRouteRail(currentRoute.key) },
+                        { label: 'Moneda origen', value: form.getValues('origin_currency') || 'Pendiente' },
+                        { label: 'Moneda destino', value: form.getValues('destination_currency') || 'Pendiente' },
+                      ]}
+                    />
+                  </div>
+
+                  <div className="flex justify-end">
+                    <Button disabled={disabled} onClick={handleNext} type="button">
+                      Continuar a detalle
+                    </Button>
+                  </div>
+                </section>
+              ) : null}
+
+              {step === 'detail' ? (
+                <section className="space-y-5 rounded-2xl border border-border/70 bg-background/90 p-5">
+                  <SectionHeading
+                    icon={currentRoute.key === 'crypto_to_crypto' ? Network : Wallet}
+                    eyebrow="Etapa 2"
+                    title={routeCopy.detailTitle}
+                    description={routeCopy.detailDescription}
+                  />
+
+                  <div className="grid gap-4 lg:grid-cols-3">
+                    <ReadOnlyNumericField control={form.control} label="Monto destino estimado" name="amount_converted" />
+                    <ReadOnlyNumericField control={form.control} label="Tipo de cambio" name="exchange_rate_applied" />
+                    <ReadOnlyNumericField control={form.control} label="Fee total" name="fee_total" />
+                  </div>
+
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <NumericField control={form.control} disabled={disabled} label={getAmountLabel(currentRoute.key)} name="amount_origin" />
+                    <FormField
+                      control={form.control}
+                      name="supplier_id"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Proveedor o beneficiario</FormLabel>
+                          <FormControl>
+                            <Select
+                              value={field.value || 'none'}
+                              onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
+                              disabled={disabled}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Selecciona uno guardado o crea uno nuevo en Proveedores" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">Sin proveedor cargado</SelectItem>
+                                {suppliers.map((supplier) => (
+                                  <SelectItem key={supplier.id} value={supplier.id ?? supplier.name}>
+                                    {supplier.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <p className="text-xs text-muted-foreground">
+                            Si no existe todavia, puedes crearlo desde la pestaña Proveedores y luego volver aqui.
+                          </p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid gap-4 lg:grid-cols-3">
+                    <TextField control={form.control} disabled={disabled} label="Moneda origen" name="origin_currency" />
+                    <TextField control={form.control} disabled={disabled} label="Moneda destino" name="destination_currency" />
+                    <FormField
+                      control={form.control}
+                      name="delivery_method"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Metodo de entrega</FormLabel>
                           <FormControl>
                             <Select value={field.value} onValueChange={field.onChange} disabled={disabled}>
                               <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Selecciona" />
+                                <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="bs">bs</SelectItem>
-                                <SelectItem value="crypto">crypto</SelectItem>
-                                <SelectItem value="ach">ach</SelectItem>
-                                <SelectItem value="wallet">wallet</SelectItem>
+                                {currentRoute.supportedDeliveryMethods.map((method) => (
+                                  <SelectItem key={method} value={method}>
+                                    {method}
+                                  </SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                           </FormControl>
@@ -301,91 +422,212 @@ export function CreatePaymentOrderForm({
                         </FormItem>
                       )}
                     />
-                  ) : null}
-                </div>
-
-                {deliveryMethod === 'swift' ? (
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    <TextField control={form.control} disabled={disabled} label="Swift bank name" name="swift_bank_name" />
-                    <TextField control={form.control} disabled={disabled} label="Swift code" name="swift_code" />
-                    <TextField control={form.control} disabled={disabled} label="IBAN" name="swift_iban" />
-                    <TextField control={form.control} disabled={disabled} label="Bank address" name="swift_bank_address" />
-                    <TextField control={form.control} disabled={disabled} label="Country" name="swift_country" />
                   </div>
-                ) : null}
 
-                {deliveryMethod === 'ach' ? (
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <TextField control={form.control} disabled={disabled} label="Motivo del pago" name="payment_reason" />
+                    <NumericField control={form.control} disabled={disabled} label="Monto pretendido" name="intended_amount" />
+                  </div>
+
                   <div className="grid gap-4 lg:grid-cols-3">
-                    <TextField control={form.control} disabled={disabled} label="Routing number" name="ach_routing_number" />
-                    <TextField control={form.control} disabled={disabled} label="Account number" name="ach_account_number" />
-                    <TextField control={form.control} disabled={disabled} label="Bank name" name="ach_bank_name" />
+                    <TextField control={form.control} disabled={disabled} label={getDestinationLabel(currentRoute.key)} name="destination_address" />
+                    <TextField control={form.control} disabled={disabled} label="Stablecoin" name="stablecoin" />
+                    {(route === 'bolivia_to_exterior' || route === 'us_to_bolivia') ? (
+                      <FormField
+                        control={form.control}
+                        name="funding_method"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Funding method</FormLabel>
+                            <FormControl>
+                              <Select value={field.value} onValueChange={field.onChange} disabled={disabled}>
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder="Selecciona" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="bs">bs</SelectItem>
+                                  <SelectItem value="crypto">crypto</SelectItem>
+                                  <SelectItem value="ach">ach</SelectItem>
+                                  <SelectItem value="wallet">wallet</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    ) : null}
                   </div>
-                ) : null}
 
-                {deliveryMethod === 'crypto' ? (
+                  {deliveryMethod === 'swift' ? (
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      <TextField control={form.control} disabled={disabled} label="Banco" name="swift_bank_name" />
+                      <TextField control={form.control} disabled={disabled} label="Codigo SWIFT" name="swift_code" />
+                      <TextField control={form.control} disabled={disabled} label="IBAN o cuenta" name="swift_iban" />
+                      <TextField control={form.control} disabled={disabled} label="Direccion del banco" name="swift_bank_address" />
+                      <TextField control={form.control} disabled={disabled} label="Pais del banco" name="swift_country" />
+                    </div>
+                  ) : null}
+
+                  {deliveryMethod === 'ach' ? (
+                    <div className="grid gap-4 lg:grid-cols-3">
+                      <TextField control={form.control} disabled={disabled} label="Routing number" name="ach_routing_number" />
+                      <TextField control={form.control} disabled={disabled} label="Account number" name="ach_account_number" />
+                      <TextField control={form.control} disabled={disabled} label="Bank name" name="ach_bank_name" />
+                    </div>
+                  ) : null}
+
+                  {deliveryMethod === 'crypto' ? (
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      <TextField control={form.control} disabled={disabled} label="Wallet destino" name="crypto_address" />
+                      <TextField control={form.control} disabled={disabled} label="Red" name="crypto_network" />
+                    </div>
+                  ) : null}
+
                   <div className="grid gap-4 lg:grid-cols-2">
-                    <TextField control={form.control} disabled={disabled} label="Crypto address" name="crypto_address" />
-                    <TextField control={form.control} disabled={disabled} label="Network" name="crypto_network" />
+                    <DocumentInputCard
+                      file={supportFile}
+                      label="Documento de respaldo"
+                      description="Se guardara como support_document_url al crear la orden."
+                      onFileChange={setSupportFile}
+                    />
+                    <DocumentInputCard
+                      file={evidenceFile}
+                      label="Comprobante de deposito"
+                      description="Por ahora se mostrara como pendiente de cargar despues. Podras subirlo desde Transacciones."
+                      onFileChange={setEvidenceFile}
+                    />
                   </div>
-                ) : null}
-              </section>
 
-              <section className="space-y-4 rounded-2xl border border-dashed border-border/70 bg-background/90 p-4">
-                <SectionHeading
-                  icon={FileCheck2}
-                  eyebrow="Paso 3"
-                  title="Sube respaldo inicial"
-                  description="Puedes dejar el soporte desde el inicio para acelerar la revision del equipo."
-                />
-                <Input
-                  accept={ACCEPTED_UPLOADS}
-                  disabled={disabled}
-                  onChange={(event) => setSupportFile(event.target.files?.[0] ?? null)}
-                  type="file"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Tipos permitidos: JPEG, PNG, WEBP y PDF.
-                </p>
-              </section>
+                  <div className="flex items-center justify-between">
+                    <Button onClick={handleBack} type="button" variant="outline">
+                      Volver
+                    </Button>
+                    <Button disabled={disabled} onClick={handleNext} type="button">
+                      Revisar expediente
+                    </Button>
+                  </div>
+                </section>
+              ) : null}
+              {step === 'review' ? (
+                <section className="space-y-5 rounded-2xl border border-border/70 bg-background/90 p-5">
+                  <SectionHeading
+                    icon={CheckCircle2}
+                    eyebrow="Etapa 3"
+                    title="Revisa antes de crear el expediente"
+                    description="Aqui se resume la logica de la orden, el destino y los documentos seleccionados."
+                  />
 
-              <Button disabled={disabled || form.formState.isSubmitting} type="submit">
-                {form.formState.isSubmitting ? 'Creando expediente...' : 'Crear expediente'}
-              </Button>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {reviewItems.map((item) => (
+                      <InfoBlock key={item.label} label={item.label} value={item.value} />
+                    ))}
+                  </div>
+
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <DocumentInputCard
+                      file={supportFile}
+                      label="Respaldo listo para subir"
+                      description="Verifica el archivo que se adjuntara junto a la creacion."
+                      onFileChange={setSupportFile}
+                    />
+                    <DocumentInputCard
+                      file={evidenceFile}
+                      label="Comprobante pendiente"
+                      description="Se visualiza aqui para que el usuario no pierda contexto, aunque la carga real quedara para Transacciones."
+                      onFileChange={setEvidenceFile}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <Button onClick={handleBack} type="button" variant="outline">
+                      Editar detalle
+                    </Button>
+                    <Button disabled={disabled} onClick={handleNext} type="button">
+                      Ver finalizacion
+                    </Button>
+                  </div>
+                </section>
+              ) : null}
+
+              {step === 'finish' ? (
+                <section className="space-y-5 rounded-2xl border border-border/70 bg-background/90 p-5">
+                  <SectionHeading
+                    icon={FileCheck2}
+                    eyebrow="Etapa 4"
+                    title={routeCopy.finishTitle}
+                    description={routeCopy.finishDescription}
+                  />
+
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    {depositInstructions.map((instruction) => (
+                      <InstructionCard key={instruction.id} instruction={instruction} />
+                    ))}
+                  </div>
+
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <DocumentInputCard
+                      file={supportFile}
+                      label="Documento que se enviara ahora"
+                      description="Si lo dejas cargado, la orden nacera ya con respaldo documental."
+                      onFileChange={setSupportFile}
+                    />
+                    <DocumentInputCard
+                      file={evidenceFile}
+                      label="Comprobante que podras subir despues"
+                      description="Podras retomarlo desde Transacciones > Expedientes cuando ya tengas el comprobante final."
+                      onFileChange={setEvidenceFile}
+                    />
+                  </div>
+
+                  <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-4 text-sm text-muted-foreground">
+                    El expediente se creara ahora con estado `created`. Si luego subes el comprobante del deposito, la orden pasara a `waiting_deposit`.
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <Button onClick={handleBack} type="button" variant="outline">
+                      Volver a revision
+                    </Button>
+                    <Button disabled={disabled || form.formState.isSubmitting} type="submit">
+                      {form.formState.isSubmitting ? 'Creando expediente...' : 'Crear expediente'}
+                    </Button>
+                  </div>
+                </section>
+              ) : null}
             </form>
           </Form>
         </CardContent>
       </Card>
 
       <div className="space-y-6">
-        <Card className="border-border/70 bg-sky-50/60 dark:bg-sky-950/20">
+        <Card className="border-border/70 bg-sky-50/60">
           <CardHeader>
-            <CardTitle>Lectura operativa de esta ruta</CardTitle>
+            <CardTitle>Lectura del expediente</CardTitle>
             <CardDescription>
-              La interfaz ya te muestra el mismo mapa que seguira staff despues de tu deposito.
+              La persona siempre sabe en que etapa esta y que datos quedaran visibles para staff.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {ROUTE_PLAYBOOK[currentRoute.key].map((step) => (
-              <div key={step.title} className="rounded-xl border border-sky-200/70 bg-background/80 p-3 dark:border-sky-900/70">
-                <div className="font-medium text-foreground">{step.title}</div>
-                <div className="mt-1 text-sm text-muted-foreground">{step.body}</div>
-              </div>
-            ))}
+            <PreviewRow icon={Banknote} label="Monto origen" value={String(amountOrigin || 0)} />
+            <PreviewRow icon={ArrowRight} label="Monto destino" value={String(form.getValues('amount_converted') || 0)} />
+            <PreviewRow icon={ShieldCheck} label="Fee total" value={String(form.getValues('fee_total') || 0)} />
+            <PreviewRow icon={Landmark} label="Tipo de cambio" value={String(form.getValues('exchange_rate_applied') || 0)} />
           </CardContent>
         </Card>
 
         <Card className="border-border/70">
           <CardHeader>
-            <CardTitle>Resumen economico visible</CardTitle>
+            <CardTitle>Documentos visibles</CardTitle>
             <CardDescription>
-              Cuando staff confirme fondos, estos valores se volveran la base de la cotizacion final que deberas aceptar.
+              El usuario puede confirmar visualmente lo que ya esta preparando antes de crear el expediente.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <PreviewRow icon={Banknote} label="Monto origen" value={String(amountOrigin || 0)} />
-            <PreviewRow icon={ArrowRight} label="Monto destino" value={String(amountConverted || 0)} />
-            <PreviewRow icon={ShieldCheck} label="Fee total" value={String(feeTotal || 0)} />
-            <PreviewRow icon={Landmark} label="Tipo de cambio" value={String(exchangeRateApplied || 0)} />
+          <CardContent className="space-y-3">
+            <DocumentSummaryRow label="Respaldo" file={supportFile} />
+            <DocumentSummaryRow label="Comprobante" file={evidenceFile} />
+            <div className="rounded-xl border border-dashed border-border/70 p-3 text-xs text-muted-foreground">
+              Despues de crear la orden, los archivos entregados quedaran visibles tambien desde Transacciones.
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -431,7 +673,7 @@ function getDefaultValues(route: SupportedPaymentRoute): PaymentOrderFormValues 
       amount_converted: 0,
       fee_total: 0,
       exchange_rate_applied: 1,
-      origin_currency: 'USDT',
+      origin_currency: 'USDC',
       destination_currency: 'USDC',
       delivery_method: 'crypto',
       payment_reason: '',
@@ -466,7 +708,7 @@ function getDefaultValues(route: SupportedPaymentRoute): PaymentOrderFormValues 
     intended_amount: 0,
     destination_address: '',
     stablecoin: 'USDC',
-    funding_method: 'bs',
+    funding_method: route === 'bolivia_to_exterior' ? 'bs' : 'ach',
     swift_bank_name: '',
     swift_code: '',
     swift_iban: '',
@@ -478,6 +720,138 @@ function getDefaultValues(route: SupportedPaymentRoute): PaymentOrderFormValues 
     crypto_address: '',
     crypto_network: '',
   }
+}
+
+function ProgressRail({ currentStep }: { currentStep: StepKey }) {
+  return (
+    <div className="grid gap-3 md:grid-cols-4">
+      {STEP_ORDER.map((step, index) => {
+        const isCurrent = step === currentStep
+        const isReached = STEP_ORDER.indexOf(currentStep) >= index
+
+        return (
+          <div
+            key={step}
+            className={`rounded-2xl border px-4 py-3 text-sm ${
+              isCurrent
+                ? 'border-sky-400/70 bg-sky-50'
+                : isReached
+                  ? 'border-emerald-400/40 bg-emerald-50'
+                  : 'border-border/60 bg-muted/20'
+            }`}
+          >
+            <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+              {String(index + 1).padStart(2, '0')}
+            </div>
+            <div className="mt-1 font-medium text-foreground">{getStepLabel(step)}</div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function DocumentInputCard({
+  label,
+  description,
+  file,
+  onFileChange,
+}: {
+  label: string
+  description: string
+  file: File | null
+  onFileChange: (file: File | null) => void
+}) {
+  const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file])
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+    }
+  }, [previewUrl])
+
+  const isImage = Boolean(file && file.type.startsWith('image/'))
+
+  return (
+    <div className="rounded-2xl border border-border/70 bg-background/85 p-4">
+      <div className="mb-3 flex items-start gap-3">
+        <div className="rounded-xl border border-border/60 bg-muted/20 p-2 text-muted-foreground">
+          <Upload className="size-4" />
+        </div>
+        <div>
+          <div className="font-medium text-foreground">{label}</div>
+          <div className="text-sm text-muted-foreground">{description}</div>
+        </div>
+      </div>
+      <Input
+        accept={ACCEPTED_UPLOADS}
+        onChange={(event) => onFileChange(event.target.files?.[0] ?? null)}
+        type="file"
+      />
+      <div className="mt-3 rounded-xl border border-dashed border-border/70 bg-muted/15 p-3">
+        {file ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-medium text-foreground">{file.name}</div>
+                <div className="text-xs text-muted-foreground">{Math.round(file.size / 1024)} KB</div>
+              </div>
+              {previewUrl ? (
+                <a className="text-sm font-medium text-primary underline-offset-4 hover:underline" href={previewUrl} rel="noreferrer" target="_blank">
+                  Abrir
+                </a>
+              ) : null}
+            </div>
+            {isImage && previewUrl ? (
+              <Image
+                alt={file.name}
+                className="h-40 w-full rounded-xl border border-border/60 object-cover"
+                height={160}
+                src={previewUrl}
+                unoptimized
+                width={640}
+              />
+            ) : (
+              <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-background/80 px-3 py-2 text-sm text-muted-foreground">
+                <FileText className="size-4" />
+                Vista previa disponible en una pestaña nueva.
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-sm text-muted-foreground">Aun no seleccionaste un archivo.</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function InstructionCard({ instruction }: { instruction: DepositInstruction }) {
+  const accentClass =
+    instruction.accent === 'emerald'
+      ? 'border-emerald-300/60 bg-emerald-50'
+      : instruction.accent === 'amber'
+        ? 'border-amber-300/60 bg-amber-50'
+        : 'border-sky-300/60 bg-sky-50'
+
+  return (
+    <div className={`rounded-2xl border p-4 ${accentClass}`}>
+      <div className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
+        {instruction.kind === 'wallet' ? <Wallet className="size-4" /> : <Landmark className="size-4" />}
+        {instruction.title}
+      </div>
+      <div className="text-sm text-muted-foreground">{instruction.detail}</div>
+    </div>
+  )
+}
+
+function DocumentSummaryRow({ label, file }: { label: string; file: File | null }) {
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/20 px-3 py-2">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium text-foreground">{file?.name ?? 'Pendiente'}</span>
+    </div>
+  )
 }
 
 function SectionHeading({ icon: Icon, eyebrow, title, description }: { icon: typeof Landmark; eyebrow: string; title: string; description: string }) {
@@ -497,7 +871,7 @@ function SectionHeading({ icon: Icon, eyebrow, title, description }: { icon: typ
 
 function PreviewRow({ icon: Icon, label, value }: { icon: typeof Landmark; label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/20 px-3 py-2">
+    <div className="flex items-center justify-between rounded-xl border border-border/60 bg-background/80 px-3 py-2">
       <div className="flex items-center gap-2 text-muted-foreground">
         <Icon className="size-4" />
         <span>{label}</span>
@@ -526,8 +900,35 @@ function NumericField({
         <FormItem>
           <FormLabel>{label}</FormLabel>
           <FormControl>
-            <Input {...field} disabled={disabled} step="0.01" type="number" />
+            <Input {...field} disabled={disabled} min={0} step="0.01" type="number" />
           </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  )
+}
+
+function ReadOnlyNumericField({
+  control,
+  name,
+  label,
+}: {
+  control: Control<PaymentOrderFormValues>
+  name: FieldPath<PaymentOrderFormValues>
+  label: string
+}) {
+  return (
+    <FormField
+      control={control}
+      name={name}
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>{label}</FormLabel>
+          <FormControl>
+            <Input {...field} className="bg-muted/15" min={0} readOnly step="0.01" type="number" />
+          </FormControl>
+          <p className="text-xs text-muted-foreground">Este valor es calculado por el sistema y el cliente no lo edita.</p>
           <FormMessage />
         </FormItem>
       )}
@@ -561,4 +962,109 @@ function TextField({
       )}
     />
   )
+}
+
+function InfoPanel({
+  title,
+  description,
+  rows,
+}: {
+  title: string
+  description: string
+  rows: Array<{ label: string; value: string }>
+}) {
+  return (
+    <div className="rounded-2xl border border-border/70 bg-muted/15 p-4">
+      <div className="font-medium text-foreground">{title}</div>
+      <div className="mt-1 text-sm text-muted-foreground">{description}</div>
+      <div className="mt-4 space-y-2">
+        {rows.map((row) => (
+          <div key={row.label} className="flex items-center justify-between rounded-xl border border-border/60 bg-background/85 px-3 py-2 text-sm">
+            <span className="text-muted-foreground">{row.label}</span>
+            <span className="font-medium text-foreground">{row.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function InfoBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-3">
+      <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
+      <div className="mt-1 text-sm font-medium text-foreground">{value}</div>
+    </div>
+  )
+}
+
+function getStepLabel(step: StepKey) {
+  switch (step) {
+    case 'route':
+      return 'Ruta'
+    case 'detail':
+      return 'Detalle'
+    case 'review':
+      return 'Revision'
+    case 'finish':
+      return 'Finalizacion'
+  }
+}
+
+function getRouteRail(route: SupportedPaymentRoute) {
+  switch (route) {
+    case 'bolivia_to_exterior':
+      return 'SWIFT / ACH / PSAV'
+    case 'us_to_bolivia':
+      return 'SWIFT / ACH'
+    case 'us_to_wallet':
+      return 'PSAV'
+    case 'crypto_to_crypto':
+      return 'DIGITAL_NETWORK'
+  }
+}
+
+function getAmountLabel(route: SupportedPaymentRoute) {
+  switch (route) {
+    case 'bolivia_to_exterior':
+      return 'Monto en bolivianos'
+    case 'us_to_bolivia':
+      return 'Monto a retornar'
+    case 'us_to_wallet':
+      return 'Monto en USD'
+    case 'crypto_to_crypto':
+      return 'Monto en USDC'
+  }
+}
+
+function getDestinationLabel(route: SupportedPaymentRoute) {
+  switch (route) {
+    case 'bolivia_to_exterior':
+      return 'Cuenta o destino del beneficiario'
+    case 'us_to_bolivia':
+      return 'Cuenta destino en Bolivia'
+    case 'us_to_wallet':
+      return 'Direccion de la billetera'
+    case 'crypto_to_crypto':
+      return 'Direccion del beneficiario'
+  }
+}
+
+function buildReviewItems(args: {
+  values: PaymentOrderFormValues
+  routeLabel: string
+  supplierName: string
+  supportFileName?: string
+  evidenceFileName?: string
+}) {
+  return [
+    { label: 'Ruta', value: args.routeLabel },
+    { label: 'Proveedor', value: args.supplierName },
+    { label: 'Monto origen', value: `${args.values.amount_origin} ${args.values.origin_currency}` },
+    { label: 'Monto destino', value: `${args.values.amount_converted} ${args.values.destination_currency}` },
+    { label: 'Motivo', value: args.values.payment_reason || 'Pendiente' },
+    { label: 'Destino', value: args.values.destination_address || 'Pendiente' },
+    { label: 'Respaldo', value: args.supportFileName ?? 'No adjuntado' },
+    { label: 'Comprobante', value: args.evidenceFileName ?? 'Se cargara despues' },
+  ]
 }

@@ -255,7 +255,7 @@ export function CompanyForm({ status, userId }: { status: string | null; userId:
                 <FormItem><FormLabel>Origen de fondos</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
               <FormField control={form.control} name="estimated_monthly_volume" render={({ field }) => (
-                <FormItem><FormLabel>Volumen Estimado (USD)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Volumen Estimado (USD)</FormLabel><FormControl><Input min={0} step="0.01" type="number" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
             </div>
             <div className="flex justify-between pt-4">
@@ -324,7 +324,7 @@ export function CompanyForm({ status, userId }: { status: string | null; userId:
                       <FormItem><FormLabel>Apellidos</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
                     )} />
                     <FormField control={form.control} name={`ubos.${index}.percentage`} render={({ field }) => (
-                      <FormItem><FormLabel>% Propiedad</FormLabel><FormControl><Input type="number" {...field} /></FormControl></FormItem>
+                      <FormItem><FormLabel>% Propiedad</FormLabel><FormControl><Input max={100} min={0} step="0.01" type="number" {...field} /></FormControl></FormItem>
                     )} />
                     <FormField control={form.control} name={`ubos.${index}.nationality`} render={({ field }) => (
                       <FormItem><FormLabel>Nacionalidad</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>

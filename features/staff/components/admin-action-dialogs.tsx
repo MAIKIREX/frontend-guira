@@ -322,7 +322,7 @@ export function FeeConfigDialog({ actor, onUpdated, record }: { actor: StaffActo
             <FormField control={form.control} name="value" render={({ field }) => (
               <FormItem>
                 <FormLabel>Valor</FormLabel>
-                <FormControl><Input {...field} step="0.01" type="number" /></FormControl>
+                <FormControl><Input {...field} min={0} step="0.01" type="number" /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />

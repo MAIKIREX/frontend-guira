@@ -1,13 +1,14 @@
 'use client'
 
-import { useMemo, useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import { format } from 'date-fns'
-import { CheckCircle2, Download, FileUp, HandCoins, ShieldAlert, XCircle } from 'lucide-react'
+import { CheckCircle2, ChevronDown, Download, FileText, FileUp, HandCoins, Search, ShieldAlert, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { generatePaymentPdf } from '@/features/payments/lib/generate-payment-pdf'
 import { ACCEPTED_UPLOADS } from '@/lib/file-validation'
 import type { ActivityLog } from '@/types/activity-log'
@@ -45,6 +46,9 @@ export function PaymentsHistoryTable({
 }: PaymentsHistoryTableProps) {
   const [files, setFiles] = useState<Record<string, Partial<Record<OrderFileField, File>>>>({})
   const [busyKey, setBusyKey] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<'all' | PaymentOrder['status']>('all')
+  const [search, setSearch] = useState('')
+  const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>({})
   const suppliersById = useMemo(
     () =>
       new Map(
@@ -68,6 +72,26 @@ export function PaymentsHistoryTable({
 
     return grouped
   }, [activityLogs])
+
+  useEffect(() => {
+    setExpandedOrders((current) => {
+      const next = { ...current }
+      orders.forEach((order, index) => {
+        if (next[order.id] === undefined) next[order.id] = index === 0
+      })
+      return next
+    })
+  }, [orders])
+
+  const filteredOrders = useMemo(
+    () =>
+      orders.filter((order) => {
+        const statusMatches = statusFilter === 'all' || order.status === statusFilter
+        const searchMatches = !search || order.id.toLowerCase().includes(search.toLowerCase())
+        return statusMatches && searchMatches
+      }),
+    [orders, search, statusFilter]
+  )
 
   if (orders.length === 0) {
     return (
@@ -134,7 +158,45 @@ export function PaymentsHistoryTable({
 
   return (
     <div className="space-y-4">
-      {orders.map((order) => {
+      <Card className="border-border/70 bg-background/85">
+        <CardContent className="grid gap-3 p-4 md:grid-cols-[1fr_220px]">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar por numero de expediente"
+              value={search}
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | PaymentOrder['status'])}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Filtrar por estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los estados</SelectItem>
+              <SelectItem value="created">created</SelectItem>
+              <SelectItem value="waiting_deposit">waiting_deposit</SelectItem>
+              <SelectItem value="deposit_received">deposit_received</SelectItem>
+              <SelectItem value="processing">processing</SelectItem>
+              <SelectItem value="sent">sent</SelectItem>
+              <SelectItem value="completed">completed</SelectItem>
+              <SelectItem value="failed">failed</SelectItem>
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
+
+      {filteredOrders.length === 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Sin coincidencias</CardTitle>
+            <CardDescription>No hay expedientes que coincidan con el filtro actual.</CardDescription>
+          </CardHeader>
+        </Card>
+      ) : null}
+
+      {filteredOrders.map((order) => {
         const supplier = order.supplier_id ? suppliersById.get(order.supplier_id) : null
         const canCancel = OPEN_ORDER_STATUSES.has(order.status)
         const openUploads = OPEN_ORDER_STATUSES.has(order.status)
@@ -142,6 +204,7 @@ export function PaymentsHistoryTable({
         const orderActivity = activityByOrderId.get(order.id) ?? []
         const quotePreparedAt = getMetadataDate(order.metadata, 'quote_prepared_at')
         const quoteAcceptedAt = getMetadataDate(order.metadata, 'client_quote_accepted_at')
+        const isExpanded = expandedOrders[order.id] ?? true
 
         return (
           <Card key={order.id} className="overflow-hidden border-border/70 bg-muted/10">
@@ -160,6 +223,20 @@ export function PaymentsHistoryTable({
                 </div>
 
                 <div className="flex flex-wrap gap-2">
+                  <Button
+                    onClick={() =>
+                      setExpandedOrders((current) => ({
+                        ...current,
+                        [order.id]: !isExpanded,
+                      }))
+                    }
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    <ChevronDown className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                    {isExpanded ? 'Colapsar' : 'Expandir'}
+                  </Button>
                   <Button
                     disabled={disabled}
                     onClick={() => generatePaymentPdf(order, supplier)}
@@ -197,7 +274,8 @@ export function PaymentsHistoryTable({
               </div>
             </CardHeader>
 
-            <CardContent className="grid gap-6 p-6 xl:grid-cols-[1.3fr_0.9fr]">
+            {isExpanded ? (
+              <CardContent className="grid gap-6 p-6 xl:grid-cols-[1.3fr_0.9fr]">
               <div className="space-y-5">
                 <StatusRail order={order} />
 
@@ -240,7 +318,8 @@ export function PaymentsHistoryTable({
                   />
                 ) : null}
               </div>
-            </CardContent>
+              </CardContent>
+            ) : null}
           </Card>
         )
       })}
@@ -299,6 +378,7 @@ function QuoteCard({ order, quoteAcceptedAt, quotePreparedAt }: { order: Payment
 function AttachmentPanel({
   busy,
   disabled,
+  files,
   onFileChange,
   onUpload,
   openUploads,
@@ -306,6 +386,7 @@ function AttachmentPanel({
 }: {
   busy: string | null
   disabled?: boolean
+  files: Record<string, Partial<Record<OrderFileField, File>>>
   onFileChange: Dispatch<SetStateAction<Record<string, Partial<Record<OrderFileField, File>>>>>
   onUpload: (order: PaymentOrder, field: OrderFileField) => Promise<void>
   openUploads: boolean
@@ -326,6 +407,7 @@ function AttachmentPanel({
             accept={ACCEPTED_UPLOADS}
             busy={busy === `${order.id}-support_document_url`}
             disabled={disabled}
+            existingUrl={order.support_document_url}
             label="Respaldo"
             onFileChange={(file) =>
               onFileChange((current) => ({
@@ -336,12 +418,14 @@ function AttachmentPanel({
                 },
               }))
             }
+            selectedFile={files[order.id]?.support_document_url}
             onUpload={() => onUpload(order, 'support_document_url')}
           />
           <AttachmentUploader
             accept={ACCEPTED_UPLOADS}
             busy={busy === `${order.id}-evidence_url`}
             disabled={disabled}
+            existingUrl={order.evidence_url}
             label="Evidencia"
             onFileChange={(file) =>
               onFileChange((current) => ({
@@ -352,6 +436,7 @@ function AttachmentPanel({
                 },
               }))
             }
+            selectedFile={files[order.id]?.evidence_url}
             onUpload={() => onUpload(order, 'evidence_url')}
           />
         </div>
@@ -426,17 +511,29 @@ function AttachmentUploader({
   accept,
   busy,
   disabled,
+  existingUrl,
   label,
   onFileChange,
   onUpload,
+  selectedFile,
 }: {
   accept: string
   busy?: boolean
   disabled?: boolean
+  existingUrl?: string
   label: string
   onFileChange: (file: File | undefined) => void
   onUpload: () => void
+  selectedFile?: File
 }) {
+  const previewUrl = useMemo(() => (selectedFile ? URL.createObjectURL(selectedFile) : null), [selectedFile])
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+    }
+  }, [previewUrl])
+
   return (
     <div className="rounded-xl border border-border/60 p-3 text-left">
       <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
@@ -451,6 +548,22 @@ function AttachmentUploader({
         <FileUp />
         {busy ? 'Subiendo...' : `Subir ${label.toLowerCase()}`}
       </Button>
+      <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+        {existingUrl ? (
+          <a className="flex items-center gap-2 text-primary underline-offset-4 hover:underline" href={existingUrl} rel="noreferrer" target="_blank">
+            <FileText className="size-3.5" />
+            Ver archivo ya entregado
+          </a>
+        ) : (
+          <div>Aun no hay archivo entregado.</div>
+        )}
+        {selectedFile ? (
+          <a className="flex items-center gap-2 text-primary underline-offset-4 hover:underline" href={previewUrl ?? '#'} rel="noreferrer" target="_blank">
+            <FileText className="size-3.5" />
+            Ver archivo que estas por subir: {selectedFile.name}
+          </a>
+        ) : null}
+      </div>
     </div>
   )
 }
