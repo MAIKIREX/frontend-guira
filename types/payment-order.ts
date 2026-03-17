@@ -127,15 +127,26 @@ export interface SupplierUpsertInput {
   user_id: string
   name: string
   country: string
-  payment_method: 'bank' | 'crypto'
+  payment_method: string
   bank_details?: {
-    bank_name: string
-    swift_code: string
-    account_number: string
-    bank_country: string
+    ach?: {
+      bank_name: string
+      routing_number: string
+      account_number: string
+      bank_country?: string
+    }
+    swift?: {
+      bank_name: string
+      swift_code: string
+      account_number: string
+      bank_country: string
+      iban?: string
+      bank_address?: string
+    }
   }
   crypto_details?: {
     address: string
+    network?: string
   }
   address: string
   phone: string

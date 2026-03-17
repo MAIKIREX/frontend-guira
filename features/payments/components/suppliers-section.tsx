@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { SupplierForm } from '@/features/payments/components/supplier-form'
+import { parseSupplierPaymentMethods } from '@/features/payments/lib/supplier-methods'
 import type { Supplier } from '@/types/supplier'
 import type { SupplierUpsertInput } from '@/types/payment-order'
 
@@ -96,7 +97,13 @@ export function SuppliersSection({
                       <div className="text-xs text-muted-foreground">{supplier.country}</div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{supplier.payment_method}</Badge>
+                      <div className="flex flex-wrap gap-1">
+                        {parseSupplierPaymentMethods(supplier.payment_method, supplier).map((method) => (
+                          <Badge key={`${supplier.id}-${method}`} variant="outline">
+                            {method}
+                          </Badge>
+                        ))}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div>{supplier.email}</div>

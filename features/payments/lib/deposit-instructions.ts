@@ -97,23 +97,32 @@ export function buildDepositInstructions(args: {
         },
         {
           id: 'world-hardcoded-note',
-          title: 'Soporte requerido',
+          title: 'Comprobante de deposito',
           kind: 'note' as const,
-          detail: 'Sube el respaldo de envio exterior o el QR bancario del destinatario. Luego podras adjuntar el comprobante del deposito.',
+          detail: 'Puedes adjuntar el comprobante ahora o completarlo despues desde Transacciones cuando el deposito ya este enviado.',
         },
       ]
     case 'us_to_wallet':
-      return psavInstructions.length > 0
-        ? psavInstructions
-        : [
-            {
-              id: 'wallet-fallback-ach',
-              title: 'Cuenta ACH temporal',
-              kind: 'bank',
-              detail: 'Mercury Demo | Checking 123456789 | Routing 021000021 | Holder: Guira Wallet Ops',
-              accent: 'emerald',
-            },
-          ]
+      return [
+        ...(psavInstructions.length > 0
+          ? psavInstructions
+          : [
+              {
+                id: 'wallet-fallback-ach',
+                title: 'Cuenta ACH temporal',
+                kind: 'bank' as const,
+                detail: 'Mercury Demo | Checking 123456789 | Routing 021000021 | Holder: Guira Wallet Ops',
+                accent: 'emerald',
+              },
+            ]),
+        {
+          id: 'wallet-proof-note',
+          title: 'Comprobante de fondeo',
+          kind: 'note' as const,
+          detail: 'Cuando completes el deposito en PSAV, sube el comprobante aqui o luego desde Transacciones para mover la orden a waiting_deposit.',
+          accent: 'amber',
+        },
+      ]
     case 'crypto_to_crypto':
       return [
         {

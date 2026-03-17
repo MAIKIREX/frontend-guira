@@ -26,13 +26,13 @@ export const supportedPaymentRoutes: Array<{
   {
     key: 'us_to_bolivia',
     label: 'Exterior a Bolivia',
-    description: 'Expediente WORLD_TO_BO con entrega SWIFT, ACH o crypto.',
+    description: 'Expediente WORLD_TO_BO para depositos desde el exterior con destino Bolivia.',
     supportedDeliveryMethods: ['swift', 'ach', 'crypto'],
   },
   {
     key: 'us_to_wallet',
     label: 'USA a wallet',
-    description: 'Expediente US_TO_WALLET usando el rail PSAV documentado.',
+    description: 'Expediente US_TO_WALLET para fondeo PSAV con entrega final a wallet.',
     supportedDeliveryMethods: ['ach'],
   },
   {
@@ -102,11 +102,13 @@ function buildMetadata(values: PaymentOrderFormValues): PaymentOrderMetadata {
     delivery_method: values.delivery_method,
     payment_reason: values.payment_reason,
     intended_amount: values.intended_amount,
-    destination_address: values.destination_address,
+    destination_address: values.route === 'us_to_wallet'
+      ? values.crypto_address || values.destination_address
+      : values.destination_address,
     stablecoin: values.stablecoin,
   }
 
-  if (values.route === 'bolivia_to_exterior' || values.route === 'us_to_bolivia') {
+  if (values.route === 'bolivia_to_exterior') {
     metadata.funding_method = values.funding_method
   }
 
@@ -120,7 +122,7 @@ function buildMetadata(values: PaymentOrderFormValues): PaymentOrderMetadata {
     }
   }
 
-  if (values.delivery_method === 'ach') {
+  if (values.delivery_method === 'ach' && values.route === 'bolivia_to_exterior') {
     metadata.ach_details = {
       routingNumber: values.ach_routing_number ?? '',
       accountNumber: values.ach_account_number ?? '',
@@ -128,9 +130,9 @@ function buildMetadata(values: PaymentOrderFormValues): PaymentOrderMetadata {
     }
   }
 
-  if (values.delivery_method === 'crypto') {
+  if (values.delivery_method === 'crypto' || values.route === 'us_to_wallet') {
     metadata.crypto_destination = {
-      address: values.crypto_address ?? '',
+      address: values.crypto_address || values.destination_address || '',
       network: values.crypto_network ?? '',
     }
   }

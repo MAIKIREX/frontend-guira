@@ -211,7 +211,7 @@ export function OrderActions({ actor, onUpdated, order }: { actor: StaffActor; o
 
   return (
     <div className="flex flex-wrap justify-end gap-2">
-      {actions.has('deposit_received') ? <OrderReasonActionDialog actor={actor} action="deposit_received" label="Validar deposito" onUpdated={onUpdated} order={order} /> : null}
+      {actions.has('deposit_received') ? <OrderReasonActionDialog actor={actor} action="deposit_received" label="Validar deposito del cliente" onUpdated={onUpdated} order={order} /> : null}
       {actions.has('quote') ? <OrderQuoteDialog actor={actor} onUpdated={onUpdated} order={order} /> : null}
       {actions.has('sent') ? <OrderSentDialog actor={actor} onUpdated={onUpdated} order={order} /> : null}
       {actions.has('completed') ? <OrderCompletionDialog actor={actor} onUpdated={onUpdated} order={order} /> : null}
@@ -240,7 +240,7 @@ export function OrderDetailDialog({ actor, onUpdated, order }: { actor: StaffAct
               {order.status}
             </span>
           </div>
-          <DialogDescription>Controla el ciclo de vida de la transacción financiera.</DialogDescription>
+          <DialogDescription>Controla el ciclo de vida del expediente y valida respaldo, comprobante del cliente y avance operativo.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 pt-2 text-sm">
@@ -272,7 +272,7 @@ export function OrderDetailDialog({ actor, onUpdated, order }: { actor: StaffAct
           )}
 
           <div className="space-y-3">
-            <h4 className="font-semibold uppercase tracking-wider text-muted-foreground border-b pb-1 text-xs">Evidencias y Respaldos</h4>
+            <h4 className="font-semibold uppercase tracking-wider text-muted-foreground border-b pb-1 text-xs">Respaldo y comprobantes</h4>
             <div className="grid gap-2">
               {order.evidence_url ? (
                 <a href={order.evidence_url} target="_blank" rel="noreferrer" className="flex items-center text-blue-600 hover:underline">
@@ -285,7 +285,9 @@ export function OrderDetailDialog({ actor, onUpdated, order }: { actor: StaffAct
                 <a href={order.support_document_url} target="_blank" rel="noreferrer" className="flex items-center text-blue-600 hover:underline">
                   📄 Ver Documento de Respaldo
                 </a>
-              ) : null}
+              ) : (
+                <span className="text-muted-foreground text-xs">Sin respaldo documental.</span>
+              )}
               {order.staff_comprobante_url ? (
                 <a href={order.staff_comprobante_url} target="_blank" rel="noreferrer" className="flex items-center text-green-600 hover:underline">
                   ✅ Comprobante Final (Staff)
@@ -335,7 +337,7 @@ function OrderReasonActionDialog({ actor, action, label, onUpdated, order }: { a
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{label}</DialogTitle>
-          <DialogDescription>La accion usa optimistic lock, registra auditoria y notifica al cliente.</DialogDescription>
+          <DialogDescription>La accion usa optimistic lock, registra auditoria y notifica al cliente cuando el deposito queda validado por staff.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form className="space-y-4" onSubmit={form.handleSubmit(submit)}>

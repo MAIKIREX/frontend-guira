@@ -114,7 +114,7 @@ export function PaymentsHistoryTable({
     setBusyKey(`${order.id}-${field}`)
     try {
       await onUploadOrderFile(order.id, field, file)
-      toast.success(field === 'evidence_url' ? 'Evidencia subida.' : 'Respaldo subido.')
+      toast.success(field === 'evidence_url' ? 'Comprobante subido.' : 'Respaldo subido.')
       setFiles((current) => ({
         ...current,
         [order.id]: {
@@ -218,7 +218,7 @@ export function PaymentsHistoryTable({
                     <Badge variant="outline">{order.processing_rail}</Badge>
                   </div>
                   <CardDescription>
-                    Creado el {format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')} con destino {order.destination_currency}.
+                    Creado el {format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')} con destino {order.destination_currency}. {isDepositOrder(order) ? 'Este expediente sigue la logica de deposito: orden primero, comprobante despues.' : ''}
                   </CardDescription>
                 </div>
 
@@ -413,41 +413,46 @@ function AttachmentPanel({
   openUploads: boolean
   order: PaymentOrder
 }) {
+  const depositOrder = isDepositOrder(order)
+  const showSupportUploader = !depositOrder || order.order_type === 'WORLD_TO_BO'
+
   return (
     <div className="rounded-2xl border border-border/70 bg-background/85 p-4">
-      <div className="mb-3 text-sm font-medium text-foreground">Comprobantes del expediente</div>
+      <div className="mb-3 text-sm font-medium text-foreground">Documentos del expediente</div>
       <div className="space-y-3 text-sm">
-        <AttachmentStatus label="Respaldo" url={order.support_document_url} />
-        <AttachmentStatus label="Evidencia" url={order.evidence_url} />
+        {showSupportUploader ? <AttachmentStatus label="Respaldo documental" url={order.support_document_url} /> : null}
+        <AttachmentStatus label={depositOrder ? 'Comprobante de deposito' : 'Evidencia'} url={order.evidence_url} />
         <AttachmentStatus label="Comprobante staff" url={order.staff_comprobante_url} />
       </div>
 
       {openUploads ? (
         <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <AttachmentUploader
-            accept={ACCEPTED_UPLOADS}
-            busy={busy === `${order.id}-support_document_url`}
-            disabled={disabled}
-            existingUrl={order.support_document_url}
-            label="Respaldo"
-            onFileChange={(file) =>
-              onFileChange((current) => ({
-                ...current,
-                [order.id]: {
-                  ...current[order.id],
-                  support_document_url: file,
-                },
-              }))
-            }
-            selectedFile={files[order.id]?.support_document_url}
-            onUpload={() => onUpload(order, 'support_document_url')}
-          />
+          {showSupportUploader ? (
+            <AttachmentUploader
+              accept={ACCEPTED_UPLOADS}
+              busy={busy === `${order.id}-support_document_url`}
+              disabled={disabled}
+              existingUrl={order.support_document_url}
+              label="Respaldo"
+              onFileChange={(file) =>
+                onFileChange((current) => ({
+                  ...current,
+                  [order.id]: {
+                    ...current[order.id],
+                    support_document_url: file,
+                  },
+                }))
+              }
+              selectedFile={files[order.id]?.support_document_url}
+              onUpload={() => onUpload(order, 'support_document_url')}
+            />
+          ) : null}
           <AttachmentUploader
             accept={ACCEPTED_UPLOADS}
             busy={busy === `${order.id}-evidence_url`}
             disabled={disabled}
             existingUrl={order.evidence_url}
-            label="Evidencia"
+            label={depositOrder ? 'Comprobante' : 'Evidencia'}
             onFileChange={(file) =>
               onFileChange((current) => ({
                 ...current,
@@ -624,9 +629,15 @@ function getMetadataDate(metadata: PaymentOrder['metadata'], key: 'quote_prepare
 function getNextActionMessage(order: PaymentOrder) {
   switch (order.status) {
     case 'created':
-      return 'Sube respaldo y evidencia para mover la orden a waiting_deposit.'
+      return isDepositOrder(order)
+        ? order.order_type === 'WORLD_TO_BO'
+          ? 'El expediente ya fue creado. Puedes dejar un respaldo documental y luego adjuntar el comprobante del deposito para mover la orden a waiting_deposit.'
+          : 'El expediente ya fue creado. Falta adjuntar el comprobante del fondeo para mover la orden a waiting_deposit.'
+        : 'Sube respaldo y evidencia para mover la orden a waiting_deposit.'
     case 'waiting_deposit':
-      return 'Staff debe validar el deposito para liberar la cotizacion final.'
+      return isDepositOrder(order)
+        ? 'Tu comprobante ya fue cargado. Staff debe validar el deposito para continuar con la conciliacion y la cotizacion final.'
+        : 'Staff debe validar el deposito para liberar la cotizacion final.'
     case 'deposit_received':
       return hasReadyQuote(order)
         ? 'Ya puedes aceptar la cotizacion final. Sin tu aprobacion la orden no avanza a processing.'
@@ -640,6 +651,10 @@ function getNextActionMessage(order: PaymentOrder) {
     case 'failed':
       return 'La orden fue cerrada como fallida. Revisa la razon registrada en metadata o auditoria.'
   }
+}
+
+function isDepositOrder(order: PaymentOrder) {
+  return order.order_type === 'WORLD_TO_BO' || order.order_type === 'US_TO_WALLET'
 }
 
 function humanizeActivity(action: string) {

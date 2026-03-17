@@ -408,7 +408,7 @@ function OrdersTable({ actor, onUpdated, orders }: { actor: StaffActor; onUpdate
     <Card>
       <CardHeader>
         <CardTitle>Payment orders</CardTitle>
-        <CardDescription>Staff valida deposito, publica cotizacion final y continua despues de la aceptacion del cliente.</CardDescription>
+        <CardDescription>Staff revisa respaldo y comprobante del cliente, valida el deposito y luego publica la cotizacion final.</CardDescription>
       </CardHeader>
       <CardContent>
         <Table>
@@ -447,7 +447,7 @@ function OrdersTable({ actor, onUpdated, orders }: { actor: StaffActor; onUpdate
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {order.support_document_url ? <Badge variant="outline">support</Badge> : null}
-                      {order.evidence_url ? <Badge variant="outline">evidence</Badge> : null}
+                      {order.evidence_url ? <Badge variant="outline">deposit-proof</Badge> : null}
                       {order.staff_comprobante_url ? <Badge variant="outline">staff</Badge> : null}
                       {!order.support_document_url && !order.evidence_url && !order.staff_comprobante_url ? <span className="text-xs text-muted-foreground">Sin archivos</span> : null}
                     </div>

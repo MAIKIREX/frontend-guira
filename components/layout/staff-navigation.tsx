@@ -11,7 +11,11 @@ const staffLinks = [
   { href: '/auditoria', label: 'Auditoria', icon: ScrollText },
 ]
 
-export function StaffNavigation() {
+export function StaffNavigation({
+  collapsed = false,
+}: {
+  collapsed?: boolean
+}) {
   const pathname = usePathname()
 
   return (
@@ -24,26 +28,39 @@ export function StaffNavigation() {
           <Link
             key={link.href}
             href={link.href}
+            title={link.label}
+            aria-label={link.label}
             className={cn(
-              'flex items-center gap-3 rounded-lg border px-3 py-2 text-sm transition-colors',
+              'flex rounded-lg border text-sm transition-colors',
+              collapsed ? 'justify-center px-2 py-2.5' : 'items-center gap-3 px-3 py-2',
               active
                 ? 'border-border bg-foreground text-background'
                 : 'border-transparent text-muted-foreground hover:border-border hover:bg-muted/40 hover:text-foreground'
             )}
           >
             <Icon className="size-4" />
-            {link.label}
+            {!collapsed ? link.label : null}
           </Link>
         )
       })}
 
-      <div className="rounded-xl border border-dashed border-border/70 p-3 text-xs text-muted-foreground">
-        <div className="mb-1 flex items-center gap-2 font-medium text-foreground">
-          <Blocks className="size-3.5" />
-          Modo lectura
+      {!collapsed ? (
+        <div className="rounded-xl border border-dashed border-border/70 p-3 text-xs text-muted-foreground">
+          <div className="mb-1 flex items-center gap-2 font-medium text-foreground">
+            <Blocks className="size-3.5" />
+            Modo lectura
+          </div>
+          Staff actions, cambios de estado y auditoria activa quedan para el siguiente hito.
         </div>
-        Staff actions, cambios de estado y auditoria activa quedan para el siguiente hito.
-      </div>
+      ) : (
+        <div
+          className="flex justify-center rounded-xl border border-dashed border-border/70 p-2 text-muted-foreground"
+          title="Modo lectura"
+          aria-label="Modo lectura"
+        >
+          <Blocks className="size-4" />
+        </div>
+      )}
     </nav>
   )
 }

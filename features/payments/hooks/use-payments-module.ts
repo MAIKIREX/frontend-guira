@@ -88,7 +88,11 @@ export function usePaymentsModule(userId?: string) {
     })
   }, [])
 
-  const createOrder = useCallback(async (input: CreatePaymentOrderInput, supportFile?: File | null) => {
+  const createOrder = useCallback(async (
+    input: CreatePaymentOrderInput,
+    supportFile?: File | null,
+    evidenceFile?: File | null
+  ) => {
     if (!userId) {
       throw new Error('Missing user id')
     }
@@ -97,6 +101,11 @@ export function usePaymentsModule(userId?: string) {
 
     if (supportFile) {
       const upload = await PaymentsService.updateOrderFile(order, 'support_document_url', supportFile, userId)
+      order = upload.order
+    }
+
+    if (evidenceFile) {
+      const upload = await PaymentsService.updateOrderFile(order, 'evidence_url', evidenceFile, userId)
       order = upload.order
     }
 

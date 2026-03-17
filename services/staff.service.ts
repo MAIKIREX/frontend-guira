@@ -158,7 +158,7 @@ export const StaffService = {
   },
 
   async advancePaymentOrderToDepositReceived(args: { actor: StaffActor; order: PaymentOrder; reason: string }) {
-    return updatePaymentOrderWithAuditAndNotification({ actor: args.actor, order: args.order, nextStatus: 'deposit_received', updates: { status: 'deposit_received' }, reason: args.reason, notificationMessage: 'Tu orden paso a deposit_received.' })
+    return updatePaymentOrderWithAuditAndNotification({ actor: args.actor, order: args.order, nextStatus: 'deposit_received', updates: { status: 'deposit_received' }, reason: args.reason, notificationMessage: 'Staff valido tu deposito y el expediente continua a conciliacion.' })
   },
 
   async preparePaymentOrderQuote(args: { actor: StaffActor; order: PaymentOrder; reason: string; exchangeRateApplied: number; amountConverted: number; feeTotal: number }) {

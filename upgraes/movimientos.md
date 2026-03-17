@@ -206,7 +206,6 @@ El formulario debe solicitar:
 Debe incluir:
 
 - `delivery_method`
-- `intended_amount`
 - `destination_address`
 - `stablecoin` si aplica
 - `crypto_destination.address`
