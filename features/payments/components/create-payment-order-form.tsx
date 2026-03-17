@@ -350,34 +350,37 @@ export function CreatePaymentOrderForm({
     if (!preferredMethod) return
 
     form.setValue('delivery_method', preferredMethod)
+  }, [currentRoute.supportedDeliveryMethods, form, receiveVariant, route, selectedSupplier, supplierAchDetails, supplierMethods, supplierSwiftDetails, uiMethodGroup])
 
-    if (preferredMethod === 'swift' && supplierSwiftDetails) {
+  useEffect(() => {
+    if (route === 'us_to_bolivia') return
+    if (route === 'us_to_wallet') return
+    if (!selectedSupplier) return
+
+    if (deliveryMethod === 'swift' && supplierSwiftDetails) {
       form.setValue('destination_address', selectedSupplier.address || supplierSwiftDetails.account_number || '')
       form.setValue('swift_bank_name', supplierSwiftDetails.bank_name || '')
       form.setValue('swift_code', supplierSwiftDetails.swift_code || '')
       form.setValue('swift_country', supplierSwiftDetails.bank_country || selectedSupplier.country || '')
       form.setValue('swift_iban', supplierSwiftDetails.iban || supplierSwiftDetails.account_number || '')
       form.setValue('swift_bank_address', supplierSwiftDetails.bank_address || selectedSupplier.address || '')
+      return
     }
 
-    if (preferredMethod === 'ach' && supplierAchDetails) {
+    if (deliveryMethod === 'ach' && supplierAchDetails) {
       form.setValue('destination_address', selectedSupplier.address || supplierAchDetails.account_number || '')
       form.setValue('ach_bank_name', supplierAchDetails.bank_name || '')
       form.setValue('ach_routing_number', supplierAchDetails.routing_number || '')
       form.setValue('ach_account_number', supplierAchDetails.account_number || '')
-      form.setValue('swift_bank_name', '')
-      form.setValue('swift_code', '')
-      form.setValue('swift_country', '')
-      form.setValue('swift_iban', '')
-      form.setValue('swift_bank_address', '')
+      return
     }
 
-    if (preferredMethod === 'crypto' && selectedSupplier.crypto_details?.address) {
+    if (deliveryMethod === 'crypto' && selectedSupplier.crypto_details?.address) {
       form.setValue('destination_address', selectedSupplier.crypto_details.address)
       form.setValue('crypto_address', selectedSupplier.crypto_details.address)
       form.setValue('crypto_network', selectedSupplier.crypto_details.network || 'Polygon')
     }
-  }, [currentRoute.supportedDeliveryMethods, form, receiveVariant, route, selectedSupplier, supplierAchDetails, supplierMethods, supplierSwiftDetails, uiMethodGroup])
+  }, [deliveryMethod, form, route, selectedSupplier, supplierAchDetails, supplierSwiftDetails])
 
   useEffect(() => {
     const estimate = estimateRouteValues({

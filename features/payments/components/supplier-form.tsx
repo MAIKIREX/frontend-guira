@@ -19,6 +19,7 @@ import {
   getSupplierAchDetails,
   getSupplierSwiftDetails,
   parseSupplierPaymentMethods,
+  serializeSupplierPaymentMethods,
 } from '@/features/payments/lib/supplier-methods'
 import type { Supplier } from '@/types/supplier'
 import type { SupplierUpsertInput } from '@/types/payment-order'
@@ -122,40 +123,54 @@ export function SupplierForm({
   }, [editingSupplier, form])
 
   async function submit(values: SupplierFormValues) {
+    const existingMethods = editingSupplier
+      ? parseSupplierPaymentMethods(editingSupplier.payment_method, editingSupplier)
+      : []
+    const mergedMethods = editingSupplier
+      ? Array.from(new Set([...existingMethods, values.payment_method]))
+      : [values.payment_method]
+    const existingAchDetails = editingSupplier?.bank_details?.ach
+    const existingSwiftDetails = editingSupplier?.bank_details?.swift
+    const existingCryptoDetails = editingSupplier?.crypto_details
+
+    const bankDetails = values.payment_method === 'ach' || values.payment_method === 'swift' || editingSupplier?.bank_details
+      ? {
+          ach: values.payment_method === 'ach'
+            ? {
+                bank_name: values.ach_bank_name ?? '',
+                routing_number: values.ach_routing_number ?? '',
+                account_number: values.ach_account_number ?? '',
+                bank_country: values.ach_bank_country ?? '',
+              }
+            : existingAchDetails,
+          swift: values.payment_method === 'swift'
+            ? {
+                bank_name: values.swift_bank_name ?? '',
+                swift_code: values.swift_code ?? '',
+                account_number: values.swift_account_number ?? '',
+                bank_country: values.swift_bank_country ?? '',
+                iban: values.swift_iban ?? '',
+                bank_address: values.swift_bank_address ?? '',
+              }
+            : existingSwiftDetails,
+        }
+      : undefined
+
+    const cryptoDetails = values.payment_method === 'crypto'
+      ? {
+          address: values.crypto_address ?? '',
+          network: values.crypto_network ?? 'Polygon',
+        }
+      : existingCryptoDetails
+
     await onSubmitSupplier(
       {
         user_id: userId,
         name: values.name,
         country: values.country,
-        payment_method: values.payment_method,
-        bank_details: values.payment_method === 'ach' || values.payment_method === 'swift'
-          ? {
-              ach: values.payment_method === 'ach'
-                ? {
-                    bank_name: values.ach_bank_name ?? '',
-                    routing_number: values.ach_routing_number ?? '',
-                    account_number: values.ach_account_number ?? '',
-                    bank_country: values.ach_bank_country ?? '',
-                  }
-                : undefined,
-              swift: values.payment_method === 'swift'
-                ? {
-                    bank_name: values.swift_bank_name ?? '',
-                    swift_code: values.swift_code ?? '',
-                    account_number: values.swift_account_number ?? '',
-                    bank_country: values.swift_bank_country ?? '',
-                    iban: values.swift_iban ?? '',
-                    bank_address: values.swift_bank_address ?? '',
-                  }
-                : undefined,
-            }
-          : undefined,
-        crypto_details: values.payment_method === 'crypto'
-          ? {
-              address: values.crypto_address ?? '',
-              network: values.crypto_network ?? 'Polygon',
-            }
-          : undefined,
+        payment_method: serializeSupplierPaymentMethods(mergedMethods),
+        bank_details: bankDetails,
+        crypto_details: cryptoDetails,
         address: values.address,
         phone: values.phone,
         email: values.email,
