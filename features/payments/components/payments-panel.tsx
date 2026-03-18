@@ -173,6 +173,7 @@ export function PaymentsPanel() {
             onCancelOrder={cancelOrder}
             onUploadOrderFile={uploadOrderFile}
             orders={snapshot.paymentOrders}
+            psavConfigs={snapshot.psavConfigs}
             suppliers={snapshot.suppliers}
           />
         </TabsContent>

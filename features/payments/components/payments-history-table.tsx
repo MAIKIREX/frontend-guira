@@ -9,11 +9,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { DepositInstructionCard } from '@/features/payments/components/deposit-instruction-card'
+import { buildDepositInstructions } from '@/features/payments/lib/deposit-instructions'
 import { generatePaymentPdf } from '@/features/payments/lib/generate-payment-pdf'
 import { ACCEPTED_UPLOADS } from '@/lib/file-validation'
 import type { ActivityLog } from '@/types/activity-log'
-import type { OrderFileField, PaymentOrder } from '@/types/payment-order'
+import type { OrderFileField, PaymentOrder, PsavConfigRow } from '@/types/payment-order'
 import type { Supplier } from '@/types/supplier'
+import type { SupportedPaymentRoute } from '@/features/payments/lib/payment-routes'
 
 const OPEN_ORDER_STATUSES = new Set(['created', 'waiting_deposit'])
 const FLOW_STAGES: Array<{ key: PaymentOrder['status']; label: string }> = [
@@ -28,6 +31,7 @@ const FLOW_STAGES: Array<{ key: PaymentOrder['status']; label: string }> = [
 interface PaymentsHistoryTableProps {
   orders: PaymentOrder[]
   suppliers: Supplier[]
+  psavConfigs: PsavConfigRow[]
   activityLogs: ActivityLog[]
   disabled?: boolean
   onUploadOrderFile: (orderId: string, field: OrderFileField, file: File) => Promise<unknown>
@@ -37,6 +41,7 @@ interface PaymentsHistoryTableProps {
 export function PaymentsHistoryTable({
   orders,
   suppliers,
+  psavConfigs,
   activityLogs,
   disabled,
   onUploadOrderFile,
@@ -188,6 +193,15 @@ export function PaymentsHistoryTable({
         const orderActivity = activityByOrderId.get(order.id) ?? []
         const quotePreparedAt = getMetadataDate(order.metadata, 'quote_prepared_at')
         const isExpanded = expandedOrders[order.id] ?? true
+        const route = resolveOrderRoute(order)
+        const depositInstructions = route
+          ? buildDepositInstructions({
+              route,
+              psavConfigs,
+              selectedSupplier: supplier ?? null,
+            })
+          : []
+        const showFundingInstructions = depositInstructions.length > 0 && OPEN_ORDER_STATUSES.has(order.status)
 
         return (
           <Card key={order.id} className="overflow-hidden border-border/70 bg-muted/10">
@@ -256,6 +270,22 @@ export function PaymentsHistoryTable({
                   <InfoBlock label="Monto origen" value={`${order.amount_origin} ${order.origin_currency}`} />
                   <InfoBlock label="Destino final" value={`${order.amount_converted} ${order.destination_currency}`} />
                 </div>
+
+                {showFundingInstructions ? (
+                  <div className="space-y-4 rounded-2xl border border-border/70 bg-background/85 p-4">
+                    <div>
+                      <div className="text-sm font-medium text-foreground">Cuenta para depositar</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Usa estos datos para fondear el expediente y luego adjunta el comprobante desde esta misma vista.
+                      </div>
+                    </div>
+                    <div className="grid gap-4 xl:grid-cols-2">
+                      {depositInstructions.map((instruction) => (
+                        <DepositInstructionCard key={`${order.id}-${instruction.id}`} instruction={instruction} />
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
 
                 <QuoteCard order={order} quotePreparedAt={quotePreparedAt} />
 
@@ -650,6 +680,38 @@ function readPreviousQuote(order: PaymentOrder, key: 'exchange_rate_applied' | '
   const previous = getPreviousQuote(order)
   if (!previous || previous[key] === undefined || previous[key] === null) return null
   return String(previous[key])
+}
+
+function resolveOrderRoute(order: PaymentOrder): SupportedPaymentRoute | null {
+  const metadataRoute =
+    order.metadata &&
+    typeof order.metadata === 'object' &&
+    'route' in order.metadata &&
+    typeof order.metadata.route === 'string'
+      ? order.metadata.route
+      : null
+
+  if (
+    metadataRoute === 'bolivia_to_exterior' ||
+    metadataRoute === 'us_to_bolivia' ||
+    metadataRoute === 'us_to_wallet' ||
+    metadataRoute === 'crypto_to_crypto'
+  ) {
+    return metadataRoute
+  }
+
+  switch (order.order_type) {
+    case 'BO_TO_WORLD':
+      return 'bolivia_to_exterior'
+    case 'WORLD_TO_BO':
+      return 'us_to_bolivia'
+    case 'US_TO_WALLET':
+      return 'us_to_wallet'
+    case 'CRYPTO_TO_CRYPTO':
+      return 'crypto_to_crypto'
+    default:
+      return null
+  }
 }
 
 

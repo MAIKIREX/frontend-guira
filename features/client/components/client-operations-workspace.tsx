@@ -208,6 +208,7 @@ export function ClientOperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
                     onCancelOrder={handleCancelOrder}
                     onUploadOrderFile={handleUploadOrderFile}
                     orders={payments.snapshot.paymentOrders}
+                    psavConfigs={payments.snapshot.psavConfigs}
                     suppliers={payments.snapshot.suppliers}
                   />
                 </TabsContent>
