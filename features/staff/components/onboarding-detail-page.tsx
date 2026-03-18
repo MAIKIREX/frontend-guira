@@ -150,22 +150,22 @@ function OnboardingDetailScene({
   const mergedDocuments = useMemo(() => mergeDocuments(documents, data, record.created_at), [documents, data, record.created_at])
 
   // Intent: staff/admin necesita revisar un expediente KYC completo sin perder contexto ni ocultar contenido en un modal.
-  // Palette/depth: piedra, papel y senales de verificacion con capas suaves para una lectura operativa rapida.
+  // Palette/depth: superficies oscuras, cian de enfoque y violeta de acento para una lectura operativa tipo terminal financiera.
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-[28px] border border-stone-200/80 bg-[linear-gradient(135deg,rgba(250,245,235,0.95),rgba(255,255,255,0.98))] shadow-[0_24px_80px_-48px_rgba(87,54,14,0.45)]">
-        <div className="grid gap-6 border-b border-stone-200/80 px-5 py-5 md:px-7 xl:grid-cols-[1.2fr_0.8fr]">
+      <section className="overflow-hidden rounded-[28px] border border-cyan-400/15 bg-[linear-gradient(135deg,rgba(11,16,32,0.96),rgba(18,26,43,0.98))] shadow-[0_24px_80px_-48px_rgba(0,0,0,0.7)]">
+        <div className="grid gap-6 border-b border-border/70 px-5 py-5 md:px-7 xl:grid-cols-[1.2fr_0.8fr]">
           <div className="space-y-4">
-            <Link className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-stone-500 transition-colors hover:text-stone-900" href="/admin">
+            <Link className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-cyan-300" href="/admin">
               <ArrowLeft className="size-4" />
               Volver a onboarding
             </Link>
             <div className="space-y-3">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-amber-700">Mesa de verificacion</div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-cyan-300">Mesa de verificacion</div>
               <div className="flex flex-wrap items-start gap-3">
                 <div>
-                  <h1 className="text-3xl font-semibold tracking-[-0.03em] text-stone-950">{summary.displayName}</h1>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-600">
+                  <h1 className="text-3xl font-semibold tracking-[-0.03em] text-foreground">{summary.displayName}</h1>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
                     Vista dedicada para revisar identidad, documentos y estado del proceso sin depender del modal anterior.
                   </p>
                 </div>
@@ -187,15 +187,15 @@ function OnboardingDetailScene({
             <SummaryCard icon={UserRound} label="Apellido" value={summary.lastName} />
             <SummaryCard icon={CalendarDays} label="Nacimiento" value={summary.birthDate} />
           </div>
-          <div className="rounded-2xl border border-stone-200/80 bg-white/85 p-4">
+          <div className="rounded-2xl border border-border/70 bg-card/90 p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="text-xs uppercase tracking-[0.18em] text-stone-500">Accion visible</div>
-                <div className="mt-1 text-sm text-stone-700">
+                <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Accion visible</div>
+                <div className="mt-1 text-sm text-muted-foreground">
                   Las decisiones siguen disponibles dentro del expediente para que la revision no pierda contexto.
                 </div>
               </div>
-              <ShieldCheck className="size-5 text-emerald-700" />
+              <ShieldCheck className="size-5 text-cyan-300" />
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               <OnboardingActions actor={actor} onUpdated={onUpdated} record={record} />
@@ -205,7 +205,7 @@ function OnboardingDetailScene({
       </section>
 
       <Tabs className="gap-5" defaultValue="personal">
-        <TabsList variant="line" className="w-full flex-wrap justify-start rounded-none border-b border-stone-200 bg-transparent p-0">
+        <TabsList variant="line" className="w-full flex-wrap justify-start rounded-none border-b border-border/70 bg-transparent p-0">
           <TabsTrigger className="rounded-none px-4 py-3" value="personal">Informacion personal</TabsTrigger>
           <TabsTrigger className="rounded-none px-4 py-3" value="documents">Documentos</TabsTrigger>
           <TabsTrigger className="rounded-none px-4 py-3" value="verification">Verificacion</TabsTrigger>
@@ -213,7 +213,7 @@ function OnboardingDetailScene({
 
         <TabsContent value="personal">
           <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-            <Card className="border-stone-200/80 bg-white/90">
+            <Card className="border-border/70 bg-card/95">
               <CardHeader>
                 <CardTitle>Informacion principal</CardTitle>
                 <CardDescription>Datos solo lectura recuperados desde la base y listos para escaneo rapido.</CardDescription>
@@ -225,7 +225,7 @@ function OnboardingDetailScene({
               </CardContent>
             </Card>
 
-            <Card className="border-stone-200/80 bg-stone-50/80">
+            <Card className="border-border/70 bg-muted/20">
               <CardHeader>
                 <CardTitle>Campos adicionales</CardTitle>
                 <CardDescription>Todos los demas campos de `onboarding.data` se muestran en modo lectura dentro de un layout de dos columnas.</CardDescription>
@@ -245,7 +245,7 @@ function OnboardingDetailScene({
 
         <TabsContent value="documents">
           <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-            <Card className="border-stone-200/80 bg-white/90">
+            <Card className="border-border/70 bg-card/95">
               <CardHeader>
                 <CardTitle>Documentos cargados</CardTitle>
                 <CardDescription>Cada bloque muestra tipo, numero de documento, fecha y vista previa cuando hay URL firmada.</CardDescription>
@@ -255,12 +255,12 @@ function OnboardingDetailScene({
                   <EmptyState message="No se encontraron documentos asociados a este expediente." />
                 ) : (
                   mergedDocuments.map((document, index) => (
-                    <div key={`${document.doc_type}-${document.storage_path}-${index}`} className="rounded-2xl border border-stone-200/80 bg-stone-50/70 p-4">
+                    <div key={`${document.doc_type}-${document.storage_path}-${index}`} className="rounded-2xl border border-border/70 bg-muted/15 p-4">
                       <div className="grid gap-4 xl:grid-cols-[1fr_260px]">
                         <div className="space-y-3">
                           <div className="flex flex-wrap items-center gap-2">
-                            <div className="text-sm font-medium text-stone-950">{formatDocumentLabel(document.doc_type)}</div>
-                            <Badge className="border-stone-200 bg-white text-stone-700" variant="outline">
+                            <div className="text-sm font-medium text-foreground">{formatDocumentLabel(document.doc_type)}</div>
+                            <Badge className="border-border/70 bg-background/70 text-muted-foreground" variant="outline">
                               {document.source === 'documents' ? 'tabla documents' : 'payload onboarding'}
                             </Badge>
                           </div>
@@ -270,8 +270,8 @@ function OnboardingDetailScene({
                             <MetaRow icon={CalendarDays} label="Fecha de carga" value={formatDate(document.created_at)} />
                             <MetaRow icon={Mail} label="Mime / origen" value={document.mime_type ?? (document.source === 'documents' ? 'Registrado en documents' : 'Detectado desde payload')} />
                           </div>
-                          <div className="rounded-2xl border border-stone-200/80 bg-white/80 p-3 text-xs text-stone-600">
-                            <div className="mb-1 uppercase tracking-[0.18em] text-stone-500">Ruta</div>
+                          <div className="rounded-2xl border border-border/70 bg-card/80 p-3 text-xs text-muted-foreground">
+                            <div className="mb-1 uppercase tracking-[0.18em] text-muted-foreground">Ruta</div>
                             <div className="break-all">{document.storage_path}</div>
                           </div>
                           <div className="flex flex-wrap gap-2">
@@ -287,7 +287,7 @@ function OnboardingDetailScene({
               </CardContent>
             </Card>
 
-            <Card className="border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,251,235,0.95),rgba(255,255,255,0.98))]">
+            <Card className="border-violet-400/20 bg-[linear-gradient(180deg,rgba(18,26,43,0.96),rgba(27,37,64,0.98))]">
               <CardHeader>
                 <CardTitle>Contexto de revision</CardTitle>
                 <CardDescription>La UI deja visibles las acciones administrativas, pero el backend actual sigue operando a nivel de onboarding.</CardDescription>
@@ -303,7 +303,7 @@ function OnboardingDetailScene({
 
         <TabsContent value="verification">
           <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
-            <Card className="border-stone-200/80 bg-white/90">
+            <Card className="border-border/70 bg-card/95">
               <CardHeader>
                 <CardTitle>Estado actual</CardTitle>
                 <CardDescription>Resumen del KYC/KYB con fechas y comentarios del revisor.</CardDescription>
@@ -317,10 +317,10 @@ function OnboardingDetailScene({
               </CardContent>
             </Card>
 
-            <Card className="border-stone-200/80 bg-stone-950 text-stone-50">
+            <Card className="border-violet-400/20 bg-[linear-gradient(180deg,rgba(16,22,39,0.98),rgba(26,18,52,0.98))] text-slate-50">
               <CardHeader>
                 <CardTitle>Lectura operativa</CardTitle>
-                <CardDescription className="text-stone-300">{getVerificationCopy(record.status)}</CardDescription>
+                <CardDescription className="text-slate-300">{getVerificationCopy(record.status)}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <ReviewNoteDark icon={ShieldCheck} title="Historial disponible" body="Los cambios de estado quedan en auditoria; esta vista se concentra en el expediente y la accion inmediata." />
@@ -348,12 +348,12 @@ function MetricCard({
   value: string
 }) {
   return (
-    <div className="rounded-2xl border border-stone-200/80 bg-white/88 p-4">
-      <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-stone-500">
+    <div className="rounded-2xl border border-border/70 bg-card/90 p-4">
+      <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
         <Icon className="size-4" />
         {label}
       </div>
-      <div className="mt-2 text-base font-medium text-stone-950">{value}</div>
+      <div className="mt-2 text-base font-medium text-foreground">{value}</div>
     </div>
   )
 }
@@ -368,21 +368,21 @@ function SummaryCard({
   value: string
 }) {
   return (
-    <div className="rounded-2xl border border-stone-200/80 bg-white/85 p-4">
-      <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-stone-500">
+    <div className="rounded-2xl border border-border/70 bg-card/90 p-4">
+      <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
         <Icon className="size-4" />
         {label}
       </div>
-      <div className="mt-2 text-lg font-medium text-stone-950">{value}</div>
+      <div className="mt-2 text-lg font-medium text-foreground">{value}</div>
     </div>
   )
 }
 
 function FieldCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-stone-200/80 bg-white/85 p-4">
-      <div className="text-[11px] uppercase tracking-[0.18em] text-stone-500">{label}</div>
-      <div className="mt-2 text-sm text-stone-900">{value}</div>
+    <div className="rounded-2xl border border-border/70 bg-card/90 p-4">
+      <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
+      <div className="mt-2 text-sm text-foreground">{value}</div>
     </div>
   )
 }
@@ -397,12 +397,12 @@ function MetaRow({
   value: string
 }) {
   return (
-    <div className="rounded-2xl border border-stone-200/80 bg-white/85 p-3">
-      <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-stone-500">
+    <div className="rounded-2xl border border-border/70 bg-card/90 p-3">
+      <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
         <Icon className="size-3.5" />
         {label}
       </div>
-      <div className="mt-2 text-sm text-stone-800">{value}</div>
+      <div className="mt-2 text-sm text-foreground">{value}</div>
     </div>
   )
 }
@@ -417,12 +417,12 @@ function ReviewNote({
   body: string
 }) {
   return (
-    <div className="rounded-2xl border border-stone-200/80 bg-white/85 p-4">
-      <div className="flex items-center gap-2 text-sm font-medium text-stone-900">
+    <div className="rounded-2xl border border-border/70 bg-card/90 p-4">
+      <div className="flex items-center gap-2 text-sm font-medium text-foreground">
         <Icon className="size-4" />
         {title}
       </div>
-      <div className="mt-2 text-sm leading-6 text-stone-600">{body}</div>
+      <div className="mt-2 text-sm leading-6 text-muted-foreground">{body}</div>
     </div>
   )
 }
@@ -437,12 +437,12 @@ function ReviewNoteDark({
   body: string
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+    <div className="rounded-2xl border border-violet-400/15 bg-white/5 p-4">
       <div className="flex items-center gap-2 text-sm font-medium">
         <Icon className="size-4" />
         {title}
       </div>
-      <div className="mt-2 text-sm leading-6 text-stone-300">{body}</div>
+      <div className="mt-2 text-sm leading-6 text-slate-300">{body}</div>
     </div>
   )
 }
@@ -450,7 +450,7 @@ function ReviewNoteDark({
 function DocumentPreview({ document }: { document: InlineDocument }) {
   if (!document.signed_url) {
     return (
-      <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-stone-300/80 bg-white/75 p-4 text-center text-sm text-stone-500">
+      <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/15 p-4 text-center text-sm text-muted-foreground">
         Sin vista previa disponible
       </div>
     )
@@ -462,18 +462,18 @@ function DocumentPreview({ document }: { document: InlineDocument }) {
 
   return (
     <div className="space-y-3">
-      <div className="overflow-hidden rounded-2xl border border-stone-200/80 bg-white">
+      <div className="overflow-hidden rounded-2xl border border-border/70 bg-card">
         {isImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img alt={formatDocumentLabel(document.doc_type)} className="h-[220px] w-full object-cover" src={document.signed_url} />
         ) : isPdf ? (
           <iframe className="h-[220px] w-full" src={document.signed_url} title={formatDocumentLabel(document.doc_type)} />
         ) : (
-          <div className="flex h-[220px] items-center justify-center text-sm text-stone-500">Vista previa no soportada</div>
+          <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">Vista previa no soportada</div>
         )}
       </div>
       <a
-        className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-stone-300 bg-white px-3 text-sm font-medium text-stone-900 transition-colors hover:bg-stone-100"
+        className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-cyan-400/25 bg-cyan-400/10 px-3 text-sm font-medium text-cyan-100 transition-colors hover:bg-cyan-400/16"
         href={document.signed_url}
         rel="noreferrer"
         target="_blank"
@@ -487,7 +487,7 @@ function DocumentPreview({ document }: { document: InlineDocument }) {
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-stone-300/80 bg-white/75 p-5 text-sm text-stone-500">
+    <div className="rounded-2xl border border-dashed border-border/70 bg-muted/15 p-5 text-sm text-muted-foreground">
       {message}
     </div>
   )
@@ -499,10 +499,10 @@ function StatusBadge({ value }: { value: string }) {
 }
 
 function getStatusClasses(value: string) {
-  if (value === 'verified') return 'border-emerald-200 bg-emerald-50 text-emerald-800'
-  if (value === 'rejected') return 'border-red-200 bg-red-50 text-red-700'
-  if (value === 'needs_changes') return 'border-amber-200 bg-amber-50 text-amber-800'
-  return 'border-stone-200 bg-white text-stone-700'
+  if (value === 'verified') return 'border-emerald-400/35 bg-emerald-400/10 text-emerald-100'
+  if (value === 'rejected') return 'border-red-400/35 bg-red-500/10 text-red-100'
+  if (value === 'needs_changes') return 'border-amber-400/35 bg-amber-400/10 text-amber-100'
+  return 'border-border/70 bg-card/85 text-muted-foreground'
 }
 
 function buildSummary(record: StaffOnboardingRecord) {

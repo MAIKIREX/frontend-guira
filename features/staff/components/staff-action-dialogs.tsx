@@ -73,7 +73,7 @@ export function OnboardingDetailDialog({ actor, record, onUpdated }: { actor: St
               <div><span className="text-muted-foreground">Nombre:</span> {record.profiles?.full_name ?? 'Sin nombre'}</div>
               <div><span className="text-muted-foreground">Email:</span> {record.profiles?.email ?? 'Sin email'}</div>
               <div><span className="text-muted-foreground">Tipo:</span> <span className="uppercase">{record.type}</span></div>
-              <div><span className="text-muted-foreground">Estado Actual:</span> <span className={"font-semibold lowercase px-2 py-0.5 rounded-full " + (record.status === 'verified' ? 'bg-green-100 text-green-800' : record.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')}>{record.status}</span></div>
+          <div><span className="text-muted-foreground">Estado Actual:</span> <span className={"font-semibold lowercase px-2 py-0.5 rounded-full " + (record.status === 'verified' ? 'bg-emerald-400/15 text-emerald-100' : record.status === 'rejected' ? 'bg-red-500/15 text-red-100' : 'bg-amber-400/15 text-amber-100')}>{record.status}</span></div>
             </div>
             
             <div className="mt-3">
@@ -234,10 +234,10 @@ export function OrderActions({ actor, onUpdated, order }: { actor: StaffActor; o
 }
 
 function getPaymentStatusColor(status: string) {
-  if (status === 'created' || status === 'waiting_deposit' || status === 'requires_quote_approval') return 'bg-yellow-100 text-yellow-800'
-  if (status === 'deposit_received' || status === 'processing' || status === 'sent') return 'bg-blue-100 text-blue-800'
-  if (status === 'completed') return 'bg-green-100 text-green-800'
-  return 'bg-red-100 text-red-800'
+  if (status === 'created' || status === 'waiting_deposit' || status === 'requires_quote_approval') return 'bg-amber-400/15 text-amber-100'
+  if (status === 'deposit_received' || status === 'processing' || status === 'sent') return 'bg-cyan-400/15 text-cyan-100'
+  if (status === 'completed') return 'bg-emerald-400/15 text-emerald-100'
+  return 'bg-red-500/15 text-red-100'
 }
 
 export function OrderDetailDialog({ actor, onUpdated, order }: { actor: StaffActor; onUpdated: (order: PaymentOrder) => Promise<void> | void; order: PaymentOrder }) {
@@ -271,7 +271,7 @@ export function OrderDetailDialog({ actor, onUpdated, order }: { actor: StaffAct
               {order.amount_converted > 0 && (
                 <div>
                   <span className="text-muted-foreground block text-xs">Monto Convertido</span>
-                  <span className="font-medium text-lg text-emerald-600">{order.amount_converted} {order.destination_currency}</span>
+                  <span className="font-medium text-lg text-emerald-400">{order.amount_converted} {order.destination_currency}</span>
                 </div>
               )}
             </div>
@@ -299,21 +299,21 @@ export function OrderDetailDialog({ actor, onUpdated, order }: { actor: StaffAct
             <h4 className="font-semibold uppercase tracking-wider text-muted-foreground border-b pb-1 text-xs">Respaldo y comprobantes</h4>
             <div className="grid gap-2">
               {order.evidence_url ? (
-                <a href={order.evidence_url} target="_blank" rel="noreferrer" className="flex items-center text-blue-600 hover:underline">
+                <a href={order.evidence_url} target="_blank" rel="noreferrer" className="flex items-center text-cyan-300 hover:underline">
                   Ver Comprobante de Deposito (Cliente)
                 </a>
               ) : (
                 <span className="text-muted-foreground text-xs">Sin comprobante de deposito.</span>
               )}
               {order.support_document_url ? (
-                <a href={order.support_document_url} target="_blank" rel="noreferrer" className="flex items-center text-blue-600 hover:underline">
+                <a href={order.support_document_url} target="_blank" rel="noreferrer" className="flex items-center text-cyan-300 hover:underline">
                   Ver Documento de Respaldo
                 </a>
               ) : (
                 <span className="text-muted-foreground text-xs">Sin respaldo documental.</span>
               )}
               {order.staff_comprobante_url ? (
-                <a href={order.staff_comprobante_url} target="_blank" rel="noreferrer" className="flex items-center text-green-600 hover:underline">
+                <a href={order.staff_comprobante_url} target="_blank" rel="noreferrer" className="flex items-center text-emerald-400 hover:underline">
                   Comprobante Final (Staff)
                 </a>
               ) : null}

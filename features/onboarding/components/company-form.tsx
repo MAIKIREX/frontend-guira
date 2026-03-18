@@ -273,7 +273,7 @@ export function CompanyForm({ status, userId, onStatusChange }: { status: string
                 <Input type="file" accept="image/*,.pdf" onChange={(e) => {
                   if (e.target.files && e.target.files[0]) handleDocUpload('company_cert', e.target.files[0])
                 }} />
-                {form.getValues('company_cert') && <p className="text-xs text-green-600 mt-2">Archivo cargado</p>}
+{form.getValues('company_cert') && <p className="mt-2 text-xs text-emerald-400">Archivo cargado</p>}
               </div>
 
               <div className="border p-4 rounded bg-muted/20">
@@ -281,7 +281,7 @@ export function CompanyForm({ status, userId, onStatusChange }: { status: string
                 <Input type="file" accept="image/*,.pdf" onChange={(e) => {
                   if (e.target.files && e.target.files[0]) handleDocUpload('legal_rep_id', e.target.files[0])
                 }} />
-                {form.getValues('legal_rep_id') && <p className="text-xs text-green-600 mt-2">Archivo cargado</p>}
+{form.getValues('legal_rep_id') && <p className="mt-2 text-xs text-emerald-400">Archivo cargado</p>}
               </div>
 
               <div className="border p-4 rounded bg-muted/20">
@@ -289,7 +289,7 @@ export function CompanyForm({ status, userId, onStatusChange }: { status: string
                 <Input type="file" accept="image/*,.pdf" onChange={(e) => {
                   if (e.target.files && e.target.files[0]) handleDocUpload('proof_of_address', e.target.files[0])
                 }} />
-                {form.getValues('proof_of_address') && <p className="text-xs text-green-600 mt-2">Archivo cargado</p>}
+{form.getValues('proof_of_address') && <p className="mt-2 text-xs text-emerald-400">Archivo cargado</p>}
               </div>
             </div>
 
@@ -334,7 +334,7 @@ export function CompanyForm({ status, userId, onStatusChange }: { status: string
                     <Input type="file" accept="image/*,.pdf" onChange={(e) => {
                       if (e.target.files && e.target.files[0]) handleUBODocUpload(index, 'id_front', e.target.files[0])
                     }} />
-                    {form.getValues(`ubos.${index}.id_front`) && <p className="text-xs text-green-600 mt-2">Cargado</p>}
+{form.getValues(`ubos.${index}.id_front`) && <p className="mt-2 text-xs text-emerald-400">Cargado</p>}
                   </div>
                 </div>
               </div>

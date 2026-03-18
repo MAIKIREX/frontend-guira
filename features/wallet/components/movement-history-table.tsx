@@ -56,7 +56,7 @@ export function MovementHistoryTable({
               <TableCell>
                 <Badge variant="outline">{movement.status}</Badge>
               </TableCell>
-              <TableCell className={movement.direction === 'in' ? 'text-emerald-600' : ''}>
+              <TableCell className={movement.direction === 'in' ? 'text-emerald-400' : ''}>
                 {movement.direction === 'in' ? '+' : '-'}
                 {formatMoney(movement.amount, movement.currency)}
               </TableCell>

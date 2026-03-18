@@ -210,11 +210,11 @@ export function PaymentsPanel() {
 function MetricCard({ icon: Icon, label, value, tone }: { icon: typeof WalletCards; label: string; value: string; tone: 'neutral' | 'warning' | 'accent' | 'success' }) {
   const toneClass =
     tone === 'warning'
-      ? 'border-amber-300/60 bg-amber-50 dark:bg-amber-950/20'
+      ? 'border-amber-400/35 bg-amber-400/10'
       : tone === 'accent'
-        ? 'border-sky-300/60 bg-sky-50 dark:bg-sky-950/20'
+        ? 'border-cyan-400/35 bg-cyan-400/10'
         : tone === 'success'
-          ? 'border-emerald-300/60 bg-emerald-50 dark:bg-emerald-950/20'
+          ? 'border-emerald-400/35 bg-emerald-400/10'
           : 'border-border/70 bg-background/80'
 
   return (

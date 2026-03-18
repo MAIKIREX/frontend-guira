@@ -28,7 +28,7 @@ export function StaffSupportList() {
     switch(status) {
       case 'open': return <Badge variant="default">Abierto</Badge>
       case 'in_progress': return <Badge variant="secondary">En Progreso</Badge>
-      case 'resolved': return <Badge variant="outline" className="text-green-600 border-green-600">Resuelto</Badge>
+case 'resolved': return <Badge variant="outline" className="border-emerald-400/40 text-emerald-300">Resuelto</Badge>
       case 'closed': return <Badge variant="outline">Cerrado</Badge>
       default: return null
     }

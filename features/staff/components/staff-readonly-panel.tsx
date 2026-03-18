@@ -667,7 +667,7 @@ function ConfigPanel({
       <Card className="border-border/60 bg-background/95 shadow-sm overflow-hidden">
         <CardHeader className="border-b border-border/40 pb-6">
           <div className="flex items-center gap-3">
-            <div className="size-10 rounded-xl bg-sky-500/10 flex items-center justify-center text-sky-600">
+            <div className="size-10 rounded-xl bg-cyan-400/10 flex items-center justify-center text-cyan-300">
               <ShieldCheck className="size-5" />
             </div>
             <div className="space-y-1">
@@ -702,7 +702,7 @@ function ConfigPanel({
                   return (
                     <TableRow key={String(record.id ?? key)} className="group transition-colors hover:bg-muted/30">
                       <TableCell className="py-4 pl-6">
-                        <div className="font-mono text-[13px] font-bold text-sky-600/90 tracking-tight">{key}</div>
+                        <div className="font-mono text-[13px] font-bold text-cyan-300 tracking-tight">{key}</div>
                       </TableCell>
                       <TableCell className="py-4 max-w-[200px]">
                         <div className="text-[12px] font-medium text-muted-foreground truncate" title={value}>
@@ -770,7 +770,7 @@ function PsavPanel({ actor, isPrivileged, onChangeRecord, records }: { actor: St
                 <TableRow key={record.id} className="group transition-colors hover:bg-muted/30">
                   <TableCell className="py-4 pl-6">
                     {record.qr_url ? (
-                      <div className="relative size-10 overflow-hidden rounded-lg border border-border/80 bg-white p-1 transition-transform group-hover:scale-110 shadow-sm">
+                      <div className="relative size-10 overflow-hidden rounded-lg border border-border/80 bg-card p-1 transition-transform group-hover:scale-110 shadow-sm">
                         <img 
                           src={record.qr_url} 
                           alt="QR" 
@@ -799,7 +799,7 @@ function PsavPanel({ actor, isPrivileged, onChangeRecord, records }: { actor: St
                   <TableCell className="py-4">
                     <Badge 
                       variant={record.is_active ? "default" : "outline"}
-                      className={record.is_active ? "bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/20 border-emerald-500/20 shadow-none" : "text-muted-foreground border-border/60"}
+                      className={record.is_active ? "bg-emerald-400/15 text-emerald-200 hover:bg-emerald-400/20 border-emerald-400/20 shadow-none" : "text-muted-foreground border-border/60"}
                     >
                       {record.is_active ? "Activo" : "Inactivo"}
                     </Badge>

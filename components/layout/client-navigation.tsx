@@ -43,11 +43,11 @@ export function ClientNavigation({
               'group flex rounded-2xl border text-sm transition-colors',
               collapsed ? 'justify-center px-2 py-3' : 'items-center gap-3 px-3 py-3',
               active
-                ? 'border-sky-300/70 bg-sky-50 text-foreground dark:border-sky-900/70 dark:bg-sky-950/30'
+                ? 'border-cyan-400/35 bg-cyan-400/10 text-foreground'
                 : 'border-transparent text-muted-foreground hover:border-border/70 hover:bg-muted/30 hover:text-foreground'
             )}
           >
-            <span className={cn('rounded-xl border border-border/60 bg-background/80 p-2 text-muted-foreground', active && 'border-sky-300/60 bg-white text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-300')}>
+            <span className={cn('rounded-xl border border-border/60 bg-background/80 p-2 text-muted-foreground', active && 'border-cyan-400/35 bg-cyan-400/12 text-cyan-300')}>
               <Icon className="size-4" />
             </span>
             {!collapsed ? <span className="font-medium">{link.label}</span> : null}

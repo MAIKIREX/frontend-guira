@@ -331,7 +331,7 @@ function StatusRail({ order }: { order: PaymentOrder }) {
           const reached = hasReachedStage(order.status, stage.key)
           const current = order.status === stage.key
           return (
-            <div key={stage.key} className={`rounded-xl border px-3 py-3 text-sm ${current ? 'border-sky-400/70 bg-sky-50 dark:bg-sky-950/30' : reached ? 'border-emerald-400/40 bg-emerald-50 dark:bg-emerald-950/20' : 'border-border/60 bg-muted/20'}`}>
+            <div key={stage.key} className={`rounded-xl border px-3 py-3 text-sm ${current ? 'border-cyan-400/45 bg-cyan-400/12' : reached ? 'border-emerald-400/30 bg-emerald-400/10' : 'border-border/60 bg-muted/20'}`}>
               <div className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">{String(index + 1).padStart(2, '0')}</div>
               <div className="mt-1 font-medium text-foreground">{stage.label}</div>
             </div>
@@ -588,7 +588,7 @@ function AttachmentUploader({
 
 function InfoBlock({ label, value, highlight, subtitle }: { label: string; value: string; highlight?: boolean; subtitle?: string | null }) {
   return (
-    <div className={`rounded-xl border px-3 py-3 ${highlight ? 'border-sky-400/70 bg-sky-50' : 'border-border/60 bg-muted/20'}`}>
+    <div className={`rounded-xl border px-3 py-3 ${highlight ? 'border-cyan-400/45 bg-cyan-400/12' : 'border-border/60 bg-muted/20'}`}>
       <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
       <div className="mt-1 text-sm font-medium text-foreground">{value}</div>
       {subtitle ? <div className="mt-1 text-xs text-muted-foreground">Antes: {subtitle}</div> : null}

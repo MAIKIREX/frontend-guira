@@ -170,7 +170,7 @@ export function UserDetailDialog({ actor, onUpdated, user }: { actor: StaffActor
             <div><span className="text-muted-foreground block text-xs">Nombre:</span> <span className="font-medium">{user.full_name || 'Sin nombre'}</span></div>
             <div><span className="text-muted-foreground block text-xs">Email:</span> <span className="font-medium">{user.email}</span></div>
             <div><span className="text-muted-foreground block text-xs">Rol:</span> <Badge variant="outline">{user.role}</Badge></div>
-            <div><span className="text-muted-foreground block text-xs">Archivado:</span> <span className={"font-semibold " + (user.is_archived ? "text-yellow-600" : "text-green-600")}>{user.is_archived ? 'Sí' : 'No'}</span></div>
+            <div><span className="text-muted-foreground block text-xs">Archivado:</span> <span className={"font-semibold " + (user.is_archived ? "text-amber-300" : "text-emerald-400")}>{user.is_archived ? 'Sí' : 'No'}</span></div>
           </div>
           
           <div className="text-xs text-muted-foreground mt-4">
@@ -413,7 +413,7 @@ export function FeeConfigDialog({ actor, onUpdated, record }: { actor: StaffActo
               )} />
 
               <div className="flex flex-col gap-3">
-                <Button disabled={form.formState.isSubmitting} type="submit" className="w-full font-bold bg-amber-600 text-white hover:bg-amber-700 h-10 rounded-full shadow-lg shadow-amber-600/10 transition-all flex items-center justify-center gap-2">
+                <Button disabled={form.formState.isSubmitting} type="submit" className="w-full font-bold bg-amber-500 text-slate-950 hover:bg-amber-400 h-10 rounded-full shadow-lg shadow-amber-500/10 transition-all flex items-center justify-center gap-2">
                   {form.formState.isSubmitting ? <><div className="size-3 border-2 border-white/30 border-t-white animate-spin rounded-full" /> Procesando...</> : 'Actualizar Parámetros'}
                 </Button>
                 <div className="text-[10px] text-center text-muted-foreground italic">
@@ -451,22 +451,22 @@ export function AppSettingDialog({ actor, onUpdated, record }: { actor: StaffAct
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="sm" variant="ghost" className="h-8 px-2 hover:bg-sky-500/10 hover:text-sky-600 font-bold text-[10px] uppercase tracking-wider transition-all" />}>
+      <DialogTrigger render={<Button size="sm" variant="ghost" className="h-8 px-2 hover:bg-cyan-400/10 hover:text-cyan-300 font-bold text-[10px] uppercase tracking-wider transition-all" />}>
         Configurar
       </DialogTrigger>
       <DialogContent className="sm:max-w-[550px] gap-0 p-0 overflow-hidden border-border/40 shadow-2xl">
-        <div className="bg-sky-500/5 border-b border-sky-500/10 p-6 flex items-center gap-4">
-          <div className="size-12 rounded-2xl bg-sky-500/10 flex items-center justify-center text-sky-600 shadow-sm">
+        <div className="bg-cyan-400/5 border-b border-cyan-400/10 p-6 flex items-center gap-4">
+          <div className="size-12 rounded-2xl bg-cyan-400/10 flex items-center justify-center text-cyan-300 shadow-sm">
             <ShieldCheck className="size-6" />
           </div>
           <div className="space-y-0.5">
             <DialogTitle className="text-lg font-bold">Variable de Entorno</DialogTitle>
-            <DialogDescription className="text-xs text-sky-600/70 font-mono font-bold uppercase">
+            <DialogDescription className="text-xs text-cyan-300/70 font-mono font-bold uppercase">
               {String(record.key ?? record.name ?? 'CONFIG_VAR')}
             </DialogDescription>
           </div>
           <div className="ml-auto">
-            <Badge variant="outline" className="bg-sky-500/5 text-[10px] border-sky-500/20 text-sky-600 font-bold uppercase tracking-tighter px-2 py-0">
+            <Badge variant="outline" className="bg-cyan-400/5 text-[10px] border-cyan-400/20 text-cyan-300 font-bold uppercase tracking-tighter px-2 py-0">
               Type: {valueKind}
             </Badge>
           </div>
@@ -483,7 +483,7 @@ export function AppSettingDialog({ actor, onUpdated, record }: { actor: StaffAct
                   </div>
                   <FormControl>
                     <div className="relative group/editor">
-                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-sky-500/20 group-focus-within/editor:bg-sky-500 transition-colors rounded-l-md" />
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-cyan-400/20 group-focus-within/editor:bg-cyan-400 transition-colors rounded-l-md" />
                       <Textarea 
                         {...field} 
                         className="min-h-[140px] font-mono text-[13px] bg-muted/20 border-border/60 focus:bg-background transition-all resize-none pl-4 leading-relaxed" 
@@ -492,7 +492,7 @@ export function AppSettingDialog({ actor, onUpdated, record }: { actor: StaffAct
                   </FormControl>
                   <div className="bg-muted/30 rounded-lg p-3 border border-border/40">
                     <p className="text-[11px] text-muted-foreground leading-relaxed flex items-center gap-2">
-                      <Bell className="size-3 text-sky-500/60" />
+                      <Bell className="size-3 text-cyan-300/60" />
                       <span>{getAppSettingHelpText(valueKind)}</span>
                     </p>
                   </div>
@@ -511,7 +511,7 @@ export function AppSettingDialog({ actor, onUpdated, record }: { actor: StaffAct
               )} />
 
               <div className="pt-2">
-                <Button disabled={form.formState.isSubmitting} type="submit" className="w-full font-bold bg-sky-600 text-white hover:bg-sky-700 h-10 rounded-full shadow-lg shadow-sky-600/10 transition-all flex items-center justify-center gap-2">
+                <Button disabled={form.formState.isSubmitting} type="submit" className="w-full font-bold bg-cyan-400 text-slate-950 hover:bg-cyan-300 h-10 rounded-full shadow-lg shadow-cyan-400/10 transition-all flex items-center justify-center gap-2">
                   {form.formState.isSubmitting ? <><div className="size-3 border-2 border-white/30 border-t-white animate-spin rounded-full" /> Sincronizando...</> : 'Guardar Cambios Críticos'}
                 </Button>
               </div>
@@ -666,7 +666,7 @@ function PsavUpsertDialog({ actor, label, onUpdated, record }: { actor: StaffAct
                       <p className="text-[12px] text-muted-foreground">Determina si los usuarios ven esta opción.</p>
                     </div>
                     <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} className="data-[state=checked]:bg-emerald-500" />
+                      <Switch checked={field.value} onCheckedChange={field.onChange} className="data-[state=checked]:bg-emerald-400" />
                     </FormControl>
                   </FormItem>
                 )} />
@@ -692,8 +692,8 @@ function PsavUpsertDialog({ actor, label, onUpdated, record }: { actor: StaffAct
           <div className="bg-muted/40 border-l border-border/40 p-6 flex flex-col items-center space-y-6">
             <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground w-full text-center">Previsualización</div>
             
-            <div className="w-full aspect-square rounded-2xl bg-white shadow-xl shadow-black/5 border border-border/50 flex flex-col items-center justify-center p-6 space-y-4 relative overflow-hidden group">
-              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-500/50 via-sky-500/50 to-emerald-500/50" />
+            <div className="w-full aspect-square rounded-2xl bg-card shadow-xl shadow-black/10 border border-border/50 flex flex-col items-center justify-center p-6 space-y-4 relative overflow-hidden group">
+              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-400/50 via-cyan-400/50 to-violet-400/50" />
               
               {previewUrl ? (
                 <img 
@@ -728,7 +728,7 @@ function PsavUpsertDialog({ actor, label, onUpdated, record }: { actor: StaffAct
 
             <div className="flex-1" />
             
-            <div className="w-full p-3 rounded-xl bg-orange-500/5 border border-orange-500/10 text-[11px] text-orange-600/80 italic leading-relaxed text-center">
+            <div className="w-full p-3 rounded-xl bg-amber-400/5 border border-amber-400/10 text-[11px] text-amber-200/80 italic leading-relaxed text-center">
               Asegúrate de que el QR sea legible y los datos bancarios exactos.
             </div>
           </div>
@@ -779,7 +779,7 @@ function PsavDeleteDialog({ actor, onUpdated, record }: { actor: StaffActor; onU
           <DialogHeader className="space-y-2">
             <DialogTitle className="text-xl font-bold tracking-tight text-destructive">¿Eliminar este canal?</DialogTitle>
             <DialogDescription className="text-sm">
-              Esta acción es irreversible. El canal <span className="font-semibold text-foreground">"{record.name}"</span> dejará de estar disponible para todos los usuarios.
+              Esta acción es irreversible. El canal <span className="font-semibold text-foreground">&quot;{record.name}&quot;</span> dejará de estar disponible para todos los usuarios.
             </DialogDescription>
           </DialogHeader>
 

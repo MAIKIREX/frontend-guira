@@ -21,10 +21,10 @@ export function DepositInstructionCard({ instruction }: { instruction: DepositIn
   if (instruction.kind === 'note') {
     const accentClass =
       instruction.accent === 'amber'
-        ? 'border-amber-300/60 bg-amber-50'
+        ? 'border-amber-400/35 bg-amber-400/10'
         : instruction.accent === 'emerald'
-          ? 'border-emerald-300/60 bg-emerald-50'
-          : 'border-sky-300/60 bg-sky-50'
+          ? 'border-emerald-400/35 bg-emerald-400/10'
+          : 'border-cyan-400/35 bg-cyan-400/10'
 
     return (
       <div className={`rounded-2xl border p-4 ${accentClass}`}>
@@ -62,16 +62,16 @@ export function DepositInstructionCard({ instruction }: { instruction: DepositIn
             <div className="relative flex h-full flex-col">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <div className="text-[11px] uppercase tracking-[0.28em] text-sky-100/75">{getInstructionEyebrow(instruction)}</div>
+                  <div className="text-[11px] uppercase tracking-[0.28em] text-cyan-100/75">{getInstructionEyebrow(instruction)}</div>
                   <div className="mt-2 text-lg font-semibold tracking-[0.02em]">{instruction.title}</div>
                 </div>
-                <div className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-sky-50/80">
+                <div className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-cyan-50/80">
                   {getInstructionBadge(instruction)}
                 </div>
               </div>
 
               <div className="mt-8">
-                <div className="text-[11px] uppercase tracking-[0.24em] text-sky-100/65">{getInstructionPrimaryLabel(instruction)}</div>
+                <div className="text-[11px] uppercase tracking-[0.24em] text-cyan-100/65">{getInstructionPrimaryLabel(instruction)}</div>
                 <div className="mt-2 break-all font-mono text-2xl tracking-[0.14em] text-white">
                   {getInstructionPrimaryValue(instruction)}
                 </div>
@@ -82,8 +82,8 @@ export function DepositInstructionCard({ instruction }: { instruction: DepositIn
                   <div className="grid gap-4 sm:grid-cols-2">
                     {frontRows.map((row) => (
                       <div key={row.label}>
-                        <div className="text-[11px] uppercase tracking-[0.22em] text-sky-100/65">{row.label}</div>
-                        <div className="mt-2 text-sm font-medium text-sky-50">{row.value}</div>
+                        <div className="text-[11px] uppercase tracking-[0.22em] text-cyan-100/65">{row.label}</div>
+                        <div className="mt-2 text-sm font-medium text-cyan-50">{row.value}</div>
                       </div>
                     ))}
                   </div>
@@ -114,7 +114,7 @@ export function DepositInstructionCard({ instruction }: { instruction: DepositIn
                             Escanea este codigo para completar el deposito del expediente.
                           </DialogDescription>
                         </DialogHeader>
-                        <div className="mx-auto w-full max-w-[360px] overflow-hidden rounded-[28px] border border-border/70 bg-white p-4 shadow-sm">
+                        <div className="mx-auto w-full max-w-[360px] overflow-hidden rounded-[28px] border border-border/70 bg-slate-950 p-4 shadow-sm">
                           <Image
                             src={instruction.qrUrl}
                             alt={`QR ampliado ${instruction.title}`}
@@ -130,20 +130,20 @@ export function DepositInstructionCard({ instruction }: { instruction: DepositIn
                 </div>
               ) : null}
 
-              <div className="mt-auto pt-5 text-xs text-sky-100/72">
+              <div className="mt-auto pt-5 text-xs text-cyan-100/72">
                 {getInstructionFooter(instruction)}
               </div>
             </div>
           </div>
 
           <div
-            className="absolute inset-0 overflow-hidden rounded-[28px] border border-sky-200/60 bg-[linear-gradient(150deg,#071423_0%,#0d2238_55%,#13385d_100%)] p-6 text-white shadow-[0_24px_60px_-28px_rgba(8,25,49,0.75)]"
+            className="absolute inset-0 overflow-hidden rounded-[28px] border border-violet-400/30 bg-[linear-gradient(150deg,#0b1020_0%,#151c35_45%,#26104c_100%)] p-6 text-white shadow-[0_24px_60px_-28px_rgba(8,25,49,0.75)]"
             style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
           >
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.14),transparent_40%),linear-gradient(135deg,transparent_0%,rgba(255,255,255,0.06)_48%,transparent_100%)]" />
             <div className="relative flex h-full flex-col justify-between">
               <div className="flex items-center justify-between">
-                <div className="text-[11px] uppercase tracking-[0.3em] text-sky-100/70">Guira</div>
+                <div className="text-[11px] uppercase tracking-[0.3em] text-violet-100/70">Guira</div>
                 <div className="h-9 w-14 rounded-md bg-white/10" />
               </div>
 
@@ -162,7 +162,7 @@ export function DepositInstructionCard({ instruction }: { instruction: DepositIn
 
               <div className="space-y-3">
                 <div className="h-10 rounded-full bg-black/30" />
-                <div className="text-center text-xs text-sky-100/72">
+                <div className="text-center text-xs text-violet-100/72">
                   Medio de fondeo validado por Guira para este expediente.
                 </div>
               </div>
@@ -191,10 +191,10 @@ function getInstructionFrontClass(instruction: DepositInstruction) {
     'absolute inset-0 overflow-hidden rounded-[28px] border p-5 text-white shadow-[0_24px_60px_-28px_rgba(8,25,49,0.75)]'
 
   if (instruction.kind === 'wallet') {
-    return `${baseClass} border-emerald-200/60 bg-[linear-gradient(145deg,#08271f_0%,#0d4a39_48%,#0a3227_100%)]`
+    return `${baseClass} border-emerald-400/30 bg-[linear-gradient(145deg,#081a18_0%,#0f3f39_48%,#0b2c27_100%)]`
   }
 
-  return `${baseClass} border-sky-200/60 bg-[linear-gradient(145deg,#0b1f33_0%,#113459_45%,#0e2742_100%)]`
+  return `${baseClass} border-cyan-400/30 bg-[linear-gradient(145deg,#0b1020_0%,#0c2740_45%,#12345b_100%)]`
 }
 
 function getInstructionEyebrow(instruction: DepositInstruction) {

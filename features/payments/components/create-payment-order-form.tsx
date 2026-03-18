@@ -963,7 +963,7 @@ export function CreatePaymentOrderForm({
                     ))}
                   </div>
 
-                  <div className="rounded-2xl border border-emerald-300/60 bg-emerald-50 p-4 text-sm text-emerald-950">
+                  <div className="rounded-2xl border border-emerald-400/35 bg-emerald-400/12 p-4 text-sm text-emerald-100">
                     El expediente ya fue creado con estado `created`. Desde aqui puedes dejar el comprobante final o subirlo despues desde Seguimiento.
                   </div>
 
@@ -1119,9 +1119,9 @@ function ProgressRail({ currentStep }: { currentStep: StepKey }) {
           <div
             key={step}
             className={`rounded-2xl border px-4 py-3 text-sm ${isCurrent
-              ? 'border-sky-400/70 bg-sky-50'
+              ? 'border-cyan-400/45 bg-cyan-400/12'
               : isReached
-                ? 'border-emerald-400/40 bg-emerald-50'
+                ? 'border-emerald-400/30 bg-emerald-400/10'
                 : 'border-border/60 bg-muted/20'
               }`}
           >
@@ -1352,15 +1352,15 @@ function SelectionCard({
     <button
       aria-pressed={isSelected}
       className={`rounded-2xl border px-4 py-4 text-left transition-colors ${isSelected
-        ? 'border-sky-400/70 bg-sky-50'
-        : 'border-border/70 bg-background hover:border-sky-300/60 hover:bg-sky-50/40'
+        ? 'border-cyan-400/45 bg-cyan-400/12'
+        : 'border-border/70 bg-background hover:border-cyan-400/35 hover:bg-cyan-400/8'
         } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
       disabled={disabled}
       onClick={onClick}
       type="button"
     >
       <div className="flex items-start gap-3">
-        <div className={`rounded-xl border p-2 ${isSelected ? 'border-sky-300/70 bg-white text-sky-700' : 'border-border/60 bg-muted/20 text-muted-foreground'}`}>
+        <div className={`rounded-xl border p-2 ${isSelected ? 'border-cyan-400/35 bg-cyan-400/10 text-cyan-300' : 'border-border/60 bg-muted/20 text-muted-foreground'}`}>
           <Icon className="size-4" />
         </div>
         <div>
