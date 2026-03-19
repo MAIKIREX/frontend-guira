@@ -21,13 +21,14 @@ export function StaffShell({
         className="mx-auto grid min-h-screen max-w-[1600px] transition-[grid-template-columns] duration-200 md:[grid-template-columns:var(--sidebar-width)_minmax(0,1fr)]"
         style={{ ['--sidebar-width' as string]: isCollapsed ? '88px' : '260px' }}
       >
-        <aside className="hidden border-r border-border/70 md:block">
+        <aside className="relative hidden border-r border-border/60 bg-[linear-gradient(180deg,color-mix(in_oklab,var(--color-sidebar)_92%,white)_0%,color-mix(in_oklab,var(--color-muted)_55%,white)_100%)] md:block">
+          <div className="absolute inset-y-0 left-0 w-3 bg-[linear-gradient(180deg,color-mix(in_oklab,var(--color-primary)_24%,transparent)_0%,color-mix(in_oklab,var(--color-accent)_22%,transparent)_100%)]" />
           <div className="sticky top-0 p-4">
-            <div className={`mb-6 rounded-2xl border border-border/70 bg-muted/20 ${isCollapsed ? 'p-2' : 'p-4'}`}>
+            <div className={`mb-6 rounded-[1.9rem] bg-background/55 shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-border)_85%,transparent)] ${isCollapsed ? 'p-3' : 'p-5'}`}>
               <div className={`flex items-start ${isCollapsed ? 'justify-center' : 'justify-between gap-3'}`}>
                 <div className={isCollapsed ? 'hidden' : 'min-w-0'}>
-                  <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Guira</div>
-                  <div className="mt-1 text-lg font-semibold tracking-tight">Control interno</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.34em] text-muted-foreground/80">Guira</div>
+                  <div className="mt-3 text-lg font-semibold uppercase tracking-[0.16em] text-foreground/92">Control interno</div>
                   <p className="mt-2 text-sm text-muted-foreground">
                     Vista operativa para staff y admin con foco en trazabilidad y lectura rapida.
                   </p>
@@ -37,7 +38,7 @@ export function StaffShell({
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  className="shrink-0 border border-border/70 text-muted-foreground hover:text-foreground"
+                  className="shrink-0 rounded-full border border-border/70 bg-background/70 text-muted-foreground hover:bg-background hover:text-foreground"
                   onClick={() => setIsCollapsed((value) => !value)}
                   aria-label={isCollapsed ? 'Expandir menu lateral' : 'Colapsar menu lateral'}
                   title={isCollapsed ? 'Expandir menu lateral' : 'Colapsar menu lateral'}

@@ -9,6 +9,7 @@ import { useProfileStore } from '@/stores/profile-store'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { CheckCircle2, AlertCircle } from 'lucide-react'
+import { StepProgressRail } from '@/features/payments/components/step-progress-rail'
 import { PersonalForm } from './personal-form'
 import { CompanyForm } from './company-form'
 
@@ -154,10 +155,12 @@ export function OnboardingWizard() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Registro {type === 'personal' ? 'Personal' : 'Empresarial'}</h1>
-          <p className="text-sm text-muted-foreground">Paso {step}</p>
+          <p className="text-sm text-muted-foreground">Completa cada etapa con el mismo formato operativo del panel.</p>
         </div>
         <Button variant="ghost" size="sm" onClick={handleClear}>Cambiar de tipo (Reiniciar)</Button>
       </div>
+
+      <StepProgressRail currentStep={getOnboardingStepKey(step)} getStepLabel={getOnboardingStepLabel} steps={getOnboardingSteps(type)} />
 
       {status === 'needs_changes' && (
         <div className="bg-destructive/10 border-l-4 border-destructive p-4 mb-6 rounded flex items-start">
@@ -173,4 +176,42 @@ export function OnboardingWizard() {
       {type === 'company' && <CompanyForm onStatusChange={handleStatusChange} status={status} userId={user!.id} />}
     </div>
   )
+}
+
+function getOnboardingSteps(type: 'personal' | 'company' | null) {
+  return type === 'company'
+    ? ['identity', 'address', 'finance', 'documents', 'ubo'] as const
+    : ['identity', 'address', 'finance', 'documents'] as const
+}
+
+function getOnboardingStepKey(step: number) {
+  switch (step) {
+    case 2:
+      return 'identity'
+    case 3:
+      return 'address'
+    case 4:
+      return 'finance'
+    case 5:
+      return 'documents'
+    case 6:
+      return 'ubo'
+    default:
+      return 'identity'
+  }
+}
+
+function getOnboardingStepLabel(step: 'identity' | 'address' | 'finance' | 'documents' | 'ubo') {
+  switch (step) {
+    case 'identity':
+      return 'Identidad'
+    case 'address':
+      return 'Direccion'
+    case 'finance':
+      return 'Finanzas'
+    case 'documents':
+      return 'Documentos'
+    case 'ubo':
+      return 'UBOs'
+  }
 }

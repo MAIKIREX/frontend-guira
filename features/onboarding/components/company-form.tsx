@@ -10,6 +10,7 @@ import { useOnboardingStore } from '@/stores/onboarding-store'
 import { OnboardingService } from '@/services/onboarding.service'
 import { toast } from 'sonner'
 import { useState } from 'react'
+import { FileDropzone } from '@/components/shared/file-dropzone'
 
 export function CompanyForm({ status, userId, onStatusChange }: { status: string | null; userId: string; onStatusChange: (status: string) => void }) {
   const { step, setStep, formData, updateFormData, id, reset } = useOnboardingStore()
@@ -270,26 +271,26 @@ export function CompanyForm({ status, userId, onStatusChange }: { status: string
             <div className="space-y-4">
               <div className="border p-4 rounded bg-muted/20">
                 <FormLabel className="block mb-2">Constitucion / Registro Empresa</FormLabel>
-                <Input type="file" accept="image/*,.pdf" onChange={(e) => {
-                  if (e.target.files && e.target.files[0]) handleDocUpload('company_cert', e.target.files[0])
+                <FileDropzone accept="image/*,.pdf" helperText="Arrastra el documento de constitucion o selecciona un archivo." onFileSelect={(file) => {
+                  if (file) handleDocUpload('company_cert', file)
                 }} />
-{form.getValues('company_cert') && <p className="mt-2 text-xs text-emerald-400">Archivo cargado</p>}
+                {form.getValues('company_cert') && <p className="mt-2 text-xs text-emerald-400">Archivo cargado</p>}
               </div>
 
               <div className="border p-4 rounded bg-muted/20">
                 <FormLabel className="block mb-2">Documento Poder (Repr. Legal)</FormLabel>
-                <Input type="file" accept="image/*,.pdf" onChange={(e) => {
-                  if (e.target.files && e.target.files[0]) handleDocUpload('legal_rep_id', e.target.files[0])
+                <FileDropzone accept="image/*,.pdf" helperText="Arrastra el documento del representante legal o selecciona un archivo." onFileSelect={(file) => {
+                  if (file) handleDocUpload('legal_rep_id', file)
                 }} />
-{form.getValues('legal_rep_id') && <p className="mt-2 text-xs text-emerald-400">Archivo cargado</p>}
+                {form.getValues('legal_rep_id') && <p className="mt-2 text-xs text-emerald-400">Archivo cargado</p>}
               </div>
 
               <div className="border p-4 rounded bg-muted/20">
                 <FormLabel className="block mb-2">Comprobante Domicilio Fiscal</FormLabel>
-                <Input type="file" accept="image/*,.pdf" onChange={(e) => {
-                  if (e.target.files && e.target.files[0]) handleDocUpload('proof_of_address', e.target.files[0])
+                <FileDropzone accept="image/*,.pdf" helperText="Arrastra el comprobante fiscal o selecciona un archivo." onFileSelect={(file) => {
+                  if (file) handleDocUpload('proof_of_address', file)
                 }} />
-{form.getValues('proof_of_address') && <p className="mt-2 text-xs text-emerald-400">Archivo cargado</p>}
+                {form.getValues('proof_of_address') && <p className="mt-2 text-xs text-emerald-400">Archivo cargado</p>}
               </div>
             </div>
 
@@ -331,10 +332,10 @@ export function CompanyForm({ status, userId, onStatusChange }: { status: string
                 <div className="grid grid-cols-2 gap-4 pt-2">
                   <div>
                     <FormLabel className="block mb-2 text-xs text-muted-foreground">ID Front / Pasaporte</FormLabel>
-                    <Input type="file" accept="image/*,.pdf" onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) handleUBODocUpload(index, 'id_front', e.target.files[0])
+                    <FileDropzone accept="image/*,.pdf" helperText="Arrastra el documento del UBO o selecciona un archivo." onFileSelect={(file) => {
+                      if (file) handleUBODocUpload(index, 'id_front', file)
                     }} />
-{form.getValues(`ubos.${index}.id_front`) && <p className="mt-2 text-xs text-emerald-400">Cargado</p>}
+                    {form.getValues(`ubos.${index}.id_front`) && <p className="mt-2 text-xs text-emerald-400">Cargado</p>}
                   </div>
                 </div>
               </div>

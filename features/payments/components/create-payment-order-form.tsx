@@ -50,6 +50,8 @@ import {
   type DepositInstruction,
 } from '@/features/payments/lib/deposit-instructions'
 import { DepositInstructionCard } from '@/features/payments/components/deposit-instruction-card'
+import { FileDropzone } from '@/components/shared/file-dropzone'
+import { StepProgressRail } from '@/features/payments/components/step-progress-rail'
 import { CRYPTO_NETWORK_OPTIONS, resolveCryptoNetwork } from '@/features/payments/lib/crypto-networks'
 import {
   paymentOrderSchema,
@@ -89,6 +91,10 @@ interface CreatePaymentOrderFormProps {
 
 const STEP_ORDER: StepKey[] = ['route', 'method', 'detail', 'review', 'finish']
 const DEPOSIT_ROUTES: SupportedPaymentRoute[] = ['us_to_bolivia', 'us_to_wallet']
+const FORM_LABEL_CLASS = 'text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground'
+const FORM_TEXT_CLASS = 'tracking-[0.01em]'
+const FORM_UNDERLINE_INPUT_CLASS = 'h-11 rounded-none border-0 border-b border-input bg-transparent px-0 py-0 shadow-none transition-colors focus-visible:border-primary focus-visible:ring-0 disabled:bg-transparent'
+const FORM_UNDERLINE_SELECT_CLASS = 'h-11 w-full rounded-none border-0 border-b border-input bg-transparent px-0 py-0 shadow-none transition-colors focus-visible:border-primary focus-visible:ring-0'
 
 const ROUTE_STAGE_COPY: Record<SupportedPaymentRoute, {
   detailTitle: string
@@ -465,6 +471,11 @@ export function CreatePaymentOrderForm({
         return
       }
 
+      if (route === 'bolivia_to_exterior' && !supportFile) {
+        toast.error('Debes adjuntar el documento de respaldo para continuar.')
+        return
+      }
+
       const isValidDetail = await form.trigger(getDetailStepFields({
         route,
         deliveryMethod,
@@ -495,19 +506,21 @@ export function CreatePaymentOrderForm({
   }
 
   return (
-    <div className="space-y-6">
-      <Card className="border-border/70 bg-muted/10">
-        <CardHeader className="border-b border-border/60 bg-background/90">
-          <CardTitle>{isDepositRouteActive ? 'Depositar por expediente' : 'Enviar por expediente'}</CardTitle>
-          <CardDescription>
+    <div className="mx-auto w-full max-w-6xl space-y-6">
+      <Card className="border-border/60 bg-background/70 shadow-none">
+        <CardHeader className="border-b border-border/60 bg-transparent">
+          <CardTitle className="text-2xl font-semibold tracking-[-0.03em]">
+            {isDepositRouteActive ? 'Depositar por expediente' : 'Enviar por expediente'}
+          </CardTitle>
+          <CardDescription className="text-sm leading-6 tracking-[0.01em]">
             El flujo ahora separa ruta, metodo, detalle, revision y finalizacion para que cada etapa muestre solo lo necesario.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6 p-6">
-          <ProgressRail currentStep={step} />
+        <CardContent className="space-y-8 px-4 py-6 sm:px-6 lg:px-8">
+          <StepProgressRail currentStep={step} getStepLabel={getStepLabel} steps={STEP_ORDER} />
 
           <Form {...form}>
-            <form className="space-y-6" onSubmit={(event) => event.preventDefault()}>
+            <form className="mx-auto w-full max-w-4xl space-y-8" onSubmit={(event) => event.preventDefault()}>
               <AnimatePresence mode="wait">
                 {step === 'route' ? (
                   <AnimatedStepPanel key="route">
@@ -522,7 +535,7 @@ export function CreatePaymentOrderForm({
                       name="route"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Ruta soportada</FormLabel>
+                          <FormLabel className={FORM_LABEL_CLASS}>Ruta soportada</FormLabel>
                           <FormControl>
                             <div className="grid gap-3 sm:grid-cols-2">
                               {routeOptions.map((entry) => (
@@ -570,7 +583,7 @@ export function CreatePaymentOrderForm({
                         name="receive_variant"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Como quieres recibir en Bolivia</FormLabel>
+                            <FormLabel className={FORM_LABEL_CLASS}>Como quieres recibir en Bolivia</FormLabel>
                             <FormControl>
                               <div className="grid gap-3 md:grid-cols-2">
                                 <SelectionCard
@@ -603,7 +616,7 @@ export function CreatePaymentOrderForm({
                         name="ui_method_group"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Grupo de metodo</FormLabel>
+                            <FormLabel className={FORM_LABEL_CLASS}>Grupo de metodo</FormLabel>
                             <FormControl>
                               <div className="grid gap-3 md:grid-cols-2">
                                 <SelectionCard
@@ -682,14 +695,14 @@ export function CreatePaymentOrderForm({
                           name="supplier_id"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Proveedor o beneficiario</FormLabel>
+                              <FormLabel className={FORM_LABEL_CLASS}>Proveedor o beneficiario</FormLabel>
                               <FormControl>
                                 <Select
                                   value={field.value || 'none'}
                                   onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
                                   disabled={disabled}
                                 >
-                                  <SelectTrigger className="w-full">
+                                  <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
                                     <SelectValue placeholder="Selecciona uno guardado o crea uno nuevo en Proveedores">
                                       {selectedSupplier?.name ?? (field.value ? field.value : undefined)}
                                     </SelectValue>
@@ -744,14 +757,14 @@ export function CreatePaymentOrderForm({
                                 name="delivery_method"
                                 render={({ field }) => (
                                   <FormItem>
-                                    <FormLabel>Metodo tecnico final</FormLabel>
+                                    <FormLabel className={FORM_LABEL_CLASS}>Metodo tecnico final</FormLabel>
                                     <FormControl>
                                       <Select
                                         value={field.value}
                                         onValueChange={field.onChange}
                                         disabled={disabled || route === 'crypto_to_crypto' || (route === 'bolivia_to_exterior' && uiMethodGroup === 'crypto') || availableTechnicalMethods.length <= 1}
                                       >
-                                        <SelectTrigger className="w-full">
+                                        <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
                                           <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -819,10 +832,6 @@ export function CreatePaymentOrderForm({
 
                           {currentRoute.key !== 'us_to_wallet' && currentRoute.key !== 'us_to_bolivia' ? (
                             <>
-                              {!isDepositRouteActive ? (
-                                <TextField control={form.control} disabled={disabled} label="Motivo del pago" name="payment_reason" />
-                              ) : null}
-
                               <div className={`grid gap-4 ${(route === 'bolivia_to_exterior' && uiMethodGroup !== 'crypto') ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
                                 {!(route === 'bolivia_to_exterior' && uiMethodGroup === 'crypto') ? (
                                   <TextField control={form.control} disabled={disabled} label={getDestinationLabel(currentRoute.key)} name="destination_address" />
@@ -836,10 +845,10 @@ export function CreatePaymentOrderForm({
                                     name="funding_method"
                                     render={({ field }) => (
                                       <FormItem>
-                                        <FormLabel>Funding method</FormLabel>
+                                        <FormLabel className={FORM_LABEL_CLASS}>Funding method</FormLabel>
                                         <FormControl>
                                           <Select value={field.value} onValueChange={field.onChange} disabled={disabled}>
-                                            <SelectTrigger className="w-full">
+                                            <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
                                               <SelectValue placeholder="Selecciona" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -897,25 +906,29 @@ export function CreatePaymentOrderForm({
                             </>
                           ) : null}
 
+                          {currentRoute.key !== 'us_to_wallet' && currentRoute.key !== 'us_to_bolivia' && !isDepositRouteActive ? (
+                            <TextField control={form.control} disabled={disabled} label="Motivo del pago" name="payment_reason" />
+                          ) : null}
+
                           {showSupportUpload && !(currentRoute.key === 'us_to_bolivia' && receiveVariant === 'bank_qr') ? (
                             <DocumentInputCard
                               file={supportFile}
                               label="Documento de respaldo"
                               description={
-                                route === 'bolivia_to_exterior'
-                                  ? 'Opcional en esta ruta. Si lo adjuntas, se guardara como support_document_url al crear la orden.'
-                                  : 'Se guardara como support_document_url al crear la orden.'
+                                route === 'bolivia_to_exterior' || route === 'crypto_to_crypto'
+                                  ? 'Obligatorio en esta ruta. Se guardara como support_document_url al crear la orden.'
+                                  : 'Documento Opcional.'
                               }
                               onFileChange={setSupportFile}
                             />
                           ) : null}
                         </>
                       ) : hasSupplierObservation ? (
-                        <div className="rounded-xl border border-dashed border-amber-300/70 bg-amber-50 px-4 py-4 text-sm text-amber-950">
+                        <div className="border-l-2 border-amber-500/70 bg-amber-50/70 px-4 py-4 text-sm text-amber-950">
                           Corrige primero la observacion del proveedor para habilitar los campos siguientes.
                         </div>
                       ) : (
-                        <div className="rounded-xl border border-dashed border-border/70 bg-muted/15 px-4 py-4 text-sm text-muted-foreground">
+                        <div className="border-l-2 border-border/70 bg-muted/10 px-4 py-4 text-sm text-muted-foreground">
                           Selecciona primero un proveedor valido para mostrar metodo tecnico, monedas y metadata autocompletada.
                         </div>
                       )}
@@ -973,7 +986,7 @@ export function CreatePaymentOrderForm({
                       ))}
                     </div>
 
-                    <div className="rounded-2xl border border-emerald-400/35 bg-emerald-400/12 p-4 text-sm text-emerald-100">
+                    <div className="border-l-2 border-emerald-400/45 bg-emerald-400/10 px-4 py-4 text-sm text-emerald-100">
                       El expediente ya fue creado con estado `created`. Desde aqui puedes dejar el comprobante final o subirlo despues desde Seguimiento.
                     </div>
 
@@ -984,7 +997,7 @@ export function CreatePaymentOrderForm({
                       onFileChange={setEvidenceFile}
                     />
 
-                    <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-4 text-sm text-muted-foreground">
+                    <div className="border-l-2 border-border/70 bg-muted/10 px-4 py-4 text-sm text-muted-foreground">
                       Cuando el comprobante final quede adjunto y la orden siga en `created`, el sistema la movera a `waiting_deposit`.
                     </div>
 
@@ -1119,80 +1132,11 @@ function getDefaultValues(route: SupportedPaymentRoute): PaymentOrderFormValues 
   }
 }
 
-function ProgressRail({ currentStep }: { currentStep: StepKey }) {
-  const currentIndex = STEP_ORDER.indexOf(currentStep)
-
-  return (
-    <div className="overflow-x-auto py-2">
-      <div className="flex min-w-max items-start justify-center gap-3 md:gap-4">
-        {STEP_ORDER.map((step, index) => {
-          const isCurrent = step === currentStep
-          const isReached = currentIndex >= index
-          const isComplete = currentIndex > index
-          const lineFilled = currentIndex > index ? '100%' : '0%'
-
-          return (
-            <div
-              key={step}
-              className={cn(
-                'relative flex min-w-[104px] flex-col items-center text-center sm:min-w-[116px] md:min-w-[128px]',
-                index < STEP_ORDER.length - 1 && 'md:pr-4 lg:pr-6'
-              )}
-            >
-              <motion.div
-                animate={{
-                  backgroundColor: isCurrent ? 'rgba(34,211,238,0.18)' : isComplete ? 'rgba(16,185,129,0.18)' : 'rgba(255,255,255,0.04)',
-                  borderColor: isCurrent ? 'rgba(34,211,238,0.55)' : isComplete ? 'rgba(16,185,129,0.45)' : 'rgba(148,163,184,0.22)',
-                  scale: isCurrent ? 1.06 : 1,
-                  boxShadow: isCurrent ? '0 0 0 6px rgba(34,211,238,0.08)' : '0 0 0 0 rgba(0,0,0,0)',
-                }}
-                className="relative z-10 flex size-12 items-center justify-center rounded-full border text-sm font-semibold text-foreground"
-                initial={false}
-                transition={{ duration: 0.28, ease: 'easeOut' }}
-              >
-                <motion.span
-                  animate={{ opacity: isReached ? 1 : 0.7, y: isCurrent ? -0.5 : 0 }}
-                  initial={false}
-                  transition={{ duration: 0.2 }}
-                >
-                  {index + 1}
-                </motion.span>
-              </motion.div>
-
-              <motion.div
-                animate={{ opacity: isCurrent ? 1 : isReached ? 0.92 : 0.7, y: isCurrent ? 0 : 1 }}
-                className="mt-3 w-full px-1 text-center text-xs font-medium leading-4 text-foreground sm:text-sm"
-                initial={false}
-                transition={{ duration: 0.22 }}
-              >
-                {getStepLabel(step)}
-              </motion.div>
-
-              {index < STEP_ORDER.length - 1 ? (
-                <div className="absolute left-[calc(50%+2rem)] top-6 hidden w-[calc(100%-4rem)] -translate-y-1/2 md:block">
-                  <div className="relative h-px w-full rounded-full bg-border/70">
-                    <motion.div
-                      animate={{ width: lineFilled }}
-                      className="absolute inset-y-0 left-0 rounded-full bg-cyan-400"
-                      initial={false}
-                      transition={{ duration: 0.35, ease: 'easeInOut' }}
-                    />
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
 function AnimatedStepPanel({ children }: { children: React.ReactNode }) {
   return (
     <motion.section
       animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-      className="space-y-5 rounded-[28px] border border-border/70 bg-background/90 p-5 shadow-[0_14px_36px_rgba(0,0,0,0.14)] md:p-6"
+      className="space-y-6 border-0 bg-transparent p-0 shadow-none"
       exit={{ opacity: 0, y: -14, filter: 'blur(4px)' }}
       initial={{ opacity: 0, y: 18, filter: 'blur(6px)' }}
       transition={{ duration: 0.26, ease: 'easeOut' }}
@@ -1224,27 +1168,28 @@ function DocumentInputCard({
   const isImage = Boolean(file && file.type.startsWith('image/'))
 
   return (
-    <div className="rounded-2xl border border-border/70 bg-background/85 p-4">
+    <div className="border-t border-border/60 pt-4">
       <div className="mb-3 flex items-start gap-3">
         <div className="rounded-xl border border-border/60 bg-muted/20 p-2 text-muted-foreground">
           <Upload className="size-4" />
         </div>
         <div>
-          <div className="font-medium text-foreground">{label}</div>
-          <div className="text-sm text-muted-foreground">{description}</div>
+          <div className="text-sm font-semibold tracking-[0.01em] text-foreground">{label}</div>
+          <div className="text-sm leading-6 tracking-[0.01em] text-muted-foreground">{description}</div>
         </div>
       </div>
-      <Input
+      <FileDropzone
         accept={ACCEPTED_UPLOADS}
-        onChange={(event) => onFileChange(event.target.files?.[0] ?? null)}
-        type="file"
+        helperText="Arrastra el archivo o haz click para seleccionarlo."
+        file={file}
+        onFileSelect={onFileChange}
       />
-      <div className="mt-3 rounded-xl border border-dashed border-border/70 bg-muted/15 p-3">
+      <div className="mt-3 rounded-2xl border border-dashed border-border/60 bg-muted/10 p-3">
         {file ? (
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-sm font-medium text-foreground">{file.name}</div>
+                <div className="text-sm font-medium tracking-[0.01em] text-foreground">{file.name}</div>
                 <div className="text-xs text-muted-foreground">{Math.round(file.size / 1024)} KB</div>
               </div>
               {previewUrl ? (
@@ -1279,14 +1224,14 @@ function DocumentInputCard({
 
 function SectionHeading({ icon: Icon, eyebrow, title, description }: { icon: typeof Landmark; eyebrow: string; title: string; description: string }) {
   return (
-    <div className="flex items-start gap-3">
-      <div className="rounded-xl border border-border/70 bg-muted/30 p-2 text-muted-foreground">
+    <div className="flex items-start gap-3 border-b border-border/60 pb-5">
+      <div className="rounded-xl border border-border/60 bg-muted/20 p-2 text-muted-foreground">
         <Icon className="size-4" />
       </div>
       <div>
-        <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">{eyebrow}</div>
-        <div className="mt-1 font-medium text-foreground">{title}</div>
-        <div className="mt-1 text-sm text-muted-foreground">{description}</div>
+        <div className={FORM_LABEL_CLASS}>{eyebrow}</div>
+        <div className="mt-1 text-xl font-semibold tracking-[-0.03em] text-foreground">{title}</div>
+        <div className="mt-1 text-sm leading-6 tracking-[0.01em] text-muted-foreground">{description}</div>
       </div>
     </div>
   )
@@ -1294,10 +1239,12 @@ function SectionHeading({ icon: Icon, eyebrow, title, description }: { icon: typ
 
 function InlineSummaryBar({ exchangeRate, conversion }: { exchangeRate: string; conversion: string }) {
   return (
-    <div className="rounded-2xl border border-border/60 bg-muted/15 p-3">
-      <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Tipo de cambio</div>
-      <div className="mt-1 text-sm font-medium text-foreground">{exchangeRate}</div>
-      <div className="mt-2 text-xs text-muted-foreground">{conversion}</div>
+    <div className="border-y border-border/60 py-4">
+      <div className='flex justify-between'>
+        <div className={FORM_LABEL_CLASS}>Tipo de cambio</div>
+        <div className="mt-1 text-sm font-semibold tracking-[0.01em] text-foreground">{exchangeRate}</div>
+      </div>
+      <div className="mt-2 text-xs tracking-[0.01em] text-muted-foreground">{conversion}</div>
     </div>
   )
 }
@@ -1319,9 +1266,16 @@ function NumericField({
       name={name}
       render={({ field }) => (
         <FormItem>
-          <FormLabel>{label}</FormLabel>
+          <FormLabel className={FORM_LABEL_CLASS}>{label}</FormLabel>
           <FormControl>
-            <Input {...field} disabled={disabled} min={0.01} step="0.01" type="number" />
+            <Input
+              {...field}
+              className={cn(FORM_UNDERLINE_INPUT_CLASS, 'text-lg font-medium tracking-[-0.02em]')}
+              disabled={disabled}
+              min={0.01}
+              step="0.01"
+              type="number"
+            />
           </FormControl>
           <FormMessage />
         </FormItem>
@@ -1347,9 +1301,9 @@ function TextField({
       name={name}
       render={({ field }) => (
         <FormItem>
-          <FormLabel>{label}</FormLabel>
+          <FormLabel className={FORM_LABEL_CLASS}>{label}</FormLabel>
           <FormControl>
-            <Input {...field} disabled={disabled} />
+            <Input {...field} className={cn(FORM_UNDERLINE_INPUT_CLASS, FORM_TEXT_CLASS)} disabled={disabled} />
           </FormControl>
           <FormMessage />
         </FormItem>
@@ -1377,14 +1331,14 @@ function NetworkSelectField({
       name={name}
       render={({ field }) => (
         <FormItem>
-          <FormLabel>{label}</FormLabel>
+          <FormLabel className={FORM_LABEL_CLASS}>{label}</FormLabel>
           <FormControl>
             <Select
               disabled={disabled}
               onValueChange={field.onChange}
               value={resolveCryptoNetwork(typeof field.value === 'string' ? field.value : undefined)}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
                 <SelectValue placeholder={placeholder} />
               </SelectTrigger>
               <SelectContent>
@@ -1421,54 +1375,32 @@ function SelectionCard({
   return (
     <button
       aria-pressed={isSelected}
-      className={`rounded-2xl border px-4 py-4 text-left transition-colors ${isSelected
-        ? 'border-cyan-400/45 bg-cyan-400/12'
-        : 'border-border/70 bg-background hover:border-cyan-400/35 hover:bg-cyan-400/8'
+      className={`rounded-xl border px-4 py-4 text-left transition-colors ${isSelected
+        ? 'border-primary/35 bg-primary/5'
+        : 'border-border/50 bg-transparent hover:border-border/80 hover:bg-muted/10'
         } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
       disabled={disabled}
       onClick={onClick}
       type="button"
     >
       <div className="flex items-start gap-3">
-        <div className={`rounded-xl border p-2 ${isSelected ? 'border-cyan-400/35 bg-cyan-400/10 text-cyan-300' : 'border-border/60 bg-muted/20 text-muted-foreground'}`}>
+        <div className={`rounded-xl border p-2 ${isSelected ? 'border-primary/25 bg-primary/8 text-primary' : 'border-border/60 bg-muted/15 text-muted-foreground'}`}>
           <Icon className="size-4" />
         </div>
         <div>
-          <div className="text-sm font-medium text-foreground">{title}</div>
-          <div className="mt-1 text-xs leading-5 text-muted-foreground">{description}</div>
+          <div className="text-sm font-semibold tracking-[0.01em] text-foreground">{title}</div>
+          <div className="mt-1 text-xs leading-5 tracking-[0.01em] text-muted-foreground">{description}</div>
         </div>
       </div>
     </button>
   )
 }
 
-function AutoFilledPanel({
-  title,
-  rows,
-}: {
-  title: string
-  rows: Array<{ label: string; value: string }>
-}) {
-  return (
-    <div className="rounded-2xl border border-border/70 bg-muted/15 p-4">
-      <div className="font-medium text-foreground">{title}</div>
-      <div className="mt-3 grid gap-2 md:grid-cols-2">
-        {rows.map((row) => (
-          <div key={row.label} className="rounded-xl border border-border/60 bg-background/85 px-3 py-2">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{row.label}</div>
-            <div className="mt-1 text-sm font-medium text-foreground">{row.value}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function InfoBlock({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-3">
-      <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
-      <div className="mt-1 text-sm font-medium text-foreground">{value}</div>
+    <div className="border-b border-border/50 px-1 py-3">
+      <div className={FORM_LABEL_CLASS}>{label}</div>
+      <div className="mt-1 text-sm font-medium tracking-[0.01em] text-foreground">{value}</div>
     </div>
   )
 }
@@ -1718,40 +1650,11 @@ function getDeliveryMethodsForRoute(
 
 function ValidationNotice({ message }: { message: string }) {
   return (
-    <div className="flex items-start gap-3 rounded-2xl border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+    <div className="flex items-start gap-3 border-l-2 border-amber-500/70 bg-amber-50/70 px-4 py-3 text-sm text-amber-950">
       <CircleAlert className="mt-0.5 size-4 shrink-0" />
       <p>{message}</p>
     </div>
   )
-}
-
-function buildMetadataPreview({
-  route,
-  deliveryMethod,
-  receiveVariant,
-  uiMethodGroup,
-  values,
-}: {
-  route: SupportedPaymentRoute
-  deliveryMethod: PaymentOrderFormValues['delivery_method']
-  receiveVariant?: ReceiveVariant
-  uiMethodGroup?: UiMethodGroup
-  values: PaymentOrderFormValues
-}) {
-  const rows: Array<{ label: string; value: string }> = [
-    { label: 'route', value: route },
-    { label: 'delivery_method', value: deliveryMethod },
-  ]
-
-  if (receiveVariant) rows.push({ label: 'receive_variant', value: receiveVariant })
-  if (uiMethodGroup) rows.push({ label: 'ui_method_group', value: uiMethodGroup })
-  if (values.destination_address) rows.push({ label: 'destination_address', value: values.destination_address })
-  if (values.crypto_address) rows.push({ label: 'crypto_address', value: values.crypto_address })
-  if (values.crypto_network) rows.push({ label: 'crypto_network', value: values.crypto_network })
-  if (values.ach_bank_name) rows.push({ label: 'ach.bank_name', value: values.ach_bank_name })
-  if (values.swift_bank_name) rows.push({ label: 'swift.bank_name', value: values.swift_bank_name })
-
-  return rows
 }
 
 function getSupplierValidationMessage({

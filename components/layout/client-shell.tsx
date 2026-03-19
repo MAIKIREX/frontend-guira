@@ -21,23 +21,27 @@ export function ClientShell({
         className="mx-auto grid min-h-screen max-w-[1600px] transition-[grid-template-columns] duration-200 md:[grid-template-columns:var(--sidebar-width)_minmax(0,1fr)]"
         style={{ ['--sidebar-width' as string]: isCollapsed ? '88px' : '280px' }}
       >
-        <aside className="hidden border-r border-border/70 bg-muted/10 md:block">
+        <aside className="relative hidden border-r border-border/60  md:block">
+
           <div className="sticky top-0 flex min-h-screen flex-col">
-            <div className="border-b border-border/70 px-4 py-5">
+            <div className="border-b border-border/55 px-5 py-6">
               <div className={`flex items-start ${isCollapsed ? 'justify-center' : 'justify-between gap-3'}`}>
                 <div className={isCollapsed ? 'hidden' : 'min-w-0'}>
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Guira</div>
-                  <h2 className="mt-2 text-xl font-semibold tracking-tight">Mesa del cliente</h2>
-                  <p className="mt-2 text-sm text-muted-foreground">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.34em] text-muted-foreground/80">Guira</div>
+                  <div className="mt-3 text-lg font-semibold uppercase tracking-[0.18em] text-foreground/92">
+                    Navegacion
+                  </div>
+                  {/*<h2 className="mt-2 text-xl font-semibold tracking-tight">Mesa del cliente</h2>*/}
+                  {/*<p className="mt-2 text-sm text-muted-foreground">
                     Navegacion separada por accion: panel, deposito, envio, proveedores, transacciones y soporte.
-                  </p>
+                  </p>*/}
                 </div>
 
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  className="shrink-0 border border-border/70 text-muted-foreground hover:text-foreground"
+                  className="shrink-0 rounded-full border border-border/70 bg-background/70 text-muted-foreground hover:bg-background hover:text-foreground"
                   onClick={() => setIsCollapsed((value) => !value)}
                   aria-label={isCollapsed ? 'Expandir menu lateral' : 'Colapsar menu lateral'}
                   title={isCollapsed ? 'Expandir menu lateral' : 'Colapsar menu lateral'}
@@ -47,7 +51,7 @@ export function ClientShell({
               </div>
             </div>
 
-            <div className={`flex-1 ${isCollapsed ? 'px-2 py-4' : 'p-4'}`}>
+            <div className={`flex-1 ${isCollapsed ? 'py-5' : 'py-5'}`}>
               <ClientNavigation collapsed={isCollapsed} />
             </div>
           </div>
@@ -55,8 +59,8 @@ export function ClientShell({
 
         <div className="flex min-h-screen flex-col">
           <header className="sticky top-0 z-20 border-b border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-            <div className="flex items-center justify-between gap-4 px-6 py-4">
-              <div className="flex items-start gap-3">
+            <div className="flex items-center justify-end gap-4 px-6 py-4">
+              {/*<div className="flex items-start gap-3">
                 <Button
                   type="button"
                   variant="ghost"
@@ -75,7 +79,7 @@ export function ClientShell({
                     Cada seccion separa una intencion operativa para evitar mezclar seguimiento, alta y configuracion.
                   </p>
                 </div>
-              </div>
+              </div>*/}
 
               <div className="flex items-center gap-4">
                 <ThemeToggle />

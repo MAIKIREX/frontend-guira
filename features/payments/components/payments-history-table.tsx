@@ -5,6 +5,7 @@ import { format } from 'date-fns'
 import { ChevronDown, Download, FileText, FileUp, Search, ShieldAlert, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { FileDropzone } from '@/components/shared/file-dropzone'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -13,6 +14,7 @@ import { DepositInstructionCard } from '@/features/payments/components/deposit-i
 import { buildDepositInstructions } from '@/features/payments/lib/deposit-instructions'
 import { generatePaymentPdf } from '@/features/payments/lib/generate-payment-pdf'
 import { ACCEPTED_UPLOADS } from '@/lib/file-validation'
+import { cn } from '@/lib/utils'
 import type { ActivityLog } from '@/types/activity-log'
 import type { OrderFileField, PaymentOrder, PsavConfigRow } from '@/types/payment-order'
 import type { Supplier } from '@/types/supplier'
@@ -148,34 +150,54 @@ export function PaymentsHistoryTable({
 
   return (
     <div className="space-y-4">
-      <Card className="border-border/70 bg-background/85">
-        <CardContent className="grid gap-3 p-4 md:grid-cols-[1fr_220px]">
+      <section className="overflow-hidden rounded-[28px] border border-border/70 bg-[linear-gradient(180deg,rgba(10,18,32,0.04),rgba(10,18,32,0))]">
+        <div className="grid gap-5 border-b border-border/60 px-5 py-5 xl:grid-cols-[1.15fr_0.85fr] xl:items-end">
+          <div className="space-y-3">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">Bitacora operativa</div>
+            <div className="space-y-1">
+              <h3 className="text-2xl font-semibold tracking-[-0.03em] text-foreground">Expedientes con lectura bancaria y trazabilidad crypto</h3>
+              <p className="max-w-2xl text-sm text-muted-foreground">
+                Consulta el estado, valida documentos y sigue cada tramo de ejecucion desde una sola vista, sin bloques visuales innecesarios.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ToolbarMetric label="Visibles" value={String(filteredOrders.length).padStart(2, '0')} />
+            <ToolbarMetric
+              label="En curso"
+              value={String(filteredOrders.filter((order) => OPEN_ORDER_STATUSES.has(order.status)).length).padStart(2, '0')}
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-3 px-5 py-4 md:grid-cols-[1fr_240px]">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              className="pl-9"
+              className="h-11 border-border/60 bg-background/80 pl-9"
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Buscar por numero de expediente"
               value={search}
             />
           </div>
           <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | PaymentOrder['status'])}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="h-11 w-full border-border/60 bg-background/80">
               <SelectValue placeholder="Filtrar por estado" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos los estados</SelectItem>
-              <SelectItem value="created">created</SelectItem>
-              <SelectItem value="waiting_deposit">waiting_deposit</SelectItem>
-              <SelectItem value="deposit_received">deposit_received</SelectItem>
-              <SelectItem value="processing">processing</SelectItem>
-              <SelectItem value="sent">sent</SelectItem>
-              <SelectItem value="completed">completed</SelectItem>
-              <SelectItem value="failed">failed</SelectItem>
+              <SelectItem value="created">Orden creada</SelectItem>
+              <SelectItem value="waiting_deposit">Esperando deposito</SelectItem>
+              <SelectItem value="deposit_received">Deposito validado</SelectItem>
+              <SelectItem value="processing">Procesando</SelectItem>
+              <SelectItem value="sent">Enviado</SelectItem>
+              <SelectItem value="completed">Completado</SelectItem>
+              <SelectItem value="failed">Fallido</SelectItem>
             </SelectContent>
           </Select>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {filteredOrders.length === 0 ? (
         <Card>
@@ -202,21 +224,34 @@ export function PaymentsHistoryTable({
             })
           : []
         const showFundingInstructions = depositInstructions.length > 0 && OPEN_ORDER_STATUSES.has(order.status)
+        const statusMeta = getStatusMeta(order.status)
 
         return (
-          <Card key={order.id} className="overflow-hidden border-border/70 bg-muted/10">
+          <Card key={order.id} className="overflow-hidden rounded-[30px] border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0))]">
             <CardHeader className="gap-4 border-b border-border/60 bg-background/95">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <CardTitle className="text-xl">Expediente #{order.id.slice(0, 8)}</CardTitle>
-                    <Badge variant={getStatusVariant(order.status)}>{order.status}</Badge>
-                    <Badge variant="outline">{order.order_type}</Badge>
-                    <Badge variant="outline">{order.processing_rail}</Badge>
+                    <div className="rounded-full border border-border/60 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                      {statusMeta.eyebrow}
+                    </div>
+                    <Badge className={statusMeta.badgeClass} variant={getStatusVariant(order.status)}>
+                      {statusMeta.label}
+                    </Badge>
+                    <Badge variant="outline">{humanizeOrderType(order.order_type)}</Badge>
+                    <Badge variant="outline">{humanizeRail(order.processing_rail)}</Badge>
                   </div>
-                  <CardDescription>
-                    Creado el {format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')} con destino {order.destination_currency}. {isDepositOrder(order) ? 'Este expediente sigue la logica de deposito: orden primero, comprobante despues.' : ''}
-                  </CardDescription>
+                  <div className="space-y-1">
+                    <CardTitle className="text-[1.65rem] tracking-[-0.03em]">Expediente #{order.id.slice(0, 8)}</CardTitle>
+                    <CardDescription>
+                      Creado el {format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')} con destino {order.destination_currency}. {isDepositOrder(order) ? 'Esta operacion usa un flujo de fondeo previo con validacion posterior.' : 'La orden avanza con soporte documental y evidencia operativa.'}
+                    </CardDescription>
+                  </div>
+                  <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
+                    <span>Proveedor: <span className="font-medium text-foreground">{supplier?.name ?? 'Sin proveedor'}</span></span>
+                    <span>Origen: <span className="font-medium text-foreground">{order.amount_origin} {order.origin_currency}</span></span>
+                    <span>Destino: <span className="font-medium text-foreground">{order.amount_converted} {order.destination_currency}</span></span>
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap gap-2">
@@ -261,58 +296,70 @@ export function PaymentsHistoryTable({
             </CardHeader>
 
             {isExpanded ? (
-              <CardContent className="grid gap-6 p-6 xl:grid-cols-[1.3fr_0.9fr]">
-              <div className="space-y-5">
-                <StatusRail order={order} />
-
-                <div className="grid gap-4 md:grid-cols-3">
-                  <InfoBlock label="Proveedor" value={supplier?.name ?? 'Sin proveedor'} />
-                  <InfoBlock label="Monto origen" value={`${order.amount_origin} ${order.origin_currency}`} />
-                  <InfoBlock label="Destino final" value={`${order.amount_converted} ${order.destination_currency}`} />
-                </div>
-
-                {showFundingInstructions ? (
-                  <div className="space-y-4 rounded-2xl border border-border/70 bg-background/85 p-4">
-                    <div>
-                      <div className="text-sm font-medium text-foreground">Cuenta para depositar</div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        Usa estos datos para fondear el expediente y luego adjunta el comprobante desde esta misma vista.
-                      </div>
-                    </div>
-                    <div className="grid gap-4 xl:grid-cols-2">
-                      {depositInstructions.map((instruction) => (
-                        <DepositInstructionCard key={`${order.id}-${instruction.id}`} instruction={instruction} />
-                      ))}
-                    </div>
+              <CardContent className="grid gap-0 p-0 xl:grid-cols-[1.18fr_0.82fr]">
+                <div className="space-y-8 px-6 py-6">
+                  <div className="grid gap-4 border-b border-border/60 pb-6 md:grid-cols-3">
+                    <SnapshotMetric label="Inicio del flujo" value={format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')} />
+                    <SnapshotMetric label="Tiempo operativo" value={getElapsedLabel(order.created_at, order.status)} accent={order.status !== 'completed' && order.status !== 'failed'} />
+                    <SnapshotMetric label="Contexto" value={getContextMetric(order, supplier)} />
                   </div>
-                ) : null}
 
-                <QuoteCard order={order} quotePreparedAt={quotePreparedAt} />
+                  <section className="space-y-4">
+                    <SectionHeading
+                      description="Lectura rapida del expediente para validar contraparte, monto y etapa actual."
+                      title="Progreso de trazabilidad"
+                    />
+                    <StatusRail order={order} />
+                  </section>
 
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <AttachmentPanel
-                    busy={busyKey}
-                    disabled={disabled}
-                    files={files}
-                    onFileChange={setFiles}
-                    onUpload={handleUpload}
-                    openUploads={openUploads}
-                    order={order}
-                  />
-                  <ActivityPanel orderActivity={orderActivity} />
+                  <ComplianceNote order={order} quotePreparedAt={quotePreparedAt} />
+
+                  {showFundingInstructions ? (
+                    <section className="space-y-4 border-t border-border/60 pt-6">
+                      <SectionHeading
+                        description="Usa estos datos para fondear la orden y luego sube el comprobante desde la mesa de accion."
+                        title="Cuenta para depositar"
+                      />
+                      <div className="grid gap-4 xl:grid-cols-2">
+                        {depositInstructions.map((instruction) => (
+                          <DepositInstructionCard key={`${order.id}-${instruction.id}`} instruction={instruction} />
+                        ))}
+                      </div>
+                    </section>
+                  ) : null}
+
+                  <section className="space-y-4 border-t border-border/60 pt-6">
+                    <SectionHeading
+                      description="Valores finales publicados por mesa para ejecutar la orden con fee y tipo de cambio efectivos."
+                      title="Cotizacion final"
+                    />
+                    <QuoteCard order={order} quotePreparedAt={quotePreparedAt} />
+                  </section>
                 </div>
-              </div>
 
-              <div className="space-y-4">
-                <ActionBrief order={order} />
-                {order.status === 'deposit_received' && !quotePreparedAt ? (
-                  <NoticeCard
-                    icon={ShieldAlert}
-                    title="Esperando cotizacion final"
-                    description="Staff ya valido el deposito y ahora debe publicar la cotizacion final con tasa, fee y monto real para mover la orden a processing."
-                  />
-                ) : null}
-              </div>
+                <div className="border-t border-border/60 bg-muted/[0.12] px-6 py-6 xl:border-l xl:border-t-0">
+                  <div className="space-y-8">
+                    <ActionDesk
+                      busy={busyKey}
+                      canCancel={canCancel}
+                      disabled={disabled}
+                      files={files}
+                      onCancel={() => handleCancel(order)}
+                      onFileChange={setFiles}
+                      onUpload={handleUpload}
+                      openUploads={openUploads}
+                      order={order}
+                    />
+
+                    <section className="space-y-4 border-t border-border/60 pt-6">
+                      <SectionHeading
+                        description="Registro de eventos visibles para el cliente durante la vida del expediente."
+                        title="Bitacora de actividad"
+                      />
+                      <ActivityPanel orderActivity={orderActivity} />
+                    </section>
+                  </div>
+                </div>
               </CardContent>
             ) : null}
           </Card>
@@ -324,19 +371,60 @@ export function PaymentsHistoryTable({
 
 function StatusRail({ order }: { order: PaymentOrder }) {
   return (
-    <div className="rounded-2xl border border-border/70 bg-background/85 p-4">
-      <div className="mb-3 text-sm font-medium text-foreground">Linea de proceso</div>
+    <div className="grid gap-4">
+      <div className="hidden items-center xl:flex">
+        {FLOW_STAGES.map((stage, index) => {
+          const reached = hasReachedStage(order.status, stage.key)
+          const current = order.status === stage.key
+          return (
+            <div key={stage.key} className="flex min-w-0 flex-1 items-center">
+              <div
+                className={cn(
+                  'flex size-11 shrink-0 items-center justify-center rounded-full border text-xs font-semibold',
+                  current
+                    ? 'border-cyan-500/50 bg-cyan-400/15 text-cyan-700 dark:text-cyan-300'
+                    : reached
+                      ? 'border-emerald-500/40 bg-emerald-400/12 text-emerald-700 dark:text-emerald-300'
+                      : 'border-border/60 bg-background/70 text-muted-foreground'
+                )}
+              >
+                {index + 1}
+              </div>
+              {index < FLOW_STAGES.length - 1 ? (
+                <div className={cn('h-px flex-1', reached ? 'bg-emerald-400/35' : 'bg-border/60')} />
+              ) : null}
+            </div>
+          )
+        })}
+      </div>
+
       <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
         {FLOW_STAGES.map((stage, index) => {
           const reached = hasReachedStage(order.status, stage.key)
           const current = order.status === stage.key
           return (
-            <div key={stage.key} className={`rounded-xl border px-3 py-3 text-sm ${current ? 'border-cyan-400/45 bg-cyan-400/12' : reached ? 'border-emerald-400/30 bg-emerald-400/10' : 'border-border/60 bg-muted/20'}`}>
+          <div
+            key={stage.key}
+            className={cn(
+              'rounded-2xl border px-4 py-4 text-sm transition-colors',
+              current
+                ? 'border-cyan-400/40 bg-cyan-400/10'
+                : reached
+                  ? 'border-emerald-400/30 bg-emerald-400/8'
+                  : 'border-border/60 bg-background/70'
+            )}
+          >
+            <div className="flex items-center justify-between gap-3">
               <div className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">{String(index + 1).padStart(2, '0')}</div>
-              <div className="mt-1 font-medium text-foreground">{stage.label}</div>
+              <div className="h-px flex-1 bg-border/60" />
             </div>
-          )
-        })}
+            <div className="mt-3 font-medium text-foreground">{stage.label}</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {current ? 'Etapa actual' : reached ? 'Etapa completada' : 'Pendiente'}
+            </div>
+          </div>
+        )
+      })}
       </div>
     </div>
   )
@@ -346,11 +434,11 @@ function QuoteCard({ order, quotePreparedAt }: { order: PaymentOrder; quotePrepa
   const quoteChanges = getQuoteChanges(order)
 
   return (
-    <div className="rounded-2xl border border-border/70 bg-background/85 p-4">
-      <div className="mb-3 flex items-center justify-between gap-3">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="text-sm font-medium text-foreground">Cotizacion final</div>
-          <div className="text-xs text-muted-foreground">Valores finales publicados por staff para ejecutar la orden.</div>
+          <div className="text-sm font-medium text-foreground">Snapshot de ejecucion</div>
+          <div className="text-xs text-muted-foreground">Comparativo entre cotizacion previa y valores finales.</div>
         </div>
         <div className="flex flex-wrap gap-2">
           {quoteChanges.length > 0 ? <Badge variant="default">Actualizado por staff</Badge> : null}
@@ -377,7 +465,7 @@ function QuoteCard({ order, quotePreparedAt }: { order: PaymentOrder; quotePrepa
           value={`${order.fee_total ?? 0} ${order.origin_currency}`}
         />
       </div>
-      <div className="mt-3 rounded-xl border border-dashed border-border/70 px-3 py-2 text-sm text-muted-foreground">
+      <div className="rounded-2xl border border-dashed border-border/70 px-4 py-3 text-sm text-muted-foreground">
         {quotePreparedAt && (order.status === 'processing' || order.status === 'sent' || order.status === 'completed')
           ? 'La cotizacion final ya fue publicada por staff y la orden siguio su curso.'
           : quotePreparedAt
@@ -409,16 +497,15 @@ function AttachmentPanel({
   const showSupportUploader = !depositOrder || order.order_type === 'WORLD_TO_BO'
 
   return (
-    <div className="rounded-2xl border border-border/70 bg-background/85 p-4">
-      <div className="mb-3 text-sm font-medium text-foreground">Documentos del expediente</div>
-      <div className="space-y-3 text-sm">
+    <div className="space-y-4">
+      <div className="grid gap-2 text-sm">
         {showSupportUploader ? <AttachmentStatus label="Respaldo documental" url={order.support_document_url} /> : null}
         <AttachmentStatus label={depositOrder ? 'Comprobante de deposito' : 'Evidencia'} url={order.evidence_url} />
         <AttachmentStatus label="Comprobante staff" url={order.staff_comprobante_url} />
       </div>
 
       {openUploads ? (
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           {showSupportUploader ? (
             <AttachmentUploader
               accept={ACCEPTED_UPLOADS}
@@ -465,18 +552,20 @@ function AttachmentPanel({
 
 function ActivityPanel({ orderActivity }: { orderActivity: ActivityLog[] }) {
   return (
-    <div className="rounded-2xl border border-border/70 bg-background/85 p-4">
-      <div className="mb-3 text-sm font-medium text-foreground">Bitacora del cliente</div>
+    <div>
       {orderActivity.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border/70 p-3 text-sm text-muted-foreground">
+        <div className="rounded-2xl border border-dashed border-border/70 p-4 text-sm text-muted-foreground">
           Aun no hay eventos registrados para esta orden.
         </div>
       ) : (
         <div className="space-y-2">
           {orderActivity.slice(0, 6).map((entry) => (
-            <div key={entry.id} className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2 text-sm">
-              <div className="font-medium text-foreground">{humanizeActivity(entry.action)}</div>
-              <div className="mt-1 text-xs text-muted-foreground">{format(new Date(entry.created_at), 'dd/MM/yyyy HH:mm')}</div>
+            <div key={entry.id} className="flex items-start justify-between gap-4 rounded-2xl border border-border/60 bg-background/70 px-4 py-3 text-sm">
+              <div className="space-y-1">
+                <div className="font-medium text-foreground">{humanizeActivity(entry.action)}</div>
+                <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Evento visible</div>
+              </div>
+              <div className="text-right text-xs text-muted-foreground">{format(new Date(entry.created_at), 'dd/MM/yyyy HH:mm')}</div>
             </div>
           ))}
         </div>
@@ -485,20 +574,82 @@ function ActivityPanel({ orderActivity }: { orderActivity: ActivityLog[] }) {
   )
 }
 
-function ActionBrief({ order }: { order: PaymentOrder }) {
+function ActionDesk({
+  busy,
+  canCancel,
+  disabled,
+  files,
+  onCancel,
+  onFileChange,
+  onUpload,
+  openUploads,
+  order,
+}: {
+  busy: string | null
+  canCancel: boolean
+  disabled?: boolean
+  files: Record<string, Partial<Record<OrderFileField, File>>>
+  onCancel: () => void
+  onFileChange: Dispatch<SetStateAction<Record<string, Partial<Record<OrderFileField, File>>>>>
+  onUpload: (order: PaymentOrder, field: OrderFileField) => Promise<void>
+  openUploads: boolean
+  order: PaymentOrder
+}) {
   return (
-    <div className="rounded-2xl border border-border/70 bg-background/85 p-4">
-      <div className="mb-2 text-sm font-medium text-foreground">Siguiente paso</div>
-      <div className="text-sm text-muted-foreground">{getNextActionMessage(order)}</div>
-    </div>
+    <section className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="space-y-1">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Mesa de accion</div>
+          <div className="text-sm text-foreground">{getNextActionMessage(order)}</div>
+        </div>
+        <Badge className={getUrgencyBadgeClass(order.status)} variant="outline">
+          {getUrgencyLabel(order.status)}
+        </Badge>
+      </div>
+
+      <div className="rounded-[26px] border border-border/70 bg-background/88 p-4">
+        <AttachmentPanel
+          busy={busy}
+          disabled={disabled}
+          files={files}
+          onFileChange={onFileChange}
+          onUpload={onUpload}
+          openUploads={openUploads}
+          order={order}
+        />
+      </div>
+
+      {order.status === 'deposit_received' && !getMetadataDate(order.metadata, 'quote_prepared_at') ? (
+        <NoticeCard
+          icon={ShieldAlert}
+          title="Esperando cotizacion final"
+          description="Staff ya valido el deposito y ahora debe publicar la cotizacion final con tasa, fee y monto real para mover la orden a processing."
+        />
+      ) : null}
+
+      {canCancel ? (
+        <div className="flex justify-end">
+          <Button
+            disabled={disabled || busy === `${order.id}-cancel`}
+            onClick={onCancel}
+            size="sm"
+            type="button"
+            variant="destructive"
+          >
+            <XCircle />
+            Cancelar expediente
+          </Button>
+        </div>
+      ) : null}
+    </section>
   )
 }
 
 function NoticeCard({ icon: Icon, title, description }: { icon: typeof ShieldAlert; title: string; description: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-4">
+    <div className="rounded-[24px] border border-dashed border-border/70 bg-background/60 p-4">
       <div className="flex items-start gap-3">
-        <div className="rounded-xl border border-border/60 bg-background/80 p-2 text-muted-foreground">
+        <div className="rounded-2xl border border-border/60 bg-background/80 p-2 text-muted-foreground">
           <Icon className="size-4" />
         </div>
         <div>
@@ -512,8 +663,8 @@ function NoticeCard({ icon: Icon, title, description }: { icon: typeof ShieldAle
 
 function AttachmentStatus({ label, url }: { label: string; url?: string }) {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/20 px-3 py-2">
-      <span className="text-muted-foreground">{label}</span>
+    <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-background/70 px-4 py-3">
+      <span className="text-sm text-muted-foreground">{label}</span>
       {url ? (
         <a className="text-sm font-medium text-primary underline-offset-4 hover:underline" href={url} rel="noreferrer" target="_blank">
           Ver archivo
@@ -553,16 +704,16 @@ function AttachmentUploader({
   }, [previewUrl])
 
   return (
-    <div className="rounded-xl border border-border/60 p-3 text-left">
-      <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
-      <Input
+    <div className="rounded-[24px] border border-border/60 bg-background/75 p-4 text-left">
+      <div className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
+      <FileDropzone
         accept={accept}
-        className="mb-2"
         disabled={disabled || busy}
-        onChange={(event) => onFileChange(event.target.files?.[0])}
-        type="file"
+        file={selectedFile ?? null}
+        helperText={`Arrastra ${label.toLowerCase()} o haz click para seleccionarlo.`}
+        onFileSelect={(file) => onFileChange(file ?? undefined)}
       />
-      <Button disabled={disabled || busy} onClick={onUpload} size="sm" type="button" variant="outline">
+      <Button className="mt-3" disabled={disabled || busy} onClick={onUpload} size="sm" type="button" variant="outline">
         <FileUp />
         {busy ? 'Subiendo...' : `Subir ${label.toLowerCase()}`}
       </Button>
@@ -588,10 +739,48 @@ function AttachmentUploader({
 
 function InfoBlock({ label, value, highlight, subtitle }: { label: string; value: string; highlight?: boolean; subtitle?: string | null }) {
   return (
-    <div className={`rounded-xl border px-3 py-3 ${highlight ? 'border-cyan-400/45 bg-cyan-400/12' : 'border-border/60 bg-muted/20'}`}>
+    <div className={cn('rounded-2xl border px-4 py-4', highlight ? 'border-cyan-400/45 bg-cyan-400/10' : 'border-border/60 bg-background/70')}>
       <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
-      <div className="mt-1 text-sm font-medium text-foreground">{value}</div>
+      <div className="mt-2 text-base font-medium text-foreground">{value}</div>
       {subtitle ? <div className="mt-1 text-xs text-muted-foreground">Antes: {subtitle}</div> : null}
+    </div>
+  )
+}
+
+function SnapshotMetric({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className="space-y-2">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">{label}</div>
+      <div className={cn('text-base font-semibold tracking-[-0.02em] text-foreground', accent && 'text-cyan-700 dark:text-cyan-300')}>{value}</div>
+    </div>
+  )
+}
+
+function ComplianceNote({ order, quotePreparedAt }: { order: PaymentOrder; quotePreparedAt: string | null }) {
+  return (
+    <div className="rounded-[24px] border border-border/70 bg-muted/[0.14] p-5">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Nota operativa</div>
+      <div className="mt-3 max-w-3xl border-l-2 border-cyan-500/35 pl-4 text-sm leading-7 text-muted-foreground">
+        {getComplianceNote(order, quotePreparedAt)}
+      </div>
+    </div>
+  )
+}
+
+function SectionHeading({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="space-y-1">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">{title}</div>
+      <p className="text-sm text-muted-foreground">{description}</p>
+    </div>
+  )
+}
+
+function ToolbarMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[24px] border border-border/60 bg-background/75 px-4 py-4">
+      <div className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">{label}</div>
+      <div className="mt-2 font-mono text-2xl font-semibold tracking-[-0.03em] text-foreground">{value}</div>
     </div>
   )
 }
@@ -600,6 +789,25 @@ function getStatusVariant(status: PaymentOrder['status']) {
   if (status === 'failed') return 'destructive' as const
   if (status === 'completed') return 'default' as const
   return 'outline' as const
+}
+
+function getStatusMeta(status: PaymentOrder['status']) {
+  switch (status) {
+    case 'created':
+      return { badgeClass: 'border-slate-400/30 bg-slate-500/10 text-foreground', eyebrow: 'Preparacion', label: 'Orden creada' }
+    case 'waiting_deposit':
+      return { badgeClass: 'border-amber-400/35 bg-amber-400/10 text-amber-700 dark:text-amber-300', eyebrow: 'Fondeo', label: 'Esperando deposito' }
+    case 'deposit_received':
+      return { badgeClass: 'border-cyan-400/35 bg-cyan-400/10 text-cyan-700 dark:text-cyan-300', eyebrow: 'Control', label: 'Deposito validado' }
+    case 'processing':
+      return { badgeClass: 'border-sky-400/35 bg-sky-400/10 text-sky-700 dark:text-sky-300', eyebrow: 'Ejecucion', label: 'Procesando' }
+    case 'sent':
+      return { badgeClass: 'border-violet-400/35 bg-violet-400/10 text-violet-700 dark:text-violet-300', eyebrow: 'Liquidacion', label: 'Enviado' }
+    case 'completed':
+      return { badgeClass: 'border-emerald-400/35 bg-emerald-400/10 text-emerald-700 dark:text-emerald-300', eyebrow: 'Cierre', label: 'Completado' }
+    case 'failed':
+      return { badgeClass: 'border-destructive/35 bg-destructive/10', eyebrow: 'Incidencia', label: 'Fallido' }
+  }
 }
 
 function hasReachedStage(currentStatus: PaymentOrder['status'], stage: PaymentOrder['status']) {
@@ -636,6 +844,116 @@ function getNextActionMessage(order: PaymentOrder) {
       return 'Operacion cerrada. Puedes descargar el PDF y revisar el comprobante final.'
     case 'failed':
       return 'La orden fue cerrada como fallida. Revisa la razon registrada en metadata o auditoria.'
+  }
+}
+
+function getContextMetric(order: PaymentOrder, supplier: Supplier | null) {
+  if (supplier?.name) return supplier.name
+  if (order.processing_rail === 'SWIFT') return 'Rail SWIFT'
+  if (order.processing_rail === 'ACH') return 'Rail ACH'
+  if (order.processing_rail === 'PSAV') return 'Rail PSAV'
+  return 'Rail digital'
+}
+
+function getElapsedLabel(createdAt: string, status: PaymentOrder['status']) {
+  if (status === 'completed' || status === 'failed') return 'Cerrado'
+
+  const diffMs = Date.now() - new Date(createdAt).getTime()
+  const totalMinutes = Math.max(0, Math.floor(diffMs / 60000))
+  const days = Math.floor(totalMinutes / 1440)
+  const hours = Math.floor((totalMinutes % 1440) / 60)
+  const minutes = totalMinutes % 60
+
+  if (days > 0) return `${days}d ${String(hours).padStart(2, '0')}h`
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
+}
+
+function getComplianceNote(order: PaymentOrder, quotePreparedAt: string | null) {
+  switch (order.status) {
+    case 'created':
+      return isDepositOrder(order)
+        ? 'Expediente aperturado y a la espera de fondeo. La orden ya tiene trazabilidad activa y el siguiente hito es subir el comprobante para que staff pueda validar el deposito.'
+        : 'Expediente aperturado. Antes de avanzar, se requiere respaldo documental y evidencia operativa para liberar la siguiente etapa del flujo.'
+    case 'waiting_deposit':
+      return 'La evidencia ya fue reportada por el cliente. El expediente permanece en espera hasta que mesa valide el deposito y confirme la conciliacion correspondiente.'
+    case 'deposit_received':
+      return quotePreparedAt
+        ? 'El deposito fue validado y la cotizacion final ya esta preparada. La orden queda alineada para pasar a ejecucion sobre el rail seleccionado.'
+        : 'El deposito ya fue validado por staff. La orden queda en control interno mientras se publica la cotizacion final con fee y tipo de cambio reales.'
+    case 'processing':
+      return 'La orden ya se encuentra en ejecucion. La trazabilidad documental queda congelada y cualquier nuevo evento deberia reflejarse en la bitacora operativa.'
+    case 'sent':
+      return 'El rail externo ya emitio salida o referencia operativa. Se mantiene la trazabilidad activa hasta contar con comprobante final y cierre del expediente.'
+    case 'completed':
+      return 'Operacion cerrada correctamente. El expediente conserva historial, cotizacion final y archivos como respaldo operativo del cierre.'
+    case 'failed':
+      return 'El expediente fue marcado como fallido. Debe revisarse la razon registrada en metadata o auditoria antes de reintentar una nueva operacion.'
+  }
+}
+
+function getUrgencyLabel(status: PaymentOrder['status']) {
+  switch (status) {
+    case 'created':
+      return 'Accion requerida'
+    case 'waiting_deposit':
+      return 'En revision'
+    case 'deposit_received':
+      return 'Interno'
+    case 'processing':
+    case 'sent':
+      return 'En curso'
+    case 'completed':
+      return 'Cerrado'
+    case 'failed':
+      return 'Incidencia'
+  }
+}
+
+function getUrgencyBadgeClass(status: PaymentOrder['status']) {
+  switch (status) {
+    case 'created':
+      return 'border-amber-400/35 bg-amber-400/10 text-amber-700 dark:text-amber-300'
+    case 'waiting_deposit':
+      return 'border-cyan-400/35 bg-cyan-400/10 text-cyan-700 dark:text-cyan-300'
+    case 'deposit_received':
+      return 'border-sky-400/35 bg-sky-400/10 text-sky-700 dark:text-sky-300'
+    case 'processing':
+    case 'sent':
+      return 'border-violet-400/35 bg-violet-400/10 text-violet-700 dark:text-violet-300'
+    case 'completed':
+      return 'border-emerald-400/35 bg-emerald-400/10 text-emerald-700 dark:text-emerald-300'
+    case 'failed':
+      return 'border-destructive/35 bg-destructive/10 text-destructive'
+  }
+}
+
+function humanizeOrderType(orderType: PaymentOrder['order_type']) {
+  switch (orderType) {
+    case 'BO_TO_WORLD':
+      return 'BO a exterior'
+    case 'WORLD_TO_BO':
+      return 'Exterior a BO'
+    case 'US_TO_WALLET':
+      return 'US a wallet'
+    case 'CRYPTO_TO_CRYPTO':
+      return 'Crypto a crypto'
+    default:
+      return orderType
+  }
+}
+
+function humanizeRail(rail: PaymentOrder['processing_rail']) {
+  switch (rail) {
+    case 'ACH':
+      return 'Rail ACH'
+    case 'SWIFT':
+      return 'Rail SWIFT'
+    case 'PSAV':
+      return 'Rail PSAV'
+    case 'DIGITAL_NETWORK':
+      return 'Rail digital'
+    default:
+      return rail
   }
 }
 

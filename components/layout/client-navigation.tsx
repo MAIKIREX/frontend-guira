@@ -23,9 +23,9 @@ export function ClientNavigation({
   const pathname = usePathname()
 
   return (
-    <nav className="space-y-2">
+    <nav className="space-y-2.5">
       {!collapsed ? (
-        <div className="px-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+        <div className="px-4 text-[10px] font-semibold uppercase tracking-[0.34em] text-muted-foreground/80">
           Cliente
         </div>
       ) : null}
@@ -40,17 +40,32 @@ export function ClientNavigation({
             title={link.label}
             aria-label={link.label}
             className={cn(
-              'group flex rounded-2xl border text-sm transition-colors',
-              collapsed ? 'justify-center px-2 py-3' : 'items-center gap-3 px-3 py-3',
+              'group relative flex overflow-hidden  text-sm transition-all duration-200',
+              collapsed ? 'justify-center px-3 py-3.5' : 'items-center gap-3 px-4 py-3.5',
               active
-                ? 'border-cyan-400/35 bg-cyan-400/10 text-foreground'
-                : 'border-transparent text-muted-foreground hover:border-border/70 hover:bg-muted/30 hover:text-foreground'
+                ? 'bg-accent/12 text-foreground shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent)_24%,transparent)]'
+                : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
             )}
           >
-            <span className={cn('rounded-xl border border-border/60 bg-background/80 p-2 text-muted-foreground', active && 'border-cyan-400/35 bg-cyan-400/12 text-cyan-300')}>
-              <Icon className="size-4" />
+            <span
+              className={cn(
+                'absolute right-0 top-0 bottom-0 w-1  bg-transparent transition-colors duration-200',
+                active && 'bg-accent'
+              )}
+            />
+            <span
+              className={cn(
+                'relative z-10 flex shrink-0 items-center justify-center text-muted-foreground transition-colors duration-200',
+                active && 'text-accent-foreground'
+              )}
+            >
+              <Icon className={cn('size-4', !collapsed && 'size-[1.05rem]')} />
             </span>
-            {!collapsed ? <span className="font-medium">{link.label}</span> : null}
+            {!collapsed ? (
+              <span className="relative z-10 text-[0.82rem] font-semibold uppercase tracking-[0.16em]">
+                {link.label}
+              </span>
+            ) : null}
           </Link>
         )
       })}
