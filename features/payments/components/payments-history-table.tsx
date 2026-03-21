@@ -538,7 +538,7 @@ function AttachmentPanel({
       </div>
 
       {openUploads ? (
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className="grid gap-3">
           {showSupportUploader ? (
             <AttachmentUploader
               accept={ACCEPTED_UPLOADS}
