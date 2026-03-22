@@ -15,7 +15,7 @@ import { DepositInstructionCard } from '@/features/payments/components/deposit-i
 import { buildDepositInstructions } from '@/features/payments/lib/deposit-instructions'
 import { generatePaymentPdf } from '@/features/payments/lib/generate-payment-pdf'
 import { ACCEPTED_UPLOADS } from '@/lib/file-validation'
-import { cn } from '@/lib/utils'
+import { cn, interactiveCardClassName } from '@/lib/utils'
 import type { ActivityLog } from '@/types/activity-log'
 import type { OrderFileField, PaymentOrder, PsavConfigRow } from '@/types/payment-order'
 import type { Supplier } from '@/types/supplier'
@@ -230,7 +230,13 @@ export function PaymentsHistoryTable({
         const statusMeta = getStatusMeta(order.status)
 
         return (
-          <Card key={order.id} className="overflow-hidden rounded-[30px] border-border/70 border-1 bg-background hover:border-border">
+          <Card
+            key={order.id}
+            className={cn(
+              'overflow-hidden rounded-[30px] border border-primary/20 bg-background shadow-[inset_0_0_0_1px_hsl(var(--border)/0.55),0_0_0_4px_hsl(var(--primary)/0.04)]',
+              interactiveCardClassName
+            )}
+          >
             <CardHeader className="gap-4 ">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div className="space-y-3">
