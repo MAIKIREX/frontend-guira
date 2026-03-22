@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { SupplierForm } from '@/features/payments/components/supplier-form'
 import { parseSupplierPaymentMethods } from '@/features/payments/lib/supplier-methods'
+import { cn, interactiveCardClassName } from '@/lib/utils'
 import type { SupplierUpsertInput } from '@/types/payment-order'
 import type { Supplier, SupplierPaymentMethod } from '@/types/supplier'
 
@@ -167,7 +168,10 @@ export function SuppliersSection({
                   return (
                     <div
                       key={supplier.id ?? supplier.name}
-                      className="flex flex-col gap-4 rounded-2xl border border-border/70 bg-background/80 p-5 md:flex-row md:items-center md:justify-between"
+                      className={cn(
+                        'flex flex-col gap-4 rounded-2xl border  border-primary/20 bg-background/80 p-5 shadow-[inset_0_0_0_1px_hsl(var(--border)/0.55),0_0_0_4px_hsl(var(--primary)/0.04)] md:flex-row md:items-center md:justify-between',
+                        interactiveCardClassName
+                      )}
                     >
                       <div className="flex items-start gap-4">
                         <div className="flex size-11 items-center justify-center rounded-2xl border border-border/70 bg-muted/30">
@@ -194,10 +198,24 @@ export function SuppliersSection({
                       </div>
 
                       <div className="flex items-center gap-2 self-end md:self-center">
-                        <Button disabled={disabled} onClick={() => handleEdit(supplier)} size="icon" type="button" variant="ghost">
+                        <Button
+                          className="text-muted-foreground hover:bg-primary/10 hover:text-primary cursor-pointer"
+                          disabled={disabled}
+                          onClick={() => handleEdit(supplier)}
+                          size="icon"
+                          type="button"
+                          variant="ghost"
+                        >
                           <Pencil />
                         </Button>
-                        <Button disabled={disabled} onClick={() => handleDelete(supplier)} size="icon" type="button" variant="ghost">
+                        <Button
+                          className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive cursor-pointer"
+                          disabled={disabled}
+                          onClick={() => handleDelete(supplier)}
+                          size="icon"
+                          type="button"
+                          variant="ghost"
+                        >
                           <Trash2 />
                         </Button>
                       </div>

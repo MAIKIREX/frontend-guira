@@ -68,7 +68,7 @@ import type {
 } from '@/types/payment-order'
 import type { Supplier } from '@/types/supplier'
 import { ACCEPTED_UPLOADS } from '@/lib/file-validation'
-import { cn } from '@/lib/utils'
+import { cn, interactiveClickableCardClassName } from '@/lib/utils'
 
 type StepKey = 'route' | 'method' | 'detail' | 'review' | 'finish'
 
@@ -1320,10 +1320,14 @@ function SelectionCard({
   return (
     <button
       aria-pressed={isSelected}
-      className={`rounded-xl border px-4 py-4 text-left transition-colors ${isSelected
-        ? 'border-primary/35 bg-primary/5'
-        : 'border-border/50 bg-transparent hover:border-border/80 hover:bg-muted/10'
-        } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
+      className={cn(
+        'rounded-xl border px-4 py-4 text-left',
+        isSelected
+          ? 'border-primary/35 bg-primary/5 shadow-sm'
+          : 'border-border/50 bg-transparent',
+        !disabled && interactiveClickableCardClassName,
+        disabled && 'cursor-not-allowed opacity-60'
+      )}
       disabled={disabled}
       onClick={onClick}
       type="button"

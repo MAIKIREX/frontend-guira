@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { CheckCircle2, AlertCircle } from 'lucide-react'
 import { StepProgressRail } from '@/features/payments/components/step-progress-rail'
+import { interactiveClickableCardClassName } from '@/lib/utils'
 import { PersonalForm } from './personal-form'
 import { CompanyForm } from './company-form'
 
@@ -133,13 +134,13 @@ export function OnboardingWizard() {
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Card className="cursor-pointer hover:border-primary transition" onClick={() => { setType('personal'); setStep(2) }}>
+          <Card className={interactiveClickableCardClassName} onClick={() => { setType('personal'); setStep(2) }}>
             <CardHeader>
               <CardTitle>Personal</CardTitle>
               <CardDescription>Transacciones como individuo.</CardDescription>
             </CardHeader>
           </Card>
-          <Card className="cursor-pointer hover:border-primary transition" onClick={() => { setType('company'); setStep(2) }}>
+          <Card className={interactiveClickableCardClassName} onClick={() => { setType('company'); setStep(2) }}>
             <CardHeader>
               <CardTitle>Empresa</CardTitle>
               <CardDescription>Operaciones a nombre de su negocio o entidad legal.</CardDescription>

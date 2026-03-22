@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { StepProgressRail } from '@/features/payments/components/step-progress-rail'
+import { cn, interactiveClickableCardClassName } from '@/lib/utils'
 import {
   COUNTRY_PHONE_OPTIONS,
   DEFAULT_COUNTRY_OPTION,
@@ -515,7 +516,12 @@ export function SupplierForm({
                               return (
                                 <button
                                   key={option.value}
-                                  className={`rounded-2xl border p-4 text-left transition ${isActive ? 'border-primary bg-primary/5 shadow-sm' : 'border-border/70 bg-background hover:border-primary/40 hover:bg-muted/30'}`}
+                                  className={cn(
+                                    'rounded-2xl border p-4 text-left',
+                                    isActive ? 'border-primary bg-primary/5 shadow-sm' : 'border-border/70 bg-background',
+                                    !disabled && interactiveClickableCardClassName,
+                                    disabled && 'cursor-not-allowed opacity-60'
+                                  )}
                                   disabled={disabled}
                                   onClick={() => field.onChange(option.value)}
                                   type="button"
@@ -550,7 +556,11 @@ export function SupplierForm({
                       {selectedMethods.map((method) => (
                         <button
                           key={method}
-                          className={`rounded-xl border px-4 py-3 text-sm font-medium transition ${activeMethod === method ? 'border-primary bg-primary/5 text-foreground' : 'border-border/70 bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground'}`}
+                          className={cn(
+                            'rounded-xl border px-4 py-3 text-sm font-medium',
+                            activeMethod === method ? 'border-primary bg-primary/5 text-foreground shadow-sm' : 'border-border/70 bg-background text-muted-foreground',
+                            interactiveClickableCardClassName
+                          )}
                           onClick={() => setActiveMethod(method)}
                           type="button"
                         >

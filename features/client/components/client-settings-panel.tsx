@@ -6,7 +6,7 @@ import { BellRing, Settings2, ShieldCheck, UserCircle2 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { buttonVariants } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { cn, interactiveRowClassName } from '@/lib/utils'
 import { useProfileStore } from '@/stores/profile-store'
 
 interface ClientPreferences {
@@ -107,7 +107,7 @@ export function ClientSettingsPanel() {
 
 function PreferenceRow({ checked, description, label, onCheckedChange }: { checked: boolean; description: string; label: string; onCheckedChange: (checked: boolean) => void }) {
   return (
-    <label className="flex items-start gap-3 rounded-2xl border border-border/70 bg-muted/20 p-4">
+    <label className={cn('flex items-start gap-3 rounded-2xl border border-border/70 bg-muted/20 p-4', interactiveRowClassName)}>
       <Checkbox checked={checked} onCheckedChange={(value) => onCheckedChange(value === true)} />
       <div>
         <div className="font-medium text-foreground">{label}</div>

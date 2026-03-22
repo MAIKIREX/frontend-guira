@@ -33,6 +33,7 @@ import type { Profile } from '@/types/profile'
 import type { StaffActor, StaffOnboardingRecord, StaffSupportTicket } from '@/types/staff'
 import type { BridgeTransfer } from '@/types/bridge-transfer'
 import type { AuditLog } from '@/types/activity-log'
+import { cn, interactiveCardClassName } from '@/lib/utils'
 
 const PANEL_TABS = [
   { value: 'overview', label: 'Overview' },
@@ -638,7 +639,7 @@ function ConfigPanel({
                 </TableRow>
               ) : (
                 feesConfig.map((record) => (
-                  <TableRow key={record.id} className="group transition-colors hover:bg-muted/30">
+                  <TableRow key={record.id} className={cn("group", interactiveCardClassName, "hover:bg-muted/30")}>
                     <TableCell className="py-4 pl-6">
                       <div className="font-semibold text-foreground/90 text-sm">{record.type}</div>
                       <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mt-0.5">
@@ -700,7 +701,7 @@ function ConfigPanel({
                   const key = String(record.key ?? record.name ?? `setting-${index + 1}`)
                   const value = String(record.value ?? 'sin valor')
                   return (
-                    <TableRow key={String(record.id ?? key)} className="group transition-colors hover:bg-muted/30">
+                    <TableRow key={String(record.id ?? key)} className={cn("group", interactiveCardClassName, "hover:bg-muted/30")}>
                       <TableCell className="py-4 pl-6">
                         <div className="font-mono text-[13px] font-bold text-cyan-300 tracking-tight">{key}</div>
                       </TableCell>
@@ -767,7 +768,7 @@ function PsavPanel({ actor, isPrivileged, onChangeRecord, records }: { actor: St
               </TableRow>
             ) : (
               records.map((record) => (
-                <TableRow key={record.id} className="group transition-colors hover:bg-muted/30">
+                <TableRow key={record.id} className={cn("group", interactiveCardClassName, "hover:bg-muted/30")}>
                   <TableCell className="py-4 pl-6">
                     {record.qr_url ? (
                       <div className="relative size-10 overflow-hidden rounded-lg border border-border/80 bg-card p-1 transition-transform group-hover:scale-110 shadow-sm">
