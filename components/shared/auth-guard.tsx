@@ -7,7 +7,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import { useProfileStore } from '@/stores/profile-store'
 import { ProfileService } from '@/services/profile.service'
 import type { Profile } from '@/types/profile'
-import type { Session, AuthChangeEvent } from '@supabase/supabase-js'
+import type { Session } from '@supabase/supabase-js'
 
 const PUBLIC_PATHS = ['/login', '/registro', '/recuperar']
 const CLIENT_PATHS = ['/panel', '/depositar', '/enviar', '/proveedores', '/transacciones', '/configuracion', '/pagos', '/actividad', '/soporte', '/onboarding']
@@ -228,13 +228,13 @@ async function resolveRedirect({
   const isVerifiedClient = isClient && profile.onboarding_status === 'verified'
 
   if (isPublicPath(pathname)) {
-    if (isStaffAdmin) return '/admin'
+    if (isStaffAdmin) return '/admin/orders'
     if (isVerifiedClient) return '/panel'
     if (isClient && pathname !== '/') return '/onboarding'
   }
 
   if (pathname === '/onboarding') {
-    if (isStaffAdmin) return '/admin'
+    if (isStaffAdmin) return '/admin/orders'
     if (isVerifiedClient) return '/panel'
     return null
   }
@@ -244,7 +244,7 @@ async function resolveRedirect({
   }
 
   if (isClientPath(pathname)) {
-    if (!isClient) return '/admin'
+    if (!isClient) return '/admin/orders'
     if (!isVerifiedClient) return '/onboarding'
   }
 

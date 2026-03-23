@@ -165,6 +165,94 @@ export const AdminService = {
     return data as AppSettingRow
   },
 
+  async syncParallelRatesFromForexApi(args: {
+    actor: StaffActor
+    appSettings: AppSettingRow[]
+    reason?: string
+  }) {
+    assertPrivileged(args.actor)
+
+    const response = await fetch('https://api-mdp-2.onrender.com/api/forex/exchange-rate/all?asset=USDT', {
+      method: 'GET',
+      cache: 'no-store',
+    })
+
+    if (!response.ok) {
+      throw new Error(`No se pudo consultar el endpoint externo (${response.status}).`)
+    }
+
+    const payload = (await response.json()) as ForexRatesResponse
+    const buyRate = readExchangeRate(payload.buy?.data?.result?.exchangeRate, 'buy')
+    const sellRate = readExchangeRate(payload.sell?.data?.result?.exchangeRate, 'sell')
+
+    const previousBuyRecord = findAppSetting(args.appSettings, 'parallel_buy_rate')
+    const previousSellRecord = findAppSetting(args.appSettings, 'parallel_sell_rate')
+
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('app_settings')
+      .upsert(
+        [
+          {
+            ...previousBuyRecord,
+            key: 'parallel_buy_rate',
+            value: buyRate,
+          },
+          {
+            ...previousSellRecord,
+            key: 'parallel_sell_rate',
+            value: sellRate,
+          },
+        ],
+        { onConflict: 'key' }
+      )
+      .select('*')
+
+    if (error) throw error
+
+    const updatedRecords = (data ?? []) as AppSettingRow[]
+    const updatedBuyRecord = findAppSetting(updatedRecords, 'parallel_buy_rate')
+    const updatedSellRecord = findAppSetting(updatedRecords, 'parallel_sell_rate')
+    const reason = args.reason ?? 'Sincronizacion manual de tasas paralelas desde endpoint externo USDT.'
+
+    if (!updatedBuyRecord || !updatedSellRecord) {
+      throw new Error('La sincronizacion no devolvio ambas tasas actualizadas.')
+    }
+
+    await insertAdminAudit({
+      actor: args.actor,
+      action: 'update',
+      tableName: 'app_settings',
+      recordId: String(
+        updatedBuyRecord.id ?? updatedBuyRecord.key ?? updatedBuyRecord.name ?? 'parallel_buy_rate'
+      ),
+      previousValues: normalizeRecord(previousBuyRecord),
+      newValues: normalizeRecord(updatedBuyRecord),
+      reason,
+    })
+
+    await insertAdminAudit({
+      actor: args.actor,
+      action: 'update',
+      tableName: 'app_settings',
+      recordId: String(
+        updatedSellRecord.id ?? updatedSellRecord.key ?? updatedSellRecord.name ?? 'parallel_sell_rate'
+      ),
+      previousValues: normalizeRecord(previousSellRecord),
+      newValues: normalizeRecord(updatedSellRecord),
+      reason,
+    })
+
+    return {
+      buy: updatedBuyRecord,
+      sell: updatedSellRecord,
+      sourceRates: {
+        buy: buyRate,
+        sell: sellRate,
+      },
+    }
+  },
+
   async upsertPsavConfig(args: {
     actor: StaffActor
     payload: Record<string, unknown>
@@ -237,7 +325,7 @@ async function insertAdminAudit(args: {
     role: args.actor.role,
     action: args.action,
     table_name: args.tableName,
-    record_id: args.recordId,
+    record_id: normalizeAuditRecordId(args.recordId),
     affected_fields: affectedFields,
     previous_values: args.previousValues,
     new_values: args.newValues,
@@ -249,4 +337,51 @@ async function insertAdminAudit(args: {
 
 function normalizeRecord(value: unknown) {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
+}
+
+interface ForexRatesResponse {
+  buy?: {
+    data?: {
+      result?: {
+        exchangeRate?: number | string
+      }
+    }
+  }
+  sell?: {
+    data?: {
+      result?: {
+        exchangeRate?: number | string
+      }
+    }
+  }
+}
+
+function readExchangeRate(value: unknown, side: 'buy' | 'sell') {
+  const parsed =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number(value.trim().replace(',', '.'))
+        : Number.NaN
+
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`El endpoint no devolvio un exchangeRate valido para ${side}.`)
+  }
+
+  return parsed
+}
+
+function findAppSetting(records: AppSettingRow[], key: string) {
+  const normalizedKey = key.trim().toLowerCase()
+  return (
+    records.find((record) => String(record.key ?? record.name ?? '').trim().toLowerCase() === normalizedKey) ?? null
+  )
+}
+
+function normalizeAuditRecordId(recordId: string) {
+  return isUuid(recordId) ? recordId : crypto.randomUUID()
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim())
 }

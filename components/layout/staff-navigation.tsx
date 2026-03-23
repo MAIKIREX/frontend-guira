@@ -4,7 +4,6 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  Blocks,
   ChevronDown,
   CircleDollarSign,
   Cog,
@@ -37,7 +36,6 @@ const staffNavGroups: StaffNavGroup[] = [
     label: 'Operaciones',
     icon: LayoutDashboard,
     items: [
-      { href: '/admin', label: 'Panel', icon: LayoutDashboard },
       { href: '/admin/onboarding', label: 'Onboarding', icon: ShieldCheck },
       { href: '/admin/orders', label: 'Orders', icon: ReceiptText },
     ],
@@ -199,9 +197,5 @@ export function StaffNavigation({
 }
 
 function isLinkActive(pathname: string, href: string) {
-  if (href === '/admin') {
-    return pathname === href
-  }
-
   return pathname === href || pathname.startsWith(`${href}/`)
 }

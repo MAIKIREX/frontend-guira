@@ -96,11 +96,12 @@ export function StaffUsersRoute() {
 export function StaffConfigRoute() {
   return (
     <StaffDashboardPage>
-      {({ snapshot, actor, isPrivileged, replaceAppSetting, replaceFeeConfig }) => (
+      {({ snapshot, actor, isPrivileged, reload, replaceAppSetting, replaceFeeConfig }) => (
         <StaffConfigPanel
           snapshot={snapshot}
           actor={actor}
           isPrivileged={isPrivileged}
+          reload={reload}
           replaceAppSetting={replaceAppSetting}
           replaceFeeConfig={replaceFeeConfig}
         />

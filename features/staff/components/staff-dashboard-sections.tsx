@@ -3,6 +3,7 @@
 import { useDeferredValue, useState } from 'react'
 import { format } from 'date-fns'
 import Link from 'next/link'
+import { toast } from 'sonner'
 import {
   AlertTriangle,
   ArrowRightLeft,
@@ -30,6 +31,7 @@ import {
   PsavCreateDialog,
   UserAdminActions,
 } from '@/features/staff/components/admin-action-dialogs'
+import { AdminService } from '@/services/admin.service'
 import { interactiveCardClassName, cn } from '@/lib/utils'
 import { useAuditTableStore } from '@/stores/audit-table-store'
 import type { StaffDashboardLoadedState } from '@/features/staff/components/staff-dashboard-page'
@@ -652,15 +654,20 @@ export function StaffConfigPanel({
   snapshot,
   actor,
   isPrivileged,
+  reload,
   replaceAppSetting,
   replaceFeeConfig,
-}: Pick<StaffDashboardLoadedState, 'snapshot' | 'actor' | 'isPrivileged' | 'replaceAppSetting' | 'replaceFeeConfig'>) {
+}: Pick<
+  StaffDashboardLoadedState,
+  'snapshot' | 'actor' | 'isPrivileged' | 'reload' | 'replaceAppSetting' | 'replaceFeeConfig'
+>) {
   return (
     <ConfigPanel
       actor={actor}
       appSettings={snapshot.appSettings}
       feesConfig={snapshot.feesConfig}
       isPrivileged={isPrivileged}
+      reload={reload}
       onUpdateAppSetting={replaceAppSetting}
       onUpdateFeeConfig={replaceFeeConfig}
     />
@@ -1022,6 +1029,7 @@ function ConfigPanel({
   appSettings,
   feesConfig,
   isPrivileged,
+  reload,
   onUpdateAppSetting,
   onUpdateFeeConfig,
 }: {
@@ -1029,9 +1037,36 @@ function ConfigPanel({
   appSettings: AppSettingRow[]
   feesConfig: FeeConfigRow[]
   isPrivileged: boolean
+  reload: () => Promise<void>
   onUpdateAppSetting: (record: AppSettingRow) => void
   onUpdateFeeConfig: (record: FeeConfigRow) => void
 }) {
+  const [isSyncingRates, setIsSyncingRates] = useState(false)
+  const buyRateRecord = findAppSettingRecord(appSettings, 'parallel_buy_rate')
+  const sellRateRecord = findAppSettingRecord(appSettings, 'parallel_sell_rate')
+
+  async function handleSyncParallelRates() {
+    try {
+      setIsSyncingRates(true)
+      const result = await AdminService.syncParallelRatesFromForexApi({
+        actor,
+        appSettings,
+      })
+
+      onUpdateAppSetting(result.buy)
+      onUpdateAppSetting(result.sell)
+      toast.success(
+        `Tasas actualizadas. Compra ${formatRateValue(result.sourceRates.buy)} | Venta ${formatRateValue(result.sourceRates.sell)}`
+      )
+      await reload()
+    } catch (error) {
+      console.error('Failed to sync parallel rates', error)
+      toast.error(error instanceof Error ? error.message : 'No se pudo actualizar las tasas paralelas.')
+    } finally {
+      setIsSyncingRates(false)
+    }
+  }
+
   return (
     <div className="grid gap-6 xl:grid-cols-2">
       <Card className="overflow-hidden border-border/60 bg-background/95 shadow-sm">
@@ -1092,64 +1127,110 @@ function ConfigPanel({
         </CardContent>
       </Card>
 
-      <Card className="overflow-hidden border-border/60 bg-background/95 shadow-sm">
-        <CardHeader className="border-b border-border/40 pb-6">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-300">
-              <ShieldCheck className="size-5" />
+      <div className="space-y-6">
+        <Card className="overflow-hidden border-border/60 bg-background/95 shadow-sm">
+          <CardHeader className="border-b border-border/40 pb-6">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
+                <RefreshCw className="size-5" />
+              </div>
+              <div className="space-y-1">
+                <CardTitle className="text-lg font-bold tracking-tight">Tasa Paralela USDT</CardTitle>
+                <CardDescription className="text-[13px]">
+                  Consulta el endpoint externo y sincroniza `parallel_buy_rate` y `parallel_sell_rate`.
+                </CardDescription>
+              </div>
             </div>
-            <div className="space-y-1">
-              <CardTitle className="text-lg font-bold tracking-tight">Variables del Sistema</CardTitle>
-              <CardDescription className="text-[13px]">
-                Ajustes globales y constantes operativas de la aplicacion.
-              </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 p-6">
+            {!isPrivileged ? <AdminOnlyNotice /> : null}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Compra</div>
+                <div className="mt-2 text-2xl font-bold tracking-tight">
+                  {formatRateValue(buyRateRecord?.value)}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">Clave: `parallel_buy_rate`</div>
+              </div>
+              <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Venta</div>
+                <div className="mt-2 text-2xl font-bold tracking-tight">
+                  {formatRateValue(sellRateRecord?.value)}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">Clave: `parallel_sell_rate`</div>
+              </div>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {!isPrivileged ? <div className="p-6"><AdminOnlyNotice /></div> : null}
-          <Table>
-            <TableHeader className="bg-muted/30">
-              <TableRow className="border-none hover:bg-transparent">
-                <TableHead className="py-3 pl-6 text-[11px] font-bold uppercase tracking-wider">Variable</TableHead>
-                <TableHead className="py-3 text-[11px] font-bold uppercase tracking-wider">Valor Actual</TableHead>
-                <TableHead className="py-3 pr-6 text-right"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {appSettings.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={3} className="py-8 text-center text-sm italic text-muted-foreground">
-                    Sin variables detectadas.
-                  </TableCell>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">
+                Fuente externa: `api-mdp-2.onrender.com` con asset `USDT`.
+              </p>
+              <Button disabled={!isPrivileged || isSyncingRates} onClick={handleSyncParallelRates} type="button">
+                <RefreshCw className={cn(isSyncingRates ? 'animate-spin' : undefined)} />
+                {isSyncingRates ? 'Actualizando...' : 'Actualizar'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden border-border/60 bg-background/95 shadow-sm">
+          <CardHeader className="border-b border-border/40 pb-6">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-300">
+                <ShieldCheck className="size-5" />
+              </div>
+              <div className="space-y-1">
+                <CardTitle className="text-lg font-bold tracking-tight">Variables del Sistema</CardTitle>
+                <CardDescription className="text-[13px]">
+                  Ajustes globales y constantes operativas de la aplicacion.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            {!isPrivileged ? <div className="p-6"><AdminOnlyNotice /></div> : null}
+            <Table>
+              <TableHeader className="bg-muted/30">
+                <TableRow className="border-none hover:bg-transparent">
+                  <TableHead className="py-3 pl-6 text-[11px] font-bold uppercase tracking-wider">Variable</TableHead>
+                  <TableHead className="py-3 text-[11px] font-bold uppercase tracking-wider">Valor Actual</TableHead>
+                  <TableHead className="py-3 pr-6 text-right"></TableHead>
                 </TableRow>
-              ) : (
-                appSettings.map((record, index) => {
-                  const key = String(record.key ?? record.name ?? `setting-${index + 1}`)
-                  const value = String(record.value ?? 'sin valor')
-                  return (
-                    <TableRow key={String(record.id ?? key)} className={cn('group', interactiveCardClassName, 'hover:bg-muted/30')}>
-                      <TableCell className="py-4 pl-6">
-                        <div className="font-mono text-[13px] font-bold tracking-tight text-cyan-300">{key}</div>
-                      </TableCell>
-                      <TableCell className="max-w-[200px] py-4">
-                        <div className="truncate text-[12px] font-medium text-muted-foreground" title={value}>
-                          {value.length > 35 ? `${value.slice(0, 35)}...` : value}
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-4 pr-6 text-right">
-                        <div className="flex justify-end opacity-0 transition-opacity group-hover:opacity-100">
-                          {isPrivileged ? <AppSettingDialog actor={actor} onUpdated={onUpdateAppSetting} record={record} /> : null}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {appSettings.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3} className="py-8 text-center text-sm italic text-muted-foreground">
+                      Sin variables detectadas.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  appSettings.map((record, index) => {
+                    const key = String(record.key ?? record.name ?? `setting-${index + 1}`)
+                    const value = String(record.value ?? 'sin valor')
+                    return (
+                      <TableRow key={String(record.id ?? key)} className={cn('group', interactiveCardClassName, 'hover:bg-muted/30')}>
+                        <TableCell className="py-4 pl-6">
+                          <div className="font-mono text-[13px] font-bold tracking-tight text-cyan-300">{key}</div>
+                        </TableCell>
+                        <TableCell className="max-w-[200px] py-4">
+                          <div className="truncate text-[12px] font-medium text-muted-foreground" title={value}>
+                            {value.length > 35 ? `${value.slice(0, 35)}...` : value}
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-4 pr-6 text-right">
+                          <div className="flex justify-end opacity-0 transition-opacity group-hover:opacity-100">
+                            {isPrivileged ? <AppSettingDialog actor={actor} onUpdated={onUpdateAppSetting} record={record} /> : null}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
@@ -1466,6 +1547,14 @@ function formatRateValue(value: unknown) {
   if (typeof value === 'number') return value.toFixed(2)
   if (typeof value === 'string' && value.trim().length > 0) return value.trim()
   return 'Pendiente'
+}
+
+function findAppSettingRecord(appSettings: AppSettingRow[], targetKey: string) {
+  const normalizedKey = targetKey.trim().toLowerCase()
+  return (
+    appSettings.find((record) => String(record.key ?? record.name ?? '').trim().toLowerCase() === normalizedKey) ??
+    null
+  )
 }
 
 function buildOptions<T>(items: T[], getValue: (item: T) => string | null | undefined) {

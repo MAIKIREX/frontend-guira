@@ -1,5 +1,5 @@
-import { StaffOverviewRoute } from '@/features/staff/components/staff-dashboard-routes'
+import { redirect } from 'next/navigation'
 
 export default function AdminPage() {
-  return <StaffOverviewRoute />
+  redirect('/admin/orders')
 }
