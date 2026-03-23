@@ -1,9 +1,5 @@
-import { StaffSupportList } from '@/features/support/components/staff-support-list'
+import { redirect } from 'next/navigation'
 
-export default function StaffSupportPage() {
-  return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <StaffSupportList />
-    </div>
-  )
+export default function LegacyStaffSupportPage() {
+  redirect('/admin/support')
 }

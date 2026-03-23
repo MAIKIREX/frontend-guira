@@ -36,7 +36,7 @@ export function StaffShell({
         )}>
           <div className="flex items-center justify-between border-b px-5 py-4">
             <div className="text-[11px] font-semibold uppercase tracking-[0.34em] text-muted-foreground/80">Guira</div>
-            <Button variant="ghost" size="icon" onClick={() => setIsMobileOpen(false)}>
+            <Button variant="ghost" size="icon" className="rounded-none" onClick={() => setIsMobileOpen(false)}>
               <X className="size-5" />
             </Button>
           </div>
@@ -65,7 +65,7 @@ export function StaffShell({
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  className="shrink-0 rounded-full border border-border/70 bg-background/70 text-muted-foreground hover:bg-background hover:text-foreground"
+                  className="shrink-0 border border-border/70 bg-background/70 text-muted-foreground hover:bg-background hover:text-foreground"
                   onClick={() => setIsCollapsed((value) => !value)}
                   aria-label={isCollapsed ? 'Expandir menu lateral' : 'Colapsar menu lateral'}
                   title={isCollapsed ? 'Expandir menu lateral' : 'Colapsar menu lateral'}
@@ -76,7 +76,7 @@ export function StaffShell({
             </div>
 
             <div className="flex-1 overflow-y-auto py-5">
-              <StaffNavigation collapsed={isCollapsed} />
+              <StaffNavigation collapsed={isCollapsed} onRequestExpand={() => setIsCollapsed(false)} />
             </div>
 
             <SidebarUtilities collapsed={isCollapsed} />

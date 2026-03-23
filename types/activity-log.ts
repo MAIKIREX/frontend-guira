@@ -9,6 +9,10 @@ export interface ActivityLog {
 export interface AuditLog {
   id: string
   performed_by: string
+  profiles?: {
+    full_name?: string | null
+    email?: string | null
+  } | null
   role: string
   action: string
   table_name: string

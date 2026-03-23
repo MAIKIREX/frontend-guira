@@ -6,7 +6,7 @@ import type { NotificationType } from '@/types/notification'
 import type { OnboardingStatus, Onboarding } from '@/types/onboarding'
 import type { AppSettingRow, FeeConfigRow, PaymentOrder, PsavConfigRow } from '@/types/payment-order'
 import type { Profile } from '@/types/profile'
-import type { StaffActor, StaffDocumentRecord, StaffOnboardingDetail, StaffOnboardingRecord, StaffSnapshot, StaffSupportTicket } from '@/types/staff'
+import type { StaffActor, StaffDocumentRecord, StaffOnboardingDetail, StaffOnboardingRecord, StaffSnapshot, StaffSupportTicket, StaffUserRecord } from '@/types/staff'
 import type { TicketStatus } from '@/types/support'
 import type { Wallet } from '@/types/wallet'
 
@@ -25,8 +25,9 @@ export const StaffService = {
   async getReadOnlySnapshot(): Promise<StaffSnapshot> {
     const supabase = createClient()
 
-    const [onboardingResult, payinsResult, transfersResult, ordersResult, usersResult, supportResult, feesResult, settingsResult, psavResult, auditResult] = await Promise.all([
-      supabase.from('onboarding').select('*, profiles(full_name, email, onboarding_status)').order('updated_at', { ascending: false }).limit(50),
+    const [onboardingResult, onboardingUsersResult, payinsResult, transfersResult, ordersResult, usersResult, supportResult, feesResult, settingsResult, psavResult, auditResult] = await Promise.all([
+      supabase.from('onboarding').select('*, profiles(full_name, email, onboarding_status, metadata)').order('updated_at', { ascending: false }).limit(50),
+      supabase.from('onboarding').select('user_id, data, updated_at').order('updated_at', { ascending: false }).limit(200),
       supabase.from('payin_routes').select('*').limit(50),
       supabase.from('bridge_transfers').select('*').order('created_at', { ascending: false }).limit(50),
       supabase.from('payment_orders').select('*').order('created_at', { ascending: false }).limit(50),
@@ -35,10 +36,11 @@ export const StaffService = {
       supabase.from('fees_config').select('*').order('type', { ascending: true }),
       supabase.from('app_settings').select('*'),
       supabase.from('psav_configs').select('*').order('id', { ascending: true }),
-      supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(50),
+      supabase.from('audit_logs').select('*, profiles(full_name, email)').order('created_at', { ascending: false }).limit(50),
     ])
 
     if (onboardingResult.error) throw onboardingResult.error
+    if (onboardingUsersResult.error) throw onboardingUsersResult.error
     if (payinsResult.error) throw payinsResult.error
     if (transfersResult.error) throw transfersResult.error
     if (ordersResult.error) throw ordersResult.error
@@ -49,12 +51,28 @@ export const StaffService = {
     if (psavResult.error) throw psavResult.error
     if (auditResult.error) throw auditResult.error
 
+    const latestOnboardingByUser = buildLatestOnboardingMap((onboardingUsersResult.data ?? []) as Array<Pick<Onboarding, 'user_id' | 'data' | 'updated_at'>>)
+
+    const onboardingWithPhotos = await Promise.all(
+      ((onboardingResult.data ?? []) as StaffOnboardingRecord[]).map(async (record) => ({
+        ...record,
+        client_photo_url: await resolveOnboardingClientPhotoUrl(supabase, record),
+      }))
+    )
+
+    const usersWithPhotos = await Promise.all(
+      ((usersResult.data ?? []) as Profile[]).map(async (user) => ({
+        ...user,
+        client_photo_url: await resolveUserPhotoUrl(supabase, user, latestOnboardingByUser.get(user.id)),
+      }))
+    )
+
     return {
-      onboarding: (onboardingResult.data ?? []) as StaffOnboardingRecord[],
+      onboarding: onboardingWithPhotos,
       payinRoutes: (payinsResult.data ?? []) as Array<Record<string, unknown>>,
       transfers: (transfersResult.data ?? []) as BridgeTransfer[],
       orders: (ordersResult.data ?? []) as PaymentOrder[],
-      users: (usersResult.data ?? []) as Profile[],
+      users: usersWithPhotos as StaffUserRecord[],
       support: (supportResult.data ?? []) as StaffSupportTicket[],
       feesConfig: (feesResult.data ?? []) as FeeConfigRow[],
       appSettings: (settingsResult.data ?? []) as AppSettingRow[],
@@ -282,6 +300,73 @@ export const StaffService = {
       throw error
     }
   },
+}
+
+function buildLatestOnboardingMap(records: Array<Pick<Onboarding, 'user_id' | 'data' | 'updated_at'>>) {
+  const latestByUser = new Map<string, Pick<Onboarding, 'user_id' | 'data' | 'updated_at'>>()
+
+  for (const record of records) {
+    if (!latestByUser.has(record.user_id)) {
+      latestByUser.set(record.user_id, record)
+    }
+  }
+
+  return latestByUser
+}
+
+async function resolveUserPhotoUrl(
+  supabase: ReturnType<typeof createClient>,
+  user: Profile,
+  onboardingRecord?: Pick<Onboarding, 'user_id' | 'data' | 'updated_at'>
+) {
+  const metadataAvatar = readProfileAvatarUrl(user.metadata)
+  if (metadataAvatar) return metadataAvatar
+
+  const selfiePath = readOnboardingSelfiePath(onboardingRecord?.data)
+  if (!selfiePath) return null
+
+  const { data } = await supabase.storage
+    .from('onboarding_docs')
+    .createSignedUrl(selfiePath, 60 * 60)
+
+  return data?.signedUrl ?? null
+}
+
+async function resolveOnboardingClientPhotoUrl(
+  supabase: ReturnType<typeof createClient>,
+  record: StaffOnboardingRecord
+) {
+  const metadataAvatar = readProfileAvatarUrl(record.profiles?.metadata)
+  if (metadataAvatar) return metadataAvatar
+
+  const selfiePath = readOnboardingSelfiePath(record.data)
+  if (!selfiePath) return null
+
+  const { data } = await supabase.storage
+    .from('onboarding_docs')
+    .createSignedUrl(selfiePath, 60 * 60)
+
+  return data?.signedUrl ?? null
+}
+
+function readProfileAvatarUrl(metadata: Record<string, unknown> | undefined) {
+  if (!metadata) return null
+
+  const candidateKeys = ['avatar_url', 'photo_url', 'image_url', 'profile_picture']
+  for (const key of candidateKeys) {
+    const value = metadata[key]
+    if (typeof value === 'string' && value.trim()) {
+      return value
+    }
+  }
+
+  return null
+}
+
+function readOnboardingSelfiePath(data: Record<string, unknown> | undefined) {
+  if (!data) return null
+  const value = data.selfie
+  return typeof value === 'string' && value.trim() ? value : null
 }
 
 function hasClientDepositEvidence(order: PaymentOrder) {

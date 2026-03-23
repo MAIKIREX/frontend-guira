@@ -5,17 +5,12 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import {
   ArrowLeft,
-  Building2,
   CalendarDays,
-  CircleAlert,
   ExternalLink,
-  FileBadge2,
   FileText,
   Loader2,
   Mail,
   ScanSearch,
-  ShieldCheck,
-  UserRound,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -35,28 +30,34 @@ type InlineDocument = {
   mime_type?: string | null
 }
 
+type SummaryRow = {
+  label: string
+  value: string
+}
+
+type DetailSection = {
+  title: string
+  description: string
+  rows: SummaryRow[]
+}
+
 const DOCUMENT_LABELS: Record<string, string> = {
-  id_front: 'Documento identidad frente',
-  id_back: 'Documento identidad reverso',
-  selfie: 'Selfie',
+  id_front: 'Documento de identidad frente',
+  id_back: 'Documento de identidad reverso',
+  selfie: 'Selfie con documento',
   proof_of_address: 'Prueba de domicilio',
-  legal_rep_id: 'Documento representante legal',
-  company_cert: 'Certificado de empresa',
+  legal_rep_id: 'Documento de representante legal',
+  company_cert: 'Constitucion o registro de empresa',
   passport: 'Pasaporte UBO',
 }
 
-const DOCUMENT_KEYS = new Set([
-  'id_front',
-  'id_back',
-  'selfie',
-  'proof_of_address',
-  'legal_rep_id',
-  'company_cert',
-])
+const PERSONAL_DOCUMENT_ORDER = ['id_front', 'id_back', 'selfie', 'proof_of_address'] as const
+const COMPANY_DOCUMENT_ORDER = ['company_cert', 'legal_rep_id', 'proof_of_address'] as const
 
-const EXCLUDED_PERSONAL_KEYS = new Set([
-  ...Array.from(DOCUMENT_KEYS),
-  'ubos',
+const DOCUMENT_KEYS = new Set([
+  ...PERSONAL_DOCUMENT_ORDER,
+  ...COMPANY_DOCUMENT_ORDER,
+  'passport',
 ])
 
 export function OnboardingDetailPage({ onboardingId }: { onboardingId: string }) {
@@ -114,7 +115,7 @@ export function OnboardingDetailPage({ onboardingId }: { onboardingId: string })
         <CardContent>
           <Link className="inline-flex items-center gap-2 text-sm font-medium hover:underline" href="/admin">
             <ArrowLeft className="size-4" />
-            Volver al panel
+            Volver a onboarding
           </Link>
         </CardContent>
       </Card>
@@ -145,110 +146,53 @@ function OnboardingDetailScene({
 }) {
   const { record, documents } = detail
   const data = useMemo(() => normalizeObject(record.data), [record.data])
-  const summary = useMemo(() => buildSummary(record), [record])
-  const personalFields = useMemo(() => buildPersonalFields(data), [data])
+  const summary = useMemo(() => buildCaseSummary(record), [record])
+  const sections = useMemo(() => buildStructuredSections(record, data), [record, data])
   const mergedDocuments = useMemo(() => mergeDocuments(documents, data, record.created_at), [documents, data, record.created_at])
 
-  // Intent: staff/admin necesita revisar un expediente KYC completo sin perder contexto ni ocultar contenido en un modal.
-  // Palette/depth: superficies oscuras, cian de enfoque y violeta de acento para una lectura operativa tipo terminal financiera.
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-[28px] border border-blue-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(241,245,249,0.98))] shadow-[0_24px_80px_-48px_rgba(15,23,42,0.12)] dark:border-cyan-400/15 dark:bg-[linear-gradient(135deg,rgba(11,16,32,0.96),rgba(18,26,43,0.98))] dark:shadow-[0_24px_80px_-48px_rgba(0,0,0,0.7)]">
-        <div className="grid gap-6 border-b border-border/70 px-5 py-5 md:px-7 xl:grid-cols-[1.2fr_0.8fr]">
-          <div className="space-y-4">
-            <Link className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-blue-700 dark:hover:text-cyan-300" href="/admin">
-              <ArrowLeft className="size-4" />
-              Volver a onboarding
-            </Link>
-            <div className="space-y-3">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-blue-800 dark:text-cyan-300">Mesa de verificacion</div>
-              <div className="flex flex-wrap items-start gap-3">
-                <div>
-                  <h1 className="text-3xl font-semibold tracking-[-0.03em] text-foreground">{summary.displayName}</h1>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                    Vista dedicada para revisar identidad, documentos y estado del proceso sin depender del modal anterior.
-                  </p>
-                </div>
-                <StatusBadge value={record.status} />
-              </div>
-            </div>
-          </div>
+      <div className="space-y-3">
+        <Link className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-blue-700 dark:hover:text-cyan-300" href="/admin">
+          <ArrowLeft className="size-4" />
+          Volver a onboarding
+        </Link>
+        <h1 className="text-2xl font-semibold tracking-[-0.03em] text-foreground">Expediente de Verificacion</h1>
+      </div>
 
-          <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-            <MetricCard icon={record.type === 'company' ? Building2 : UserRound} label="Tipo" value={record.type === 'company' ? 'Empresa' : 'Persona'} />
-            <MetricCard icon={CalendarDays} label="Actualizado" value={formatDate(record.updated_at)} />
-            <MetricCard icon={FileBadge2} label="Documentos" value={String(mergedDocuments.length)} />
-          </div>
-        </div>
-
-        <div className="grid gap-4 px-5 py-5 md:px-7 xl:grid-cols-[1fr_0.9fr]">
-          <div className="grid gap-3 md:grid-cols-3">
-            <SummaryCard icon={UserRound} label="Nombre" value={summary.firstName} />
-            <SummaryCard icon={UserRound} label="Apellido" value={summary.lastName} />
-            <SummaryCard icon={CalendarDays} label="Nacimiento" value={summary.birthDate} />
-          </div>
-          <div className="rounded-2xl border border-border/70 bg-card/90 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Accion visible</div>
-                <div className="mt-1 text-sm text-muted-foreground">
-                  Las decisiones siguen disponibles dentro del expediente para que la revision no pierda contexto.
-                </div>
-              </div>
-              <ShieldCheck className="size-5 text-teal-600 dark:text-cyan-300" />
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <OnboardingActions actor={actor} onUpdated={onUpdated} record={record} />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <Tabs className="gap-5" defaultValue="personal">
+      <Tabs className="gap-5" defaultValue="form-data">
         <TabsList variant="line" className="w-full flex-wrap justify-start rounded-none border-b border-border/70 bg-transparent p-0">
-          <TabsTrigger className="rounded-none px-4 py-3" value="personal">Informacion personal</TabsTrigger>
+          <TabsTrigger className="rounded-none px-4 py-3" value="form-data">Formulario</TabsTrigger>
           <TabsTrigger className="rounded-none px-4 py-3" value="documents">Documentos</TabsTrigger>
-          <TabsTrigger className="rounded-none px-4 py-3" value="verification">Verificacion</TabsTrigger>
+          <TabsTrigger className="rounded-none px-4 py-3" value="decision">Decision</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="personal">
-          <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+        <TabsContent value="form-data">
+          <div className="mx-auto max-w-5xl">
             <Card className="border-border/70 bg-card/95">
               <CardHeader>
-                <CardTitle>Informacion principal</CardTitle>
-                <CardDescription>Datos solo lectura recuperados desde la base y listos para escaneo rapido.</CardDescription>
+                <CardTitle>Formulario declarado</CardTitle>
+                <CardDescription>
+                  Lectura principal del expediente en formato mas ordenado. Recorre el formulario por secciones, con filas simples y sin cards repetidas por cada dato.
+                </CardDescription>
               </CardHeader>
-              <CardContent className="grid gap-3 md:grid-cols-2">
-                {summary.rows.map((field) => (
-                  <FieldCard key={field.label} label={field.label} value={field.value} />
+              <CardContent className="space-y-6">
+                {sections.map((section) => (
+                  <SectionBlock key={section.title} section={section} />
                 ))}
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/70 bg-muted/20">
-              <CardHeader>
-                <CardTitle>Campos adicionales</CardTitle>
-                <CardDescription>Todos los demas campos de `onboarding.data` se muestran en modo lectura dentro de un layout de dos columnas.</CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-3 md:grid-cols-2">
-                {personalFields.length === 0 ? (
-                  <EmptyState message="No hay mas campos personales o de empresa para mostrar." />
-                ) : (
-                  personalFields.map((field) => (
-                    <FieldCard key={field.label} label={field.label} value={field.value} />
-                  ))
-                )}
               </CardContent>
             </Card>
           </div>
         </TabsContent>
 
         <TabsContent value="documents">
-          <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+          <div className="mx-auto max-w-6xl">
             <Card className="border-border/70 bg-card/95">
               <CardHeader>
-                <CardTitle>Documentos cargados</CardTitle>
-                <CardDescription>Cada bloque muestra tipo, numero de documento, fecha y vista previa cuando hay URL firmada.</CardDescription>
+                <CardTitle>Evidencia documental</CardTitle>
+                <CardDescription>
+                  Cada documento aparece una sola vez con su metadata operativa, su origen y la vista previa cuando el sistema dispone de URL firmada.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {mergedDocuments.length === 0 ? (
@@ -266,16 +210,13 @@ function OnboardingDetailScene({
                           </div>
                           <div className="grid gap-3 md:grid-cols-2">
                             <MetaRow icon={FileText} label="Tipo de documento" value={formatDocumentLabel(document.doc_type)} />
-                            <MetaRow icon={ScanSearch} label="Numero de documento" value={summary.documentNumber} />
                             <MetaRow icon={CalendarDays} label="Fecha de carga" value={formatDate(document.created_at)} />
                             <MetaRow icon={Mail} label="Mime / origen" value={document.mime_type ?? (document.source === 'documents' ? 'Registrado en documents' : 'Detectado desde payload')} />
+                            <MetaRow icon={ScanSearch} label="Caso asociado" value={summary.caseTypeLabel} />
                           </div>
                           <div className="rounded-2xl border border-border/70 bg-card/80 p-3 text-xs text-muted-foreground">
                             <div className="mb-1 uppercase tracking-[0.18em] text-muted-foreground">Ruta</div>
                             <div className="break-all">{document.storage_path}</div>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            <OnboardingActions actor={actor} onUpdated={onUpdated} record={record} />
                           </div>
                         </div>
 
@@ -286,51 +227,33 @@ function OnboardingDetailScene({
                 )}
               </CardContent>
             </Card>
-
-            <Card className="border-teal-200/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.96),rgba(236,253,250,0.98))] dark:border-violet-400/20 dark:bg-[linear-gradient(180deg,rgba(18,26,43,0.96),rgba(27,37,64,0.98))]">
-              <CardHeader>
-                <CardTitle>Contexto de revision</CardTitle>
-                <CardDescription>La UI deja visibles las acciones administrativas, pero el backend actual sigue operando a nivel de onboarding.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <ReviewNote icon={ShieldCheck} title="Aprobar documento" body="Usa la aprobacion cuando el expediente completo sea consistente con la evidencia presentada." />
-                <ReviewNote icon={CircleAlert} title="Solicitar cambios" body="El dialogo ya permite registrar motivo para pedir correcciones al usuario." />
-                <ReviewNote icon={FileBadge2} title="Rechazar documento" body="La decision queda trazada y sincroniza el estado general del onboarding." />
-              </CardContent>
-            </Card>
           </div>
         </TabsContent>
 
-        <TabsContent value="verification">
-          <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+        <TabsContent value="decision">
+          <div className="mx-auto max-w-4xl">
             <Card className="border-border/70 bg-card/95">
               <CardHeader>
-                <CardTitle>Estado actual</CardTitle>
-                <CardDescription>Resumen del KYC/KYB con fechas y comentarios del revisor.</CardDescription>
+                <CardTitle>Estado y resolucion</CardTitle>
+                <CardDescription>
+                  Bloque formal para tomar la decision sin volver a recorrer todo el contenido del expediente.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <FieldCard label="Estado KYC/KYB" value={record.status} />
-                <FieldCard label="Fecha de envio" value={formatDate(record.created_at)} />
-                <FieldCard label="Fecha de revision" value={formatDate(record.updated_at)} />
-                <FieldCard label="Comentarios del revisor" value={record.observations || 'Sin comentarios registrados'} />
-                <FieldCard label="Bridge customer id" value={record.bridge_customer_id || 'Pendiente'} />
+                <CompactInfoList
+                  rows={[
+                    { label: 'Estado KYC/KYB', value: record.status },
+                    { label: 'Fecha de envio', value: formatDate(record.created_at) },
+                    { label: 'Fecha de revision', value: formatDate(record.updated_at) },
+                    { label: 'Comentarios del revisor', value: record.observations || 'Sin comentarios registrados' },
+                    { label: 'Bridge customer id', value: record.bridge_customer_id || 'Pendiente' },
+                  ]}
+                />
               </CardContent>
             </Card>
-
-            <Card className="border-blue-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(241,245,249,0.98))] text-slate-900 dark:border-violet-400/20 dark:bg-[linear-gradient(180deg,rgba(16,22,39,0.98),rgba(26,18,52,0.98))] dark:text-slate-50">
-              <CardHeader>
-                <CardTitle>Lectura operativa</CardTitle>
-                <CardDescription className="text-slate-600 dark:text-slate-300">{getVerificationCopy(record.status)}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <ReviewNoteDark icon={ShieldCheck} title="Historial disponible" body="Los cambios de estado quedan en auditoria; esta vista se concentra en el expediente y la accion inmediata." />
-                <ReviewNoteDark icon={ScanSearch} title="Revision guiada" body="Primero identidad, luego evidencia documental y al final decision de verificacion." />
-                <ReviewNoteDark icon={CircleAlert} title="Comentarios visibles" body="Las observaciones del onboarding se mantienen expuestas para que staff no pierda el hilo del caso." />
-                <div className="flex flex-wrap gap-2 border-t border-border/70 pt-4">
-                  <OnboardingActions actor={actor} onUpdated={onUpdated} record={record} />
-                </div>
-              </CardContent>
-            </Card>
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <OnboardingActions actor={actor} onUpdated={onUpdated} record={record} />
+            </div>
           </div>
         </TabsContent>
       </Tabs>
@@ -338,51 +261,35 @@ function OnboardingDetailScene({
   )
 }
 
-function MetricCard({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof UserRound
-  label: string
-  value: string
-}) {
+function SectionBlock({ section }: { section: DetailSection }) {
   return (
     <div className="rounded-2xl border border-border/70 bg-card/90 p-4">
-      <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
-        <Icon className="size-4" />
-        {label}
+      <div className="border-b border-border/70 pb-3">
+        <div className="text-sm font-medium text-foreground">{section.title}</div>
+        <div className="mt-1 text-sm text-muted-foreground">{section.description}</div>
       </div>
-      <div className="mt-2 text-base font-medium text-foreground">{value}</div>
+      <div className="mt-3">
+        {section.rows.length === 0 ? (
+          <EmptyState message="No hay datos cargados en esta seccion." />
+        ) : (
+          <CompactInfoList rows={section.rows} />
+        )}
+      </div>
     </div>
   )
 }
 
-function SummaryCard({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof UserRound
-  label: string
-  value: string
-}) {
+function CompactInfoList({ rows }: { rows: SummaryRow[] }) {
   return (
-    <div className="rounded-2xl border border-border/70 bg-card/90 p-4">
-      <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
-        <Icon className="size-4" />
-        {label}
-      </div>
-      <div className="mt-2 text-lg font-medium text-foreground">{value}</div>
-    </div>
-  )
-}
-
-function FieldCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-border/70 bg-card/90 p-4">
-      <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
-      <div className="mt-2 text-sm text-foreground">{value}</div>
+    <div className="divide-y divide-border/70 rounded-2xl border border-border/70 bg-background/40">
+      {rows.map((row) => (
+        <div key={row.label} className="grid gap-2 px-4 py-3 md:grid-cols-[180px_1fr] md:items-start">
+          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+            {row.label}
+          </div>
+          <div className="text-sm leading-6 text-foreground">{row.value}</div>
+        </div>
+      ))}
     </div>
   )
 }
@@ -403,46 +310,6 @@ function MetaRow({
         {label}
       </div>
       <div className="mt-2 text-sm text-foreground">{value}</div>
-    </div>
-  )
-}
-
-function ReviewNote({
-  icon: Icon,
-  title,
-  body,
-}: {
-  icon: typeof ShieldCheck
-  title: string
-  body: string
-}) {
-  return (
-    <div className="rounded-2xl border border-border/70 bg-card/90 p-4">
-      <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-        <Icon className="size-4" />
-        {title}
-      </div>
-      <div className="mt-2 text-sm leading-6 text-muted-foreground">{body}</div>
-    </div>
-  )
-}
-
-function ReviewNoteDark({
-  icon: Icon,
-  title,
-  body,
-}: {
-  icon: typeof ShieldCheck
-  title: string
-  body: string
-}) {
-  return (
-    <div className="rounded-2xl border border-violet-400/15 bg-white/5 p-4">
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <Icon className="size-4" />
-        {title}
-      </div>
-      <div className="mt-2 text-sm leading-6 text-slate-300">{body}</div>
     </div>
   )
 }
@@ -493,58 +360,137 @@ function EmptyState({ message }: { message: string }) {
   )
 }
 
-function StatusBadge({ value }: { value: string }) {
-  const className = getStatusClasses(value)
-  return <Badge className={className}>{value}</Badge>
-}
-
-function getStatusClasses(value: string) {
-  if (value === 'verified') return 'border-emerald-400/35 bg-emerald-400/10 text-emerald-100'
-  if (value === 'rejected') return 'border-red-400/35 bg-red-500/10 text-red-100'
-  if (value === 'needs_changes') return 'border-amber-400/35 bg-amber-400/10 text-amber-100'
-  return 'border-border/70 bg-card/85 text-muted-foreground'
-}
-
-function buildSummary(record: StaffOnboardingRecord) {
+function buildCaseSummary(record: StaffOnboardingRecord) {
   const data = normalizeObject(record.data)
-  const fullName = record.profiles?.full_name?.trim() ?? ''
-  const split = splitName(fullName)
-  const firstName = readString(data.first_names) ?? readString(data.legal_rep_first_names) ?? split.firstName ?? 'No disponible'
-  const lastName = readString(data.last_names) ?? readString(data.legal_rep_last_names) ?? split.lastName ?? 'No disponible'
-  const birthDate = readString(data.dob) ?? 'No disponible'
-  const documentNumber = readString(data.id_number) ?? readString(data.legal_rep_id_number) ?? 'No disponible'
-  const companyName = readString(data.company_legal_name) ?? fullName
-  const personalName = [firstName, lastName].filter((value) => value !== 'No disponible').join(' ').trim() || fullName
+  const firstName = readString(data.first_names) ?? readString(data.legal_rep_first_names)
+  const lastName = readString(data.last_names) ?? readString(data.legal_rep_last_names)
+  const profileName = readString(record.profiles?.full_name)
+  const companyName = readString(data.company_legal_name)
   const displayName = record.type === 'company'
-    ? companyName || 'Empresa sin nombre'
-    : personalName || 'Usuario sin nombre'
+    ? companyName ?? profileName ?? 'Empresa sin nombre'
+    : [firstName, lastName].filter(Boolean).join(' ').trim() || profileName || 'Usuario sin nombre'
 
   return {
     displayName,
-    firstName,
-    lastName,
-    birthDate,
-    documentNumber,
-    rows: [
-      { label: 'Nombre', value: firstName },
-      { label: 'Apellido', value: lastName },
-      { label: 'Fecha de nacimiento', value: birthDate },
-      { label: 'Email', value: record.profiles?.email ?? 'No disponible' },
-      { label: 'Numero de documento', value: documentNumber },
-      { label: 'Estado del perfil', value: record.profiles?.onboarding_status ?? record.status },
-      { label: 'Tipo de onboarding', value: record.type },
-      { label: 'Creado', value: formatDate(record.created_at) },
-    ],
+    accountEmail: record.profiles?.email ?? 'No disponible',
+    caseTypeLabel: record.type === 'company' ? 'Empresa' : 'Persona natural',
+    profileStatus: record.profiles?.onboarding_status ?? record.status,
   }
 }
 
-function buildPersonalFields(data: Record<string, unknown>) {
-  return Object.entries(data)
-    .filter(([key, value]) => !EXCLUDED_PERSONAL_KEYS.has(key) && !Array.isArray(value) && typeof value !== 'object' && value != null && String(value).trim() !== '')
-    .map(([key, value]) => ({
-      label: humanizeKey(key),
-      value: String(value),
-    }))
+function buildStructuredSections(record: StaffOnboardingRecord, data: Record<string, unknown>): DetailSection[] {
+  if (record.type === 'company') {
+    const ubos = Array.isArray(data.ubos) ? data.ubos : []
+
+    return [
+      {
+        title: 'Cuenta base',
+        description: 'Datos visibles del alta de cuenta y del perfil operativo usado por la plataforma.',
+        rows: compactRows([
+          row('Correo', record.profiles?.email),
+          row('Nombre en profile', record.profiles?.full_name),
+          row('Estado del perfil', record.profiles?.onboarding_status ?? record.status),
+          row('Fecha de creacion del expediente', formatDate(record.created_at)),
+        ]),
+      },
+      {
+        title: 'Identidad societaria',
+        description: 'Datos principales enviados en el registro empresarial.',
+        rows: compactRows([
+          row('Razon social', data.company_legal_name),
+          row('Numero de registro', data.registration_number),
+          row('NIT / Tax ID', data.tax_id),
+          row('Tipo de entidad', data.entity_type),
+          row('Fecha de constitucion', data.incorporation_date),
+          row('Pais de constitucion', data.country_of_incorporation),
+          row('Descripcion de actividad', data.business_description),
+        ]),
+      },
+      {
+        title: 'Direccion legal y representante',
+        description: 'Datos operativos del domicilio empresarial y del representante legal.',
+        rows: compactRows([
+          row('Direccion legal', data.business_street),
+          row('Ciudad', data.business_city),
+          row('Pais', data.business_country),
+          row('Nombres representante', data.legal_rep_first_names),
+          row('Apellidos representante', data.legal_rep_last_names),
+          row('Cargo', data.legal_rep_position),
+          row('Documento representante', data.legal_rep_id_number),
+        ]),
+      },
+      {
+        title: 'Perfil financiero',
+        description: 'Motivo de uso, origen de fondos y volumen estimado declarado por el cliente.',
+        rows: compactRows([
+          row('Proposito de la cuenta', data.purpose),
+          row('Origen de fondos', data.source_of_funds),
+          row('Volumen mensual estimado', data.estimated_monthly_volume),
+        ]),
+      },
+      {
+        title: 'Beneficiarios finales',
+        description: 'Resumen de socios o UBOs declarados en la etapa final del onboarding.',
+        rows: ubos.length === 0
+          ? []
+          : ubos.flatMap((ubo, index) => {
+              const normalized = normalizeObject(ubo)
+              return compactRows([
+                row(`UBO ${index + 1} nombre`, joinName(normalized.first_names, normalized.last_names)),
+                row(`UBO ${index + 1} participacion`, normalized.percentage),
+                row(`UBO ${index + 1} nacionalidad`, normalized.nationality),
+              ])
+            }),
+      },
+    ]
+  }
+
+  return [
+    {
+      title: 'Cuenta base',
+      description: 'Datos visibles del alta de cuenta y del perfil operativo usado por la plataforma.',
+      rows: compactRows([
+        row('Correo', record.profiles?.email),
+        row('Nombre en profile', record.profiles?.full_name),
+        row('Estado del perfil', record.profiles?.onboarding_status ?? record.status),
+        row('Fecha de creacion del expediente', formatDate(record.created_at)),
+      ]),
+    },
+    {
+      title: 'Identidad personal',
+      description: 'Informacion de identificacion enviada por el usuario en su onboarding.',
+      rows: compactRows([
+        row('Nombres', data.first_names),
+        row('Apellidos', data.last_names),
+        row('Fecha de nacimiento', data.dob),
+        row('Nacionalidad', data.nationality),
+        row('Tipo de documento', data.id_document_type),
+        row('Numero de documento', data.id_number),
+        row('Vencimiento del documento', data.id_expiry),
+      ]),
+    },
+    {
+      title: 'Direccion declarada',
+      description: 'Ubicacion residencial o de referencia cargada en el formulario.',
+      rows: compactRows([
+        row('Direccion', data.street),
+        row('Ciudad', data.city),
+        row('Estado / provincia', data.state_province),
+        row('Pais', data.country),
+        row('Codigo postal', data.postal_code),
+      ]),
+    },
+    {
+      title: 'Perfil financiero',
+      description: 'Motivo de uso, ocupacion, origen de fondos y volumen estimado.',
+      rows: compactRows([
+        row('Ocupacion', data.occupation),
+        row('Proposito de la cuenta', data.purpose),
+        row('Origen de fondos', data.source_of_funds),
+        row('Volumen mensual estimado', data.estimated_monthly_volume),
+      ]),
+    },
+  ]
 }
 
 function mergeDocuments(documents: StaffDocumentRecord[], data: Record<string, unknown>, createdAt: string) {
@@ -595,16 +541,13 @@ function mergeDocuments(documents: StaffDocumentRecord[], data: Record<string, u
   return normalizedDocuments
 }
 
-function getVerificationCopy(status: string) {
-  if (status === 'verified') return 'El caso ya fue aprobado. La vista mantiene visibles la evidencia y el contexto de la decision.'
-  if (status === 'needs_changes') return 'El usuario debe corregir informacion o volver a subir evidencia. Conviene dejar observaciones precisas.'
-  if (status === 'rejected') return 'El expediente fue rechazado. La prioridad aqui es conservar trazabilidad y evidencia de soporte.'
-  return 'El expediente sigue en revision. La pagina organiza lectura y accion para que staff avance con menos friccion.'
+function formatDocumentLabel(value: string) {
+  const normalized = stripUboPrefix(value)
+  return DOCUMENT_LABELS[normalized] ?? humanizeKey(value)
 }
 
-function formatDocumentLabel(value: string) {
-  const normalized = value.replace(/^ubo_\d+_/, '')
-  return DOCUMENT_LABELS[normalized] ?? humanizeKey(value)
+function stripUboPrefix(value: string) {
+  return value.replace(/^ubo_\d+_/, '')
 }
 
 function humanizeKey(value: string) {
@@ -629,15 +572,24 @@ function readString(value: unknown) {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
 }
 
-function splitName(value: string) {
-  const parts = value.split(' ').filter(Boolean)
-  if (parts.length === 0) return { firstName: null, lastName: null }
-  if (parts.length === 1) return { firstName: parts[0], lastName: null }
+function joinName(first: unknown, last: unknown) {
+  const full = [readString(first), readString(last)].filter(Boolean).join(' ').trim()
+  return full || 'No disponible'
+}
 
-  return {
-    firstName: parts.slice(0, -1).join(' '),
-    lastName: parts[parts.length - 1],
+function row(label: string, value: unknown): SummaryRow | null {
+  if (value == null) return null
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return null
+    return { label, value: trimmed }
   }
+
+  return { label, value: String(value) }
+}
+
+function compactRows(rows: Array<SummaryRow | null>) {
+  return rows.filter((row): row is SummaryRow => Boolean(row))
 }
 
 function isStoragePath(value: string) {

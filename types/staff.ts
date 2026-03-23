@@ -10,7 +10,13 @@ export interface StaffOnboardingRecord extends Onboarding {
     full_name?: string
     email?: string
     onboarding_status?: string
+    metadata?: Record<string, unknown>
   } | null
+  client_photo_url?: string | null
+}
+
+export interface StaffUserRecord extends Profile {
+  client_photo_url?: string | null
 }
 
 export interface StaffDocumentRecord {
@@ -42,7 +48,7 @@ export interface StaffSnapshot {
   payinRoutes: Array<Record<string, unknown>>
   transfers: BridgeTransfer[]
   orders: PaymentOrder[]
-  users: Profile[]
+  users: StaffUserRecord[]
   support: StaffSupportTicket[]
   feesConfig: FeeConfigRow[]
   appSettings: AppSettingRow[]

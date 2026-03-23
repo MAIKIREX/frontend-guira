@@ -1,5 +1,5 @@
-import { StaffReadonlyPanel } from '@/features/staff/components/staff-readonly-panel'
+import { StaffOverviewRoute } from '@/features/staff/components/staff-dashboard-routes'
 
 export default function AdminPage() {
-  return <StaffReadonlyPanel />
+  return <StaffOverviewRoute />
 }

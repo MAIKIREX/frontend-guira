@@ -1,9 +1,5 @@
-import { AuditList } from '@/features/activity/components/audit-list'
+import { redirect } from 'next/navigation'
 
-export default function StaffAuditPage() {
-  return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <AuditList />
-    </div>
-  )
+export default function LegacyStaffAuditPage() {
+  redirect('/admin/audit')
 }

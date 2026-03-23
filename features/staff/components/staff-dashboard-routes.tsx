@@ -1,0 +1,126 @@
+'use client'
+
+import { StaffDashboardPage } from '@/features/staff/components/staff-dashboard-page'
+import {
+  StaffAuditTable,
+  StaffConfigPanel,
+  StaffOnboardingTable,
+  StaffOrdersTable,
+  StaffOverviewPanel,
+  StaffPayinsPanel,
+  StaffPsavPanel,
+  StaffSupportTable,
+  StaffTransfersPanel,
+  StaffUsersTable,
+} from '@/features/staff/components/staff-dashboard-sections'
+
+export function StaffOverviewRoute() {
+  return (
+    <StaffDashboardPage>
+      {({ snapshot, isPrivileged, reload }) => (
+        <StaffOverviewPanel snapshot={snapshot} isPrivileged={isPrivileged} reload={reload} />
+      )}
+    </StaffDashboardPage>
+  )
+}
+
+export function StaffOnboardingRoute() {
+  return (
+    <StaffDashboardPage>
+      {({ snapshot }) => <StaffOnboardingTable snapshot={snapshot} />}
+    </StaffDashboardPage>
+  )
+}
+
+export function StaffOrdersRoute() {
+  return (
+    <StaffDashboardPage>
+      {({ snapshot, actor, replaceOrder }) => (
+        <StaffOrdersTable snapshot={snapshot} actor={actor} replaceOrder={replaceOrder} />
+      )}
+    </StaffDashboardPage>
+  )
+}
+
+export function StaffPayinsRoute() {
+  return (
+    <StaffDashboardPage>
+      {({ snapshot }) => <StaffPayinsPanel snapshot={snapshot} />}
+    </StaffDashboardPage>
+  )
+}
+
+export function StaffTransfersRoute() {
+  return (
+    <StaffDashboardPage>
+      {({ snapshot }) => <StaffTransfersPanel snapshot={snapshot} />}
+    </StaffDashboardPage>
+  )
+}
+
+export function StaffSupportRoute() {
+  return (
+    <StaffDashboardPage>
+      {({ snapshot, actor, replaceSupportTicket }) => (
+        <StaffSupportTable snapshot={snapshot} actor={actor} replaceSupportTicket={replaceSupportTicket} />
+      )}
+    </StaffDashboardPage>
+  )
+}
+
+export function StaffAuditRoute() {
+  return (
+    <StaffDashboardPage>
+      {({ snapshot }) => <StaffAuditTable snapshot={snapshot} />}
+    </StaffDashboardPage>
+  )
+}
+
+export function StaffUsersRoute() {
+  return (
+    <StaffDashboardPage>
+      {({ snapshot, actor, isAdmin, addUser, replaceUser, removeUser }) => (
+        <StaffUsersTable
+          snapshot={snapshot}
+          actor={actor}
+          isAdmin={isAdmin}
+          addUser={addUser}
+          replaceUser={replaceUser}
+          removeUser={removeUser}
+        />
+      )}
+    </StaffDashboardPage>
+  )
+}
+
+export function StaffConfigRoute() {
+  return (
+    <StaffDashboardPage>
+      {({ snapshot, actor, isPrivileged, replaceAppSetting, replaceFeeConfig }) => (
+        <StaffConfigPanel
+          snapshot={snapshot}
+          actor={actor}
+          isPrivileged={isPrivileged}
+          replaceAppSetting={replaceAppSetting}
+          replaceFeeConfig={replaceFeeConfig}
+        />
+      )}
+    </StaffDashboardPage>
+  )
+}
+
+export function StaffPsavRoute() {
+  return (
+    <StaffDashboardPage>
+      {({ snapshot, actor, isPrivileged, replacePsavConfig, removePsavConfig }) => (
+        <StaffPsavPanel
+          snapshot={snapshot}
+          actor={actor}
+          isPrivileged={isPrivileged}
+          replacePsavConfig={replacePsavConfig}
+          removePsavConfig={removePsavConfig}
+        />
+      )}
+    </StaffDashboardPage>
+  )
+}
