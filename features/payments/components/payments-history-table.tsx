@@ -152,18 +152,18 @@ export function PaymentsHistoryTable({
   return (
     <div className="space-y-4 ">
       <section className="overflow-hidden rounded-[28px]  ">
-        <div className="grid gap-5 border-b border-border/60 px-5 py-5 xl:grid-cols-[1.15fr_0.85fr] xl:items-end">
+        <div className="grid gap-5 border-b border-border/60 px-4 py-5 sm:px-6 xl:grid-cols-[1.15fr_0.85fr] xl:items-end">
           <div className="space-y-3">
             <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">Bitacora operativa</div>
             <div className="space-y-1">
-              <h3 className="text-2xl font-semibold tracking-[-0.03em] text-foreground">Expedientes con lectura bancaria y trazabilidad crypto</h3>
-              <p className="max-w-2xl text-sm text-muted-foreground">
+              <h3 className="text-xl sm:text-2xl font-semibold tracking-[-0.03em] text-foreground">Expedientes con lectura bancaria y trazabilidad crypto</h3>
+              <p className="max-w-2xl text-xs sm:text-sm text-muted-foreground">
                 Consulta el estado, valida documentos y sigue cada tramo de ejecucion desde una sola vista, sin bloques visuales innecesarios.
               </p>
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 grid-cols-2">
             <ToolbarMetric label="Visibles" value={String(filteredOrders.length).padStart(2, '0')} />
             <ToolbarMetric
               label="En curso"
@@ -172,7 +172,7 @@ export function PaymentsHistoryTable({
           </div>
         </div>
 
-        <div className="grid gap-3 px-5 py-4 md:grid-cols-[1fr_240px]">
+        <div className="grid gap-3 px-4 py-4 sm:px-6 md:grid-cols-[1fr_240px]">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -233,38 +233,50 @@ export function PaymentsHistoryTable({
           <Card
             key={order.id}
             className={cn(
-              'overflow-hidden rounded-[30px] border border-primary/20 bg-background shadow-[inset_0_0_0_1px_hsl(var(--border)/0.55),0_0_0_4px_hsl(var(--primary)/0.04)]',
+              'overflow-hidden rounded-[24px] md:rounded-[30px] border border-primary/20 bg-background shadow-[inset_0_0_0_1px_hsl(var(--border)/0.55),0_0_0_4px_hsl(var(--primary)/0.04)]',
               interactiveCardClassName
             )}
           >
-            <CardHeader className="gap-4 ">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                <div className="space-y-3">
+            <CardHeader className="gap-4 p-4 sm:p-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="space-y-4 lg:space-y-3 w-full lg:w-auto flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <div className="rounded-full border border-border/60 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                    <div className="rounded-full border border-border/60 px-2 sm:px-3 py-1 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
                       {statusMeta.eyebrow}
                     </div>
-                    <Badge className={statusMeta.badgeClass} variant={getStatusVariant(order.status)}>
+                    <Badge className={cn("text-xs", statusMeta.badgeClass)} variant={getStatusVariant(order.status)}>
                       {statusMeta.label}
                     </Badge>
-                    <Badge variant="outline">{humanizeOrderType(order.order_type)}</Badge>
-                    <Badge variant="outline">{humanizeRail(order.processing_rail)}</Badge>
+                    <Badge className="text-xs" variant="outline">{humanizeOrderType(order.order_type)}</Badge>
+                    <Badge className="text-xs" variant="outline">{humanizeRail(order.processing_rail)}</Badge>
                   </div>
                   <div className="space-y-1">
-                    <CardTitle className="text-[1.65rem] tracking-[-0.03em]">Expediente #{order.id.slice(0, 8)}</CardTitle>
-                    <CardDescription>
+                    <CardTitle className="text-xl sm:text-2xl md:text-[1.65rem] tracking-[-0.03em]">Expediente #{order.id.slice(0, 8)}</CardTitle>
+                    <CardDescription className="text-xs sm:text-sm">
                       Creado el {format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')} con destino {order.destination_currency}. {isDepositOrder(order) ? 'Esta operacion usa un flujo de fondeo previo con validacion posterior.' : 'La orden avanza con soporte documental y evidencia operativa.'}
                     </CardDescription>
                   </div>
-                  <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
-                    <span>Proveedor: <span className="font-medium text-foreground">{supplier?.name ?? 'Sin proveedor'}</span></span>
-                    <span>Origen: <span className="font-medium text-foreground">{order.amount_origin} {order.origin_currency}</span></span>
-                    <span>Destino: <span className="font-medium text-foreground">{order.amount_converted} {order.destination_currency}</span></span>
+                  
+                  {/* Responsive Grid for Order Details */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-4 mt-2">
+                    <div className="flex flex-col gap-1 rounded-xl bg-muted/40 p-3 border border-border/40">
+                      <span className="text-[10px] sm:text-[11px] uppercase tracking-wider text-muted-foreground">Proveedor</span>
+                      <span className="text-xs sm:text-sm font-medium text-foreground truncate">{supplier?.name ?? 'Sin proveedor'}</span>
+                    </div>
+                    <div className="flex flex-col gap-1 rounded-xl bg-muted/40 p-3 border border-border/40">
+                      <span className="text-[10px] sm:text-[11px] uppercase tracking-wider text-muted-foreground">Origen</span>
+                      <span className="text-xs sm:text-sm font-medium text-foreground truncate">{order.amount_origin} {order.origin_currency}</span>
+                    </div>
+                    <div className="flex flex-col gap-1 rounded-xl bg-muted/40 p-3 border border-border/40 col-span-2 md:col-span-1">
+                      <span className="text-[10px] sm:text-[11px] uppercase tracking-wider text-muted-foreground">Destino</span>
+                      <span className="text-xs sm:text-sm font-medium text-foreground truncate">{order.amount_converted} {order.destination_currency}</span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-row flex-wrap lg:flex-nowrap gap-2 w-full lg:w-auto pt-2 lg:pt-0 border-t lg:border-t-0 border-border/40">
                   <Button
+                    className="flex-1 lg:flex-none text-xs sm:text-sm h-9 sm:h-10"
                     onClick={() =>
                       setExpandedOrders((current) => ({
                         ...current,
@@ -275,29 +287,31 @@ export function PaymentsHistoryTable({
                     type="button"
                     variant="outline"
                   >
-                    <ChevronDown className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                    {isExpanded ? 'Colapsar' : 'Expandir'}
+                    <ChevronDown className={`size-4 sm:size-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                    <span className="hidden sm:inline">{isExpanded ? 'Colapsar' : 'Expandir'}</span>
                   </Button>
                   <Button
+                    className="flex-1 lg:flex-none text-xs sm:text-sm h-9 sm:h-10"
                     disabled={disabled}
                     onClick={() => generatePaymentPdf(order, supplier)}
                     size="sm"
                     type="button"
                     variant="outline"
                   >
-                    <Download />
-                    PDF
+                    <Download className="size-4 sm:size-5" />
+                    <span className="hidden sm:inline">PDF</span>
                   </Button>
                   {canCancel ? (
                     <Button
+                      className="flex-1 lg:flex-none text-xs sm:text-sm h-9 sm:h-10"
                       disabled={disabled || busyKey === `${order.id}-cancel`}
                       onClick={() => handleCancel(order)}
                       size="sm"
                       type="button"
                       variant="destructive"
                     >
-                      <XCircle />
-                      Cancelar
+                      <XCircle className="size-4 sm:size-5" />
+                      <span className="hidden sm:inline">Cancelar</span>
                     </Button>
                   ) : null}
                 </div>
@@ -306,7 +320,7 @@ export function PaymentsHistoryTable({
 
             {isExpanded ? (
               <CardContent className="grid border-t border-border/60 gap-0 p-0 xl:grid-cols-[1.18fr_0.82fr] ">
-                <div className="space-y-8 px-6 py-6">
+                <div className="space-y-6 sm:space-y-8 p-4 sm:px-6 sm:py-6">
                   {/*<div className="grid gap-4 border-b border-border/60 pb-6 md:grid-cols-3">
                     <SnapshotMetric label="Inicio del flujo" value={format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')} />
                     <SnapshotMetric label="Tiempo operativo" value={getElapsedLabel(order.created_at, order.status)} accent={order.status !== 'completed' && order.status !== 'failed'} />
@@ -353,8 +367,8 @@ export function PaymentsHistoryTable({
                   </section>
                 </div>
 
-                <div className="border-t border-border/60 bg-muted/[0.12] px-6 py-6 xl:border-l xl:border-t-0">
-                  <div className="space-y-8">
+                <div className="border-t border-border/60 bg-muted/[0.12] p-4 sm:px-6 sm:py-6 xl:border-l xl:border-t-0">
+                  <div className="space-y-6 sm:space-y-8">
                     <ActionDesk
                       busy={busyKey}
                       canCancel={canCancel}

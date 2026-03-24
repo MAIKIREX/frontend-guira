@@ -51,6 +51,8 @@ import {
 } from '@/features/payments/lib/deposit-instructions'
 import { DepositInstructionCard } from '@/features/payments/components/deposit-instruction-card'
 import { DocumentUploadCard } from '@/components/shared/document-upload-card'
+import { AnimatedNextButton } from '@/components/shared/animated-next-button'
+import { AnimatedBackButton } from '@/components/shared/animated-back-button'
 import { StepProgressRail } from '@/features/payments/components/step-progress-rail'
 import { CRYPTO_NETWORK_OPTIONS, resolveCryptoNetwork } from '@/features/payments/lib/crypto-networks'
 import {
@@ -561,10 +563,10 @@ export function CreatePaymentOrderForm({
                       )}
                     />
 
-                    <div className="flex justify-end">
-                      <Button disabled={disabled} onClick={handleNext} type="button">
+                    <div className="flex justify-end mt-8">
+                      <AnimatedNextButton disabled={disabled} onClick={handleNext}>
                         Continuar a metodo
-                      </Button>
+                      </AnimatedNextButton>
                     </div>
                   </AnimatedStepPanel>
                 ) : null}
@@ -665,13 +667,13 @@ export function CreatePaymentOrderForm({
                       />
                     ) : null}
 
-                    <div className="flex items-center justify-between">
-                      <Button onClick={handleBack} type="button" variant="outline">
+                    <div className="flex items-center justify-between mt-8">
+                      <AnimatedBackButton onClick={handleBack}>
                         Volver
-                      </Button>
-                      <Button disabled={disabled} onClick={handleNext} type="button">
+                      </AnimatedBackButton>
+                      <AnimatedNextButton disabled={disabled} onClick={handleNext}>
                         Continuar a detalle
-                      </Button>
+                      </AnimatedNextButton>
                     </div>
                   </AnimatedStepPanel>
                 ) : null}
@@ -934,13 +936,13 @@ export function CreatePaymentOrderForm({
                       )}
                     </div>
 
-                    <div className="flex items-center justify-between">
-                      <Button onClick={handleBack} type="button" variant="outline">
+                    <div className="flex items-center justify-between mt-8">
+                      <AnimatedBackButton onClick={handleBack}>
                         Volver
-                      </Button>
-                      <Button disabled={disabled} onClick={handleNext} type="button">
+                      </AnimatedBackButton>
+                      <AnimatedNextButton disabled={disabled} onClick={handleNext}>
                         Revisar expediente
-                      </Button>
+                      </AnimatedNextButton>
                     </div>
                   </AnimatedStepPanel>
                 ) : null}
@@ -960,13 +962,13 @@ export function CreatePaymentOrderForm({
                       ))}
                     </div>
 
-                    <div className="flex items-center justify-between">
-                      <Button onClick={handleBack} type="button" variant="outline">
+                    <div className="flex items-center justify-between mt-8">
+                      <AnimatedBackButton onClick={handleBack}>
                         Editar detalle
-                      </Button>
-                      <Button disabled={disabled || creatingOrder} onClick={handleNext} type="button">
+                      </AnimatedBackButton>
+                      <AnimatedNextButton disabled={disabled || creatingOrder} onClick={handleNext}>
                         {creatingOrder ? 'Creando expediente...' : 'Crear expediente'}
-                      </Button>
+                      </AnimatedNextButton>
                     </div>
                   </AnimatedStepPanel>
                 ) : null}
@@ -1001,18 +1003,16 @@ export function CreatePaymentOrderForm({
                       Cuando el comprobante final quede adjunto y la orden siga en `created`, el sistema la movera a `waiting_deposit`.
                     </div>
 
-                    <div className="flex items-center justify-between">
-                      <Button
+                    <div className="flex items-center justify-between mt-8">
+                      <AnimatedBackButton
                         disabled={uploadingEvidence}
                         onClick={() => resetFlow(form, setStep, setSupportFile, setEvidenceFile, setCreatedOrder)}
-                        type="button"
-                        variant="outline"
                       >
                         Finalizar despues
-                      </Button>
-                      <Button disabled={disabled || uploadingEvidence || !createdOrder} onClick={handleFinishEvidenceUpload} type="button">
-                        {uploadingEvidence ? 'Adjuntando comprobante...' : evidenceFile ? 'Adjuntar comprobante y cerrar' : 'Cerrar sin comprobante'}
-                      </Button>
+                      </AnimatedBackButton>
+                      <AnimatedNextButton disabled={disabled || uploadingEvidence || !createdOrder} onClick={handleFinishEvidenceUpload}>
+                        {uploadingEvidence ? 'Adjuntando...' : evidenceFile ? 'Adjuntar y cerrar' : 'Cerrar sin comprobante'}
+                      </AnimatedNextButton>
                     </div>
                   </AnimatedStepPanel>
                 ) : null}
