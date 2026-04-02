@@ -177,7 +177,7 @@ async function getProfileWithRetry(userId: string) {
 
     try {
       console.log(`AuthGuard: getProfile attempt ${i}`)
-      const profile = await ProfileService.getProfile(userId)
+      const profile = await ProfileService.getProfile()
       if (profile) {
         console.log('AuthGuard: profile found on attempt', i)
         return profile
@@ -223,7 +223,7 @@ async function resolveRedirect({
     return '/login?archived=true'
   }
 
-  const isStaffAdmin = profile.role === 'staff' || profile.role === 'admin'
+  const isStaffAdmin = profile.role === 'staff' || profile.role === 'admin' || profile.role === 'super_admin'
   const isClient = profile.role === 'client'
   const isVerifiedClient = isClient && profile.onboarding_status === 'verified'
 

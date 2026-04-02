@@ -1,41 +1,59 @@
 'use client'
 
+/**
+ * use-wallet-dashboard.ts
+ * 
+ * MIGRADO: WalletService.getDashboardSnapshot(userId) eliminado.
+ * Ahora carga wallets, balances y rutas de payin de forma independiente.
+ * El userId ya NO se pasa — el backend lo obtiene del JWT.
+ */
 import { useCallback, useEffect, useState } from 'react'
 import { WalletService } from '@/services/wallet.service'
-import type { WalletDashboardSnapshot } from '@/types/wallet'
+import type { WalletBalance, PayinRoute, LedgerEntry } from '@/services/wallet.service'
 
-export function useWalletDashboard(userId?: string) {
-  const [snapshot, setSnapshot] = useState<WalletDashboardSnapshot | null>(null)
+export interface WalletDashboardState {
+  wallets: WalletBalance[]
+  balances: WalletBalance[]
+  payinRoutes: PayinRoute[]
+  recentLedger: LedgerEntry[]
+  /** Balance principal en USD (primer wallet USD activo) */
+  primaryBalance: WalletBalance | null
+}
+
+export function useWalletDashboard() {
+  const [state, setState] = useState<WalletDashboardState | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
-    if (!userId) {
-      setSnapshot(null)
-      setLoading(false)
-      return
-    }
-
     setLoading(true)
     setError(null)
 
     try {
-      const data = await WalletService.getDashboardSnapshot(userId)
-      setSnapshot(data)
+      const [wallets, balances, payinRoutes, recentLedger] = await Promise.all([
+        WalletService.getWallets(),
+        WalletService.getBalances(),
+        WalletService.getPayinRoutes(),
+        WalletService.getLedger({ limit: 20 }),
+      ])
+
+      const primaryBalance = balances.find((b) => b.currency === 'USD' && b.is_active) ?? balances[0] ?? null
+
+      setState({ wallets, balances, payinRoutes, recentLedger, primaryBalance })
     } catch (err) {
       console.error('Failed to load wallet dashboard', err)
       setError('No se pudo cargar el dashboard del cliente.')
     } finally {
       setLoading(false)
     }
-  }, [userId])
+  }, [])
 
   useEffect(() => {
     load()
   }, [load])
 
   return {
-    snapshot,
+    state,
     loading,
     error,
     reload: load,

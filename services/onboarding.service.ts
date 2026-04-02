@@ -1,133 +1,245 @@
-import { createClient } from '@/lib/supabase/browser'
-import { validateDocumentFile, safeFileExtension } from '@/lib/file-validation'
-import { OnboardingStatus, Onboarding } from '@/types/onboarding'
+/**
+ * onboarding.service.ts
+ * 
+ * MIGRADO COMPLETO: Supabase direct → REST API
+ * 
+ * ANTES: 134 líneas manejando Supabase Storage, upserts directos,
+ *        activity logs manuales y updates de perfil manualmente.
+ * 
+ * AHORA: El backend maneja todo el flujo KYC/KYB incluyendo:
+ *        - Upload de documentos a storage propio
+ *        - Transiciones de estado (draft → submitted → under_review)
+ *        - Activity logs automáticos
+ *        - Update de perfil (onboarding_status)
+ *        - Integración con Bridge para ToS y aplicación
+ * 
+ * KYC (Individual):
+ *   GET    /onboarding/kyc/application
+ *   POST   /onboarding/kyc/person
+ *   POST   /onboarding/documents/upload  (multipart/form-data)
+ *   GET    /onboarding/documents
+ *   GET    /onboarding/kyc/tos-link
+ *   POST   /onboarding/kyc/tos-accept
+ *   PATCH  /onboarding/kyc/application/submit
+ * 
+ * KYB (Empresa):
+ *   POST   /onboarding/kyb/business
+ *   GET    /onboarding/kyb/business
+ *   POST   /onboarding/kyb/business/directors
+ *   DELETE /onboarding/kyb/business/directors/:id
+ *   POST   /onboarding/kyb/business/ubos
+ *   DELETE /onboarding/kyb/business/ubos/:id
+ *   POST   /onboarding/kyb/application
+ *   PATCH  /onboarding/kyb/application/submit
+ *   GET    /onboarding/kyb/tos-link
+ *   POST   /onboarding/kyb/tos-accept
+ */
+import { apiGet, apiPost, apiPatch, apiDelete, apiUpload } from '@/lib/api/client'
+import type { Onboarding } from '@/types/onboarding'
 
-const supabase = createClient()
+// ── DTOs KYC ─────────────────────────────────────────────────────
+
+export interface KycPersonalInfoDto {
+  first_name: string
+  last_name: string
+  date_of_birth: string      // YYYY-MM-DD
+  nationality: string        // ISO Alpha-2
+  tax_id_number?: string
+  address?: {
+    street: string
+    city: string
+    state?: string
+    postal_code: string
+    country: string
+  }
+}
+
+export interface KycDocumentDto {
+  document_type: 'government_id' | 'passport' | 'proof_of_address' | 'selfie'
+  storage_path: string       // Retornado por el upload-url endpoint
+}
+
+export interface KycStatus {
+  status: 'not_started' | 'draft' | 'submitted' | 'under_review' | 'approved' | 'rejected'
+  rejection_reason?: string
+  submitted_at?: string
+  approved_at?: string
+}
+
+// ── DTOs KYB ─────────────────────────────────────────────────────
+
+export interface KybBusinessDto {
+  business_name: string
+  legal_name: string
+  registration_number: string
+  country_of_incorporation: string
+  business_type: string
+  industry: string
+  website?: string
+  address: {
+    street: string
+    city: string
+    state?: string
+    postal_code: string
+    country: string
+  }
+}
+
+export interface KybDirectorDto {
+  first_name: string
+  last_name: string
+  date_of_birth: string
+  nationality: string
+  email: string
+  title: string
+}
+
+export interface KybUboDto {
+  first_name: string
+  last_name: string
+  date_of_birth: string
+  nationality: string
+  ownership_percentage: number    // 0-100, suma total ≤ 100%
+}
+
+export interface UploadUrlResponse {
+  upload_url: string
+  storage_path: string
+  expires_at: string
+}
+
+// ── Servicio ─────────────────────────────────────────────────────
 
 export const OnboardingService = {
-  async getLatestOnboarding(userId: string): Promise<Onboarding | null> {
-    const { data, error } = await supabase
-      .from('onboarding')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
 
-    if (error && error.code !== 'PGRST116') {
-      throw error
-    }
+  // ── Estado general ───────────────────────────────────────────
 
-    return data || null
+  /**
+   * Estado actual del onboarding KYC del usuario.
+   */
+  async getKycStatus(): Promise<KycStatus> {
+    return apiGet<KycStatus>('/onboarding/kyc/application')
   },
 
-  async getDocuments(userId: string) {
-    const { data, error } = await supabase.from('documents').select('*').eq('user_id', userId)
+  // ── KYC (Individual) ─────────────────────────────────────────
 
-    if (error) throw error
-    return data
+  /**
+   * Guarda los datos personales del usuario para KYC.
+   */
+  async saveKycPersonalInfo(dto: KycPersonalInfoDto): Promise<Onboarding> {
+    return apiPost<Onboarding>('/onboarding/kyc/person', dto)
   },
 
-  async saveDraft(payload: Partial<Onboarding>) {
-    const { data, error } = await supabase
-      .from('onboarding')
-      .upsert({ ...payload, status: 'draft' as OnboardingStatus, updated_at: new Date().toISOString() })
-      .select()
-      .single()
-
-    if (error) throw error
-
-    if (payload.user_id) {
-      await this.logActivity(payload.user_id, 'guardar_borrador')
-    }
-
-    return data
+  /**
+   * Obtiene una URL firmada para subir un documento de forma segura.
+   * Reemplaza: supabase.storage.from('onboarding_docs').upload()
+   */
+  /**
+   * Sube un documento directamente como multipart/form-data.
+   * Reemplaza el flujo de upload-url + registro separado.
+   */
+  async uploadDocument(file: File, document_type: string, subject_type: string, subject_id?: string): Promise<void> {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('document_type', document_type)
+    formData.append('subject_type', subject_type)
+    if (subject_id) formData.append('subject_id', subject_id)
+    return apiUpload<void>('/onboarding/documents/upload', formData)
   },
 
-  async submitOnboarding(payload: Partial<Onboarding>) {
-    const { data, error } = await supabase
-      .from('onboarding')
-      .upsert({ ...payload, status: 'submitted' as OnboardingStatus, updated_at: new Date().toISOString() })
-      .select()
-      .single()
-
-    if (error) throw error
-
-    if (payload.user_id) {
-      await this.logActivity(payload.user_id, 'enviar_onboarding')
-    }
-
-    if (payload.data && payload.data.first_names && payload.data.last_names) {
-      await supabase
-        .from('profiles')
-        .update({
-          full_name: `${payload.data.first_names} ${payload.data.last_names}`.trim(),
-          onboarding_status: 'submitted',
-        })
-        .eq('id', payload.user_id!)
-    } else {
-      await supabase.from('profiles').update({ onboarding_status: 'submitted' }).eq('id', payload.user_id!)
-    }
-
-    return data
+  /**
+   * Registra un documento ya subido en la base de datos.
+   */
+  /**
+   * Lista documentos subidos por el usuario.
+   */
+  async listDocuments(subject_type?: string): Promise<unknown[]> {
+    return apiGet<unknown[]>('/onboarding/documents', { params: subject_type ? { subject_type } : undefined })
   },
 
-  async submitUBODocs(payload: Partial<Onboarding>) {
-    const { data, error } = await supabase
-      .from('onboarding')
-      .upsert({ ...payload, status: 'under_review' as OnboardingStatus, updated_at: new Date().toISOString() })
-      .select()
-      .single()
-
-    if (error) throw error
-
-    if (payload.user_id) {
-      await this.logActivity(payload.user_id, 'enviar_docs_socios')
-      await supabase.from('profiles').update({ onboarding_status: 'under_review' }).eq('id', payload.user_id!)
-    }
-
-    return data
+  /**
+   * Obtiene el link de Terms of Service de Bridge para KYC.
+   */
+  async getKycTosLink(): Promise<{ tos_link: string }> {
+    return apiGet<{ tos_link: string }>('/onboarding/kyc/tos-link')
   },
 
-  async uploadDocument(userId: string, docKey: string, file: File, isDraft: boolean = false) {
-    validateDocumentFile(file)
-
-    const timestamp = Date.now()
-    const ext = safeFileExtension(file.name)
-    const typeLabel = isDraft ? 'draft_' : ''
-    const storagePath = `${userId}/${docKey}_${typeLabel}${timestamp}.${ext}`
-
-    const { data, error } = await supabase.storage.from('onboarding_docs').upload(storagePath, file, { upsert: true })
-
-    if (error) throw error
-    return data.path
+  /**
+   * Registra la aceptación de ToS Bridge del usuario.
+   */
+  async acceptKycTos(params: { ip_address: string; signed_at: string }): Promise<void> {
+    return apiPost<void>('/onboarding/kyc/tos-accept', params)
   },
 
-  async uploadUBODocument(userId: string, docKey: string, index: number, file: File, isDraft: boolean = false) {
-    validateDocumentFile(file)
-
-    const timestamp = Date.now()
-    const ext = safeFileExtension(file.name)
-    const typeLabel = isDraft ? 'draft_' : ''
-    const storagePath = `${userId}/ubo_${index}_${docKey}_${typeLabel}${timestamp}.${ext}`
-
-    const { data, error } = await supabase.storage.from('onboarding_docs').upload(storagePath, file, { upsert: true })
-
-    if (error) throw error
-    return data.path
+  /**
+   * Envía el KYC completo para revisión.
+   */
+  async submitKyc(): Promise<Onboarding> {
+    return apiPatch<Onboarding>('/onboarding/kyc/application/submit')
   },
 
-  async saveDocumentReference(payload: { onboarding_id: string; user_id: string; doc_type: string; storage_path: string; mime_type: string; file_size: number }) {
-    const { error } = await supabase.from('documents').upsert(payload, { onConflict: 'onboarding_id,doc_type' })
+  // ── KYB (Empresa) ────────────────────────────────────────────
 
-    if (error) throw error
+  /**
+   * Guarda los datos de la empresa para KYB.
+   */
+  async saveKybBusiness(dto: KybBusinessDto): Promise<void> {
+    return apiPost<void>('/onboarding/kyb/business', dto)
   },
 
-  async logActivity(userId: string, action: string, metadata: Record<string, unknown> = {}) {
-    await supabase.from('activity_logs').insert({
-      user_id: userId,
-      action,
-      metadata,
-    })
+  /**
+   * Agrega un director a la empresa.
+   */
+  async addKybDirector(dto: KybDirectorDto): Promise<{ id: string }> {
+    return apiPost<{ id: string }>('/onboarding/kyb/business/directors', dto)
+  },
+
+  /**
+   * Elimina un director por ID.
+   */
+  async removeKybDirector(directorId: string): Promise<void> {
+    return apiDelete<void>(`/onboarding/kyb/business/directors/${directorId}`)
+  },
+
+  /**
+   * Agrega un UBO (Ultimate Beneficial Owner).
+   */
+  async addKybUbo(dto: KybUboDto): Promise<{ id: string }> {
+    return apiPost<{ id: string }>('/onboarding/kyb/business/ubos', dto)
+  },
+
+  /**
+   * Elimina un UBO por ID.
+   */
+  async removeKybUbo(uboId: string): Promise<void> {
+    return apiDelete<void>(`/onboarding/kyb/business/ubos/${uboId}`)
+  },
+
+  /**
+   * Crea la aplicación KYB final (consolida empresa + directores + UBOs).
+   */
+  async createKybApplication(): Promise<void> {
+    return apiPost<void>('/onboarding/kyb/application')
+  },
+
+  /**
+   * Obtiene el link de Terms of Service de Bridge para KYB (empresa).
+   */
+  async getKybTosLink(): Promise<{ tos_link: string }> {
+    return apiGet<{ tos_link: string }>('/onboarding/kyb/tos-link')
+  },
+
+  /**
+   * Registra la aceptación de ToS Bridge (empresa).
+   */
+  async acceptKybTos(params: { ip_address: string; signed_at: string }): Promise<void> {
+    return apiPost<void>('/onboarding/kyb/tos-accept', params)
+  },
+
+  /**
+   * Envía el KYB para revisión final.
+   */
+  async submitKyb(): Promise<void> {
+    return apiPatch<void>('/onboarding/kyb/application/submit')
   },
 }

@@ -7,11 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
-import { useAuthStore } from '@/stores/auth-store'
 import { useProfileStore } from '@/stores/profile-store'
-import { usePaymentsModule } from '@/features/payments/hooks/use-payments-module'
-import { estimateRouteValues } from '@/features/payments/lib/deposit-instructions'
-import type { AppSettingRow } from '@/types/payment-order'
+import { useExchangeRates } from '@/features/payments/hooks/use-exchange-rates'
 
 const FORM_LABEL_CLASS = 'text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground'
 const FORM_UNDERLINE_INPUT_CLASS = 'h-11 rounded-none border-0 border-b border-input bg-transparent px-0 py-0 shadow-none transition-colors focus-within:border-primary focus-visible:ring-0 disabled:bg-transparent'
@@ -54,14 +51,12 @@ const ACTION_CONFIG: Record<
 }
 
 export function ClientDashboard() {
-  const { user } = useAuthStore()
-  const payments = usePaymentsModule(user?.id)
+  const { profile } = useProfileStore()
+  const { rates, loading, error, reload } = useExchangeRates()
   const [action, setAction] = useState<QuoteAction>('depositar')
   const [amountInput, setAmountInput] = useState('0')
 
-  const { profile } = useProfileStore()
-
-  if (payments.loading) {
+  if (loading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
         <Loader2 className="size-5 animate-spin text-muted-foreground" />
@@ -69,17 +64,17 @@ export function ClientDashboard() {
     )
   }
 
-  if (!user || payments.error || !payments.snapshot) {
+  if (error) {
     return (
       <Card className="rounded-md border-destructive/30 shadow-none">
         <CardHeader>
           <CardTitle>No se pudo cargar el panel</CardTitle>
           <CardDescription>
-            Verifica la sesion y la conexion con Supabase antes de intentar otra vez.
+            Verifica tu conexión con el backend. Las tasas de cambio no están disponibles.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button onClick={() => { payments.reload() }} type="button">
+          <Button onClick={reload} type="button">
             Reintentar
           </Button>
         </CardContent>
@@ -90,21 +85,18 @@ export function ClientDashboard() {
   const userFirstName = profile?.full_name?.split(' ')[0] ?? 'Usuario'
   const config = ACTION_CONFIG[action]
   const amountOrigin = parseAmount(amountInput)
-  const estimate = estimateRouteValues({
-    amountOrigin,
-    route: config.route,
-    originCurrency: config.originCurrency,
-    destinationCurrency: config.destinationCurrency,
-    appSettings: payments.snapshot.appSettings,
-    feesConfig: payments.snapshot.feesConfig,
-  })
-  const amountToConvert = Math.max(amountOrigin - estimate.feeTotal, 0)
-  const buyRate = getNumericSetting(payments.snapshot.appSettings, 'parallel_buy_rate')
-  const sellRate = getNumericSetting(payments.snapshot.appSettings, 'parallel_sell_rate')
-  const visibleBaseRate =
-    action === 'depositar'
-      ? sellRate ?? estimate.exchangeRateApplied
-      : buyRate ?? safeInverseRate(estimate.exchangeRateApplied)
+  const buyRate = rates.buyRate
+  const sellRate = rates.sellRate
+  const visibleBaseRate = action === 'depositar' ? (sellRate ?? 0) : (buyRate ?? 0)
+  // Estimación local simple: sin fees del backend por ahora
+  const amountToConvert = amountOrigin
+  const estimate = {
+    feeTotal: 0,
+    amountConverted: action === 'depositar'
+      ? amountOrigin * (sellRate ?? 0)
+      : amountOrigin * (buyRate ?? 0),
+    exchangeRateApplied: action === 'depositar' ? (sellRate ?? 0) : (buyRate ?? 0),
+  }
 
   return (
     <div className="space-y-6 md:space-y-10 lg:px-12 xl:px-32">
@@ -128,7 +120,7 @@ export function ClientDashboard() {
                 <CardTitle className="text-xl md:text-2xl">Calculadora de cotizacion</CardTitle>
                 <CardDescription className="mt-1">{config.helperText}</CardDescription>
               </div>
-              <Button onClick={() => { payments.reload() }} type="button" variant="outline" className="h-9 rounded-md px-3 text-xs md:h-10 md:px-4 md:text-sm">
+              <Button onClick={reload} type="button" variant="outline" className="h-9 rounded-md px-3 text-xs md:h-10 md:px-4 md:text-sm">
                 <RefreshCw className="mr-2 size-3.5" />
                 Actualizar
               </Button>
@@ -406,24 +398,7 @@ function RateCard({
   )
 }
 
-function getNumericSetting(settings: AppSettingRow[], key: string) {
-  const normalizedKey = key.trim().toLowerCase()
-  const match = settings.find((setting) => {
-    const settingKey = String(setting.key ?? setting.name ?? '').trim().toLowerCase()
-    return settingKey === normalizedKey
-  })
-
-  if (typeof match?.value === 'number') {
-    return Number.isFinite(match.value) ? match.value : null
-  }
-
-  if (typeof match?.value === 'string') {
-    const parsed = Number(match.value.trim().replace(',', '.'))
-    return Number.isFinite(parsed) ? parsed : null
-  }
-
-  return null
-}
+// getNumericSetting eliminado — las tasas ahora vienen de useExchangeRates
 
 function parseAmount(value: string) {
   if (!value.trim()) return 0

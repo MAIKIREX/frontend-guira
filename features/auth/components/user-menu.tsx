@@ -22,7 +22,8 @@ export function UserMenu() {
 
   if (!profile) return null
 
-  const getInitials = (name: string) => {
+  const getInitials = (name?: string | null) => {
+    if (!name) return 'GU'
     return name.slice(0, 2).toUpperCase()
   }
 

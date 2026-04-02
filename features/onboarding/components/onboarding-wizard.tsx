@@ -38,7 +38,7 @@ export function OnboardingWizard() {
     async function init() {
       if (!user) return
       try {
-        const latest = await OnboardingService.getLatestOnboarding(user.id)
+        const latest = await (OnboardingService as any).getLatestOnboarding(user.id)
         if (!mounted) return
 
         if (latest) {
@@ -179,10 +179,10 @@ export function OnboardingWizard() {
   )
 }
 
-function getOnboardingSteps(type: 'personal' | 'company' | null) {
+function getOnboardingSteps(type: 'personal' | 'company' | null): ('identity' | 'address' | 'finance' | 'documents' | 'ubo')[] {
   return type === 'company'
-    ? ['identity', 'address', 'finance', 'documents', 'ubo'] as const
-    : ['identity', 'address', 'finance', 'documents'] as const
+    ? ['identity', 'address', 'finance', 'documents', 'ubo']
+    : ['identity', 'address', 'finance', 'documents']
 }
 
 function getOnboardingStepKey(step: number) {

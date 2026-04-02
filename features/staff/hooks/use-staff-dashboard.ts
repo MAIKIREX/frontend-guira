@@ -1,13 +1,42 @@
 'use client'
 
+/**
+ * use-staff-dashboard.ts
+ * 
+ * MIGRADO: StaffService.getReadOnlySnapshot() eliminado.
+ * Reemplazado por hooks separados por dominio usando servicios admin granulares.
+ *
+ * Este hook centraliza la carga del panel admin con llamadas paralelas a:
+ * - OrdersAdminService.getAllOrders()
+ * - UsersAdminService.getUsers()
+ * - ComplianceAdminService.getReviews()
+ * - SupportAdminService.getAllTickets()
+ * - ConfigAdminService.getFeesConfig() / getPsavConfigs() / getSettings()
+ */
 import { useCallback, useEffect, useState } from 'react'
-import { StaffService } from '@/services/staff.service'
-import type { AppSettingRow, FeeConfigRow, PaymentOrder, PsavConfigRow } from '@/types/payment-order'
+import { OrdersAdminService } from '@/services/admin/orders.admin.service'
+import { UsersAdminService } from '@/services/admin/users.admin.service'
+import { ComplianceAdminService } from '@/services/admin/compliance.admin.service'
+import { SupportAdminService } from '@/services/admin/support.admin.service'
+import { ConfigAdminService } from '@/services/admin/config.admin.service'
+import type { PaymentOrder } from '@/types/payment-order'
 import type { Profile } from '@/types/profile'
-import type { StaffOnboardingRecord, StaffSnapshot, StaffSupportTicket } from '@/types/staff'
+import type { AdminComplianceReview } from '@/services/admin/compliance.admin.service'
+import type { AdminBridgePayout } from '@/services/admin/bridge.admin.service'
+
+export interface StaffDashboardState {
+  orders: PaymentOrder[]
+  users: Profile[]
+  complianceReviews: AdminComplianceReview[]
+  supportTickets: unknown[]
+  feesConfig: unknown[]
+  psavConfigs: unknown[]
+  appSettings: unknown[]
+  auditLogs: unknown[]
+}
 
 export function useStaffDashboard() {
-  const [snapshot, setSnapshot] = useState<StaffSnapshot | null>(null)
+  const [state, setState] = useState<StaffDashboardState | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -16,11 +45,42 @@ export function useStaffDashboard() {
     setError(null)
 
     try {
-      const data = await StaffService.getReadOnlySnapshot()
-      setSnapshot(data)
+      // Carga paralela de todos los dominios admin
+      const [
+        ordersRes,
+        usersRes,
+        complianceRes,
+        supportRes,
+        feesRes,
+        psavRes,
+        appSettingsRes,
+        auditLogsRes,
+      ] = await Promise.all([
+        OrdersAdminService.getAllOrders({ limit: 100 }),
+        UsersAdminService.getUsers({ limit: 100 }),
+        ComplianceAdminService.getReviews({ status: 'under_review' }),
+        SupportAdminService.getAllTickets({ status: 'open', limit: 50 }),
+        ConfigAdminService.getFeesConfig(),
+        ConfigAdminService.getPsavConfigs(),
+        ConfigAdminService.getSettings(),
+        ConfigAdminService.getAuditLogs({ limit: 200 } as any),
+      ])
+
+      const extractData = (res: any) => (res && Array.isArray(res.data)) ? res.data : (Array.isArray(res) ? res : [])
+
+      setState({
+        orders: extractData(ordersRes),
+        users: extractData(usersRes),
+        complianceReviews: extractData(complianceRes),
+        supportTickets: extractData(supportRes),
+        feesConfig: extractData(feesRes),
+        psavConfigs: extractData(psavRes),
+        appSettings: extractData(appSettingsRes),
+        auditLogs: extractData(auditLogsRes),
+      })
     } catch (err) {
       console.error('Failed to load staff dashboard', err)
-      setError('No se pudo cargar el panel staff de solo lectura.')
+      setError('No se pudo cargar el panel staff.')
     } finally {
       setLoading(false)
     }
@@ -30,138 +90,84 @@ export function useStaffDashboard() {
     load()
   }, [load])
 
-  const replaceOnboarding = useCallback((updatedRecord: StaffOnboardingRecord) => {
-    setSnapshot((current) => {
-      if (!current) return current
-      return {
-        ...current,
-        onboarding: current.onboarding.map((record) => (record.id === updatedRecord.id ? updatedRecord : record)),
-        users: current.users.map((user) =>
-          user.id === updatedRecord.user_id
-            ? { ...user, onboarding_status: updatedRecord.status }
-            : user
-        ),
-      }
-    })
-  }, [])
+  // ── Optimistic updates por dominio ────────────────────────────
 
   const replaceOrder = useCallback((updatedOrder: PaymentOrder) => {
-    setSnapshot((current) => {
+    setState((current) => {
       if (!current) return current
       return {
         ...current,
-        orders: current.orders.map((order) => (order.id === updatedOrder.id ? updatedOrder : order)),
-      }
-    })
-  }, [])
-
-  const replaceSupportTicket = useCallback((updatedTicket: StaffSupportTicket) => {
-    setSnapshot((current) => {
-      if (!current) return current
-      return {
-        ...current,
-        support: current.support.map((ticket) => (ticket.id === updatedTicket.id ? updatedTicket : ticket)),
-      }
-    })
-  }, [])
-
-  const addUser = useCallback((profile: Profile) => {
-    setSnapshot((current) => {
-      if (!current) return current
-      return {
-        ...current,
-        users: [profile, ...current.users.filter((user) => user.id !== profile.id)],
+        orders: current.orders.map((o) => (o.id === updatedOrder.id ? updatedOrder : o)),
       }
     })
   }, [])
 
   const replaceUser = useCallback((updatedUser: Profile) => {
-    setSnapshot((current) => {
+    setState((current) => {
       if (!current) return current
       return {
         ...current,
-        users: current.users.map((user) => (user.id === updatedUser.id ? updatedUser : user)),
+        users: current.users.map((u) => (u.id === updatedUser.id ? updatedUser : u)),
       }
     })
   }, [])
 
-  const removeUser = useCallback((userId: string) => {
-    setSnapshot((current) => {
+  const replaceComplianceReview = useCallback((updatedReview: AdminComplianceReview) => {
+    setState((current) => {
       if (!current) return current
       return {
         ...current,
-        users: current.users.filter((user) => user.id !== userId),
+        complianceReviews: current.complianceReviews.map((r) =>
+          r.id === updatedReview.id ? updatedReview : r
+        ),
       }
     })
   }, [])
 
-  const replaceFeeConfig = useCallback((updatedRecord: FeeConfigRow) => {
-    setSnapshot((current) => {
+  const replaceSupportTicket = useCallback((updatedTicket: unknown) => {
+    setState((current) => {
       if (!current) return current
       return {
         ...current,
-        feesConfig: current.feesConfig.map((record) => (record.id === updatedRecord.id ? updatedRecord : record)),
+        supportTickets: current.supportTickets.map((t: any) =>
+          t.id === (updatedTicket as any).id ? updatedTicket : t
+        ),
       }
     })
   }, [])
 
-  const replaceAppSetting = useCallback((updatedRecord: AppSettingRow) => {
-    setSnapshot((current) => {
-      if (!current) return current
-
-      const nextRecords = [...current.appSettings]
-      const recordId = String(updatedRecord.id ?? updatedRecord.key ?? updatedRecord.name ?? '')
-      const existingIndex = nextRecords.findIndex(
-        (record) => String(record.id ?? record.key ?? record.name ?? '') === recordId
-      )
-
-      if (existingIndex >= 0) {
-        nextRecords[existingIndex] = updatedRecord
-      } else {
-        nextRecords.unshift(updatedRecord)
-      }
-
-      return {
-        ...current,
-        appSettings: nextRecords,
-      }
-    })
-  }, [])
-
-  const replacePsavConfig = useCallback((updatedRecord: PsavConfigRow) => {
-    setSnapshot((current) => {
-      if (!current) return current
-
-      const exists = current.psavConfigs.some((record) => record.id === updatedRecord.id)
-      return {
-        ...current,
-        psavConfigs: exists
-          ? current.psavConfigs.map((record) => (record.id === updatedRecord.id ? updatedRecord : record))
-          : [updatedRecord, ...current.psavConfigs],
-      }
-    })
-  }, [])
-
-  const removePsavConfig = useCallback((recordId: string) => {
-    setSnapshot((current) => {
-      if (!current) return current
-      return {
-        ...current,
-        psavConfigs: current.psavConfigs.filter((record) => record.id !== recordId),
-      }
-    })
-  }, [])
+  // ── Backwards compatibility para componentes legacy ────────────
+  const replaceOnboarding = useCallback(() => { console.warn('replaceOnboarding is deprecated') }, [])
+  const addUser = useCallback(() => { console.warn('addUser is deprecated') }, [])
+  const removeUser = useCallback(() => { console.warn('removeUser is deprecated') }, [])
+  const replaceFeeConfig = useCallback(() => { console.warn('replaceFeeConfig is deprecated') }, [])
+  const replaceAppSetting = useCallback(() => { console.warn('replaceAppSetting is deprecated') }, [])
+  const replacePsavConfig = useCallback(() => { console.warn('replacePsavConfig is deprecated') }, [])
+  const removePsavConfig = useCallback(() => { console.warn('removePsavConfig is deprecated') }, [])
 
   return {
-    snapshot,
+    /** @deprecated Usar state directamente. snapshot se mantiene para compatibilidad temporal. */
+    snapshot: state ? {
+      onboarding: state.complianceReviews as any, // Mapeo temporal
+      orders: state.orders,
+      support: state.supportTickets as any,
+      users: state.users,
+      feesConfig: state.feesConfig as any,
+      appSettings: state.appSettings as any,
+      psavConfigs: state.psavConfigs as any,
+      auditLogs: state.auditLogs as any,
+    } : null,
+    state,
     loading,
     error,
     reload: load,
-    replaceOnboarding,
     replaceOrder,
-    replaceSupportTicket,
-    addUser,
     replaceUser,
+    replaceComplianceReview,
+    replaceSupportTicket,
+    // Legacy updaters
+    replaceOnboarding,
+    addUser,
     removeUser,
     replaceFeeConfig,
     replaceAppSetting,

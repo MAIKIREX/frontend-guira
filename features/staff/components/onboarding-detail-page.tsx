@@ -105,7 +105,7 @@ export function OnboardingDetailPage({ onboardingId }: { onboardingId: string })
     )
   }
 
-  if (error || !detail || !user || !profile || (profile.role !== 'staff' && profile.role !== 'admin')) {
+  if (error || !detail || !user || !profile || (profile.role !== 'staff' && profile.role !== 'admin' && profile.role !== 'super_admin')) {
     return (
       <Card className="border-destructive/30">
         <CardHeader>

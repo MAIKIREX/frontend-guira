@@ -59,6 +59,6 @@ export interface StaffSnapshot {
 
 export interface StaffActor {
   userId: string
-  role: 'staff' | 'admin'
+  role: 'staff' | 'admin' | 'super_admin'
 }
 

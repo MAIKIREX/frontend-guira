@@ -59,7 +59,7 @@ export function StaffDashboardPage({
     )
   }
 
-  if (error || !snapshot || !user || !profile || (profile.role !== 'staff' && profile.role !== 'admin')) {
+  if (error || !snapshot || !user || !profile || (profile.role !== 'staff' && profile.role !== 'admin' && profile.role !== 'super_admin')) {
     return (
       <Card className="border-destructive/30">
         <CardHeader>
@@ -78,10 +78,10 @@ export function StaffDashboardPage({
   return (
     <>
       {children({
-        snapshot,
+        snapshot: snapshot as any,
         actor,
-        isAdmin: actor.role === 'admin',
-        isPrivileged: actor.role === 'admin' || actor.role === 'staff',
+        isAdmin: actor.role === 'admin' || actor.role === 'super_admin',
+        isPrivileged: actor.role === 'admin' || actor.role === 'staff' || actor.role === 'super_admin',
         reload,
         replaceOnboarding,
         replaceOrder,

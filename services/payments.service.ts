@@ -1,221 +1,193 @@
-import { createClient } from '@/lib/supabase/browser'
-import { safeFileExtension, validateDocumentFile } from '@/lib/file-validation'
-import type { ActivityLog } from '@/types/activity-log'
-import type {
-  AppSettingRow,
-  CreatePaymentOrderInput,
-  FeeConfigRow,
-  OrderFileField,
-  OrderFileUploadResult,
-  PaymentOrder,
-  PaymentSnapshot,
-  PsavConfigRow,
-  SupplierUpsertInput,
-} from '@/types/payment-order'
+/**
+ * payments.service.ts
+ * 
+ * MIGRADO COMPLETO: Supabase direct → REST API
+ * 
+ * ANTES: 222 líneas insertando directamente en Supabase con lógica de
+ *        negocio client-side (cálculo de status, activity logs manuales,
+ *        upload a Supabase Storage, logica de snapshot con 6 queries)
+ * 
+ * AHORA: El backend es el motor de todos los flujos financieros.
+ *        El frontend solo envía DTOs tipados y renderiza respuestas.
+ *        Activity logs, state transitions y storage → todos en el backend.
+ * 
+ * Flujos soportados (11 tipos por el backend):
+ *   Interbank:   POST /payment-orders/interbank
+ *   Wallet Ramp: POST /payment-orders/wallet-ramp
+ * 
+ * Suppliers (Proveedores):
+ *   GET    /suppliers
+ *   POST   /suppliers
+ *   PATCH  /suppliers/:id
+ *   DELETE /suppliers/:id
+ * 
+ * Fees / PSAV / Exchange Rates (consulta para UI):
+ *   GET /fees/config
+ *   GET /fees/preview
+ *   GET /psav
+ *   GET /exchange-rates
+ */
+import { apiGet, apiPost, apiPatch, apiDelete, apiUpload } from '@/lib/api/client'
+import type { PaymentOrder } from '@/types/payment-order'
 import type { Supplier } from '@/types/supplier'
+import type { PaginationParams } from '@/lib/api/types'
 
-const ORDER_EVIDENCE_BUCKET = 'order-evidences'
-const CLIENT_MUTABLE_ORDER_STATUSES = new Set<PaymentOrder['status']>(['created', 'waiting_deposit'])
+// ── DTOs de entrada ───────────────────────────────────────────────
+
+export interface CreateInterbankOrderDto {
+  amount_origin: number
+  origin_currency: string
+  destination_currency: string
+  processing_rail: string
+  supplier_id?: string
+  notes?: string
+}
+
+export type WalletRampFlowType =
+  | 'fiat_bo_to_bridge_wallet'
+  | 'crypto_to_bridge_wallet'
+  | 'fiat_us_to_bridge_wallet'
+  | 'bridge_wallet_to_fiat_bo'
+  | 'bridge_wallet_to_crypto'
+  | 'bridge_wallet_to_fiat_us'
+
+export interface CreateWalletRampOrderDto {
+  flow_type: WalletRampFlowType
+  amount: number
+  currency: string
+  external_account_id?: string        // Para ramps con destino banco externo
+  liquidation_address_id?: string     // Para ramps con destino crypto
+  destination_currency?: string
+}
+
+export interface SupplierUpsertDto {
+  name: string
+  alias?: string
+  payment_rail: string
+  bank_name?: string
+  account_number?: string
+  routing_number?: string
+  iban?: string
+  clabe?: string
+  email?: string
+  notes?: string
+}
+
+export interface OrderFilter extends PaginationParams {
+  status?: string
+  order_type?: string
+  from?: string
+  to?: string
+}
+
+// ── Servicio ─────────────────────────────────────────────────────
 
 export const PaymentsService = {
-  async getSnapshot(userId: string): Promise<PaymentSnapshot> {
-    const supabase = createClient()
 
-    const [suppliersResult, ordersResult, activityResult, feesResult, settingsResult, psavResult] = await Promise.all([
-      supabase.from('suppliers').select('*').eq('user_id', userId).order('name', { ascending: true }),
-      supabase.from('payment_orders').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-      supabase.from('activity_logs').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(100),
-      supabase.from('fees_config').select('*').order('type', { ascending: true }),
-      supabase.from('app_settings').select('*'),
-      supabase.from('psav_configs').select('*').eq('is_active', true).order('id', { ascending: true }),
-    ])
+  // ── Órdenes de pago ──────────────────────────────────────────
 
-    if (suppliersResult.error) throw suppliersResult.error
-    if (ordersResult.error) throw ordersResult.error
-    if (activityResult.error) throw activityResult.error
-    if (feesResult.error) throw feesResult.error
-    if (settingsResult.error) throw settingsResult.error
-    if (psavResult.error) throw psavResult.error
-
-    return {
-      suppliers: (suppliersResult.data ?? []) as Supplier[],
-      paymentOrders: (ordersResult.data ?? []) as PaymentOrder[],
-      activityLogs: (activityResult.data ?? []) as ActivityLog[],
-      feesConfig: (feesResult.data ?? []) as FeeConfigRow[],
-      appSettings: (settingsResult.data ?? []) as AppSettingRow[],
-      psavConfigs: (psavResult.data ?? []) as PsavConfigRow[],
-      gaps: [
-        'No se implemento `payin_routes` porque su contrato no aparece documentado en `informacion/06-contratos-backend-supabase.md`.',
-      ],
-    }
+  /**
+   * Lista órdenes de pago del usuario autenticado.
+   */
+  async getOrders(params?: OrderFilter): Promise<PaymentOrder[]> {
+    return apiGet<PaymentOrder[]>('/payment-orders', { params })
   },
 
-  async createSupplier(input: SupplierUpsertInput): Promise<Supplier> {
-    const supabase = createClient()
-    const { data, error } = await supabase.from('suppliers').insert(input).select('*').single()
-
-    if (error) throw error
-    return data as Supplier
+  /**
+   * Detalle de una orden.
+   */
+  async getOrder(orderId: string): Promise<PaymentOrder> {
+    return apiGet<PaymentOrder>(`/payment-orders/${orderId}`)
   },
 
-  async updateSupplier(id: string, input: Partial<SupplierUpsertInput>): Promise<Supplier> {
-    const supabase = createClient()
-    const { data, error } = await supabase.from('suppliers').update(input).eq('id', id).select('*').single()
-
-    if (error) throw error
-    return data as Supplier
+  /**
+   * Crea una orden de pago interbancaria (el flujo "Enviar" estándar).
+   * El backend valida balances, calcula fees, y registra el activity log.
+   */
+  async createInterbankOrder(dto: CreateInterbankOrderDto): Promise<PaymentOrder> {
+    return apiPost<PaymentOrder>('/payment-orders/interbank', dto)
   },
 
-  async deleteSupplier(id: string): Promise<void> {
-    const supabase = createClient()
-    const { error } = await supabase.from('suppliers').delete().eq('id', id)
-
-    if (error) throw error
+  /**
+   * Crea una orden de tipo Wallet Ramp (Fiat ↔ Crypto ↔ Bridge Wallet).
+   * Requiere que el usuario tenga Bridge wallet activa.
+   */
+  async createWalletRampOrder(dto: CreateWalletRampOrderDto): Promise<PaymentOrder> {
+    return apiPost<PaymentOrder>('/payment-orders/wallet-ramp', dto)
   },
 
-  async createPaymentOrder(input: CreatePaymentOrderInput): Promise<PaymentOrder> {
-    const supabase = createClient()
-    const payload = {
-      ...input,
-      status: 'created' as const,
-    }
-
-    const { data, error } = await supabase.from('payment_orders').insert(payload).select('*').single()
-
-    if (error) throw error
-
-    const order = data as PaymentOrder
-    await logActivitySafely(order.user_id, 'payment_order_created', {
-      order_id: order.id,
-      order_type: order.order_type,
-      processing_rail: order.processing_rail,
-      status: order.status,
-    })
-
-    return order
+  /**
+   * Sube un comprobante/evidencia a una orden (reemplaza upload a Supabase Storage).
+   * El backend guarda el archivo y actualiza el estado de la orden automáticamente.
+   */
+  async uploadOrderEvidence(orderId: string, file: File, field: 'evidence_url' | 'receipt_url'): Promise<PaymentOrder> {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('field', field)
+    return apiUpload<PaymentOrder>(`/payment-orders/${orderId}/upload`, formData)
   },
 
-  async updateOrderFile(order: PaymentOrder, field: OrderFileField, file: File, userId: string): Promise<OrderFileUploadResult> {
-    if (!CLIENT_MUTABLE_ORDER_STATUSES.has(order.status)) {
-      throw new Error('La orden ya no admite cargas del cliente en este estado.')
-    }
-
-    validateDocumentFile(file)
-
-    const supabase = createClient()
-    const path = buildOrderFilePath({
-      userId,
-      orderId: order.id,
-      field,
-      fileName: file.name,
-    })
-
-    const { error: uploadError } = await supabase.storage.from(ORDER_EVIDENCE_BUCKET).upload(path, file, { upsert: true })
-    if (uploadError) throw uploadError
-
-    try {
-      const { data } = supabase.storage.from(ORDER_EVIDENCE_BUCKET).getPublicUrl(path)
-      const updates: Record<string, string> & { status?: PaymentOrder['status'] } = {
-        [field]: data.publicUrl,
-      }
-
-      if (field === 'evidence_url' && order.status === 'created') {
-        updates.status = 'waiting_deposit'
-      }
-
-      const { data: updatedOrder, error: updateError } = await supabase
-        .from('payment_orders')
-        .update(updates)
-        .eq('id', order.id)
-        .eq('updated_at', order.updated_at)
-        .select('*')
-        .single()
-
-      if (updateError) throw updateError
-
-      const nextOrder = updatedOrder as PaymentOrder
-      await logActivitySafely(userId, 'payment_order_file_uploaded', {
-        order_id: nextOrder.id,
-        field,
-        status: nextOrder.status,
-      })
-
-      return {
-        publicUrl: data.publicUrl,
-        order: nextOrder,
-      }
-    } catch (error) {
-      await removeStorageObject(ORDER_EVIDENCE_BUCKET, path)
-      throw error
-    }
+  /**
+   * Cancela una orden (solo en estados 'created' o 'waiting_deposit').
+   * El backend valida el estado y registra el audit log.
+   */
+  async cancelOrder(orderId: string): Promise<PaymentOrder> {
+    return apiPost<PaymentOrder>(`/payment-orders/${orderId}/cancel`)
   },
 
-  async cancelOrder(order: PaymentOrder): Promise<PaymentOrder> {
-    if (!CLIENT_MUTABLE_ORDER_STATUSES.has(order.status)) {
-      throw new Error('Solo puedes cancelar ordenes en estado created o waiting_deposit.')
-    }
+  // ── Proveedores (Suppliers) ───────────────────────────────────
 
-    const supabase = createClient()
-    const metadata = {
-      ...(order.metadata ?? {}),
-      rejection_reason: 'Cancelado por el usuario',
-    }
-
-    const { data, error } = await supabase
-      .from('payment_orders')
-      .update({
-        status: 'failed',
-        metadata,
-      })
-      .eq('id', order.id)
-      .eq('updated_at', order.updated_at)
-      .select('*')
-      .single()
-
-    if (error) throw error
-
-    const updatedOrder = data as PaymentOrder
-    await logActivitySafely(updatedOrder.user_id, 'payment_order_cancelled', {
-      order_id: updatedOrder.id,
-      status: updatedOrder.status,
-    })
-
-    return updatedOrder
+  /**
+   * Lista proveedores del usuario autenticado.
+   * Corresponde a la sección "Proveedores" del aside.
+   */
+  async getSuppliers(): Promise<Supplier[]> {
+    return apiGet<Supplier[]>('/suppliers')
   },
-}
 
-function buildOrderFilePath({
-  userId,
-  orderId,
-  field,
-  fileName,
-}: {
-  userId: string
-  orderId: string
-  field: OrderFileField
-  fileName: string
-}) {
-  const extension = safeFileExtension(fileName)
-  return `${userId}/${orderId}/${field}_${Date.now()}.${extension}`
-}
+  /**
+   * Crea un nuevo proveedor.
+   * Para proveedores internacionales, el frontend también llamará
+   * a BridgeService.createExternalAccount() antes de guardar.
+   */
+  async createSupplier(dto: SupplierUpsertDto): Promise<Supplier> {
+    return apiPost<Supplier>('/suppliers', dto)
+  },
 
-async function removeStorageObject(bucket: string, path: string) {
-  const supabase = createClient()
-  const { error } = await supabase.storage.from(bucket).remove([path])
-  if (error) {
-    console.error('Failed to cleanup storage object', { bucket, path, error })
-  }
-}
+  /**
+   * Actualiza un proveedor existente.
+   */
+  async updateSupplier(supplierId: string, dto: Partial<SupplierUpsertDto>): Promise<Supplier> {
+    return apiPatch<Supplier>(`/suppliers/${supplierId}`, dto)
+  },
 
-async function logActivitySafely(userId: string, action: string, metadata: Record<string, unknown>) {
-  const supabase = createClient()
-  const { error } = await supabase.from('activity_logs').insert({
-    user_id: userId,
-    action,
-    metadata,
-  })
+  /**
+   * Elimina un proveedor.
+   */
+  async deleteSupplier(supplierId: string): Promise<void> {
+    return apiDelete<void>(`/suppliers/${supplierId}`)
+  },
 
-  if (error) {
-    console.error('Failed to write activity log', { userId, action, error })
-  }
+  // ── Fees / Tasas / Exchange Rates (para UI informativa) ─────────────────
+
+  /**
+   * Tarifas públicas activas (endpoint: GET /fees).
+   */
+  async getFeesConfig(): Promise<unknown[]> {
+    return apiGet<unknown[]>('/fees')
+  },
+
+  /**
+   * Tasas de cambio actuales (disponibles en el controlador de payment-orders).
+   */
+  async getExchangeRates(): Promise<unknown[]> {
+    return apiGet<unknown[]>('/payment-orders/exchange-rates')
+  },
+
+  /**
+   * Tasa de cambio de un par específico.
+   */
+  async getExchangeRate(pair: string): Promise<unknown> {
+    return apiGet<unknown>(`/payment-orders/exchange-rates/${pair}`)
+  },
 }

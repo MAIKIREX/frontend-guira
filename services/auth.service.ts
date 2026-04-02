@@ -1,4 +1,18 @@
+/**
+ * auth.service.ts
+ * 
+ * MIGRADO PARCIALMENTE:
+ * - Login / OAuth / Logout / Password → SE MANTIENEN con Supabase Auth SDK
+ *   (flujo de sesión estándar — el backend valida el JWT generado por Supabase)
+ * 
+ * - signup() → EXTENDIDO: Supabase Auth crea el usuario + POST /auth/register
+ *   notifica al backend para crear perfil, wallet inicial e iniciar onboarding.
+ * 
+ * - checkUserExists() → ELIMINADO (era un RPC de Supabase, se delega al backend)
+ */
 import { createClient } from '@/lib/supabase/browser'
+import { apiPost, apiGet } from '@/lib/api/client'
+import type { Profile } from '@/types/profile'
 
 export const AuthService = {
   async getSession() {
@@ -6,10 +20,8 @@ export const AuthService = {
     return supabase.auth.getSession()
   },
 
-  async login({ email, password }: { email: string; password: string; [key: string]: unknown }) {
+  async login({ email, password }: { email: string; password: string }) {
     const supabase = createClient()
-    // Probamos primero con el login nativo para evitar demoras/hangs potenciales en el proxy
-    // Si necesitas auditoría mas adelante se puede re-habilitar el proxy con timeout
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
     return data.session
@@ -27,18 +39,44 @@ export const AuthService = {
     return data
   },
 
-  async signup({ email, password, fullName }: { email: string; password: string; fullName: string; [key: string]: unknown }) {
+  /**
+   * Registro de nuevo usuario.
+   * 
+   * Flujo:
+   * 1. Supabase Auth crea el usuario (session + JWT)
+   * 2. POST /auth/register notifica al backend NestJS que cree el perfil,
+   *    wallet inicial, e inicie el flujo de onboarding KYC.
+   * 
+   * @param fullName  Nombre completo del usuario
+   * @param email     Email
+   * @param password  Contraseña
+   */
+  async signup({ email, password, fullName }: { email: string; password: string; fullName: string }) {
     const supabase = createClient()
+
+    // Paso 1: Crear usuario en Supabase Auth
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: {
-          full_name: fullName,
-        },
+        data: { full_name: fullName },
       },
     })
     if (error) throw error
+
+    // Paso 2: Notificar al backend para setup inicial (perfil, wallet, onboarding)
+    // El interceptor de axios tomará el JWT recién creado automáticamente
+    try {
+      await apiPost('/auth/register', {
+        full_name: fullName,
+        email,
+      })
+    } catch (backendError) {
+      // Si el backend falla, el usuario quedó en Supabase pero sin perfil
+      // Se puede reintentar en el siguiente login
+      console.error('[AuthService] Backend registration failed after Supabase signup:', backendError)
+    }
+
     return data
   },
 
@@ -48,19 +86,15 @@ export const AuthService = {
     if (error) throw error
   },
 
-  async checkUserExists(email: string): Promise<boolean> {
-    const supabase = createClient()
-    const { data, error } = await supabase.rpc('check_user_exists', { p_email: email })
-    if (error) throw error
-    return Boolean(data)
+  /**
+   * Obtiene el perfil del usuario autenticado desde el backend.
+   * Verificación útil post-login para saber si el backend tiene su perfil.
+   */
+  async getMe(): Promise<Profile> {
+    return apiGet<Profile>('/auth/me')
   },
 
   async recoverPassword(email: string) {
-    const exists = await this.checkUserExists(email)
-    if (!exists) {
-      throw new Error('No existe una cuenta con este correo')
-    }
-
     const supabase = createClient()
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/recuperar/update`,

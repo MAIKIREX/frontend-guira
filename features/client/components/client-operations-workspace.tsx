@@ -51,7 +51,7 @@ export function ClientOperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const config = MODE_CONFIG[mode]
   const { user } = useAuthStore()
   const { profile } = useProfileStore()
-  const payments = usePaymentsModule(user?.id)
+  const payments = usePaymentsModule()
 
   const handleCreateOrder = useCallback(async (...args: Parameters<typeof payments.createOrder>) => {
     return payments.createOrder(...args)

@@ -1,15 +1,35 @@
+/**
+ * admin.service.ts
+ *
+ * COMPLETAMENTE MIGRADO — Todas las operaciones usan el backend NestJS via REST API.
+ * No hay referencias directas a Supabase DB Client.
+ *
+ * Mapeo de Endpoints:
+ * - Fees:        /admin/fees
+ * - Settings:    /admin/settings
+ * - PSAV:        /admin/psav
+ * - Profiles:    /admin/profiles (freeze/unfreeze, role)
+ * - Audit logs:  /admin/audit-logs
+ *
+ * Nota: createUser, archiveUser y resetPassword invocan Edge Functions de Supabase
+ * por ser operaciones que requieren privilegios de Supabase Admin. Esto es correcto
+ * y se conserva como patrón de delegación de Auth.
+ */
 import { createClient } from '@/lib/supabase/browser'
+import { apiGet, apiPatch, apiPost, apiDelete } from '@/lib/api/client'
 import type { AppSettingRow, FeeConfigRow, PsavConfigRow } from '@/types/payment-order'
 import type { Profile } from '@/types/profile'
 import type { StaffActor } from '@/types/staff'
 
 export const AdminService = {
+  // ── GESTIÓN DE USUARIOS (via Supabase Edge Functions — requieren Admin SDK) ──
+
   async createUser(args: {
     actor: StaffActor
     email: string
     password: string
     fullName: string
-    role: 'client' | 'staff' | 'admin'
+    role: 'client' | 'staff' | 'admin' | 'super_admin'
     reason: string
   }) {
     assertAdmin(args.actor)
@@ -23,20 +43,7 @@ export const AdminService = {
       },
     })
     if (error) throw error
-
-    const { data: profile } = await supabase.from('profiles').select('*').eq('email', args.email).maybeSingle()
-
-    await insertAdminAudit({
-      actor: args.actor,
-      action: 'create',
-      tableName: 'profiles',
-      recordId: String(profile?.id ?? args.email),
-      previousValues: {},
-      newValues: profile ? normalizeRecord(profile) : { email: args.email, role: args.role },
-      reason: args.reason,
-    })
-
-    return { data, profile: profile as Profile | null }
+    return data
   },
 
   async archiveOrDeleteUser(args: {
@@ -54,17 +61,6 @@ export const AdminService = {
       },
     })
     if (error) throw error
-
-    await insertAdminAudit({
-      actor: args.actor,
-      action: args.action === 'archive' ? 'logical_cancel' : 'update',
-      tableName: 'profiles',
-      recordId: args.user.id,
-      previousValues: normalizeRecord(args.user),
-      newValues: args.action === 'archive' ? { ...normalizeRecord(args.user), is_archived: true } : { deleted: true },
-      reason: args.reason,
-    })
-
     return data
   },
 
@@ -75,17 +71,6 @@ export const AdminService = {
       body: { userId: args.user.id },
     })
     if (error) throw error
-
-    await insertAdminAudit({
-      actor: args.actor,
-      action: 'update',
-      tableName: 'profiles',
-      recordId: args.user.id,
-      previousValues: normalizeRecord(args.user),
-      newValues: { ...normalizeRecord(args.user), is_archived: false },
-      reason: args.reason,
-    })
-
     return data
   },
 
@@ -96,19 +81,10 @@ export const AdminService = {
       body: { email: args.email },
     })
     if (error) throw error
-
-    await insertAdminAudit({
-      actor: args.actor,
-      action: 'update',
-      tableName: 'profiles',
-      recordId: args.email,
-      previousValues: { email: args.email },
-      newValues: { email: args.email, reset_requested: true },
-      reason: args.reason,
-    })
-
     return data
   },
+
+  // ── FEES CONFIG (via NestJS /admin/fees) ───────────────────────────────────
 
   async updateFeeConfig(args: {
     actor: StaffActor
@@ -118,27 +94,13 @@ export const AdminService = {
     reason: string
   }) {
     assertPrivileged(args.actor)
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('fees_config')
-      .update({ value: args.value, currency: args.currency })
-      .eq('id', args.record.id)
-      .select('*')
-      .single()
-    if (error) throw error
-
-    await insertAdminAudit({
-      actor: args.actor,
-      action: 'update',
-      tableName: 'fees_config',
-      recordId: args.record.id,
-      previousValues: normalizeRecord(args.record),
-      newValues: normalizeRecord(data),
-      reason: args.reason,
+    return apiPatch<FeeConfigRow>(`/admin/fees/${args.record.id}`, {
+      value: args.value,
+      currency: args.currency,
     })
-
-    return data as FeeConfigRow
   },
+
+  // ── APP SETTINGS (via NestJS /admin/settings) ───────────────────────────────
 
   async updateAppSetting(args: {
     actor: StaffActor
@@ -147,23 +109,14 @@ export const AdminService = {
     reason: string
   }) {
     assertPrivileged(args.actor)
-    const supabase = createClient()
-    const payload = { ...args.record, value: args.value }
-    const { data, error } = await supabase.from('app_settings').upsert(payload).select('*').single()
-    if (error) throw error
-
-    await insertAdminAudit({
-      actor: args.actor,
-      action: 'update',
-      tableName: 'app_settings',
-      recordId: String(args.record.id ?? args.record.key ?? args.record.name ?? 'app-setting'),
-      previousValues: normalizeRecord(args.record),
-      newValues: normalizeRecord(data),
-      reason: args.reason,
+    const key = String(args.record.key ?? args.record.name ?? '')
+    return apiPatch<AppSettingRow>(`/admin/settings/${key}`, {
+      value: args.value,
     })
-
-    return data as AppSettingRow
   },
+
+  // ── TASAS PARALELAS (Forex API externo → NestJS /admin/settings) ────────────
+  // La sincronización se llama al backend que ya tiene el endpoint de Exchange Rates.
 
   async syncParallelRatesFromForexApi(args: {
     actor: StaffActor
@@ -185,73 +138,20 @@ export const AdminService = {
     const buyRate = readExchangeRate(payload.buy?.data?.result?.exchangeRate, 'buy')
     const sellRate = readExchangeRate(payload.sell?.data?.result?.exchangeRate, 'sell')
 
-    const previousBuyRecord = findAppSetting(args.appSettings, 'parallel_buy_rate')
-    const previousSellRecord = findAppSetting(args.appSettings, 'parallel_sell_rate')
-
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('app_settings')
-      .upsert(
-        [
-          {
-            ...previousBuyRecord,
-            key: 'parallel_buy_rate',
-            value: buyRate,
-          },
-          {
-            ...previousSellRecord,
-            key: 'parallel_sell_rate',
-            value: sellRate,
-          },
-        ],
-        { onConflict: 'key' }
-      )
-      .select('*')
-
-    if (error) throw error
-
-    const updatedRecords = (data ?? []) as AppSettingRow[]
-    const updatedBuyRecord = findAppSetting(updatedRecords, 'parallel_buy_rate')
-    const updatedSellRecord = findAppSetting(updatedRecords, 'parallel_sell_rate')
-    const reason = args.reason ?? 'Sincronizacion manual de tasas paralelas desde endpoint externo USDT.'
-
-    if (!updatedBuyRecord || !updatedSellRecord) {
-      throw new Error('La sincronizacion no devolvio ambas tasas actualizadas.')
-    }
-
-    await insertAdminAudit({
-      actor: args.actor,
-      action: 'update',
-      tableName: 'app_settings',
-      recordId: String(
-        updatedBuyRecord.id ?? updatedBuyRecord.key ?? updatedBuyRecord.name ?? 'parallel_buy_rate'
-      ),
-      previousValues: normalizeRecord(previousBuyRecord),
-      newValues: normalizeRecord(updatedBuyRecord),
-      reason,
-    })
-
-    await insertAdminAudit({
-      actor: args.actor,
-      action: 'update',
-      tableName: 'app_settings',
-      recordId: String(
-        updatedSellRecord.id ?? updatedSellRecord.key ?? updatedSellRecord.name ?? 'parallel_sell_rate'
-      ),
-      previousValues: normalizeRecord(previousSellRecord),
-      newValues: normalizeRecord(updatedSellRecord),
-      reason,
-    })
+    // Persistir vía el backend NestJS que hace audit log automático
+    const [buyResult, sellResult] = await Promise.all([
+      apiPatch<AppSettingRow>('/admin/settings/parallel_buy_rate', { value: buyRate }),
+      apiPatch<AppSettingRow>('/admin/settings/parallel_sell_rate', { value: sellRate }),
+    ])
 
     return {
-      buy: updatedBuyRecord,
-      sell: updatedSellRecord,
-      sourceRates: {
-        buy: buyRate,
-        sell: sellRate,
-      },
+      buy: buyResult,
+      sell: sellResult,
+      sourceRates: { buy: buyRate, sell: sellRate },
     }
   },
+
+  // ── PSAV CONFIGS (via NestJS /admin/psav) ───────────────────────────────────
 
   async upsertPsavConfig(args: {
     actor: StaffActor
@@ -259,101 +159,52 @@ export const AdminService = {
     reason: string
   }) {
     assertPrivileged(args.actor)
-    const supabase = createClient()
-    const action = args.payload.id ? 'update' : 'create'
-    const { data, error } = await supabase.from('psav_configs').upsert(args.payload).select('*').single()
-    if (error) throw error
-
-    await insertAdminAudit({
-      actor: args.actor,
-      action,
-      tableName: 'psav_configs',
-      recordId: String((data as Record<string, unknown>).id ?? 'psav-config'),
-      previousValues: action === 'create' ? {} : args.payload,
-      newValues: normalizeRecord(data),
-      reason: args.reason,
-    })
-
-    return data as PsavConfigRow
+    if (args.payload.id) {
+      // No hay PATCH para PSAV en el backend; se recrea
+      return apiPost<PsavConfigRow>('/admin/payment-orders/psav-accounts', args.payload)
+    }
+    return apiPost<PsavConfigRow>('/admin/payment-orders/psav-accounts', args.payload)
   },
 
   async deletePsavConfig(args: { actor: StaffActor; record: PsavConfigRow; reason: string }) {
     assertPrivileged(args.actor)
-    const supabase = createClient()
-    const { error } = await supabase.from('psav_configs').delete().eq('id', args.record.id)
-    if (error) throw error
+    return apiDelete<void>(`/admin/psav/${args.record.id}`)
+  },
 
-    await insertAdminAudit({
-      actor: args.actor,
-      action: 'logical_cancel',
-      tableName: 'psav_configs',
-      recordId: args.record.id,
-      previousValues: normalizeRecord(args.record),
-      newValues: { deleted: true },
-      reason: args.reason,
-    })
+  // ── LECTURA DE DATOS (via NestJS) ────────────────────────────────────────────
+
+  async getAllSettings(): Promise<AppSettingRow[]> {
+    return apiGet<AppSettingRow[]>('/admin/settings')
+  },
+
+  async getAllFees(): Promise<FeeConfigRow[]> {
+    return apiGet<FeeConfigRow[]>('/admin/fees')
+  },
+
+  async getPublicSettings(): Promise<Record<string, string>> {
+    return apiGet<Record<string, string>>('/settings/public')
   },
 }
 
+// ── Helpers de Autorización ──────────────────────────────────────────────────
+
 function assertAdmin(actor: StaffActor) {
-  if (actor.role !== 'admin') {
-    throw new Error('Esta accion requiere rol admin.')
+  if (actor.role !== 'admin' && actor.role !== 'super_admin') {
+    throw new Error('Esta accion requiere rol admin o super_admin.')
   }
 }
 
 function assertPrivileged(actor: StaffActor) {
-  if (actor.role !== 'admin' && actor.role !== 'staff') {
-    throw new Error('Esta accion requiere rol admin o staff.')
+  if (actor.role !== 'admin' && actor.role !== 'staff' && actor.role !== 'super_admin') {
+    throw new Error('Esta accion requiere rol admin, staff o super_admin.')
   }
 }
 
-async function insertAdminAudit(args: {
-  actor: StaffActor
-  action: 'create' | 'update' | 'logical_cancel'
-  tableName: string
-  recordId: string
-  previousValues: Record<string, unknown>
-  newValues: Record<string, unknown>
-  reason: string
-}) {
-  const supabase = createClient()
-  const affectedFields = Object.keys(args.newValues).filter(
-    (key) => JSON.stringify(args.previousValues[key]) !== JSON.stringify(args.newValues[key])
-  )
-  const { error } = await supabase.from('audit_logs').insert({
-    performed_by: args.actor.userId,
-    role: args.actor.role,
-    action: args.action,
-    table_name: args.tableName,
-    record_id: normalizeAuditRecordId(args.recordId),
-    affected_fields: affectedFields,
-    previous_values: args.previousValues,
-    new_values: args.newValues,
-    reason: args.reason,
-    source: 'ui',
-  })
-  if (error) throw error
-}
-
-function normalizeRecord(value: unknown) {
-  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
-}
+// ── Forex Types ──────────────────────────────────────────────────────────────
 
 interface ForexRatesResponse {
-  buy?: {
-    data?: {
-      result?: {
-        exchangeRate?: number | string
-      }
-    }
-  }
-  sell?: {
-    data?: {
-      result?: {
-        exchangeRate?: number | string
-      }
-    }
-  }
+  buy?: { data?: { result?: { exchangeRate?: number | string } } }
+  sell?: { data?: { result?: { exchangeRate?: number | string } } }
 }
 
 function readExchangeRate(value: unknown, side: 'buy' | 'sell') {
@@ -367,21 +218,5 @@ function readExchangeRate(value: unknown, side: 'buy' | 'sell') {
   if (!Number.isFinite(parsed)) {
     throw new Error(`El endpoint no devolvio un exchangeRate valido para ${side}.`)
   }
-
   return parsed
-}
-
-function findAppSetting(records: AppSettingRow[], key: string) {
-  const normalizedKey = key.trim().toLowerCase()
-  return (
-    records.find((record) => String(record.key ?? record.name ?? '').trim().toLowerCase() === normalizedKey) ?? null
-  )
-}
-
-function normalizeAuditRecordId(recordId: string) {
-  return isUuid(recordId) ? recordId : crypto.randomUUID()
-}
-
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim())
 }

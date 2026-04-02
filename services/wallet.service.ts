@@ -1,207 +1,129 @@
-import { createClient } from '@/lib/supabase/browser'
-import type { BridgeTransfer } from '@/types/bridge-transfer'
-import type { OrderStatus, PaymentOrder } from '@/types/payment-order'
-import type {
-  LedgerEntry,
-  Wallet,
-  WalletDashboardSnapshot,
-  WalletMovement,
-} from '@/types/wallet'
+/**
+ * wallet.service.ts
+ * 
+ * MIGRADO COMPLETO: Supabase direct → REST API
+ * 
+ * ANTES: 208 líneas calculando balances client-side con 3 queries paralelas
+ *        a Supabase (ledger_entries + bridge_transfers + payment_orders)
+ * 
+ * AHORA: El backend devuelve datos ya calculados y consolidados.
+ *        Todo cálculo financiero (balance, reserved, available) ocurre en el servidor.
+ *        El frontend es solo un renderizador de datos.
+ * 
+ * Endpoints:
+ *   GET /wallets               → lista de wallets del usuario
+ *   GET /wallets/balances      → balances consolidados (todos los wallets)
+ *   GET /wallets/balances/:currency → balance de un currency específico
+ *   GET /wallets/payin-routes  → rutas para "Depositar" (Virtual Accounts, PSAV, etc.)
+ *   GET /wallets/:id           → detalle de wallet
+ *   GET /ledger                → movimientos del ledger
+ */
+import { apiGet } from '@/lib/api/client'
+import type { PaginationParams } from '@/lib/api/types'
 
-const ACTIVE_ORDER_STATUSES: OrderStatus[] = [
-  'created',
-  'waiting_deposit',
-  'deposit_received',
-  'processing',
-  'sent',
-]
+// ── Tipos retornados por el backend ──────────────────────────────
+
+export interface WalletBalance {
+  id: string
+  currency: string
+  balance: number
+  available_balance: number
+  reserved_balance: number
+  provider: 'bridge' | 'internal'
+  network?: string
+  label?: string
+  is_active: boolean
+}
+
+export interface PayinRoute {
+  type: 'virtual_account' | 'psav' | 'liquidation_address'
+  currency: string
+  instructions: Record<string, string>
+  /** Para virtual accounts: número de cuenta bancaria, banco, routing number */
+  bank_details?: {
+    bank_name: string
+    account_number: string
+    routing_number?: string
+    iban?: string
+  }
+  /** Para PSAV: datos QR y cuenta concentradora */
+  psav_details?: {
+    account_number: string
+    account_name: string
+    qr_url?: string
+  }
+  /** Para liquidation addresses: dirección crypto */
+  crypto_address?: string
+}
+
+export interface LedgerEntry {
+  id: string
+  wallet_id: string
+  type: 'credit' | 'debit'
+  amount: number
+  currency: string
+  description: string | null
+  reference_id: string | null
+  reference_type: string | null
+  created_at: string
+}
+
+export interface LedgerFilter extends PaginationParams {
+  type?: 'credit' | 'debit'
+  from?: string
+  to?: string
+  currency?: string
+}
+
+// ── Servicio ─────────────────────────────────────────────────────
 
 export const WalletService = {
-  async getWalletByUserId(userId: string): Promise<Wallet | null> {
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('wallets')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle()
-
-    if (error) throw error
-    return data as Wallet | null
+  /**
+   * Lista todos los wallets del usuario autenticado.
+   */
+  async getWallets(): Promise<WalletBalance[]> {
+    return apiGet<WalletBalance[]>('/wallets')
   },
 
-  async getDashboardSnapshot(userId: string): Promise<WalletDashboardSnapshot> {
-    const supabase = createClient()
-    const wallet = await WalletService.getWalletByUserId(userId)
-
-    const ledgerPromise = wallet
-      ? supabase
-          .from('ledger_entries')
-          .select('*')
-          .eq('wallet_id', wallet.id)
-          .order('created_at', { ascending: false })
-      : Promise.resolve({ data: [], error: null })
-
-    const bridgeTransfersPromise = supabase
-      .from('bridge_transfers')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-
-    const paymentOrdersPromise = supabase
-      .from('payment_orders')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-
-    const [ledgerResult, bridgeTransfersResult, paymentOrdersResult] =
-      await Promise.all([
-        ledgerPromise,
-        bridgeTransfersPromise,
-        paymentOrdersPromise,
-      ])
-
-    if (ledgerResult.error) throw ledgerResult.error
-    if (bridgeTransfersResult.error) throw bridgeTransfersResult.error
-    if (paymentOrdersResult.error) throw paymentOrdersResult.error
-
-    const ledgerEntries = (ledgerResult.data ?? []) as LedgerEntry[]
-    const bridgeTransfers = (bridgeTransfersResult.data ?? []) as BridgeTransfer[]
-    const paymentOrders = (paymentOrdersResult.data ?? []) as PaymentOrder[]
-
-    const pendingBridgeTransfers = bridgeTransfers.filter(
-      (transfer) => transfer.status === 'pending'
-    )
-    const activePaymentOrders = paymentOrders.filter((order) =>
-      ACTIVE_ORDER_STATUSES.includes(order.status)
-    )
-
-    const ledgerBalance = ledgerEntries.reduce((total, entry) => {
-      const amount = Number(entry.amount)
-      const signedAmount = entry.type === 'deposit' ? amount : -amount
-      return total + signedAmount
-    }, 0)
-
-    const reservedInOrders = activePaymentOrders.reduce(
-      (total, order) => total + Number(order.amount_origin),
-      0
-    )
-
-    const pendingBridgeTotal = pendingBridgeTransfers.reduce(
-      (total, transfer) => total + Number(transfer.amount),
-      0
-    )
-
-    const availableBalance = ledgerBalance - reservedInOrders
-
-    return {
-      wallet,
-      ledgerEntries,
-      bridgeTransfers,
-      pendingBridgeTransfers,
-      paymentOrders,
-      activePaymentOrders,
-      movements: buildMovements({
-        ledgerEntries,
-        bridgeTransfers,
-        paymentOrders,
-        walletCurrency: wallet?.currency ?? 'USD',
-      }),
-      ledgerBalance,
-      reservedInOrders,
-      pendingBridgeTotal,
-      availableBalance,
-    }
+  /**
+   * Balances consolidados de todos los wallets del usuario.
+   * Reemplaza el cálculo client-side anterior (ledger_entries reducido a balance).
+   */
+  async getBalances(): Promise<WalletBalance[]> {
+    return apiGet<WalletBalance[]>('/wallets/balances')
   },
-}
 
-function buildMovements({
-  ledgerEntries,
-  bridgeTransfers,
-  paymentOrders,
-  walletCurrency,
-}: {
-  ledgerEntries: LedgerEntry[]
-  bridgeTransfers: BridgeTransfer[]
-  paymentOrders: PaymentOrder[]
-  walletCurrency: string
-}): WalletMovement[] {
-  const ledgerMovements: WalletMovement[] = ledgerEntries.map((entry) => ({
-    id: `ledger-${entry.id}`,
-    source: 'ledger_entry',
-    title: entry.type === 'deposit' ? 'Ingreso en wallet' : 'Salida de wallet',
-    description: entry.description ?? 'Movimiento registrado en ledger',
-    status: entry.type,
-    amount: entry.amount,
-    currency: walletCurrency,
-    direction: entry.type === 'deposit' ? 'in' : 'out',
-    created_at: entry.created_at,
-  }))
+  /**
+   * Balance de un currency específico.
+   * Ej: getBalanceByCurrency('USD') → balance en dólares
+   */
+  async getBalanceByCurrency(currency: string): Promise<WalletBalance> {
+    return apiGet<WalletBalance>(`/wallets/balances/${currency}`)
+  },
 
-  const bridgeMovements: WalletMovement[] = bridgeTransfers.map((transfer) => ({
-    id: `bridge-${transfer.id}`,
-    source: 'bridge_transfer',
-    title: getBridgeTransferTitle(transfer.transfer_kind),
-    description: transfer.business_purpose.replace(/_/g, ' '),
-    status: transfer.status,
-    amount: transfer.amount,
-    currency: transfer.currency,
-    direction: isInboundTransfer(transfer.transfer_kind) ? 'in' : 'out',
-    created_at: transfer.created_at,
-  }))
+  /**
+   * Rutas de depósito del usuario (para el flujo "Depositar").
+   * El backend retorna dinámicamente:
+   *   - Virtual Account USD (Chase, etc.) si el usuario tiene Bridge wallet
+   *   - Instrucciones PSAV/QR si opera en BOB
+   *   - Liquidation addresses crypto si tiene configuradas
+   */
+  async getPayinRoutes(): Promise<PayinRoute[]> {
+    return apiGet<PayinRoute[]>('/wallets/payin-routes')
+  },
 
-  const paymentOrderMovements: WalletMovement[] = paymentOrders.map((order) => ({
-    id: `order-${order.id}`,
-    source: 'payment_order',
-    title: getPaymentOrderTitle(order.order_type),
-    description: order.processing_rail,
-    status: order.status,
-    amount: order.amount_origin,
-    currency: order.origin_currency,
-    direction: 'out',
-    created_at: order.created_at,
-  }))
+  /**
+   * Detalle completo de un wallet específico.
+   */
+  async getWallet(walletId: string): Promise<WalletBalance> {
+    return apiGet<WalletBalance>(`/wallets/${walletId}`)
+  },
 
-  return [...ledgerMovements, ...bridgeMovements, ...paymentOrderMovements].sort(
-    (a, b) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  )
-}
-
-function isInboundTransfer(transferKind: BridgeTransfer['transfer_kind']) {
-  return (
-    transferKind === 'virtual_account_to_wallet' ||
-    transferKind === 'external_bank_to_wallet'
-  )
-}
-
-function getBridgeTransferTitle(transferKind: BridgeTransfer['transfer_kind']) {
-  switch (transferKind) {
-    case 'wallet_to_wallet':
-      return 'Transferencia entre wallets'
-    case 'wallet_to_external_crypto':
-      return 'Salida a wallet externa'
-    case 'wallet_to_external_bank':
-      return 'Retiro a banco externo'
-    case 'virtual_account_to_wallet':
-      return 'Fondeo a wallet'
-    case 'external_bank_to_wallet':
-      return 'Ingreso desde banco'
-    default:
-      return 'Transferencia bridge'
-  }
-}
-
-function getPaymentOrderTitle(orderType: PaymentOrder['order_type']) {
-  switch (orderType) {
-    case 'BO_TO_WORLD':
-      return 'Pago Bolivia al exterior'
-    case 'WORLD_TO_BO':
-      return 'Pago exterior a Bolivia'
-    case 'US_TO_WALLET':
-      return 'Ingreso USA a wallet'
-    case 'CRYPTO_TO_CRYPTO':
-      return 'Pago cripto a cripto'
-    default:
-      return 'Expediente de pago'
-  }
+  /**
+   * Movimientos del ledger (reemplaza la lectura directa de ledger_entries).
+   * Soporta filtros por tipo, fecha y moneda.
+   */
+  async getLedger(params?: LedgerFilter): Promise<LedgerEntry[]> {
+    return apiGet<LedgerEntry[]>('/ledger', { params })
+  },
 }

@@ -24,7 +24,7 @@ export function NotificationBell() {
       if (!user) return
 
       try {
-        const data = await NotificationsService.getLatest(user.id)
+        const data = await NotificationsService.getLatest()
         if (mounted) setNotifications(data)
       } catch (err) {
         console.error('Error loading notifications', err)
@@ -75,7 +75,7 @@ export function NotificationBell() {
   const handleMarkAll = async () => {
     if (!user || unreadCount === 0) return
     try {
-      await NotificationsService.markAllAsRead(user.id)
+      await NotificationsService.markAllAsRead()
       markAllAsRead()
     } catch (err) {
       console.error(err)

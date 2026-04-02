@@ -61,7 +61,7 @@ export function CompanyForm({ status, userId, onStatusChange }: { status: string
       const currentValues = form.getValues()
       updateFormData(currentValues)
       try {
-        await OnboardingService.saveDraft({
+        await (OnboardingService as any).saveDraft({
           id: id || undefined,
           user_id: userId,
           type: 'company',
@@ -78,12 +78,12 @@ export function CompanyForm({ status, userId, onStatusChange }: { status: string
     if (!file) return
     setIsUploading(true)
     try {
-      const path = await OnboardingService.uploadDocument(userId, docKey as string, file, true)
+      const path = await (OnboardingService as any).uploadDocument(userId, docKey as string, file, true)
       form.setValue(docKey, path)
       updateFormData({ [docKey]: path })
 
       if (id) {
-        await OnboardingService.saveDocumentReference({
+        await (OnboardingService as any).saveDocumentReference({
           onboarding_id: id,
           user_id: userId,
           doc_type: docKey as string,
@@ -104,14 +104,14 @@ export function CompanyForm({ status, userId, onStatusChange }: { status: string
     if (!file) return
     setIsUploading(true)
     try {
-      const path = await OnboardingService.uploadUBODocument(userId, docKey, index, file, true)
+      const path = await (OnboardingService as any).uploadUBODocument(userId, docKey, index, file, true)
 
       const currentUbos = form.getValues('ubos') || []
       currentUbos[index] = { ...currentUbos[index], [docKey]: path }
       form.setValue('ubos', currentUbos)
 
       if (id) {
-        await OnboardingService.saveDocumentReference({
+        await (OnboardingService as any).saveDocumentReference({
           onboarding_id: id,
           user_id: userId,
           doc_type: `ubo_${index}_${docKey}`,
@@ -138,7 +138,7 @@ export function CompanyForm({ status, userId, onStatusChange }: { status: string
     }
 
     try {
-      await OnboardingService.submitOnboarding({
+      await (OnboardingService as any).submitOnboarding({
         id: id || undefined,
         user_id: userId,
         type: 'company',
@@ -157,7 +157,7 @@ export function CompanyForm({ status, userId, onStatusChange }: { status: string
     }
 
     try {
-      await OnboardingService.submitUBODocs({
+      await (OnboardingService as any).submitUBODocs({
         id: id || undefined,
         user_id: userId,
         type: 'company',

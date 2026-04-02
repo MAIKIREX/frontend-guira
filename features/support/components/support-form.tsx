@@ -30,9 +30,8 @@ export function SupportForm({ onSuccess }: { onSuccess?: () => void }) {
     if (!user) return
     try {
       await SupportService.createTicket({
-        user_id: user.id,
-        ...data,
-        contact_phone: data.contact_phone || ''
+        subject: data.subject,
+        description: `${data.message}\n\n[Contact Email: ${data.contact_email}]\n[Contact Phone: ${data.contact_phone || 'N/A'}]`
       })
       toast.success('Ticket creado con éxito. Te contactaremos pronto.')
       form.reset()

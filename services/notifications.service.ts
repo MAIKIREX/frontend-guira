@@ -1,43 +1,46 @@
+/**
+ * notifications.service.ts
+ * 
+ * MIGRADO PARCIALMENTE:
+ * - CRUD (getLatest, markAsRead, markAllAsRead) → REST API
+ * - subscribe() → SE MANTIENE con Supabase Realtime (no tiene equivalente en el backend)
+ * 
+ * El backend no ofrece WebSocket/SSE, por lo que Realtime de Supabase se conserva
+ * únicamente para el canal de notificaciones en tiempo real.
+ */
 import { createClient } from '@/lib/supabase/browser'
-import { Notification } from '@/types/notification'
-
-const NOTIFICATIONS_LIMIT = 20
+import { apiGet, apiPatch } from '@/lib/api/client'
+import type { Notification } from '@/types/notification'
+import type { PaginationParams } from '@/lib/api/types'
 
 export const NotificationsService = {
-  async getLatest(userId: string): Promise<Notification[]> {
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(NOTIFICATIONS_LIMIT)
-
-    if (error) throw error
-    return data as Notification[]
+  /**
+   * Obtiene las últimas notificaciones del usuario autenticado.
+   */
+  async getLatest(params?: PaginationParams & { unread_only?: boolean }): Promise<Notification[]> {
+    const res = await apiGet<any>('/notifications', { params })
+    return (res && Array.isArray(res.data)) ? res.data : (Array.isArray(res) ? res : [])
   },
 
-  async markAsRead(notificationId: string) {
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('id', notificationId)
-
-    if (error) throw error
+  /**
+   * Marca una notificación como leída.
+   */
+  async markAsRead(notificationId: string): Promise<void> {
+    return apiPatch<void>(`/notifications/${notificationId}/read`)
   },
 
-  async markAllAsRead(userId: string) {
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('user_id', userId)
-      .eq('is_read', false)
-
-    if (error) throw error
+  /**
+   * Marca todas las notificaciones del usuario como leídas.
+   */
+  async markAllAsRead(): Promise<void> {
+    return apiPatch<void>('/notifications/read-all')
   },
 
+  /**
+   * SUPABASE REALTIME — SE MANTIENE (no hay equivalente en el backend NestJS).
+   * Suscripción en tiempo real a nuevas notificaciones del usuario.
+   * Devuelve una función de cleanup para cancelar la suscripción.
+   */
   subscribe(
     userId: string,
     onInsert: (payload: Notification) => void,
@@ -48,6 +51,7 @@ export const NotificationsService = {
     const channel = supabase.channel(channelName)
     let disconnected = false
 
+    // Sincronizar token para Realtime
     void supabase.auth.getSession().then(({ data }) => {
       const accessToken = data.session?.access_token
       if (accessToken) {

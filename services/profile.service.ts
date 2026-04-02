@@ -1,40 +1,35 @@
-import { createClient } from '@/lib/supabase/browser'
+/**
+ * profile.service.ts
+ * 
+ * MIGRADO: Supabase direct → REST API (GET /profiles/me, PATCH /profiles/me)
+ * 
+ * Antes: supabase.from('profiles').select().eq('id', userId)
+ * Ahora: apiGet('/profiles/me') — el backend filtra por JWT automáticamente
+ */
+import { apiGet, apiPatch } from '@/lib/api/client'
 import type { Profile } from '@/types/profile'
 
 export const ProfileService = {
-  async getProfile(userId: string): Promise<Profile | null> {
-    console.log('ProfileService: getProfile starting for', userId)
-    try {
-      const supabase = createClient()
-      
-      const query = supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle()
+  /**
+   * Obtiene el perfil del usuario autenticado.
+   * El backend extrae el userId del JWT (no se pasa como parámetro).
+   */
+  async getProfile(): Promise<Profile> {
+    return apiGet<Profile>('/profiles/me')
+  },
 
-      console.log('ProfileService: executing query with internal 5s timeout...')
-      
-      const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('TIMEOUT_DB_QUERY')), 5000)
-      )
+  /**
+   * Actualiza campos parciales del perfil del usuario autenticado.
+   */
+  async updateProfile(updates: Partial<Pick<Profile, 'full_name'>>): Promise<Profile> {
+    return apiPatch<Profile>('/profiles/me', updates)
+  },
 
-      const { data, error, status, statusText } = await Promise.race([
-        query,
-        timeoutPromise
-      ])
-      
-      console.log('ProfileService: query result received', { data: !!data, error, status, statusText })
-
-      if (error) {
-        console.error('ProfileService: getProfile query returned error', error)
-        return null
-      }
-      
-      return (data as Profile | null) ?? null
-    } catch (e) {
-      console.error('ProfileService: getProfile CRITICAL CATCH', e)
-      return null 
-    }
+  /**
+   * Obtiene configuración pública de la plataforma (sin auth).
+   * Útil para mostrar fees, tasas, etc. antes del login.
+   */
+  async getPublicSettings(): Promise<Record<string, string>> {
+    return apiGet<Record<string, string>>('/settings/public')
   },
 }

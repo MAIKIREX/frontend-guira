@@ -18,7 +18,7 @@ export function SupportList() {
     const fetchTickets = async () => {
       if (!user) return
       try {
-        const data = await SupportService.getTickets(user.id)
+        const data = await SupportService.getTickets()
         setTickets(data)
       } finally {
         setLoading(false)

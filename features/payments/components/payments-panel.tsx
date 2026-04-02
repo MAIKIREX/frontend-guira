@@ -33,7 +33,7 @@ export function PaymentsPanel() {
     createOrder,
     uploadOrderFile,
     cancelOrder,
-  } = usePaymentsModule(user?.id)
+  } = usePaymentsModule()
 
   const metrics = useMemo(() => {
     const orders = snapshot?.paymentOrders ?? []

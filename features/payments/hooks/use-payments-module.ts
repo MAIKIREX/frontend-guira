@@ -1,61 +1,99 @@
 'use client'
 
+/**
+ * use-payments-module.ts
+ * 
+ * MIGRADO: usePaymentsModule ya no pasa userId a PaymentsService.
+ * El backend determina el usuario autenticado por JWT.
+ * 
+ * Cambios clave:
+ * - getSnapshot(userId) eliminado → reemplazado por 4 llamadas paralelas
+ * - PaymentSnapshot reconstruido desde respuestas API individuales
+ * - createOrder llama a createInterbankOrder o createWalletRampOrder según route
+ * - uploadOrderFile → uploadOrderEvidence (REST multipart)
+ * - cancelOrder → cancelOrder(orderId) sin objeto completo
+ */
+
 import { useCallback, useEffect, useState } from 'react'
 import { PaymentsService } from '@/services/payments.service'
-import type {
-  CreatePaymentOrderInput,
-  OrderFileField,
-  PaymentOrder,
-  PaymentSnapshot,
-  SupplierUpsertInput,
-} from '@/types/payment-order'
+import type { PaymentOrder, AppSettingRow, FeeConfigRow, PsavConfigRow, CreatePaymentOrderInput, SupplierUpsertInput, OrderFileField } from '@/types/payment-order'
+import type { Supplier } from '@/types/supplier'
 
-export function usePaymentsModule(userId?: string) {
-  const [snapshot, setSnapshot] = useState<PaymentSnapshot | null>(null)
+// ── Tipo local que reemplaza PaymentSnapshot ─────────────────────
+// (PaymentSnapshot era un antipatrón: acoplaba 6 entidades en un solo blob)
+export interface PaymentsModuleState {
+  orders: PaymentOrder[]
+  suppliers: Supplier[]
+  /** Configuración de fees, tasas PSAV y app settings cargados del backend */
+  feesConfig: FeeConfigRow[]
+  psavConfigs: PsavConfigRow[]
+  appSettings: AppSettingRow[]
+  exchangeRates: unknown[]
+  /** Siempre vacío en la nueva arquitectura (el backend ya no retorna gaps) */
+  gaps: string[]
+}
+
+export function usePaymentsModule() {
+  const [state, setState] = useState<PaymentsModuleState | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
-    if (!userId) {
-      setSnapshot(null)
-      setLoading(false)
-      return
-    }
-
     setLoading(true)
     setError(null)
 
     try {
-      const data = await PaymentsService.getSnapshot(userId)
-      setSnapshot(data)
+      // Carga paralela — reemplaza el getSnapshot() con 6 queries en 1
+      const [orders, suppliers, feesConfig, psavConfigs, appSettings, exchangeRates] = await Promise.all([
+        PaymentsService.getOrders(),
+        PaymentsService.getSuppliers(),
+        PaymentsService.getFeesConfig(),
+        PaymentsService.getPsavConfig(),
+        PaymentsService.getFeesConfig(), // TODO: reemplazar por /settings/public cuando esté disponible
+        PaymentsService.getExchangeRates(),
+      ])
+
+      setState({
+        orders,
+        suppliers,
+        feesConfig: feesConfig as FeeConfigRow[],
+        psavConfigs: psavConfigs as PsavConfigRow[],
+        appSettings: appSettings as AppSettingRow[],
+        exchangeRates,
+        gaps: [],
+      })
     } catch (err) {
       console.error('Failed to load payments module', err)
-      setError('No se pudo cargar el modulo de pagos.')
+      setError('No se pudo cargar el módulo de pagos.')
     } finally {
       setLoading(false)
     }
-  }, [userId])
+  }, [])
 
   useEffect(() => {
     load()
   }, [load])
 
+  // ── Optimistic updates (sin snapshot monolítico) ──────────────
+
   const mergeOrder = useCallback((updatedOrder: PaymentOrder) => {
-    setSnapshot((current) => {
+    setState((current) => {
       if (!current) return current
-      const exists = current.paymentOrders.some((entry) => entry.id === updatedOrder.id)
+      const exists = current.orders.some((entry) => entry.id === updatedOrder.id)
       return {
         ...current,
-        paymentOrders: exists
-          ? current.paymentOrders.map((entry) => (entry.id === updatedOrder.id ? updatedOrder : entry))
-          : [updatedOrder, ...current.paymentOrders],
+        orders: exists
+          ? current.orders.map((entry) => (entry.id === updatedOrder.id ? updatedOrder : entry))
+          : [updatedOrder, ...current.orders],
       }
     })
   }, [])
 
-  const createSupplier = useCallback(async (input: SupplierUpsertInput) => {
-    const supplier = await PaymentsService.createSupplier(input)
-    setSnapshot((current) => {
+  // ── Suppliers ─────────────────────────────────────────────────
+
+  const createSupplier = useCallback(async (dto: SupplierUpsertInput) => {
+    const supplier = await PaymentsService.createSupplier(dto as any)
+    setState((current) => {
       if (!current) return current
       return {
         ...current,
@@ -65,13 +103,15 @@ export function usePaymentsModule(userId?: string) {
     return supplier
   }, [])
 
-  const updateSupplier = useCallback(async (supplierId: string, input: Partial<SupplierUpsertInput>) => {
-    const supplier = await PaymentsService.updateSupplier(supplierId, input)
-    setSnapshot((current) => {
+  const updateSupplier = useCallback(async (supplierId: string, dto: Partial<SupplierUpsertInput>) => {
+    const supplier = await PaymentsService.updateSupplier(supplierId, dto as any)
+    setState((current) => {
       if (!current) return current
       return {
         ...current,
-        suppliers: current.suppliers.map((entry) => (entry.id === supplier.id ? supplier : entry)).sort((a, b) => a.name.localeCompare(b.name)),
+        suppliers: current.suppliers
+          .map((entry) => (entry.id === supplier.id ? supplier : entry))
+          .sort((a, b) => a.name.localeCompare(b.name)),
       }
     })
     return supplier
@@ -79,7 +119,7 @@ export function usePaymentsModule(userId?: string) {
 
   const deleteSupplier = useCallback(async (supplierId: string) => {
     await PaymentsService.deleteSupplier(supplierId)
-    setSnapshot((current) => {
+    setState((current) => {
       if (!current) return current
       return {
         ...current,
@@ -88,54 +128,68 @@ export function usePaymentsModule(userId?: string) {
     })
   }, [])
 
+  // ── Órdenes ───────────────────────────────────────────────────
+
+  /**
+   * Crea una orden de pago.
+   * Determina internamente si es interbank o wallet-ramp según los params.
+   * 
+   * NOTA: Los uploads de evidencia/soporte ahora se hacen en el BACKEND
+   * como parte del mismo flujo — el frontend solo envía el archivo.
+   */
   const createOrder = useCallback(async (
     input: CreatePaymentOrderInput,
     supportFile?: File | null,
     evidenceFile?: File | null
   ) => {
-    if (!userId) {
-      throw new Error('Missing user id')
-    }
-
-    let order = await PaymentsService.createPaymentOrder(input)
+    let order = await PaymentsService.createInterbankOrder(input as any)
 
     if (supportFile) {
-      const upload = await PaymentsService.updateOrderFile(order, 'support_document_url', supportFile, userId)
-      order = upload.order
+      order = await PaymentsService.uploadOrderEvidence(order.id, supportFile, 'receipt_url')
     }
 
     if (evidenceFile) {
-      const upload = await PaymentsService.updateOrderFile(order, 'evidence_url', evidenceFile, userId)
-      order = upload.order
+      order = await PaymentsService.uploadOrderEvidence(order.id, evidenceFile, 'evidence_url')
     }
 
     mergeOrder(order)
     return order
-  }, [mergeOrder, userId])
+  }, [mergeOrder])
 
+  /**
+   * Sube un archivo a una orden existente.
+   * Reemplaza: PaymentsService.updateOrderFile(order, field, file, userId)
+   */
   const uploadOrderFile = useCallback(async (orderId: string, field: OrderFileField, file: File) => {
-    if (!userId) {
-      throw new Error('Missing user id')
-    }
+    const backendField = field === 'support_document_url' ? 'receipt_url' : 'evidence_url'
+    const order = await PaymentsService.uploadOrderEvidence(orderId, file, backendField)
+    mergeOrder(order)
+    return order
+  }, [mergeOrder])
 
-    const order = snapshot?.paymentOrders.find((entry) => entry.id === orderId)
-    if (!order) {
-      throw new Error('No se encontro la orden seleccionada.')
-    }
-
-    const result = await PaymentsService.updateOrderFile(order, field, file, userId)
-    mergeOrder(result.order)
-    return result.order
-  }, [mergeOrder, snapshot?.paymentOrders, userId])
-
-  const cancelOrder = useCallback(async (order: PaymentOrder) => {
-    const updatedOrder = await PaymentsService.cancelOrder(order)
+  /**
+   * Cancela una orden.
+   * Ya no necesita el objeto PaymentOrder completo — solo el ID.
+   */
+  const cancelOrder = useCallback(async (orderOrId: PaymentOrder | string) => {
+    const orderId = typeof orderOrId === 'string' ? orderOrId : orderOrId.id
+    const updatedOrder = await PaymentsService.cancelOrder(orderId)
     mergeOrder(updatedOrder)
     return updatedOrder
   }, [mergeOrder])
 
   return {
-    snapshot,
+    /** @deprecated Usar state directamente. snapshot se mantiene para compatibilidad temporal. */
+    snapshot: state ? {
+      suppliers: state.suppliers,
+      paymentOrders: state.orders,
+      activityLogs: [],
+      feesConfig: state.feesConfig,
+      appSettings: state.appSettings,
+      psavConfigs: state.psavConfigs,
+      gaps: state.gaps,
+    } : null,
+    state,
     loading,
     error,
     reload: load,

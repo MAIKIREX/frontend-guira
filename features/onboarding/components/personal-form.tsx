@@ -51,7 +51,7 @@ export function PersonalForm({ userId, onStatusChange }: { status: string | null
       const currentValues = form.getValues()
       updateFormData(currentValues)
       try {
-        await OnboardingService.saveDraft({
+        await (OnboardingService as any).saveDraft({
           id: id || undefined,
           user_id: userId,
           type: 'personal',
@@ -68,12 +68,12 @@ export function PersonalForm({ userId, onStatusChange }: { status: string | null
     if (!file) return
     setIsUploading(true)
     try {
-      const path = await OnboardingService.uploadDocument(userId, docKey as string, file, true)
+      const path = await (OnboardingService as any).uploadDocument(userId, docKey as string, file, true)
       form.setValue(docKey, path)
       updateFormData({ [docKey]: path })
 
       if (id) {
-        await OnboardingService.saveDocumentReference({
+        await (OnboardingService as any).saveDocumentReference({
           onboarding_id: id,
           user_id: userId,
           doc_type: docKey as string,
@@ -97,7 +97,7 @@ export function PersonalForm({ userId, onStatusChange }: { status: string | null
     }
 
     try {
-      await OnboardingService.submitOnboarding({
+      await (OnboardingService as any).submitOnboarding({
         id: id || undefined,
         user_id: userId,
         type: 'personal',

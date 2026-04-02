@@ -17,7 +17,7 @@ export function ActivityList() {
     async function load() {
       if (!user) return
       try {
-         const data = await ActivityService.getUserActivity(user.id)
+         const data = await ActivityService.getUserActivity()
          setLogs(data)
       } catch {
          console.error('Failed to load activity')

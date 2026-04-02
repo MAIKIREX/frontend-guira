@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { SupportService } from '@/services/support.service'
+import { SupportAdminService } from '@/services/admin/support.admin.service'
 import { SupportTicket } from '@/types/support'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -15,7 +15,7 @@ export function StaffSupportList() {
   useEffect(() => {
     async function load() {
       try {
-        const data = await SupportService.getAllTickets()
+        const data = await SupportAdminService.getAllTickets()
         setTickets(data)
       } finally {
         setLoading(false)
