@@ -45,7 +45,8 @@ export function OnboardingWizard() {
           setStatus(latest.status)
           if (latest.observations) setObservations(latest.observations)
 
-          if (latest.status === 'draft' || latest.status === 'needs_changes') {
+          // 'pending' y 'draft' se tratan igual: el wizard puede continuar editando
+          if (latest.status === 'pending' || latest.status === 'draft' || latest.status === 'needs_changes') {
             setId(latest.id)
             setType(latest.type)
             if (latest.data) {
@@ -74,14 +75,15 @@ export function OnboardingWizard() {
   }, [user, setId, setType, updateFormData, setStep])
 
   useEffect(() => {
-    if (user && !loading && (status === 'draft' || status === 'needs_changes' || status === null)) {
+    if (user && !loading && (status === 'pending' || status === 'draft' || status === 'needs_changes' || status === null)) {
       if (type) localStorage.setItem(`guira_onboarding_type_${user.id}`, type)
       localStorage.setItem(`guira_onboarding_step_${user.id}`, step.toString())
       localStorage.setItem(`guira_onboarding_data_${user.id}`, JSON.stringify(formData))
     }
   }, [step, type, formData, user, loading, status])
 
-  const shouldRedirectToPanel = profile?.onboarding_status === 'verified' || status === 'verified'
+  // 'approved' es el estado final que establece el backend (nunca 'verified')
+  const shouldRedirectToPanel = profile?.onboarding_status === 'approved' || status === 'approved'
 
   useEffect(() => {
     if (shouldRedirectToPanel) {
@@ -106,19 +108,42 @@ export function OnboardingWizard() {
     return <div className="p-8 text-center text-muted-foreground">Redirigiendo al panel...</div>
   }
 
-  if (status === 'submitted' || status === 'under_review' || status === 'waiting_ubo_kyc') {
+  // 'in_review' es el estado real del backend; 'under_review' existía solo en el frontend
+  if (status === 'submitted' || status === 'in_review' || status === 'under_review' || status === 'manual_review') {
     return (
       <div className="max-w-xl mx-auto mt-12 px-4">
         <Card>
           <CardHeader className="text-center">
             <CheckCircle2 className="w-16 h-16 text-primary mx-auto mb-4" />
-            <CardTitle className="text-2xl">En revision</CardTitle>
+            <CardTitle className="text-2xl">Solicitud en Revisión</CardTitle>
             <CardDescription>
-              Hemos recibido tus datos y documentos. Nuestro equipo los validara a la brevedad.
+              Hemos recibido tus datos y documentos. Nuestro equipo los revisará en las próximas horas hábiles.
+              Recibirás una notificación cuando haya novedades.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
-            <Button variant="outline" onClick={() => router.push('/login')}>Volver</Button>
+            <Button variant="outline" onClick={() => router.push('/panel')}>Ir al panel</Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (status === 'rejected') {
+    return (
+      <div className="max-w-xl mx-auto mt-12 px-4">
+        <Card className="border-destructive/40">
+          <CardHeader className="text-center">
+            <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
+            <CardTitle className="text-2xl">Solicitud Rechazada</CardTitle>
+            <CardDescription>
+              Tu solicitud fue rechazada por el equipo de compliance.
+              {observations && <span className="block mt-2 font-medium">Motivo: {observations}</span>}
+              Contáctanos si necesitas más información.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center gap-3">
+            <Button variant="outline" onClick={() => router.push('/panel')}>Ir al panel</Button>
           </CardContent>
         </Card>
       </div>

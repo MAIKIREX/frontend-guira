@@ -78,6 +78,7 @@ export async function apiUpload<T>(url: string, formData: FormData, config?: Axi
     ...config,
     headers: {
       ...config?.headers,
+      'Content-Type': undefined, // Delete the default application/json so the browser generates the correct boundary
     },
     timeout: 60_000, // 60s para uploads
   })

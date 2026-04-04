@@ -5,13 +5,16 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { personalOnboardingSchema, type PersonalOnboardingValues } from '../schemas/personal-onboarding.schema'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { useOnboardingStore } from '@/stores/onboarding-store'
 import { OnboardingService } from '@/services/onboarding.service'
 import { toast } from 'sonner'
 import { useState } from 'react'
 import { FileDropzone } from '@/components/shared/file-dropzone'
+import { Loader2, CheckCircle2, FileText } from 'lucide-react'
+import { TosIframeModal } from './tos-iframe-modal'
 import Flag from 'react-world-flags'
 import {
   INDIVIDUAL_ID_TYPES,
@@ -21,134 +24,210 @@ import {
   BRIDGE_COUNTRIES,
 } from '@/lib/bridge-constants'
 
-export function PersonalForm({ userId, onStatusChange }: { status: string | null; userId: string; onStatusChange: (status: string) => void }) {
-  const { step, setStep, formData, updateFormData, id, reset } = useOnboardingStore()
+// ── Tipos de documento válidos del backend ──────────────────────────
+const DOCUMENT_TYPES_KYC = [
+  { key: 'national_id',        label: 'Documento de Identidad (Frente + Reverso)' },
+  { key: 'passport',           label: 'Pasaporte' },
+  { key: 'drivers_license',    label: 'Licencia de Conducir' },
+  { key: 'proof_of_address',   label: 'Comprobante de Domicilio' },
+]
+
+export function PersonalForm({
+  userId,
+  onStatusChange,
+}: {
+  status: string | null
+  userId: string
+  onStatusChange: (status: string) => void
+}) {
+  const { step, setStep, formData, updateFormData, reset } = useOnboardingStore()
   const [isUploading, setIsUploading] = useState(false)
+  const [tosUrl, setTosUrl] = useState<string | null>(null)
+  const [tosLoading, setTosLoading] = useState(false)
+  const [tosModalOpen, setTosModalOpen] = useState(false)
+  const [tosContractId, setTosContractId] = useState<string | null>(null)
+  const [uploadedDocs, setUploadedDocs] = useState<Record<string, boolean>>({})
 
   const form = useForm<PersonalOnboardingValues>({
     resolver: zodResolver(personalOnboardingSchema),
     defaultValues: {
-      first_names: (formData.first_names as string) || '',
-      last_names: (formData.last_names as string) || '',
-      dob: (formData.dob as string) || '',
-      nationality: (formData.nationality as PersonalOnboardingValues['nationality']) || ("" as any),
-      occupation: (formData.occupation as string) || '',
-      purpose: (formData.purpose as PersonalOnboardingValues['purpose']) || ("" as any),
-      source_of_funds: (formData.source_of_funds as PersonalOnboardingValues['source_of_funds']) || ("" as any),
-      estimated_monthly_volume: (formData.estimated_monthly_volume as PersonalOnboardingValues['estimated_monthly_volume']) || ("" as any),
-      street: (formData.street as string) || '',
-      city: (formData.city as string) || '',
-      state_province: (formData.state_province as string) || '',
-      country: (formData.country as PersonalOnboardingValues['country']) || ("" as any),
-      id_number: (formData.id_number as string) || '',
-      id_expiry: (formData.id_expiry as string) || '',
-      id_document_type: (formData.id_document_type as PersonalOnboardingValues['id_document_type']) || ("" as any),
+      first_name:              (formData.first_name as string) || '',
+      last_name:               (formData.last_name as string) || '',
+      date_of_birth:           (formData.date_of_birth as string) || '',
+      nationality:             (formData.nationality as any) || ('' as any),
+      country_of_residence:    (formData.country_of_residence as any) || ('' as any),
+      id_type:                 (formData.id_type as any) || ('' as any),
+      id_number:               (formData.id_number as string) || '',
+      id_expiry_date:          (formData.id_expiry_date as string) || '',
+      email:                   (formData.email as string) || '',
+      phone:                   (formData.phone as string) || '',
+      address1:                (formData.address1 as string) || '',
+      address2:                (formData.address2 as string) || '',
+      city:                    (formData.city as string) || '',
+      state:                   (formData.state as string) || '',
+      postal_code:             (formData.postal_code as string) || '',
+      country:                 (formData.country as any) || ('' as any),
+      occupation:              (formData.occupation as string) || '',
+      account_purpose:         (formData.account_purpose as any) || ('' as any),
+      source_of_funds:         (formData.source_of_funds as any) || ('' as any),
+      estimated_monthly_volume:(formData.estimated_monthly_volume as any) || ('' as any),
+      tax_id:                  (formData.tax_id as string) || '',
+      is_pep:                  (formData.is_pep as boolean) ?? false,
     },
   })
 
+  // ── Avanzar entre pasos con validación parcial ────────────────────
   const handleNext = async () => {
     let isValid = false
     if (step === 2) {
-      isValid = await form.trigger(['first_names', 'last_names', 'dob', 'nationality', 'id_document_type', 'id_number', 'id_expiry'])
+      isValid = await form.trigger([
+        'first_name', 'last_name', 'date_of_birth', 'nationality',
+        'country_of_residence', 'id_type', 'id_number', 'id_expiry_date',
+        'email', 'phone',
+      ])
     } else if (step === 3) {
-      isValid = await form.trigger(['street', 'city', 'country', 'state_province'])
+      isValid = await form.trigger(['address1', 'city', 'country'])
     } else if (step === 4) {
-      isValid = await form.trigger(['occupation', 'purpose', 'source_of_funds', 'estimated_monthly_volume'])
+      isValid = await form.trigger(['occupation', 'account_purpose', 'source_of_funds', 'estimated_monthly_volume'])
     }
 
     if (isValid) {
-      const currentValues = form.getValues()
-      updateFormData(currentValues)
-      try {
-        await (OnboardingService as any).saveDraft({
-          id: id || undefined,
-          user_id: userId,
-          type: 'personal',
-          data: { ...formData, ...currentValues },
-        })
-        setStep(step + 1)
-      } catch {
-        toast.error('Error guardando borrador')
-      }
+      updateFormData(form.getValues())
+      setStep(step + 1)
     }
   }
 
-  const handleDocUpload = async (docKey: keyof PersonalOnboardingValues, file: File) => {
+  // ── Upload de documentos vía backend (nuevo endpoint) ─────────────
+  const handleDocUpload = async (
+    docType: 'national_id' | 'passport' | 'drivers_license' | 'proof_of_address',
+    file: File,
+  ) => {
     if (!file) return
     setIsUploading(true)
     try {
-      const path = await (OnboardingService as any).uploadDocument(userId, docKey as string, file, true)
-      form.setValue(docKey, path)
-      updateFormData({ [docKey]: path })
-
-      if (id) {
-        await (OnboardingService as any).saveDocumentReference({
-          onboarding_id: id,
-          user_id: userId,
-          doc_type: docKey as string,
-          storage_path: path,
-          mime_type: file.type,
-          file_size: file.size,
-        })
-      }
-      toast.success('Documento subido')
-    } catch {
+      await OnboardingService.uploadDocument(file, docType, 'person')
+      setUploadedDocs(prev => ({ ...prev, [docType]: true }))
+      toast.success(`Documento (${docType}) subido correctamente`)
+    } catch (err: unknown) {
+      console.error(err)
       toast.error('Error subiendo documento')
     } finally {
       setIsUploading(false)
     }
   }
 
+  // ── Obtener ToS link de Bridge y abrir modal ─────────────────────
+  const handleOpenTosModal = async () => {
+    // Si ya tenemos la URL cacheada, abrir directo
+    if (tosUrl) {
+      setTosModalOpen(true)
+      return
+    }
+    setTosLoading(true)
+    try {
+      // Sin redirect_uri — usamos postMessage del iframe
+      const res = await OnboardingService.getKycTosLink()
+      setTosUrl(res.url)
+      setTosModalOpen(true)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error obteniendo los Términos de Servicio'
+      toast.error(msg)
+    } finally {
+      setTosLoading(false)
+    }
+  }
+
+  // ── Callback cuando Bridge confirma aceptación via postMessage ────
+  const handleTosAccepted = (signedAgreementId: string) => {
+    setTosContractId(signedAgreementId)
+    setTosModalOpen(false)
+    toast.success('Términos de Servicio aceptados correctamente')
+  }
+
+  // ── Submit final: flujo completo al backend ───────────────────────
   async function onSubmit(data: PersonalOnboardingValues) {
-    if (!data.id_front || !data.id_back || !data.selfie || !data.proof_of_address) {
-      toast.error('Faltan documentos por subir')
+    if (!uploadedDocs['national_id'] && !uploadedDocs['passport']) {
+      toast.error('Debes subir al menos un documento de identidad (ID o Pasaporte)')
+      return
+    }
+    if (!uploadedDocs['proof_of_address']) {
+      toast.error('Debes subir el comprobante de domicilio')
+      return
+    }
+    if (!tosContractId) {
+      toast.error('Debes aceptar los Términos de Servicio de Bridge antes de continuar')
       return
     }
 
     try {
-      await (OnboardingService as any).submitOnboarding({
-        id: id || undefined,
-        user_id: userId,
-        type: 'personal',
-        data: { ...formData, ...data },
+      // Paso 1: Guardar datos biográficos
+      await OnboardingService.savePersonalInfo({
+        first_name:           data.first_name,
+        last_name:            data.last_name,
+        date_of_birth:        data.date_of_birth,
+        nationality:          data.nationality,
+        country_of_residence: data.country_of_residence,
+        id_type:              data.id_type as 'passport' | 'drivers_license' | 'national_id',
+        id_number:            data.id_number,
+        id_expiry_date:       data.id_expiry_date,
+        email:                data.email,
+        phone:                data.phone,
+        address1:             data.address1,
+        address2:             data.address2,
+        city:                 data.city,
+        state:                data.state,
+        postal_code:          data.postal_code,
+        country:              data.country,
+        tax_id:               data.tax_id,
+        source_of_funds:      data.source_of_funds,
+        account_purpose:      data.account_purpose,
+        is_pep:               data.is_pep,
       })
-      toast.success('Onboarding enviado con exito')
+
+      // Paso 2: Crear expediente (idempotente — si ya existe lo devuelve)
+      await OnboardingService.createKycApplication()
+
+      // Paso 3: Registrar aceptación de ToS (con el ID del contrato firmado de Bridge)
+      await OnboardingService.acceptKycTos(tosContractId ?? undefined)
+
+      // Paso 4: Enviar para revisión
+      await OnboardingService.submitKyc()
+
+      toast.success('Solicitud KYC enviada correctamente. Recibirás una notificación con el resultado.')
       onStatusChange('submitted')
       reset()
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        toast.error(err.message || 'Ocurrio un error al enviar')
-      } else {
-        toast.error('Ocurrio un error al enviar')
-      }
+      const message = err instanceof Error ? err.message : 'Ocurrió un error al enviar la solicitud'
+      toast.error(message)
     }
   }
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+
+        {/* ──────────── STEP 2: Identidad + Contacto ──────────── */}
         {step === 2 && (
           <div className="space-y-4">
-            <h2 className="text-xl font-medium">Informacion Personal</h2>
+            <h2 className="text-xl font-medium">Información Personal</h2>
             <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control} name="first_names" render={({ field }) => (
-                <FormItem><FormLabel>Nombres</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+
+              <FormField control={form.control} name="first_name" render={({ field }) => (
+                <FormItem><FormLabel>Nombre(s)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-              <FormField control={form.control} name="last_names" render={({ field }) => (
-                <FormItem><FormLabel>Apellidos</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              <FormField control={form.control} name="last_name" render={({ field }) => (
+                <FormItem><FormLabel>Apellido(s)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-              <FormField control={form.control} name="dob" render={({ field }) => (
-                <FormItem><FormLabel>Fecha de nacimiento</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+              <FormField control={form.control} name="date_of_birth" render={({ field }) => (
+                <FormItem><FormLabel>Fecha de Nacimiento</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
 
-              {/* Nacionalidad — Select ISO alpha-3 */}
+              {/* Nacionalidad */}
               <FormField control={form.control} name="nationality" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Nacionalidad</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Selecciona un país" /></SelectTrigger>
-                    </FormControl>
+                  <Select onValueChange={field.onChange} value={field.value || ''}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Selecciona un país" /></SelectTrigger></FormControl>
                     <SelectContent>
                       {BRIDGE_COUNTRIES.map(c => (
                         <SelectItem key={c.value} value={c.value}>
@@ -164,14 +243,33 @@ export function PersonalForm({ userId, onStatusChange }: { status: string | null
                 </FormItem>
               )} />
 
-              {/* Tipo de documento — Select Bridge enum */}
-              <FormField control={form.control} name="id_document_type" render={({ field }) => (
+              {/* País de Residencia */}
+              <FormField control={form.control} name="country_of_residence" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>País de Residencia</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ''}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Selecciona un país" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      {BRIDGE_COUNTRIES.map(c => (
+                        <SelectItem key={c.value} value={c.value}>
+                          <div className="flex items-center gap-2">
+                            <Flag code={c.value} fallback={<span>🌐</span>} style={{ width: 24, height: 16, objectFit: 'cover' }} className="rounded-sm" />
+                            <span>{c.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              {/* Tipo de Documento */}
+              <FormField control={form.control} name="id_type" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Tipo de Documento</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Selecciona tipo" /></SelectTrigger>
-                    </FormControl>
+                  <Select onValueChange={field.onChange} value={field.value || ''}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Selecciona tipo" /></SelectTrigger></FormControl>
                     <SelectContent>
                       {INDIVIDUAL_ID_TYPES.map(t => (
                         <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
@@ -183,10 +281,37 @@ export function PersonalForm({ userId, onStatusChange }: { status: string | null
               )} />
 
               <FormField control={form.control} name="id_number" render={({ field }) => (
-                <FormItem><FormLabel>Nro Documento</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Nro. de Documento</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-              <FormField control={form.control} name="id_expiry" render={({ field }) => (
-                <FormItem><FormLabel>Vencimiento Doc.</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+              <FormField control={form.control} name="id_expiry_date" render={({ field }) => (
+                <FormItem><FormLabel>Vencimiento del Documento</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+
+              <FormField control={form.control} name="email" render={({ field }) => (
+                <FormItem><FormLabel>Email de Contacto</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="phone" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Teléfono</FormLabel>
+                  <FormControl><Input placeholder="+1 415 555 0100" {...field} /></FormControl>
+                  <FormDescription>Incluir código de país</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              {/* PEP */}
+              <FormField control={form.control} name="is_pep" render={({ field }) => (
+                <FormItem className="col-span-2 flex flex-row items-start gap-3 rounded-lg border p-3">
+                  <FormControl>
+                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                  <div>
+                    <FormLabel className="font-medium">Persona Expuesta Políticamente (PEP)</FormLabel>
+                    <FormDescription>
+                      Marca esta casilla si eres funcionario público, familiar de uno o tienes vínculos cercanos con un funcionario público.
+                    </FormDescription>
+                  </div>
+                </FormItem>
               )} />
             </div>
             <div className="flex justify-end pt-4">
@@ -195,28 +320,32 @@ export function PersonalForm({ userId, onStatusChange }: { status: string | null
           </div>
         )}
 
+        {/* ──────────── STEP 3: Dirección ──────────── */}
         {step === 3 && (
           <div className="space-y-4">
-            <h2 className="text-xl font-medium">Direccion</h2>
+            <h2 className="text-xl font-medium">Dirección de Residencia</h2>
             <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control} name="street" render={({ field }) => (
-                <FormItem className="col-span-2"><FormLabel>Calle y Numero</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              <FormField control={form.control} name="address1" render={({ field }) => (
+                <FormItem className="col-span-2"><FormLabel>Calle y Número</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="address2" render={({ field }) => (
+                <FormItem className="col-span-2"><FormLabel>Complemento (opcional)</FormLabel><FormControl><Input placeholder="Apto, Piso, etc." {...field} /></FormControl><FormMessage /></FormItem>
               )} />
               <FormField control={form.control} name="city" render={({ field }) => (
                 <FormItem><FormLabel>Ciudad</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-              <FormField control={form.control} name="state_province" render={({ field }) => (
+              <FormField control={form.control} name="state" render={({ field }) => (
                 <FormItem><FormLabel>Estado / Provincia</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
+              <FormField control={form.control} name="postal_code" render={({ field }) => (
+                <FormItem><FormLabel>Código Postal</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
 
-              {/* País de residencia — Select ISO alpha-3 */}
               <FormField control={form.control} name="country" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>País de Residencia</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Selecciona un país" /></SelectTrigger>
-                    </FormControl>
+                  <FormLabel>País</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ''}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Selecciona un país" /></SelectTrigger></FormControl>
                     <SelectContent>
                       {BRIDGE_COUNTRIES.map(c => (
                         <SelectItem key={c.value} value={c.value}>
@@ -233,28 +362,29 @@ export function PersonalForm({ userId, onStatusChange }: { status: string | null
               )} />
             </div>
             <div className="flex justify-between pt-4">
-              <Button type="button" variant="outline" onClick={() => setStep(step - 1)}>Atras</Button>
+              <Button type="button" variant="outline" onClick={() => setStep(step - 1)}>Atrás</Button>
               <Button type="button" onClick={handleNext}>Siguiente</Button>
             </div>
           </div>
         )}
 
+        {/* ──────────── STEP 4: Finanzas ──────────── */}
         {step === 4 && (
           <div className="space-y-4">
-            <h2 className="text-xl font-medium">Informacion Financiera</h2>
+            <h2 className="text-xl font-medium">Información Financiera</h2>
             <div className="grid grid-cols-2 gap-4">
               <FormField control={form.control} name="occupation" render={({ field }) => (
-                <FormItem><FormLabel>Ocupacion</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Ocupación</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="tax_id" render={({ field }) => (
+                <FormItem><FormLabel>NIT / SSN / CURP (opcional)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
 
-              {/* Propósito de cuenta — Select Bridge enum */}
-              <FormField control={form.control} name="purpose" render={({ field }) => (
+              <FormField control={form.control} name="account_purpose" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Propósito de la cuenta</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Selecciona un propósito" /></SelectTrigger>
-                    </FormControl>
+                  <Select onValueChange={field.onChange} value={field.value || ''}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Selecciona un propósito" /></SelectTrigger></FormControl>
                     <SelectContent>
                       {INDIVIDUAL_ACCOUNT_PURPOSE.map(p => (
                         <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
@@ -265,14 +395,11 @@ export function PersonalForm({ userId, onStatusChange }: { status: string | null
                 </FormItem>
               )} />
 
-              {/* Origen de fondos — Select Bridge enum */}
               <FormField control={form.control} name="source_of_funds" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Origen de fondos</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Selecciona el origen" /></SelectTrigger>
-                    </FormControl>
+                  <Select onValueChange={field.onChange} value={field.value || ''}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Selecciona el origen" /></SelectTrigger></FormControl>
                     <SelectContent>
                       {INDIVIDUAL_SOURCE_OF_FUNDS.map(s => (
                         <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
@@ -283,14 +410,11 @@ export function PersonalForm({ userId, onStatusChange }: { status: string | null
                 </FormItem>
               )} />
 
-              {/* Volumen mensual estimado — Select Bridge ranges */}
               <FormField control={form.control} name="estimated_monthly_volume" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Volumen Mensual Estimado</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Selecciona un rango" /></SelectTrigger>
-                    </FormControl>
+                  <FormLabel>Volumen Mensual Estimado (USD)</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ''}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Selecciona un rango" /></SelectTrigger></FormControl>
                     <SelectContent>
                       {EXPECTED_MONTHLY_PAYMENTS.map(m => (
                         <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
@@ -302,59 +426,111 @@ export function PersonalForm({ userId, onStatusChange }: { status: string | null
               )} />
             </div>
             <div className="flex justify-between pt-4">
-              <Button type="button" variant="outline" onClick={() => setStep(step - 1)}>Atras</Button>
+              <Button type="button" variant="outline" onClick={() => setStep(step - 1)}>Atrás</Button>
               <Button type="button" onClick={handleNext}>Siguiente</Button>
             </div>
           </div>
         )}
 
+        {/* ──────────── STEP 5: Documentos + ToS + Envío ──────────── */}
         {step === 5 && (
           <div className="space-y-6">
-            <h2 className="text-xl font-medium">Documentos</h2>
-            <p className="text-sm text-muted-foreground">Sube tus documentos legibles para acelerar la verificacion.</p>
+            <h2 className="text-xl font-medium">Documentos y Aceptación</h2>
+            <p className="text-sm text-muted-foreground">
+              Sube tus documentos y acepta los Términos de Servicio para completar tu solicitud KYC.
+            </p>
 
+            {/* Documentos de Identidad */}
             <div className="space-y-4">
-              <div className="border p-4 rounded bg-muted/20">
-                <label className="block text-sm font-medium mb-2">Documento de Identidad (Frente)</label>
-                <FileDropzone accept="image/*,.pdf" helperText="Arrastra el frente del documento o haz click para seleccionarlo." onFileSelect={(file) => {
-                  if (file) handleDocUpload('id_front', file)
-                }} />
-                {form.getValues('id_front') && <p className="mt-2 text-xs text-emerald-400">Archivo cargado ({String(form.getValues('id_front'))})</p>}
-              </div>
+              {DOCUMENT_TYPES_KYC.map(({ key, label }) => (
+                <div key={key} className="border p-4 rounded bg-muted/20">
+                  <label className="block text-sm font-medium mb-2">
+                    {label}
+                    {uploadedDocs[key] && <span className="ml-2 text-emerald-500 text-xs">✓ Subido</span>}
+                  </label>
+                  <FileDropzone
+                    accept="image/*,.pdf"
+                    helperText="JPG, PNG o PDF — máx 10 MB"
+                    onFileSelect={(file) => {
+                      if (file) handleDocUpload(key as any, file)
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
 
-              <div className="border p-4 rounded bg-muted/20">
-                <label className="block text-sm font-medium mb-2">Documento de Identidad (Reverso)</label>
-                <FileDropzone accept="image/*,.pdf" helperText="Arrastra el reverso del documento o haz click para seleccionarlo." onFileSelect={(file) => {
-                  if (file) handleDocUpload('id_back', file)
-                }} />
-                {form.getValues('id_back') && <p className="mt-2 text-xs text-emerald-400">Archivo cargado ({String(form.getValues('id_back'))})</p>}
-              </div>
+            {/* Términos de Servicio de Bridge — iframe embebido */}
+            <div className="border rounded-lg p-5 space-y-4 bg-muted/10">
+              <h3 className="font-semibold text-base">Términos de Servicio (Bridge)</h3>
+              <p className="text-sm text-muted-foreground">
+                Para completar tu verificación, debes leer y aceptar los Términos de Servicio de
+                Bridge, nuestro proveedor de cumplimiento regulatorio.
+              </p>
 
-              <div className="border p-4 rounded bg-muted/20">
-                <label className="block text-sm font-medium mb-2">Selfie Sosteniendo el Documento</label>
-                <FileDropzone accept="image/*" helperText="Arrastra la selfie o haz click para seleccionarla." onFileSelect={(file) => {
-                  if (file) handleDocUpload('selfie', file)
-                }} />
-                {form.getValues('selfie') && <p className="mt-2 text-xs text-emerald-400">Archivo cargado ({String(form.getValues('selfie'))})</p>}
-              </div>
+              {tosContractId ? (
+                /* ── Estado: aceptado ── */
+                <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-800 p-3">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+                      Términos de Servicio aceptados
+                    </p>
+                    <p className="text-xs text-emerald-600/70 dark:text-emerald-500/70 font-mono mt-0.5 truncate max-w-xs">
+                      ID: {tosContractId}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="ml-auto text-xs text-muted-foreground"
+                    onClick={handleOpenTosModal}
+                  >
+                    Revisar
+                  </Button>
+                </div>
+              ) : (
+                /* ── Estado: pendiente ── */
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={tosLoading}
+                  onClick={handleOpenTosModal}
+                  className="gap-2"
+                >
+                  {tosLoading
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <FileText className="w-4 h-4" />
+                  }
+                  {tosLoading ? 'Cargando…' : 'Revisar y Aceptar Términos de Servicio'}
+                </Button>
+              )}
 
-              <div className="border p-4 rounded bg-muted/20">
-                <label className="block text-sm font-medium mb-2">Comprobante de Domicilio</label>
-                <FileDropzone accept="image/*,.pdf" helperText="Arrastra el comprobante o haz click para seleccionarlo." onFileSelect={(file) => {
-                  if (file) handleDocUpload('proof_of_address', file)
-                }} />
-                {form.getValues('proof_of_address') && <p className="mt-2 text-xs text-emerald-400">Archivo cargado ({String(form.getValues('proof_of_address'))})</p>}
-              </div>
+              {/* Modal con iframe de Bridge */}
+              {tosUrl && (
+                <TosIframeModal
+                  tosUrl={tosUrl}
+                  open={tosModalOpen}
+                  onClose={() => setTosModalOpen(false)}
+                  onAccepted={handleTosAccepted}
+                />
+              )}
             </div>
 
             <div className="flex justify-between pt-4">
-              <Button type="button" variant="outline" onClick={() => setStep(step - 1)}>Atras</Button>
-              <Button type="submit" disabled={isUploading || form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Enviando...' : 'Finalizar Envio'}
+              <Button type="button" variant="outline" onClick={() => setStep(step - 1)}>Atrás</Button>
+              <Button
+                type="submit"
+                disabled={isUploading || form.formState.isSubmitting || !tosContractId}
+              >
+                {form.formState.isSubmitting
+                  ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Enviando...</>
+                  : 'Enviar Solicitud KYC'}
               </Button>
             </div>
           </div>
         )}
+
       </form>
     </Form>
   )

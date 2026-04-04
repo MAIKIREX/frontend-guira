@@ -126,4 +126,15 @@ function useFormField() {
   }
 }
 
-export { Form, FormControl, FormField, FormItem, FormLabel, FormMessage }
+function FormDescription({ className, ...props }: React.ComponentProps<'p'>) {
+  const { formDescriptionId } = useFormField()
+  return (
+    <p
+      id={formDescriptionId}
+      className={cn('text-xs text-muted-foreground', className)}
+      {...props}
+    />
+  )
+}
+
+export { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage }
