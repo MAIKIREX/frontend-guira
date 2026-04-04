@@ -5,12 +5,21 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { personalOnboardingSchema, type PersonalOnboardingValues } from '../schemas/personal-onboarding.schema'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { useOnboardingStore } from '@/stores/onboarding-store'
 import { OnboardingService } from '@/services/onboarding.service'
 import { toast } from 'sonner'
 import { useState } from 'react'
 import { FileDropzone } from '@/components/shared/file-dropzone'
+import Flag from 'react-world-flags'
+import {
+  INDIVIDUAL_ID_TYPES,
+  INDIVIDUAL_SOURCE_OF_FUNDS,
+  INDIVIDUAL_ACCOUNT_PURPOSE,
+  EXPECTED_MONTHLY_PAYMENTS,
+  BRIDGE_COUNTRIES,
+} from '@/lib/bridge-constants'
 
 export function PersonalForm({ userId, onStatusChange }: { status: string | null; userId: string; onStatusChange: (status: string) => void }) {
   const { step, setStep, formData, updateFormData, id, reset } = useOnboardingStore()
@@ -22,18 +31,18 @@ export function PersonalForm({ userId, onStatusChange }: { status: string | null
       first_names: (formData.first_names as string) || '',
       last_names: (formData.last_names as string) || '',
       dob: (formData.dob as string) || '',
-      nationality: (formData.nationality as string) || '',
+      nationality: (formData.nationality as PersonalOnboardingValues['nationality']) || ("" as any),
       occupation: (formData.occupation as string) || '',
-      purpose: (formData.purpose as string) || '',
-      source_of_funds: (formData.source_of_funds as string) || '',
-      estimated_monthly_volume: (formData.estimated_monthly_volume as string) || '',
+      purpose: (formData.purpose as PersonalOnboardingValues['purpose']) || ("" as any),
+      source_of_funds: (formData.source_of_funds as PersonalOnboardingValues['source_of_funds']) || ("" as any),
+      estimated_monthly_volume: (formData.estimated_monthly_volume as PersonalOnboardingValues['estimated_monthly_volume']) || ("" as any),
       street: (formData.street as string) || '',
       city: (formData.city as string) || '',
       state_province: (formData.state_province as string) || '',
-      country: (formData.country as string) || '',
+      country: (formData.country as PersonalOnboardingValues['country']) || ("" as any),
       id_number: (formData.id_number as string) || '',
       id_expiry: (formData.id_expiry as string) || '',
-      id_document_type: (formData.id_document_type as string) || 'CI',
+      id_document_type: (formData.id_document_type as PersonalOnboardingValues['id_document_type']) || ("" as any),
     },
   })
 
@@ -131,12 +140,48 @@ export function PersonalForm({ userId, onStatusChange }: { status: string | null
               <FormField control={form.control} name="dob" render={({ field }) => (
                 <FormItem><FormLabel>Fecha de nacimiento</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
+
+              {/* Nacionalidad — Select ISO alpha-3 */}
               <FormField control={form.control} name="nationality" render={({ field }) => (
-                <FormItem><FormLabel>Nacionalidad</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>Nacionalidad</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <FormControl>
+                      <SelectTrigger><SelectValue placeholder="Selecciona un país" /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {BRIDGE_COUNTRIES.map(c => (
+                        <SelectItem key={c.value} value={c.value}>
+                          <div className="flex items-center gap-2">
+                            <Flag code={c.value} fallback={<span>🌐</span>} style={{ width: 24, height: 16, objectFit: 'cover' }} className="rounded-sm" />
+                            <span>{c.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )} />
+
+              {/* Tipo de documento — Select Bridge enum */}
               <FormField control={form.control} name="id_document_type" render={({ field }) => (
-                <FormItem><FormLabel>Tipo de Documento</FormLabel><FormControl><Input placeholder="CI / Pasaporte" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>Tipo de Documento</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <FormControl>
+                      <SelectTrigger><SelectValue placeholder="Selecciona tipo" /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {INDIVIDUAL_ID_TYPES.map(t => (
+                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )} />
+
               <FormField control={form.control} name="id_number" render={({ field }) => (
                 <FormItem><FormLabel>Nro Documento</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
@@ -163,8 +208,28 @@ export function PersonalForm({ userId, onStatusChange }: { status: string | null
               <FormField control={form.control} name="state_province" render={({ field }) => (
                 <FormItem><FormLabel>Estado / Provincia</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
+
+              {/* País de residencia — Select ISO alpha-3 */}
               <FormField control={form.control} name="country" render={({ field }) => (
-                <FormItem><FormLabel>Pais</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>País de Residencia</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <FormControl>
+                      <SelectTrigger><SelectValue placeholder="Selecciona un país" /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {BRIDGE_COUNTRIES.map(c => (
+                        <SelectItem key={c.value} value={c.value}>
+                          <div className="flex items-center gap-2">
+                            <Flag code={c.value} fallback={<span>🌐</span>} style={{ width: 24, height: 16, objectFit: 'cover' }} className="rounded-sm" />
+                            <span>{c.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )} />
             </div>
             <div className="flex justify-between pt-4">
@@ -181,14 +246,59 @@ export function PersonalForm({ userId, onStatusChange }: { status: string | null
               <FormField control={form.control} name="occupation" render={({ field }) => (
                 <FormItem><FormLabel>Ocupacion</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
+
+              {/* Propósito de cuenta — Select Bridge enum */}
               <FormField control={form.control} name="purpose" render={({ field }) => (
-                <FormItem><FormLabel>Proposito de la cuenta</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>Propósito de la cuenta</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <FormControl>
+                      <SelectTrigger><SelectValue placeholder="Selecciona un propósito" /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {INDIVIDUAL_ACCOUNT_PURPOSE.map(p => (
+                        <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )} />
+
+              {/* Origen de fondos — Select Bridge enum */}
               <FormField control={form.control} name="source_of_funds" render={({ field }) => (
-                <FormItem><FormLabel>Origen de fondos</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>Origen de fondos</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <FormControl>
+                      <SelectTrigger><SelectValue placeholder="Selecciona el origen" /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {INDIVIDUAL_SOURCE_OF_FUNDS.map(s => (
+                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )} />
+
+              {/* Volumen mensual estimado — Select Bridge ranges */}
               <FormField control={form.control} name="estimated_monthly_volume" render={({ field }) => (
-                <FormItem><FormLabel>Vol. Mensual Est. (USD)</FormLabel><FormControl><Input min={0} step="0.01" type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>Volumen Mensual Estimado</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <FormControl>
+                      <SelectTrigger><SelectValue placeholder="Selecciona un rango" /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {EXPECTED_MONTHLY_PAYMENTS.map(m => (
+                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )} />
             </div>
             <div className="flex justify-between pt-4">
@@ -205,7 +315,7 @@ export function PersonalForm({ userId, onStatusChange }: { status: string | null
 
             <div className="space-y-4">
               <div className="border p-4 rounded bg-muted/20">
-                <FormLabel className="block mb-2">Documento de Identidad (Frente)</FormLabel>
+                <label className="block text-sm font-medium mb-2">Documento de Identidad (Frente)</label>
                 <FileDropzone accept="image/*,.pdf" helperText="Arrastra el frente del documento o haz click para seleccionarlo." onFileSelect={(file) => {
                   if (file) handleDocUpload('id_front', file)
                 }} />
@@ -213,7 +323,7 @@ export function PersonalForm({ userId, onStatusChange }: { status: string | null
               </div>
 
               <div className="border p-4 rounded bg-muted/20">
-                <FormLabel className="block mb-2">Documento de Identidad (Reverso)</FormLabel>
+                <label className="block text-sm font-medium mb-2">Documento de Identidad (Reverso)</label>
                 <FileDropzone accept="image/*,.pdf" helperText="Arrastra el reverso del documento o haz click para seleccionarlo." onFileSelect={(file) => {
                   if (file) handleDocUpload('id_back', file)
                 }} />
@@ -221,7 +331,7 @@ export function PersonalForm({ userId, onStatusChange }: { status: string | null
               </div>
 
               <div className="border p-4 rounded bg-muted/20">
-                <FormLabel className="block mb-2">Selfie Sosteniendo el Documento</FormLabel>
+                <label className="block text-sm font-medium mb-2">Selfie Sosteniendo el Documento</label>
                 <FileDropzone accept="image/*" helperText="Arrastra la selfie o haz click para seleccionarla." onFileSelect={(file) => {
                   if (file) handleDocUpload('selfie', file)
                 }} />
@@ -229,7 +339,7 @@ export function PersonalForm({ userId, onStatusChange }: { status: string | null
               </div>
 
               <div className="border p-4 rounded bg-muted/20">
-                <FormLabel className="block mb-2">Comprobante de Domicilio</FormLabel>
+                <label className="block text-sm font-medium mb-2">Comprobante de Domicilio</label>
                 <FileDropzone accept="image/*,.pdf" helperText="Arrastra el comprobante o haz click para seleccionarlo." onFileSelect={(file) => {
                   if (file) handleDocUpload('proof_of_address', file)
                 }} />

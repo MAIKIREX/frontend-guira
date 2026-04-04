@@ -49,10 +49,10 @@ export function useExchangeRates() {
 
       // Extrae las tasas clave del array de pares
       const buyPair = rawRates.find(
-        (r) => r.from_currency === 'BOB' && r.to_currency === 'USD'
+        (r: any) => r.pair === 'BOB_USD'
       )
       const sellPair = rawRates.find(
-        (r) => r.from_currency === 'USD' && r.to_currency === 'BOB'
+        (r: any) => r.pair === 'USD_BOB'
       )
 
       // Fallback: leer de publicSettings si el módulo exchange-rates no está disponible

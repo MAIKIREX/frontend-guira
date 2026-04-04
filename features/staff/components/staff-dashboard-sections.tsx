@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { OrderDetailDialog, SupportTicketActions } from '@/features/staff/components/staff-action-dialogs'
+import { useExchangeRates } from '@/features/payments/hooks/use-exchange-rates'
 import {
   AppSettingDialog,
   CreateUserDialog,
@@ -1423,22 +1424,21 @@ function ConfigPanel({
   onUpdateFeeConfig: (record: FeeConfigRow) => void
 }) {
   const [isSyncingRates, setIsSyncingRates] = useState(false)
-  const buyRateRecord = findAppSettingRecord(appSettings, 'parallel_buy_rate')
-  const sellRateRecord = findAppSettingRecord(appSettings, 'parallel_sell_rate')
+  const { rates, reload: reloadRates } = useExchangeRates()
+  const buyRate = rates.rawRates.find((r: any) => r.pair === 'BOB_USD')?.rate
+  const sellRate = rates.rawRates.find((r: any) => r.pair === 'USD_BOB')?.rate
 
   async function handleSyncParallelRates() {
     try {
       setIsSyncingRates(true)
-      const result = await AdminService.syncParallelRatesFromForexApi({
+      const result = await AdminService.syncExchangeRates({
         actor,
-        appSettings,
       })
 
-      onUpdateAppSetting(result.buy)
-      onUpdateAppSetting(result.sell)
       toast.success(
-        `Tasas actualizadas. Compra ${formatRateValue(result.sourceRates.buy)} | Venta ${formatRateValue(result.sourceRates.sell)}`
+        `${result.message}. Compra ${formatRateValue(result.buy_rate_bob_usd)} | Venta ${formatRateValue(result.sell_rate_usd_bob)}`
       )
+      await reloadRates()
       await reload()
     } catch (error) {
       console.error('Failed to sync parallel rates', error)
@@ -1555,7 +1555,7 @@ function ConfigPanel({
               <div className="space-y-1">
                 <CardTitle className="text-lg font-bold tracking-tight">Tasa Paralela USDT</CardTitle>
                 <CardDescription className="text-[13px]">
-                  Consulta el endpoint externo y sincroniza `parallel_buy_rate` y `parallel_sell_rate`.
+                  Consulta la base de datos central de paridades cambiarias (`exchange_rates_config`).
                 </CardDescription>
               </div>
             </div>
@@ -1566,25 +1566,25 @@ function ConfigPanel({
               <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Compra</div>
                 <div className="mt-2 text-2xl font-bold tracking-tight">
-                  {formatRateValue(buyRateRecord?.value)}
+                  {formatRateValue(buyRate)}
                 </div>
-                <div className="mt-1 text-xs text-muted-foreground">Clave: `parallel_buy_rate`</div>
+                <div className="mt-1 text-xs text-muted-foreground">Par: `BOB_USD`</div>
               </div>
               <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Venta</div>
                 <div className="mt-2 text-2xl font-bold tracking-tight">
-                  {formatRateValue(sellRateRecord?.value)}
+                  {formatRateValue(sellRate)}
                 </div>
-                <div className="mt-1 text-xs text-muted-foreground">Clave: `parallel_sell_rate`</div>
+                <div className="mt-1 text-xs text-muted-foreground">Par: `USD_BOB`</div>
               </div>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">
-                Fuente externa: `api-mdp-2.onrender.com` con asset `USDT`.
+                Origen de los datos: Servicio interno de Tipos de Cambio.
               </p>
               <Button disabled={!isPrivileged || isSyncingRates} onClick={handleSyncParallelRates} type="button">
                 <RefreshCw className={cn(isSyncingRates ? 'animate-spin' : undefined)} />
-                {isSyncingRates ? 'Actualizando...' : 'Actualizar'}
+                {isSyncingRates ? 'Actualizando...' : 'Sincronizar'}
               </Button>
             </div>
           </CardContent>

@@ -35,6 +35,7 @@
  *   POST   /onboarding/kyb/tos-accept
  */
 import { apiGet, apiPost, apiPatch, apiDelete, apiUpload } from '@/lib/api/client'
+import { createClient } from '@/lib/supabase/browser'
 import type { Onboarding } from '@/types/onboarding'
 
 // ── DTOs KYC ─────────────────────────────────────────────────────
@@ -131,6 +132,108 @@ export const OnboardingService = {
   },
 
   /**
+   * Obtiene la solicitud de onboarding más reciente del nuevo backend
+   */
+  async getLatestOnboarding(userId: string) {
+    try {
+      const kyc = await OnboardingService.getKycStatus()
+      if (kyc && kyc.status && kyc.status !== 'not_started') {
+        return { id: 'kyc-' + userId, type: 'personal', status: kyc.status }
+      }
+    } catch (e) {
+      // Ignorar error 404 u otros
+    }
+
+    try {
+      // const kyb = await OnboardingService.getKybStatus() // Opcional si ya está KYB fully migrated
+    } catch(e) {}
+
+    return null // Retornar null hace que el frontend use localStorage para borradores
+  },
+
+  /**
+   * Guarda un borrador de onboarding (no hace nada local storage lo maneja auto)
+   */
+  async saveDraft(payload: any) {
+    return payload
+  },
+
+  /**
+   * Sube un documento UBO (compatibilidad KYB)
+   */
+  async uploadUBODocument(userId: string, docKey: string, index: number, file: File, bool: boolean) {
+    const supabase = createClient()
+    const path = `${userId}/${Date.now()}_ubo_${index}_${docKey}_${file.name}`
+    const { error } = await supabase.storage.from('kyc-documents').upload(path, file)
+    if (error) throw error
+    return path
+  },
+
+  /**
+   * Registra referencia de documento (compatibilidad remapeada a nueva tabla documents)
+   */
+  async saveDocumentReference(payload: any) {
+    const supabase = createClient()
+    const mappedPayload = {
+      user_id: payload.user_id,
+      document_type: payload.doc_type,
+      storage_path: payload.storage_path,
+      file_name: payload.storage_path.split('/').pop() || 'unknown',
+      mime_type: payload.mime_type || 'application/octet-stream',
+      file_size_bytes: payload.file_size || 0,
+      subject_type: payload.doc_type.includes('ubo') ? 'business' : 'person',
+      status: 'pending'
+    }
+    const { error } = await supabase.from('documents').insert([mappedPayload])
+    if (error) console.error('Error insertando documento', error)
+  },
+
+  /**
+   * Envía la aplicación (compatibilidad KYC/KYB mapeada al nuevo backend)
+   */
+  async submitOnboarding(payload: any) {
+    if (payload.type === 'personal') {
+      const dto: KycPersonalInfoDto = {
+        first_name: payload.data.first_names,
+        last_name: payload.data.last_names,
+        date_of_birth: payload.data.dob,
+        nationality: payload.data.nationality,
+        tax_id_number: payload.data.id_number,
+        address: {
+          street: payload.data.street,
+          city: payload.data.city,
+          state: payload.data.state_province,
+          postal_code: payload.data.postal_code || '0000',
+          country: payload.data.country,
+        },
+      }
+      // Guardar informacion
+      await OnboardingService.saveKycPersonalInfo(dto)
+      // Mover a estado submitted
+      await OnboardingService.submitKyc()
+
+    } else if (payload.type === 'company') {
+      const data = payload.data
+      const dto: KybBusinessDto = {
+        business_name: data.company_legal_name,
+        legal_name: data.company_legal_name,
+        registration_number: data.registration_number,
+        country_of_incorporation: data.country_of_incorporation,
+        business_type: data.entity_type,
+        industry: data.business_description || 'Other',
+        address: {
+          street: data.business_street,
+          city: data.business_city,
+          postal_code: data.postal_code || '0000',
+          country: data.business_country
+        }
+      }
+      await OnboardingService.saveKybBusiness(dto)
+      await OnboardingService.createKybApplication()
+    }
+  },
+
+  /**
    * Obtiene una URL firmada para subir un documento de forma segura.
    * Reemplaza: supabase.storage.from('onboarding_docs').upload()
    */
@@ -138,7 +241,22 @@ export const OnboardingService = {
    * Sube un documento directamente como multipart/form-data.
    * Reemplaza el flujo de upload-url + registro separado.
    */
-  async uploadDocument(file: File, document_type: string, subject_type: string, subject_id?: string): Promise<void> {
+  async uploadDocument(fileOrUserId: any, docTypeOrKey: string, subjectTypeOrFile: any, subjectIdOrBool?: any): Promise<any> {
+    // Si recibe parámetros antiguos: (userId, docKey, file, true)
+    if (typeof subjectIdOrBool === 'boolean' && subjectTypeOrFile instanceof File) {
+      const supabase = createClient()
+      const path = `${fileOrUserId}/${Date.now()}_${docTypeOrKey}_${subjectTypeOrFile.name}`
+      const { error } = await supabase.storage.from('kyc-documents').upload(path, subjectTypeOrFile)
+      if (error) throw error
+      return path
+    }
+
+    // Comportamiento nuevo
+    const file = fileOrUserId as File
+    const document_type = docTypeOrKey
+    const subject_type = subjectTypeOrFile as string
+    const subject_id = subjectIdOrBool as string | undefined
+
     const formData = new FormData()
     formData.append('file', file)
     formData.append('document_type', document_type)

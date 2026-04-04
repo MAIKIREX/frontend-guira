@@ -5,12 +5,21 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { companyOnboardingSchema, type CompanyOnboardingValues } from '../schemas/company-onboarding.schema'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { useOnboardingStore } from '@/stores/onboarding-store'
 import { OnboardingService } from '@/services/onboarding.service'
 import { toast } from 'sonner'
 import { useState } from 'react'
 import { FileDropzone } from '@/components/shared/file-dropzone'
+import Flag from 'react-world-flags'
+import {
+  BUSINESS_TYPES,
+  BUSINESS_SOURCE_OF_FUNDS,
+  BUSINESS_ACCOUNT_PURPOSE,
+  EXPECTED_MONTHLY_PAYMENTS,
+  BRIDGE_COUNTRIES,
+} from '@/lib/bridge-constants'
 
 export function CompanyForm({ status, userId, onStatusChange }: { status: string | null; userId: string; onStatusChange: (status: string) => void }) {
   const { step, setStep, formData, updateFormData, id, reset } = useOnboardingStore()
@@ -21,20 +30,20 @@ export function CompanyForm({ status, userId, onStatusChange }: { status: string
     defaultValues: {
       company_legal_name: (formData.company_legal_name as string) || '',
       registration_number: (formData.registration_number as string) || '',
-      country_of_incorporation: (formData.country_of_incorporation as string) || '',
-      entity_type: (formData.entity_type as string) || '',
+      country_of_incorporation: (formData.country_of_incorporation as CompanyOnboardingValues['country_of_incorporation']) || ("" as any),
+      entity_type: (formData.entity_type as CompanyOnboardingValues['entity_type']) || ("" as any),
       incorporation_date: (formData.incorporation_date as string) || '',
       business_description: (formData.business_description as string) || '',
       business_street: (formData.business_street as string) || '',
       business_city: (formData.business_city as string) || '',
-      business_country: (formData.business_country as string) || '',
+      business_country: (formData.business_country as CompanyOnboardingValues['business_country']) || ("" as any),
       legal_rep_first_names: (formData.legal_rep_first_names as string) || '',
       legal_rep_last_names: (formData.legal_rep_last_names as string) || '',
       legal_rep_position: (formData.legal_rep_position as string) || '',
       legal_rep_id_number: (formData.legal_rep_id_number as string) || '',
-      purpose: (formData.purpose as string) || '',
-      source_of_funds: (formData.source_of_funds as string) || '',
-      estimated_monthly_volume: (formData.estimated_monthly_volume as string) || '',
+      purpose: (formData.purpose as CompanyOnboardingValues['purpose']) || ("" as any),
+      source_of_funds: (formData.source_of_funds as CompanyOnboardingValues['source_of_funds']) || ("" as any),
+      estimated_monthly_volume: (formData.estimated_monthly_volume as CompanyOnboardingValues['estimated_monthly_volume']) || ("" as any),
       tax_id: (formData.tax_id as string) || '',
       ubos: (formData.ubos as CompanyOnboardingValues['ubos']) || [],
     },
@@ -187,15 +196,52 @@ export function CompanyForm({ status, userId, onStatusChange }: { status: string
               <FormField control={form.control} name="tax_id" render={({ field }) => (
                 <FormItem><FormLabel>NIT / Tax ID</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
+
+              {/* Tipo de entidad — Select Bridge enum */}
               <FormField control={form.control} name="entity_type" render={({ field }) => (
-                <FormItem><FormLabel>Tipo de Entidad</FormLabel><FormControl><Input placeholder="SRL, SA, LLC..." {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>Tipo de Entidad</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <FormControl>
+                      <SelectTrigger><SelectValue placeholder="Selecciona un tipo" /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {BUSINESS_TYPES.map(t => (
+                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )} />
+
               <FormField control={form.control} name="incorporation_date" render={({ field }) => (
                 <FormItem><FormLabel>Fecha de Constitucion</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
+
+              {/* País de constitución — Select ISO alpha-3 */}
               <FormField control={form.control} name="country_of_incorporation" render={({ field }) => (
-                <FormItem><FormLabel>Pais Const.</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>País de Constitución</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <FormControl>
+                      <SelectTrigger><SelectValue placeholder="Selecciona un país" /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {BRIDGE_COUNTRIES.map(c => (
+                        <SelectItem key={c.value} value={c.value}>
+                          <div className="flex items-center gap-2">
+                            <Flag code={c.value} fallback={<span>🌐</span>} style={{ width: 24, height: 16, objectFit: 'cover' }} className="rounded-sm" />
+                            <span>{c.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )} />
+
               <FormField control={form.control} name="business_description" render={({ field }) => (
                 <FormItem className="col-span-2"><FormLabel>Descripcion Actividad</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
@@ -216,8 +262,28 @@ export function CompanyForm({ status, userId, onStatusChange }: { status: string
               <FormField control={form.control} name="business_city" render={({ field }) => (
                 <FormItem><FormLabel>Ciudad</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
+
+              {/* País de operación — Select ISO alpha-3 */}
               <FormField control={form.control} name="business_country" render={({ field }) => (
-                <FormItem><FormLabel>Pais</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>País (Empresa)</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <FormControl>
+                      <SelectTrigger><SelectValue placeholder="Selecciona un país" /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {BRIDGE_COUNTRIES.map(c => (
+                        <SelectItem key={c.value} value={c.value}>
+                          <div className="flex items-center gap-2">
+                            <Flag code={c.value} fallback={<span>🌐</span>} style={{ width: 24, height: 16, objectFit: 'cover' }} className="rounded-sm" />
+                            <span>{c.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )} />
             </div>
 
@@ -247,14 +313,59 @@ export function CompanyForm({ status, userId, onStatusChange }: { status: string
           <div className="space-y-4">
             <h2 className="text-xl font-medium">Informacion Financiera</h2>
             <div className="grid grid-cols-2 gap-4">
+
+              {/* Propósito de cuenta — Select Bridge enum */}
               <FormField control={form.control} name="purpose" render={({ field }) => (
-                <FormItem><FormLabel>Proposito de cuenta</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>Propósito de cuenta</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <FormControl>
+                      <SelectTrigger><SelectValue placeholder="Selecciona un propósito" /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {BUSINESS_ACCOUNT_PURPOSE.map(p => (
+                        <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )} />
+
+              {/* Origen de fondos — Select Bridge enum */}
               <FormField control={form.control} name="source_of_funds" render={({ field }) => (
-                <FormItem><FormLabel>Origen de fondos</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>Origen de fondos</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <FormControl>
+                      <SelectTrigger><SelectValue placeholder="Selecciona el origen" /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {BUSINESS_SOURCE_OF_FUNDS.map(s => (
+                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )} />
+
+              {/* Volumen mensual — Select Bridge ranges */}
               <FormField control={form.control} name="estimated_monthly_volume" render={({ field }) => (
-                <FormItem><FormLabel>Volumen Estimado (USD)</FormLabel><FormControl><Input min={0} step="0.01" type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>Volumen Estimado (USD/mes)</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger><SelectValue placeholder="Selecciona un rango" /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {EXPECTED_MONTHLY_PAYMENTS.map(m => (
+                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )} />
             </div>
             <div className="flex justify-between pt-4">
@@ -270,7 +381,7 @@ export function CompanyForm({ status, userId, onStatusChange }: { status: string
 
             <div className="space-y-4">
               <div className="border p-4 rounded bg-muted/20">
-                <FormLabel className="block mb-2">Constitucion / Registro Empresa</FormLabel>
+                <label className="block text-sm font-medium mb-2">Constitucion / Registro Empresa</label>
                 <FileDropzone accept="image/*,.pdf" helperText="Arrastra el documento de constitucion o selecciona un archivo." onFileSelect={(file) => {
                   if (file) handleDocUpload('company_cert', file)
                 }} />
@@ -278,7 +389,7 @@ export function CompanyForm({ status, userId, onStatusChange }: { status: string
               </div>
 
               <div className="border p-4 rounded bg-muted/20">
-                <FormLabel className="block mb-2">Documento Poder (Repr. Legal)</FormLabel>
+                <label className="block text-sm font-medium mb-2">Documento Poder (Repr. Legal)</label>
                 <FileDropzone accept="image/*,.pdf" helperText="Arrastra el documento del representante legal o selecciona un archivo." onFileSelect={(file) => {
                   if (file) handleDocUpload('legal_rep_id', file)
                 }} />
@@ -286,7 +397,7 @@ export function CompanyForm({ status, userId, onStatusChange }: { status: string
               </div>
 
               <div className="border p-4 rounded bg-muted/20">
-                <FormLabel className="block mb-2">Comprobante Domicilio Fiscal</FormLabel>
+                <label className="block text-sm font-medium mb-2">Comprobante Domicilio Fiscal</label>
                 <FileDropzone accept="image/*,.pdf" helperText="Arrastra el comprobante fiscal o selecciona un archivo." onFileSelect={(file) => {
                   if (file) handleDocUpload('proof_of_address', file)
                 }} />
@@ -307,9 +418,9 @@ export function CompanyForm({ status, userId, onStatusChange }: { status: string
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-medium">Declaracion de Socios (UBO)</h2>
-              <Button type="button" variant="outline" onClick={() => append({ first_names: '', last_names: '', percentage: '', nationality: '' })}>+ Agregar UBO</Button>
+              <Button type="button" variant="outline" onClick={() => append({ first_names: '', last_names: '', percentage: '', nationality: undefined as any })}>+ Agregar UBO</Button>
             </div>
-            <p className="text-sm text-muted-foreground">Registre a los beneficiarios finales (&gt; 10% prop., o control directivo).</p>
+            <p className="text-sm text-muted-foreground">Registre a los beneficiarios finales ({'>'} 10% prop., o control directivo).</p>
 
             {fields.map((field, index) => (
               <div key={field.id} className="border p-4 rounded relative space-y-4">
@@ -325,8 +436,27 @@ export function CompanyForm({ status, userId, onStatusChange }: { status: string
                   <FormField control={form.control} name={`ubos.${index}.percentage`} render={({ field }) => (
                     <FormItem><FormLabel>% Propiedad</FormLabel><FormControl><Input max={100} min={0} step="0.01" type="number" {...field} /></FormControl></FormItem>
                   )} />
+
+                  {/* Nacionalidad UBO — Select ISO alpha-3 */}
                   <FormField control={form.control} name={`ubos.${index}.nationality`} render={({ field }) => (
-                    <FormItem><FormLabel>Nacionalidad</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+                    <FormItem>
+                      <FormLabel>Nacionalidad</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <FormControl>
+                          <SelectTrigger><SelectValue placeholder="Selecciona un país" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {BRIDGE_COUNTRIES.map(c => (
+                            <SelectItem key={c.value} value={c.value}>
+                              <div className="flex items-center gap-2">
+                                <Flag code={c.value} fallback={<span>🌐</span>} style={{ width: 24, height: 16, objectFit: 'cover' }} className="rounded-sm" />
+                                <span>{c.label}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
                   )} />
                 </div>
                 <div className="grid grid-cols-2 gap-4 pt-2">

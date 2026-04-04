@@ -11,17 +11,32 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { AuthService } from '@/services/auth.service'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { Check, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { useRouter } from 'next/navigation'
 
 export function RegisterForm() {
+  const router = useRouter()
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: { fullName: '', email: '', password: '', acceptTerms: true },
   })
 
+  const password = form.watch('password') || ''
+
+  const passwordRequirements = [
+    { label: 'Al menos 12 caracteres', met: password.length >= 12 },
+    { label: 'Al menos una minúscula (a-z)', met: /[a-z]/.test(password) },
+    { label: 'Al menos una mayúscula (A-Z)', met: /[A-Z]/.test(password) },
+    { label: 'Al menos un número (0-9)', met: /[0-9]/.test(password) },
+    { label: 'Un carácter especial (!, @, #, $, etc.)', met: /[^A-Za-z0-9]/.test(password) },
+  ]
+
   async function onSubmit(data: RegisterFormValues) {
     try {
       await AuthService.signup(data)
-      toast.success('Cuenta creada. Revisa tu correo para verificar.')
+      toast.success('Cuenta creada. Revisa tu correo electrónico.')
+      router.push(`/registro/verificar?email=${encodeURIComponent(data.email)}`)
     } catch (error: unknown) {
       if (error instanceof Error) {
         toast.error(error.message || 'Error al intentar registrar')
@@ -77,6 +92,20 @@ export function RegisterForm() {
                 <FormControl>
                   <PasswordInput placeholder="••••••••" {...field} />
                 </FormControl>
+                <div className="flex flex-col gap-1.5 mt-2">
+                  {passwordRequirements.map((req, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs">
+                      {req.met ? (
+                        <Check className="h-3.5 w-3.5 text-green-500" />
+                      ) : (
+                        <X className="h-3.5 w-3.5 text-muted-foreground" />
+                      )}
+                      <span className={cn(req.met ? "text-green-500" : "text-muted-foreground")}>
+                        {req.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
                 <FormMessage />
               </FormItem>
             )}

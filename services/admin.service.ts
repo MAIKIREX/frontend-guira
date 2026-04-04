@@ -118,37 +118,16 @@ export const AdminService = {
   // ── TASAS PARALELAS (Forex API externo → NestJS /admin/settings) ────────────
   // La sincronización se llama al backend que ya tiene el endpoint de Exchange Rates.
 
-  async syncParallelRatesFromForexApi(args: {
+  async syncExchangeRates(args: {
     actor: StaffActor
-    appSettings: AppSettingRow[]
     reason?: string
   }) {
     assertPrivileged(args.actor)
-
-    const response = await fetch('https://api-mdp-2.onrender.com/api/forex/exchange-rate/all?asset=USDT', {
-      method: 'GET',
-      cache: 'no-store',
-    })
-
-    if (!response.ok) {
-      throw new Error(`No se pudo consultar el endpoint externo (${response.status}).`)
-    }
-
-    const payload = (await response.json()) as ForexRatesResponse
-    const buyRate = readExchangeRate(payload.buy?.data?.result?.exchangeRate, 'buy')
-    const sellRate = readExchangeRate(payload.sell?.data?.result?.exchangeRate, 'sell')
-
-    // Persistir vía el backend NestJS que hace audit log automático
-    const [buyResult, sellResult] = await Promise.all([
-      apiPatch<AppSettingRow>('/admin/settings/parallel_buy_rate', { value: buyRate }),
-      apiPatch<AppSettingRow>('/admin/settings/parallel_sell_rate', { value: sellRate }),
-    ])
-
-    return {
-      buy: buyResult,
-      sell: sellResult,
-      sourceRates: { buy: buyRate, sell: sellRate },
-    }
+    return apiPost<{ 
+      message: string; 
+      buy_rate_bob_usd: number; 
+      sell_rate_usd_bob: number 
+    }>('/admin/payment-orders/exchange-rates/sync')
   },
 
   // ── PSAV CONFIGS (via NestJS /admin/psav) ───────────────────────────────────

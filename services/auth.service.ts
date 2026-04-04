@@ -60,6 +60,7 @@ export const AuthService = {
       password,
       options: {
         data: { full_name: fullName },
+        emailRedirectTo: `${window.location.origin}/login?verified=true`, // Aquí controlas a dónde redirige tras confirmar
       },
     })
     if (error) throw error
@@ -78,6 +79,20 @@ export const AuthService = {
     }
 
     return data
+  },
+
+  /**
+   * Verifica el OTP (One-Time Password) enviado por correo para completar el registro
+   */
+  async verifyOTP({ email, token }: { email: string; token: string }) {
+    const supabase = createClient()
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: 'email', // 'email' es el tipo correcto para verificación de signup por OTP
+    })
+    if (error) throw error
+    return data.session
   },
 
   async logout() {
