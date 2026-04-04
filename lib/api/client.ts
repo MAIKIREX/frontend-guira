@@ -78,7 +78,6 @@ export async function apiUpload<T>(url: string, formData: FormData, config?: Axi
     ...config,
     headers: {
       ...config?.headers,
-      'Content-Type': 'multipart/form-data',
     },
     timeout: 60_000, // 60s para uploads
   })
