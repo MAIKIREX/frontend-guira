@@ -291,18 +291,20 @@ export type BusinessSourceOfFunds = typeof BUSINESS_SOURCE_OF_FUNDS[number]['val
 
 // ─── Account purpose — Business ───────────────────────────────────────────────
 export const BUSINESS_ACCOUNT_PURPOSE = [
-  { value: 'purchase_goods_and_services',         label: 'Compra de bienes y servicios' },
+  { value: 'purchase_goods_and_services',             label: 'Compra de bienes y servicios' },
   { value: 'receive_payments_for_goods_and_services', label: 'Cobros por bienes/servicios' },
-  { value: 'payroll',                             label: 'Pago de nómina' },
-  { value: 'treasury_management',                label: 'Gestión de tesorería' },
-  { value: 'investment_purposes',                label: 'Inversiones' },
-  { value: 'payments_to_friends_or_family_abroad', label: 'Pagos internacionales' },
-  { value: 'protect_wealth',                     label: 'Protección de patrimonio' },
-  { value: 'ecommerce_retail_payments',          label: 'Pagos e-commerce / retail' },
-  { value: 'charitable_donations',              label: 'Donaciones benéficas' },
-  { value: 'tax_optimization',                  label: 'Optimización fiscal' },
-  { value: 'third_party_money_transmission',    label: 'Transmisión de fondos de terceros' },
-  { value: 'other',                             label: 'Otro' },
+  { value: 'payroll',                                 label: 'Pago de nómina' },
+  { value: 'treasury_management',                    label: 'Gestión de tesorería' },
+  { value: 'investment_purposes',                    label: 'Inversiones' },
+  { value: 'payments_to_friends_or_family_abroad',   label: 'Pagos internacionales' },
+  { value: 'protect_wealth',                         label: 'Protección de patrimonio' },
+  { value: 'ecommerce_retail_payments',              label: 'Pagos e-commerce / retail' },
+  { value: 'charitable_donations',                   label: 'Donaciones benéficas' },
+  // FIX D-02: missing value added to match Bridge spec (13 values total)
+  { value: 'personal_or_living_expenses',            label: 'Gastos personales / manutención' },
+  { value: 'tax_optimization',                       label: 'Optimización fiscal' },
+  { value: 'third_party_money_transmission',         label: 'Transmisión de fondos de terceros' },
+  { value: 'other',                                  label: 'Otro' },
 ] as const
 
 export type BusinessAccountPurpose = typeof BUSINESS_ACCOUNT_PURPOSE[number]['value']

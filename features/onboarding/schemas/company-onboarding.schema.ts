@@ -18,7 +18,8 @@ export const uboSchema = z.object({
     .number({ error: 'Debe ser un número' })
     .min(0)
     .max(100, 'No puede superar 100%'),
-  date_of_birth: z.string().optional(),
+  // FIX N-05: date_of_birth is REQUIRED by Bridge AssociatedPerson schema
+  date_of_birth: z.string().min(10, 'Fecha de nacimiento requerida (aaaa-mm-dd)'),
   nationality: z.enum(BRIDGE_COUNTRY_CODES, {
     error: 'Selecciona un país válido',
   }).optional(),
@@ -102,10 +103,8 @@ const companyOnboardingBase = z.object({
   source_of_funds: z.enum(BUSINESS_SOF_VALUES, {
     error: 'Selecciona un origen de fondos válido',
   }),
-  // F3: renombrado estimated_monthly_volume → expected_monthly_payments_usd
-  expected_monthly_payments_usd: z.enum(MONTHLY_PAYMENT_VALUES, {
-    error: 'Selecciona un rango de volumen mensual',
-  }),
+  // F3: renombrado estimated_monthly_volume → expected_monthly_payments_usd, now integer
+  expected_monthly_payments_usd: z.coerce.number().int('Debe ser un número entero').min(0, 'El valor no puede ser negativo'),
   conducts_money_services: z.boolean(),
   uses_bridge_for_money_services: z.boolean(),
 
@@ -124,6 +123,8 @@ const companyOnboardingBase = z.object({
   }),
   legal_rep_id_number: z.string().min(2, 'Requerido'),
   legal_rep_email: z.string().email('Email inválido'),
+  // FIX N-05: date_of_birth is REQUIRED by Bridge AssociatedPerson schema
+  legal_rep_date_of_birth: z.string().min(10, 'Fecha de nacimiento del Rep. Legal requerida (aaaa-mm-dd)'),
   legal_rep_is_pep: z.boolean(),
   // P0-B: Residential Address mandatory for Director via Bridge API
   legal_rep_address1: z.string().min(4, 'Dirección residencial requerida'),

@@ -88,7 +88,7 @@ export interface CreateBusinessDto {
   state_of_incorporation?: string
   operating_countries?: string[]
   website?: string
-  /** P2-D: primary_website mejora aprobación KYB en Bridge */
+  /** Bridge field: primary_website improves KYB approval */
   primary_website?: string
   email: string
   phone?: string
@@ -99,24 +99,70 @@ export interface CreateBusinessDto {
   postal_code?: string
   country: string
   business_description?: string
-  /** P1-B: array de códigos NAICS 2022 (ej. ['522320', '541511']) */
+  /** Array of NAICS 2022 codes (e.g. ['522320', '541511']) */
   business_industry?: string[]
-  /** H10 — Bridge enum */
-  account_purpose?: 'international_payments' | 'business_payments' | 'personal_payments' | 'savings' | 'investment' | 'payroll' | 'remittances' | 'other'
-  /** P1-A: required when account_purpose = 'other' */
+  /**
+   * FIX D-02/N-02 — Bridge BUSINESS account_purpose enum (DIFFERENT from individual).
+   * Bridge spec: UpdateBusinessCustomerPayload.account_purpose
+   * Excludes: operating_a_company, receive_salary, receive_payment_for_freelancing
+   * Adds: payroll, receive_payments_for_goods_and_services, tax_optimization,
+   *       third_party_money_transmission, treasury_management
+   */
+  account_purpose?:
+    | 'charitable_donations'
+    | 'ecommerce_retail_payments'
+    | 'investment_purposes'
+    | 'other'
+    | 'payments_to_friends_or_family_abroad'
+    | 'payroll'
+    | 'personal_or_living_expenses'
+    | 'protect_wealth'
+    | 'purchase_goods_and_services'
+    | 'receive_payments_for_goods_and_services'
+    | 'tax_optimization'
+    | 'third_party_money_transmission'
+    | 'treasury_management'
+  /** Required when account_purpose = 'other' */
   account_purpose_other?: string
-  /** H10 — Bridge enum */
-  source_of_funds?: 'salary' | 'business_revenue' | 'investment_income' | 'retirement_income' | 'gift' | 'inheritance' | 'loan' | 'other'
+  /**
+   * FIX D-01 — Bridge BUSINESS source_of_funds enum (DIFFERENT from individual).
+   * Bridge spec: UpdateBusinessCustomerPayload.source_of_funds
+   */
+  source_of_funds?:
+    | 'business_loans'
+    | 'grants'
+    | 'inter_company_funds'
+    | 'investment_proceeds'
+    | 'legal_settlement'
+    | 'owners_capital'
+    | 'pension_retirement'
+    | 'sale_of_assets'
+    | 'sales_of_goods_and_services'
+    | 'third_party_funds'
+    | 'treasury_reserves'
+  /** Required for high-risk customers when source_of_funds is provided */
+  source_of_funds_description?: string
   conducts_money_services?: boolean
   uses_bridge_for_money_services?: boolean
   compliance_explanation?: string
-  // P0-C: Bridge enum exact values
-  /** P0-C — Bridge enum: 0_99999 | 100000_999999 | 1000000_9999999 | 10000000_49999999 | 50000000_249999999 | 250000000_plus */
+  /** Estimated annual revenue (string enum for business) */
   estimated_annual_revenue_usd?: '0_99999' | '100000_999999' | '1000000_9999999' | '10000000_49999999' | '50000000_249999999' | '250000000_plus'
-  /** P0-D — Array of Bridge high-risk activity codes from the official enum */
+  /**
+   * FIX N-03 — Bridge spec defines expected_monthly_payments_usd for BUSINESS as `integer`,
+   * NOT a string enum (unlike the individual version which uses string ranges).
+   */
+  expected_monthly_payments_usd?: number
+  /** FIX N-04 — Required for high-risk customers. Bridge spec field. */
+  acting_as_intermediary?: boolean
+  /** Does the business operate in any Bridge-prohibited countries? */
+  operates_in_prohibited_countries?: boolean
+  /** Array of Bridge high-risk activity codes */
   high_risk_activities?: string[]
-  /** F3 — Expected monthly payment volume (same enum as individuals) */
-  expected_monthly_payments_usd?: 'less_than_1000' | '1000_to_10000' | '10000_to_50000' | '50000_to_100000' | 'greater_than_100000'
+  /**
+   * FIX N-06 — Required when high_risk_activities contains entries other than none_of_the_above.
+   * Bridge spec: UpdateBusinessCustomerPayload.high_risk_activities_explanation
+   */
+  high_risk_activities_explanation?: string
   // P2: Physical / Operational Address (different from registered legal address)
   physical_address1?: string
   physical_address2?: string
@@ -132,18 +178,20 @@ export interface CreateDirectorDto {
   last_name: string
   position: string
   is_signer: boolean
-  date_of_birth?: string
+  /** FIX N-05 — Bridge AssociatedPerson requires birth_date */
+  date_of_birth: string
   nationality?: string
   country_of_residence?: string
   id_type?: string
   id_number?: string
   id_expiry_date?: string
-  email?: string
+  /** FIX N-05 — Bridge AssociatedPerson requires email */
+  email: string
   phone?: string
-  address1?: string
-  city?: string
-  country?: string
-  /** Fuga B — PEP status requerido por Bridge para todos los associated_persons */
+  address1: string
+  city: string
+  country: string
+  /** PEP status required by Bridge for all associated_persons */
   is_pep: boolean
 }
 
@@ -151,22 +199,24 @@ export interface CreateUboDto {
   first_name: string
   last_name: string
   ownership_percent: number      // número 0-100
-  date_of_birth?: string
+  /** FIX N-05 — Bridge AssociatedPerson requires birth_date */
+  date_of_birth: string
   nationality?: string
   country_of_residence?: string
   id_type?: string
   id_number?: string
   id_expiry_date?: string
   tax_id?: string
-  email?: string
+  /** FIX N-05 — Bridge AssociatedPerson requires email */
+  email: string
   phone?: string
-  address1?: string
-  city?: string
+  address1: string
+  city: string
   state?: string
   postal_code?: string
-  country?: string
+  country: string
   is_pep: boolean
-  /** Fuga A — Control prong: UBO con control operacional (FinCEN Control Prong) */
+  /** Fuga A — Control prong: UBO with operational control (FinCEN Control Prong) */
   has_control?: boolean
 }
 

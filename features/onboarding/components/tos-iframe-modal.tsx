@@ -23,7 +23,7 @@ interface TosIframeModalProps {
 }
 
 // ── Origen permitido para el postMessage de Bridge ──────────────────────
-const BRIDGE_ORIGIN = 'https://dashboard.bridge.xyz'
+// Obtenido dinámicamente desde el tosUrl para soportar Sandboxes y Prod
 
 // ── Componente ──────────────────────────────────────────────────────────
 export function TosIframeModal({
@@ -41,10 +41,23 @@ export function TosIframeModal({
     if (!open) return
 
     function handleMessage(event: MessageEvent) {
-      // Validar origen — sólo aceptar mensajes de Bridge
-      if (event.origin !== BRIDGE_ORIGIN) return
+      // Validar origen — aceptar mensajes del dominio de Bridge dictado por tosUrl
+      try {
+        const allowedOrigin = new URL(tosUrl).origin
+        if (event.origin !== allowedOrigin) return
+      } catch (e) {
+        return
+      }
 
-      const data = event.data as Record<string, unknown> | null
+      let data = event.data
+      if (typeof data === 'string') {
+        try {
+          data = JSON.parse(data)
+        } catch (e) {
+          return
+        }
+      }
+
       if (!data || typeof data !== 'object') return
 
       // Bridge puede enviar camelCase o snake_case

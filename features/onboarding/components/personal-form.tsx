@@ -95,7 +95,11 @@ export function PersonalForm({
       isValid = await form.trigger(['address1', 'city', 'country'])
     } else if (step === 4) {
       // F3: campo renombrado
-      isValid = await form.trigger(['most_recent_occupation', 'account_purpose', 'source_of_funds', 'expected_monthly_payments_usd'])
+      const fieldsToValidate: any = ['most_recent_occupation', 'account_purpose', 'source_of_funds', 'expected_monthly_payments_usd']
+      if (form.getValues('account_purpose') === 'other') {
+        fieldsToValidate.push('account_purpose_other')
+      }
+      isValid = await form.trigger(fieldsToValidate)
     }
 
     if (isValid) {
@@ -177,26 +181,26 @@ export function PersonalForm({
         country_of_residence:          data.country_of_residence,
         id_type:                       data.id_type as 'passport' | 'drivers_license' | 'national_id',
         id_number:                     data.id_number,
-        id_expiry_date:                data.id_expiry_date,
+        id_expiry_date:                data.id_expiry_date || undefined,
         email:                         data.email,
         phone:                         data.phone,
         address1:                      data.address1,
-        address2:                      data.address2,
+        address2:                      data.address2 || undefined,
         city:                          data.city,
-        state:                         data.state,
-        postal_code:                   data.postal_code,
+        state:                         data.state || undefined,
+        postal_code:                   data.postal_code || undefined,
         country:                       data.country,
-        tax_id:                        data.tax_id,
+        tax_id:                        data.tax_id || undefined,
         source_of_funds:               data.source_of_funds as any,
         account_purpose:               data.account_purpose as any,
-        account_purpose_other:         data.account_purpose === 'other' ? data.account_purpose_other : undefined,
+        account_purpose_other:         data.account_purpose === 'other' ? (data.account_purpose_other || undefined) : undefined,
         is_pep:                        data.is_pep,
         // F3: campo renombrado — se envía como expected_monthly_payments_usd al backend
         expected_monthly_payments_usd: data.expected_monthly_payments_usd as any,
         // F5: employment_status (P1, opcional)
-        employment_status:             data.employment_status as any,
+        employment_status:             (data.employment_status || undefined) as any,
         // F-OCC: most_recent_occupation reemplaza el campo de texto libre anterior
-        most_recent_occupation:        data.most_recent_occupation as any,
+        most_recent_occupation:        (data.most_recent_occupation || undefined) as any,
       })
 
       // Paso 2: Crear expediente (idempotente — si ya existe lo devuelve)
