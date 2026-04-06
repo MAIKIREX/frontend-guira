@@ -34,12 +34,25 @@ import type { PaginationParams } from '@/lib/api/types'
 
 // ── DTOs de entrada ───────────────────────────────────────────────
 
+export type InterbankFlowType =
+  | 'bolivia_to_world'
+  | 'wallet_to_wallet'
+  | 'bolivia_to_wallet'
+  | 'world_to_bolivia'
+  | 'world_to_wallet'
+
 export interface CreateInterbankOrderDto {
-  amount_origin: number
-  origin_currency: string
-  destination_currency: string
-  processing_rail: string
+  flow_type: InterbankFlowType
+  amount: number
+  business_purpose: string
+  external_account_id?: string
+  payin_route_id?: string
   supplier_id?: string
+  destination_type?: string
+  destination_currency?: string
+  destination_bank_name?: string
+  destination_account_number?: string
+  destination_account_holder?: string
   notes?: string
 }
 
@@ -54,9 +67,10 @@ export type WalletRampFlowType =
 export interface CreateWalletRampOrderDto {
   flow_type: WalletRampFlowType
   amount: number
-  currency: string
-  external_account_id?: string        // Para ramps con destino banco externo
-  liquidation_address_id?: string     // Para ramps con destino crypto
+  business_purpose?: string
+  currency?: string // fallback
+  external_account_id?: string
+  liquidation_address_id?: string
   destination_currency?: string
 }
 
@@ -121,10 +135,34 @@ export const PaymentsService = {
    * El backend guarda el archivo y actualiza el estado de la orden automáticamente.
    */
   async uploadOrderEvidence(orderId: string, file: File, field: 'evidence_url' | 'receipt_url'): Promise<PaymentOrder> {
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('field', field)
-    return apiUpload<PaymentOrder>(`/payment-orders/${orderId}/upload`, formData)
+    const { createClient } = await import('@/lib/supabase/browser')
+    const supabase = createClient()
+    
+    // Auto-fetch userId from session for RLS compliance
+    const { data: { session } } = await supabase.auth.getSession()
+    const userId = session?.user?.id
+
+    if (!userId) {
+      throw new Error("No hay sesión activa para subir el recibo")
+    }
+
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${userId}/${orderId}_${Date.now()}.${fileExt}`
+
+    const { data: uploadData, error } = await supabase.storage
+      .from('payment-receipts')
+      .upload(fileName, file, { upsert: true })
+
+    if (error) {
+      throw new Error(`Error uploading to Supabase: ${error.message}`)
+    }
+
+    // Backend needs the relative path or full url.
+    const storagePath = `payment-receipts/${uploadData.path}`
+
+    return apiPost<PaymentOrder>(`/payment-orders/${orderId}/confirm-deposit`, {
+      deposit_proof_url: storagePath
+    })
   },
 
   /**

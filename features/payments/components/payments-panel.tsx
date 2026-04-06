@@ -69,7 +69,7 @@ export function PaymentsPanel() {
     )
   }
 
-  const canOperate = profile?.role === 'client' && profile.onboarding_status === 'verified'
+  const canOperate = profile?.role === 'client' && profile.onboarding_status === 'approved'
 
   return (
     <div className="space-y-6">

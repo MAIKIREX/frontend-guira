@@ -2048,7 +2048,8 @@ function formatDate(value?: string) {
   return format(new Date(value), 'dd/MM/yyyy HH:mm')
 }
 
-function getInitials(value: string) {
+function getInitials(value?: string | null) {
+  if (!value || typeof value !== 'string') return 'CL'
   const words = value
     .trim()
     .split(/\s+/)

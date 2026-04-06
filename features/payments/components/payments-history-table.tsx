@@ -50,6 +50,8 @@ export function PaymentsHistoryTable({
   onUploadOrderFile,
   onCancelOrder,
 }: PaymentsHistoryTableProps) {
+  // Defensive: ensure orders is always an array even if the API returns a wrapped object
+  const safeOrders: PaymentOrder[] = Array.isArray(orders) ? orders : []
   const [files, setFiles] = useState<Record<string, Partial<Record<OrderFileField, File>>>>({})
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<'all' | PaymentOrder['status']>('all')
@@ -82,24 +84,24 @@ export function PaymentsHistoryTable({
   useEffect(() => {
     setExpandedOrders((current) => {
       const next = { ...current }
-      orders.forEach((order, index) => {
+      safeOrders.forEach((order, index) => {
         if (next[order.id] === undefined) next[order.id] = index === 0
       })
       return next
     })
-  }, [orders])
+  }, [safeOrders])
 
   const filteredOrders = useMemo(
     () =>
-      orders.filter((order) => {
+      safeOrders.filter((order) => {
         const statusMatches = statusFilter === 'all' || order.status === statusFilter
         const searchMatches = !search || order.id.toLowerCase().includes(search.toLowerCase())
         return statusMatches && searchMatches
       }),
-    [orders, search, statusFilter]
+    [safeOrders, search, statusFilter]
   )
 
-  if (orders.length === 0) {
+  if (safeOrders.length === 0) {
     return (
       <Card>
         <CardHeader>

@@ -44,12 +44,21 @@ export function usePaymentsModule() {
 
     try {
       // Carga paralela — reemplaza el getSnapshot() con 6 queries en 1
-      const [orders, suppliers, feesConfig, exchangeRates] = await Promise.all([
+      const [rawOrders, suppliers, feesConfig, exchangeRates] = await Promise.all([
         PaymentsService.getOrders(),
         PaymentsService.getSuppliers(),
         PaymentsService.getFeesConfig(),
         PaymentsService.getExchangeRates(),
       ])
+
+      // Normalize: backend may return a wrapped object { data: [...] } or { items: [...] }
+      const orders: PaymentOrder[] = Array.isArray(rawOrders)
+        ? rawOrders
+        : Array.isArray((rawOrders as any)?.data)
+          ? (rawOrders as any).data
+          : Array.isArray((rawOrders as any)?.items)
+            ? (rawOrders as any).items
+            : []
 
       setState({
         orders,
@@ -136,11 +145,18 @@ export function usePaymentsModule() {
    * como parte del mismo flujo — el frontend solo envía el archivo.
    */
   const createOrder = useCallback(async (
-    input: CreatePaymentOrderInput,
+    input: any,
     supportFile?: File | null,
     evidenceFile?: File | null
   ) => {
-    let order = await PaymentsService.createInterbankOrder(input as any)
+    let order: PaymentOrder;
+    const rampFlows = ['fiat_bo_to_bridge_wallet', 'crypto_to_bridge_wallet', 'fiat_us_to_bridge_wallet', 'bridge_wallet_to_fiat_bo', 'bridge_wallet_to_crypto', 'bridge_wallet_to_fiat_us']
+    
+    if (rampFlows.includes(input.flow_type)) {
+      order = await PaymentsService.createWalletRampOrder(input as any)
+    } else {
+      order = await PaymentsService.createInterbankOrder(input as any)
+    }
 
     if (supportFile) {
       order = await PaymentsService.uploadOrderEvidence(order.id, supportFile, 'receipt_url')

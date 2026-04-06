@@ -56,102 +56,30 @@ export function getDefaultRouteForAction(action?: string | null): SupportedPayme
 export function buildPaymentOrderPayload(
   values: PaymentOrderFormValues,
   userId: string
-): CreatePaymentOrderInput {
+): any {
+  // Eliminamos el objeto "metadata" y propagamos al nivel raíz
+  // Mapeamos según el nuevo esquema del Backend
   return {
     user_id: userId,
-    order_type: resolveOrderType(values.route),
-    processing_rail: resolveProcessingRail(values.route, values.delivery_method),
-    amount_origin: values.amount_origin,
-    origin_currency: values.origin_currency,
-    amount_converted: values.amount_converted,
+    flow_type: resolveFlowType(values.route),
+    amount: values.amount_origin,
+    business_purpose: values.payment_reason || 'Servicios',
+    external_account_id: values.supplier_id || null, // temporalmente mapeando supplier_id aquí si aplica
     destination_currency: values.destination_currency,
-    exchange_rate_applied: values.exchange_rate_applied,
-    fee_total: values.fee_total,
-    supplier_id: values.supplier_id || null,
-    beneficiary_id: null,
-    metadata: buildMetadata(values),
+    notes: `Route: ${values.route} | Delivery: ${values.delivery_method}`
   }
 }
 
-function resolveOrderType(route: SupportedPaymentRoute): CreatePaymentOrderInput['order_type'] {
+function resolveFlowType(route: SupportedPaymentRoute): string {
   switch (route) {
     case 'bolivia_to_exterior':
-      return 'BO_TO_WORLD'
+      return 'bolivia_to_world'
     case 'us_to_bolivia':
-      return 'WORLD_TO_BO'
+      return 'world_to_bolivia'
     case 'us_to_wallet':
-      return 'US_TO_WALLET'
+      return 'fiat_us_to_bridge_wallet'
     case 'crypto_to_crypto':
-      return 'CRYPTO_TO_CRYPTO'
+      return 'wallet_to_wallet'
   }
 }
 
-function resolveProcessingRail(
-  route: SupportedPaymentRoute,
-  deliveryMethod: DeliveryMethod
-): CreatePaymentOrderInput['processing_rail'] {
-  if (route === 'us_to_wallet') return 'PSAV'
-  if (route === 'crypto_to_crypto') return 'DIGITAL_NETWORK'
-  if (deliveryMethod === 'swift') return 'SWIFT'
-  if (deliveryMethod === 'ach') return 'ACH'
-  return 'DIGITAL_NETWORK'
-}
-
-function buildMetadata(values: PaymentOrderFormValues): PaymentOrderMetadata {
-  const metadata: PaymentOrderMetadata = {
-    route: values.route,
-    delivery_method: values.delivery_method,
-    payment_reason: values.payment_reason,
-    intended_amount: values.intended_amount,
-    destination_address: values.route === 'us_to_wallet'
-      ? values.crypto_address || values.destination_address
-      : values.destination_address,
-    stablecoin: values.stablecoin,
-  }
-
-  if (values.route === 'us_to_bolivia') {
-    metadata.receive_variant = values.receive_variant
-    metadata.instructions_source = values.receive_variant === 'bank_qr' ? 'guira_hardcoded' : 'supplier'
-  }
-
-  if (values.route === 'us_to_wallet') {
-    metadata.receive_variant = 'wallet'
-    metadata.instructions_source = 'psav'
-  }
-
-  if (values.route === 'bolivia_to_exterior' || values.route === 'crypto_to_crypto') {
-    metadata.ui_method_group = values.ui_method_group ?? (values.delivery_method === 'crypto' ? 'crypto' : 'bank')
-    metadata.instructions_source = values.delivery_method === 'crypto' ? 'guira_hardcoded' : 'psav'
-  }
-
-  if (values.route === 'bolivia_to_exterior') {
-    metadata.funding_method = values.funding_method
-  }
-
-  if (values.delivery_method === 'swift') {
-    metadata.swift_details = {
-      bankName: values.swift_bank_name ?? '',
-      swiftCode: values.swift_code ?? '',
-      iban: values.swift_iban ?? '',
-      bankAddress: values.swift_bank_address ?? '',
-      country: values.swift_country ?? '',
-    }
-  }
-
-  if (values.delivery_method === 'ach' && (values.route === 'bolivia_to_exterior' || values.route === 'us_to_bolivia')) {
-    metadata.ach_details = {
-      routingNumber: values.ach_routing_number ?? '',
-      accountNumber: values.ach_account_number ?? '',
-      bankName: values.ach_bank_name ?? '',
-    }
-  }
-
-  if (values.delivery_method === 'crypto' || values.route === 'us_to_wallet') {
-    metadata.crypto_destination = {
-      address: values.crypto_address || values.destination_address || '',
-      network: values.crypto_network ?? '',
-    }
-  }
-
-  return metadata
-}

@@ -158,7 +158,10 @@ function getErrorCode(status: number, body?: Record<string, unknown>): string {
 }
 
 function getErrorMessage(status: number, body?: Record<string, unknown>): string {
-  if (body?.message && typeof body.message === 'string') return body.message
+  if (body?.message) {
+    if (typeof body.message === 'string') return body.message
+    if (Array.isArray(body.message)) return body.message.join(', ')
+  }
 
   switch (status) {
     case 400: return 'Solicitud inválida'

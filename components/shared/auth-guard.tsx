@@ -225,7 +225,7 @@ async function resolveRedirect({
 
   const isStaffAdmin = profile.role === 'staff' || profile.role === 'admin' || profile.role === 'super_admin'
   const isClient = profile.role === 'client'
-  const isVerifiedClient = isClient && profile.onboarding_status === 'verified'
+  const isVerifiedClient = isClient && profile.onboarding_status === 'approved'
 
   if (isPublicPath(pathname)) {
     if (isStaffAdmin) return '/admin/orders'
