@@ -5,7 +5,7 @@ export const staffReasonSchema = z.object({
 })
 
 export const staffOnboardingActionSchema = z.object({
-  status: z.enum(['verified', 'rejected', 'needs_changes']),
+  status: z.enum(['approved', 'rejected', 'in_review']),
   reason: z.string().trim().min(5, 'Ingresa un motivo descriptivo de al menos 5 caracteres.'),
 })
 

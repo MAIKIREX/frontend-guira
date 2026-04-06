@@ -52,8 +52,8 @@ import type { PaymentOrder } from '@/types/payment-order'
 export function OnboardingActions({ actor, record, onUpdated }: { actor: StaffActor; record: StaffOnboardingRecord; onUpdated: (record: StaffOnboardingRecord) => Promise<void> | void }) {
   const availableStatuses = useMemo(() => {
     const statuses: StaffOnboardingActionValues['status'][] = []
-    if (record.status !== 'verified') statuses.push('verified')
-    if (record.status !== 'needs_changes') statuses.push('needs_changes')
+    if (record.status !== 'approved') statuses.push('approved')
+    if (record.status !== 'in_review') statuses.push('in_review')
     if (record.status !== 'rejected') statuses.push('rejected')
     return statuses
   }, [record.status])
@@ -86,7 +86,7 @@ export function OnboardingDetailDialog({ actor, record, onUpdated }: { actor: St
               <div><span className="text-muted-foreground">Nombre:</span> {record.profiles?.full_name ?? 'Sin nombre'}</div>
               <div><span className="text-muted-foreground">Email:</span> {record.profiles?.email ?? 'Sin email'}</div>
               <div><span className="text-muted-foreground">Tipo:</span> <span className="uppercase">{record.type}</span></div>
-              <div><span className="text-muted-foreground">Estado Actual:</span> <span className={"font-semibold lowercase px-2 py-0.5 rounded-full " + (record.status === 'verified' ? 'bg-emerald-400/15 text-emerald-700 dark:text-emerald-300' : record.status === 'rejected' ? 'bg-red-500/15 text-red-700 dark:text-red-300' : 'bg-amber-400/15 text-amber-700 dark:text-amber-300')}>{record.status}</span></div>
+              <div><span className="text-muted-foreground">Estado Actual:</span> <span className={"font-semibold lowercase px-2 py-0.5 rounded-full " + (record.status === 'approved' ? 'bg-emerald-400/15 text-emerald-700 dark:text-emerald-300' : record.status === 'rejected' ? 'bg-red-500/15 text-red-700 dark:text-red-300' : 'bg-amber-400/15 text-amber-700 dark:text-amber-300')}>{record.status}</span></div>
             </div>
 
             <div className="mt-3">
@@ -1054,10 +1054,10 @@ function hasClientDepositEvidence(order: PaymentOrder) {
 
 function getOnboardingActionLabel(status: StaffOnboardingActionValues['status']) {
   switch (status) {
-    case 'verified':
-      return 'Verificar'
-    case 'needs_changes':
-      return 'Pedir cambios'
+    case 'approved':
+      return 'Aprobar'
+    case 'in_review':
+      return 'En revision'
     case 'rejected':
       return 'Rechazar'
   }

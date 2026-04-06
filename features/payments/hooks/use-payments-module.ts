@@ -44,12 +44,10 @@ export function usePaymentsModule() {
 
     try {
       // Carga paralela — reemplaza el getSnapshot() con 6 queries en 1
-      const [orders, suppliers, feesConfig, psavConfigs, appSettings, exchangeRates] = await Promise.all([
+      const [orders, suppliers, feesConfig, exchangeRates] = await Promise.all([
         PaymentsService.getOrders(),
         PaymentsService.getSuppliers(),
         PaymentsService.getFeesConfig(),
-        PaymentsService.getPsavConfig(),
-        PaymentsService.getFeesConfig(), // TODO: reemplazar por /settings/public cuando esté disponible
         PaymentsService.getExchangeRates(),
       ])
 
@@ -57,8 +55,8 @@ export function usePaymentsModule() {
         orders,
         suppliers,
         feesConfig: feesConfig as FeeConfigRow[],
-        psavConfigs: psavConfigs as PsavConfigRow[],
-        appSettings: appSettings as AppSettingRow[],
+        psavConfigs: [] as PsavConfigRow[],
+        appSettings: [] as AppSettingRow[],
         exchangeRates,
         gaps: [],
       })

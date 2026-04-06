@@ -16,21 +16,18 @@ import { FileDropzone } from '@/components/shared/file-dropzone'
 import { Loader2, CheckCircle2, FileText } from 'lucide-react'
 import { TosIframeModal } from './tos-iframe-modal'
 import Flag from 'react-world-flags'
+import { PhoneInputField } from '@/components/shared/phone-input-field'
 import {
   INDIVIDUAL_ID_TYPES,
   INDIVIDUAL_SOURCE_OF_FUNDS,
   INDIVIDUAL_ACCOUNT_PURPOSE,
   EXPECTED_MONTHLY_PAYMENTS,
+  EMPLOYMENT_STATUS_OPTIONS,
+  OCCUPATION_OPTIONS,
   BRIDGE_COUNTRIES,
 } from '@/lib/bridge-constants'
 
-// ── Tipos de documento válidos del backend ──────────────────────────
-const DOCUMENT_TYPES_KYC = [
-  { key: 'national_id',        label: 'Documento de Identidad (Frente + Reverso)' },
-  { key: 'passport',           label: 'Pasaporte' },
-  { key: 'drivers_license',    label: 'Licencia de Conducir' },
-  { key: 'proof_of_address',   label: 'Comprobante de Domicilio' },
-]
+import { getRequiredDocumentsForId } from '@/lib/document-requirements'
 
 export function PersonalForm({
   userId,
@@ -51,30 +48,39 @@ export function PersonalForm({
   const form = useForm<PersonalOnboardingValues>({
     resolver: zodResolver(personalOnboardingSchema),
     defaultValues: {
-      first_name:              (formData.first_name as string) || '',
-      last_name:               (formData.last_name as string) || '',
-      date_of_birth:           (formData.date_of_birth as string) || '',
-      nationality:             (formData.nationality as any) || ('' as any),
-      country_of_residence:    (formData.country_of_residence as any) || ('' as any),
-      id_type:                 (formData.id_type as any) || ('' as any),
-      id_number:               (formData.id_number as string) || '',
-      id_expiry_date:          (formData.id_expiry_date as string) || '',
-      email:                   (formData.email as string) || '',
-      phone:                   (formData.phone as string) || '',
-      address1:                (formData.address1 as string) || '',
-      address2:                (formData.address2 as string) || '',
-      city:                    (formData.city as string) || '',
-      state:                   (formData.state as string) || '',
-      postal_code:             (formData.postal_code as string) || '',
-      country:                 (formData.country as any) || ('' as any),
-      occupation:              (formData.occupation as string) || '',
-      account_purpose:         (formData.account_purpose as any) || ('' as any),
-      source_of_funds:         (formData.source_of_funds as any) || ('' as any),
-      estimated_monthly_volume:(formData.estimated_monthly_volume as any) || ('' as any),
-      tax_id:                  (formData.tax_id as string) || '',
-      is_pep:                  (formData.is_pep as boolean) ?? false,
+      first_name:                    (formData.first_name as string) || '',
+      middle_name:                   (formData.middle_name as string) || '',
+      last_name:                     (formData.last_name as string) || '',
+      date_of_birth:                 (formData.date_of_birth as string) || '',
+      nationality:                   (formData.nationality as any) || ('' as any),
+      country_of_residence:          (formData.country_of_residence as any) || ('' as any),
+      id_type:                       (formData.id_type as any) || ('' as any),
+      id_number:                     (formData.id_number as string) || '',
+      id_expiry_date:                (formData.id_expiry_date as string) || '',
+      email:                         (formData.email as string) || '',
+      phone:                         (formData.phone as string) || '',
+      address1:                      (formData.address1 as string) || '',
+      address2:                      (formData.address2 as string) || '',
+      city:                          (formData.city as string) || '',
+      state:                         (formData.state as string) || '',
+      postal_code:                   (formData.postal_code as string) || '',
+      country:                       (formData.country as any) || ('' as any),
+      most_recent_occupation:        (formData.most_recent_occupation as any) || undefined,
+      account_purpose:               (formData.account_purpose as any) || ('' as any),
+      account_purpose_other:         (formData.account_purpose_other as string) || '',
+      source_of_funds:               (formData.source_of_funds as any) || ('' as any),
+      // F3: campo renombrado de estimated_monthly_volume a expected_monthly_payments_usd
+      expected_monthly_payments_usd: (formData.expected_monthly_payments_usd as any) || ('' as any),
+      tax_id:                        (formData.tax_id as string) || '',
+      is_pep:                        (formData.is_pep as boolean) ?? false,
+      // F5: employment_status (P1 high-risk, opcional)
+      employment_status:             (formData.employment_status as any) || undefined,
     },
   })
+
+  // form.watch debe ir DESPUÉS de useForm — fix lint "used before declaration"
+  const selectedIdType = form.watch('id_type')
+  const requiredDocuments = getRequiredDocumentsForId(selectedIdType)
 
   // ── Avanzar entre pasos con validación parcial ────────────────────
   const handleNext = async () => {
@@ -88,7 +94,8 @@ export function PersonalForm({
     } else if (step === 3) {
       isValid = await form.trigger(['address1', 'city', 'country'])
     } else if (step === 4) {
-      isValid = await form.trigger(['occupation', 'account_purpose', 'source_of_funds', 'estimated_monthly_volume'])
+      // F3: campo renombrado
+      isValid = await form.trigger(['most_recent_occupation', 'account_purpose', 'source_of_funds', 'expected_monthly_payments_usd'])
     }
 
     if (isValid) {
@@ -97,9 +104,8 @@ export function PersonalForm({
     }
   }
 
-  // ── Upload de documentos vía backend (nuevo endpoint) ─────────────
   const handleDocUpload = async (
-    docType: 'national_id' | 'passport' | 'drivers_license' | 'proof_of_address',
+    docType: string,
     file: File,
   ) => {
     if (!file) return
@@ -146,8 +152,9 @@ export function PersonalForm({
 
   // ── Submit final: flujo completo al backend ───────────────────────
   async function onSubmit(data: PersonalOnboardingValues) {
-    if (!uploadedDocs['national_id'] && !uploadedDocs['passport']) {
-      toast.error('Debes subir al menos un documento de identidad (ID o Pasaporte)')
+    const missingDocs = requiredDocuments.filter(doc => !uploadedDocs[doc.id])
+    if (missingDocs.length > 0) {
+      toast.error(`Faltan documentos por subir: ${missingDocs.map(d => d.title).join(', ')}`)
       return
     }
     if (!uploadedDocs['proof_of_address']) {
@@ -162,26 +169,34 @@ export function PersonalForm({
     try {
       // Paso 1: Guardar datos biográficos
       await OnboardingService.savePersonalInfo({
-        first_name:           data.first_name,
-        last_name:            data.last_name,
-        date_of_birth:        data.date_of_birth,
-        nationality:          data.nationality,
-        country_of_residence: data.country_of_residence,
-        id_type:              data.id_type as 'passport' | 'drivers_license' | 'national_id',
-        id_number:            data.id_number,
-        id_expiry_date:       data.id_expiry_date,
-        email:                data.email,
-        phone:                data.phone,
-        address1:             data.address1,
-        address2:             data.address2,
-        city:                 data.city,
-        state:                data.state,
-        postal_code:          data.postal_code,
-        country:              data.country,
-        tax_id:               data.tax_id,
-        source_of_funds:      data.source_of_funds,
-        account_purpose:      data.account_purpose,
-        is_pep:               data.is_pep,
+        first_name:                    data.first_name,
+        middle_name:                   data.middle_name || undefined,
+        last_name:                     data.last_name,
+        date_of_birth:                 data.date_of_birth,
+        nationality:                   data.nationality,
+        country_of_residence:          data.country_of_residence,
+        id_type:                       data.id_type as 'passport' | 'drivers_license' | 'national_id',
+        id_number:                     data.id_number,
+        id_expiry_date:                data.id_expiry_date,
+        email:                         data.email,
+        phone:                         data.phone,
+        address1:                      data.address1,
+        address2:                      data.address2,
+        city:                          data.city,
+        state:                         data.state,
+        postal_code:                   data.postal_code,
+        country:                       data.country,
+        tax_id:                        data.tax_id,
+        source_of_funds:               data.source_of_funds as any,
+        account_purpose:               data.account_purpose as any,
+        account_purpose_other:         data.account_purpose === 'other' ? data.account_purpose_other : undefined,
+        is_pep:                        data.is_pep,
+        // F3: campo renombrado — se envía como expected_monthly_payments_usd al backend
+        expected_monthly_payments_usd: data.expected_monthly_payments_usd as any,
+        // F5: employment_status (P1, opcional)
+        employment_status:             data.employment_status as any,
+        // F-OCC: most_recent_occupation reemplaza el campo de texto libre anterior
+        most_recent_occupation:        data.most_recent_occupation as any,
       })
 
       // Paso 2: Crear expediente (idempotente — si ya existe lo devuelve)
@@ -215,6 +230,9 @@ export function PersonalForm({
               <FormField control={form.control} name="first_name" render={({ field }) => (
                 <FormItem><FormLabel>Nombre(s)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
+              <FormField control={form.control} name="middle_name" render={({ field }) => (
+                <FormItem><FormLabel>Segundo Nombre (opcional)</FormLabel><FormControl><Input {...field} placeholder="Si aplica" /></FormControl><FormMessage /></FormItem>
+              )} />
               <FormField control={form.control} name="last_name" render={({ field }) => (
                 <FormItem><FormLabel>Apellido(s)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
@@ -227,7 +245,19 @@ export function PersonalForm({
                 <FormItem>
                   <FormLabel>Nacionalidad</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || ''}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Selecciona un país" /></SelectTrigger></FormControl>
+                    <FormControl>
+                      <SelectTrigger>
+                        {field.value ? (() => {
+                          const c = BRIDGE_COUNTRIES.find(x => x.value === field.value)
+                          return c ? (
+                            <div className="flex items-center gap-2">
+                              <Flag code={c.value} fallback={<span>🌐</span>} style={{ width: 20, height: 14, objectFit: 'cover' }} className="rounded-sm shrink-0" />
+                              <span className="truncate">{c.label}</span>
+                            </div>
+                          ) : field.value
+                        })() : <span className="text-muted-foreground">Selecciona un país</span>}
+                      </SelectTrigger>
+                    </FormControl>
                     <SelectContent>
                       {BRIDGE_COUNTRIES.map(c => (
                         <SelectItem key={c.value} value={c.value}>
@@ -248,7 +278,19 @@ export function PersonalForm({
                 <FormItem>
                   <FormLabel>País de Residencia</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || ''}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Selecciona un país" /></SelectTrigger></FormControl>
+                    <FormControl>
+                      <SelectTrigger>
+                        {field.value ? (() => {
+                          const c = BRIDGE_COUNTRIES.find(x => x.value === field.value)
+                          return c ? (
+                            <div className="flex items-center gap-2">
+                              <Flag code={c.value} fallback={<span>🌐</span>} style={{ width: 20, height: 14, objectFit: 'cover' }} className="rounded-sm shrink-0" />
+                              <span className="truncate">{c.label}</span>
+                            </div>
+                          ) : field.value
+                        })() : <span className="text-muted-foreground">Selecciona un país</span>}
+                      </SelectTrigger>
+                    </FormControl>
                     <SelectContent>
                       {BRIDGE_COUNTRIES.map(c => (
                         <SelectItem key={c.value} value={c.value}>
@@ -269,7 +311,13 @@ export function PersonalForm({
                 <FormItem>
                   <FormLabel>Tipo de Documento</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || ''}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Selecciona tipo" /></SelectTrigger></FormControl>
+                    <FormControl>
+                      <SelectTrigger>
+                        {field.value ? (
+                          <span className="truncate">{INDIVIDUAL_ID_TYPES.find(t => t.value === field.value)?.label || field.value}</span>
+                        ) : <span className="text-muted-foreground">Selecciona tipo</span>}
+                      </SelectTrigger>
+                    </FormControl>
                     <SelectContent>
                       {INDIVIDUAL_ID_TYPES.map(t => (
                         <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
@@ -293,8 +341,16 @@ export function PersonalForm({
               <FormField control={form.control} name="phone" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Teléfono</FormLabel>
-                  <FormControl><Input placeholder="+1 415 555 0100" {...field} /></FormControl>
-                  <FormDescription>Incluir código de país</FormDescription>
+                  <FormControl>
+                    <PhoneInputField
+                      value={field.value}
+                      onChange={field.onChange}
+                      countryHint={form.watch('nationality') || form.watch('country_of_residence') || ''}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    El código de país se detecta automáticamente según tu nacionalidad
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -345,7 +401,19 @@ export function PersonalForm({
                 <FormItem>
                   <FormLabel>País</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || ''}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Selecciona un país" /></SelectTrigger></FormControl>
+                    <FormControl>
+                      <SelectTrigger>
+                        {field.value ? (() => {
+                          const c = BRIDGE_COUNTRIES.find(x => x.value === field.value)
+                          return c ? (
+                            <div className="flex items-center gap-2">
+                              <Flag code={c.value} fallback={<span>🌐</span>} style={{ width: 20, height: 14, objectFit: 'cover' }} className="rounded-sm shrink-0" />
+                              <span className="truncate">{c.label}</span>
+                            </div>
+                          ) : field.value
+                        })() : <span className="text-muted-foreground">Selecciona un país</span>}
+                      </SelectTrigger>
+                    </FormControl>
                     <SelectContent>
                       {BRIDGE_COUNTRIES.map(c => (
                         <SelectItem key={c.value} value={c.value}>
@@ -373,8 +441,28 @@ export function PersonalForm({
           <div className="space-y-4">
             <h2 className="text-xl font-medium">Información Financiera</h2>
             <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control} name="occupation" render={({ field }) => (
-                <FormItem><FormLabel>Ocupación</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              <FormField control={form.control} name="most_recent_occupation" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Ocupación</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ''}>
+                    <FormControl>
+                      <SelectTrigger>
+                        {field.value ? (
+                          <span className="truncate">{OCCUPATION_OPTIONS.find(o => o.value === field.value)?.label || field.value}</span>
+                        ) : <span className="text-muted-foreground">Selecciona tu ocupación</span>}
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {OCCUPATION_OPTIONS.map(o => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription className="text-xs">
+                    Código de ocupación requerido por Bridge para compliance regulatorio.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
               )} />
               <FormField control={form.control} name="tax_id" render={({ field }) => (
                 <FormItem><FormLabel>NIT / SSN / CURP (opcional)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
@@ -384,7 +472,13 @@ export function PersonalForm({
                 <FormItem>
                   <FormLabel>Propósito de la cuenta</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || ''}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Selecciona un propósito" /></SelectTrigger></FormControl>
+                    <FormControl>
+                      <SelectTrigger>
+                        {field.value ? (
+                          <span className="truncate">{INDIVIDUAL_ACCOUNT_PURPOSE.find(p => p.value === field.value)?.label || field.value}</span>
+                        ) : <span className="text-muted-foreground">Selecciona un propósito</span>}
+                      </SelectTrigger>
+                    </FormControl>
                     <SelectContent>
                       {INDIVIDUAL_ACCOUNT_PURPOSE.map(p => (
                         <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
@@ -395,11 +489,30 @@ export function PersonalForm({
                 </FormItem>
               )} />
 
+              {/* P1-A: conditional field when account_purpose = 'other' */}
+              {form.watch('account_purpose') === 'other' && (
+                <FormField control={form.control} name="account_purpose_other" render={({ field }) => (
+                  <FormItem className="col-span-2">
+                    <FormLabel>Especifica el propósito de la cuenta</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Describe el propósito..." />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              )}
+
               <FormField control={form.control} name="source_of_funds" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Origen de fondos</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || ''}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Selecciona el origen" /></SelectTrigger></FormControl>
+                    <FormControl>
+                      <SelectTrigger>
+                        {field.value ? (
+                          <span className="truncate">{INDIVIDUAL_SOURCE_OF_FUNDS.find(s => s.value === field.value)?.label || field.value}</span>
+                        ) : <span className="text-muted-foreground">Selecciona el origen</span>}
+                      </SelectTrigger>
+                    </FormControl>
                     <SelectContent>
                       {INDIVIDUAL_SOURCE_OF_FUNDS.map(s => (
                         <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
@@ -410,17 +523,48 @@ export function PersonalForm({
                 </FormItem>
               )} />
 
-              <FormField control={form.control} name="estimated_monthly_volume" render={({ field }) => (
+              <FormField control={form.control} name="expected_monthly_payments_usd" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Volumen Mensual Estimado (USD)</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || ''}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Selecciona un rango" /></SelectTrigger></FormControl>
+                    <FormControl>
+                      <SelectTrigger>
+                        {field.value ? (
+                          <span className="truncate">{EXPECTED_MONTHLY_PAYMENTS.find(m => m.value === field.value)?.label || field.value}</span>
+                        ) : <span className="text-muted-foreground">Selecciona un rango</span>}
+                      </SelectTrigger>
+                    </FormControl>
                     <SelectContent>
                       {EXPECTED_MONTHLY_PAYMENTS.map(m => (
                         <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              {/* F5: employment_status — campo P1 high-risk (opcional) */}
+              <FormField control={form.control} name="employment_status" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Situación Laboral <span className="text-muted-foreground text-xs font-normal">(opcional)</span></FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ''}>
+                    <FormControl>
+                      <SelectTrigger>
+                        {field.value ? (
+                          <span className="truncate">{EMPLOYMENT_STATUS_OPTIONS.find(e => e.value === field.value)?.label || field.value}</span>
+                        ) : <span className="text-muted-foreground">Selecciona situación laboral</span>}
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {EMPLOYMENT_STATUS_OPTIONS.map(e => (
+                        <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription className="text-xs">
+                    Requerido para perfiles de due diligence reforzada. Opcional para el resto.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -440,23 +584,38 @@ export function PersonalForm({
               Sube tus documentos y acepta los Términos de Servicio para completar tu solicitud KYC.
             </p>
 
-            {/* Documentos de Identidad */}
+            {/* Documentos Dinámicos */}
             <div className="space-y-4">
-              {DOCUMENT_TYPES_KYC.map(({ key, label }) => (
-                <div key={key} className="border p-4 rounded bg-muted/20">
+              {requiredDocuments.map(({ id, title, helperText, accept }) => (
+                <div key={id} className="border p-4 rounded bg-muted/20">
                   <label className="block text-sm font-medium mb-2">
-                    {label}
-                    {uploadedDocs[key] && <span className="ml-2 text-emerald-500 text-xs">✓ Subido</span>}
+                    {title}
+                    {uploadedDocs[id] && <span className="ml-2 text-emerald-500 text-xs">✓ Subido</span>}
                   </label>
                   <FileDropzone
-                    accept="image/*,.pdf"
-                    helperText="JPG, PNG o PDF — máx 10 MB"
+                    accept={accept || 'image/*,.pdf'}
+                    helperText={helperText || 'Máximo 10MB'}
                     onFileSelect={(file) => {
-                      if (file) handleDocUpload(key as any, file)
+                      if (file) handleDocUpload(id, file)
                     }}
                   />
                 </div>
               ))}
+              
+              {/* Comprobante de Domicilio siempre requerido en KYC */}
+              <div className="border p-4 rounded bg-muted/20">
+                <label className="block text-sm font-medium mb-2">
+                  Comprobante de Domicilio
+                  {uploadedDocs['proof_of_address'] && <span className="ml-2 text-emerald-500 text-xs">✓ Subido</span>}
+                </label>
+                <FileDropzone
+                  accept="image/*,.pdf"
+                  helperText="Factura de servicios, extracto bancario (max 3 meses)"
+                  onFileSelect={(file) => {
+                    if (file) handleDocUpload('proof_of_address', file)
+                  }}
+                />
+              </div>
             </div>
 
             {/* Términos de Servicio de Bridge — iframe embebido */}

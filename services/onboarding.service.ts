@@ -39,10 +39,11 @@ import type { Onboarding } from '@/types/onboarding'
 
 export interface CreatePersonDto {
   first_name: string
+  middle_name?: string
   last_name: string
   date_of_birth: string          // YYYY-MM-DD
-  nationality?: string           // ISO alpha-2
-  country_of_residence?: string  // ISO alpha-2
+  nationality?: string           // ISO alpha-2 or alpha-3 — H09: backend converts to alpha-3
+  country_of_residence?: string  // ISO alpha-2 or alpha-3
   id_type: 'passport' | 'drivers_license' | 'national_id'
   id_number: string
   id_expiry_date?: string        // YYYY-MM-DD
@@ -53,12 +54,23 @@ export interface CreatePersonDto {
   city: string
   state?: string
   postal_code?: string
-  country: string                // ISO alpha-2
+  country: string                // ISO alpha-2 or alpha-3 — H05: backend converts to alpha-3
   tax_id?: string
+  /** Bridge enum (OpenAPI spec): salary | savings | company_funds | investments_loans | government_benefits | pension_retirement | inheritance | gifts | sale_of_assets_real_estate | ecommerce_reseller | someone_elses_funds | gambling_proceeds */
   source_of_funds?: string
+  /** Bridge enum (OpenAPI spec): payments_to_friends_or_family_abroad | personal_or_living_expenses | receive_salary | purchase_goods_and_services | receive_payment_for_freelancing | investment_purposes | operating_a_company | ecommerce_retail_payments | charitable_donations | protect_wealth | other */
   account_purpose?: string
+  /** P1-A: required when account_purpose = 'other' */
+  account_purpose_other?: string
   is_pep: boolean
+  /** Bridge enum (OpenAPI spec): employed | self_employed | unemployed | student | retired | homemaker */
+  employment_status?: 'employed' | 'self_employed' | 'unemployed' | 'student' | 'retired' | 'homemaker'
+  /** Bridge enum (OpenAPI spec) — expected monthly volume ranges */
+  expected_monthly_payments_usd?: '0_4999' | '5000_9999' | '10000_49999' | '50000_plus'
+  /** Bridge field — alphanumeric occupation code from Bridge occupation list */
+  most_recent_occupation?: string
 }
+
 
 // ─────────────────────────────────────────────────────────────────
 //  DTOs KYB — coinciden exactamente con CreateBusinessDto del backend
@@ -69,12 +81,15 @@ export interface CreateBusinessDto {
   trade_name?: string
   registration_number?: string
   tax_id: string
-  entity_type: string
+  /** H11 — Bridge enum: llc | corporation | partnership | sole_prop | trust | cooperative | other */
+  entity_type: 'llc' | 'corporation' | 'partnership' | 'sole_prop' | 'trust' | 'cooperative' | 'other'
   incorporation_date?: string
   country_of_incorporation: string
   state_of_incorporation?: string
   operating_countries?: string[]
   website?: string
+  /** P2-D: primary_website mejora aprobación KYB en Bridge */
+  primary_website?: string
   email: string
   phone?: string
   address1: string
@@ -84,12 +99,32 @@ export interface CreateBusinessDto {
   postal_code?: string
   country: string
   business_description?: string
-  business_industry?: string
-  account_purpose?: string
-  source_of_funds?: string
+  /** P1-B: array de códigos NAICS 2022 (ej. ['522320', '541511']) */
+  business_industry?: string[]
+  /** H10 — Bridge enum */
+  account_purpose?: 'international_payments' | 'business_payments' | 'personal_payments' | 'savings' | 'investment' | 'payroll' | 'remittances' | 'other'
+  /** P1-A: required when account_purpose = 'other' */
+  account_purpose_other?: string
+  /** H10 — Bridge enum */
+  source_of_funds?: 'salary' | 'business_revenue' | 'investment_income' | 'retirement_income' | 'gift' | 'inheritance' | 'loan' | 'other'
   conducts_money_services?: boolean
   uses_bridge_for_money_services?: boolean
   compliance_explanation?: string
+  // P0-C: Bridge enum exact values
+  /** P0-C — Bridge enum: 0_99999 | 100000_999999 | 1000000_9999999 | 10000000_49999999 | 50000000_249999999 | 250000000_plus */
+  estimated_annual_revenue_usd?: '0_99999' | '100000_999999' | '1000000_9999999' | '10000000_49999999' | '50000000_249999999' | '250000000_plus'
+  /** P0-D — Array of Bridge high-risk activity codes from the official enum */
+  high_risk_activities?: string[]
+  /** F3 — Expected monthly payment volume (same enum as individuals) */
+  expected_monthly_payments_usd?: 'less_than_1000' | '1000_to_10000' | '10000_to_50000' | '50000_to_100000' | 'greater_than_100000'
+  // P2: Physical / Operational Address (different from registered legal address)
+  physical_address1?: string
+  physical_address2?: string
+  physical_city?: string
+  physical_state?: string
+  physical_postal_code?: string
+  /** P2 — ISO alpha-3 preferred. Bridge field: physical_address.country */
+  physical_country?: string
 }
 
 export interface CreateDirectorDto {
@@ -108,6 +143,8 @@ export interface CreateDirectorDto {
   address1?: string
   city?: string
   country?: string
+  /** Fuga B — PEP status requerido por Bridge para todos los associated_persons */
+  is_pep: boolean
 }
 
 export interface CreateUboDto {
@@ -129,20 +166,26 @@ export interface CreateUboDto {
   postal_code?: string
   country?: string
   is_pep: boolean
+  /** Fuga A — Control prong: UBO con control operacional (FinCEN Control Prong) */
+  has_control?: boolean
 }
 
 // ─────────────────────────────────────────────────────────────────
 //  Tipos de estado
 // ─────────────────────────────────────────────────────────────────
 
+/**
+ * H13 FIX — KycStatus now matches the DB CHECK constraint for
+ * kyc_applications.status and kyb_applications.status exactly.
+ * Removed: 'needs_changes', 'manual_review', 'in_review' (use 'in_progress').
+ */
 export type KycStatus =
   | 'pending'
+  | 'in_progress'
   | 'submitted'
-  | 'in_review'
-  | 'needs_changes'
   | 'approved'
   | 'rejected'
-  | 'manual_review'
+  | 'needs_review'
 
 export interface KycApplicationResponse {
   id: string
@@ -324,9 +367,7 @@ export const OnboardingService = {
    * El backend lo guarda en Supabase Storage Y registra en tabla `documents`.
    *
    * @param file         El archivo a subir
-   * @param documentType Tipo de documento (enum del backend): passport | national_id |
-   *                     drivers_license | proof_of_address | incorporation_certificate |
-   *                     tax_registration | bank_statement | other
+   * @param documentType Tipo de documento: passport | national_id_front | national_id_back | drivers_license_front | drivers_license_back | selfie | proof_of_address | incorporation_certificate | tax_registration | bank_statement | other
    * @param subjectType  'person' | 'business' | 'director' | 'ubo'
    * @param subjectId    UUID opcional del director/ubo
    */

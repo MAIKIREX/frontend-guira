@@ -20,28 +20,18 @@ import {
   BUSINESS_SOURCE_OF_FUNDS,
   BUSINESS_ACCOUNT_PURPOSE,
   EXPECTED_MONTHLY_PAYMENTS,
+  ANNUAL_REVENUE_RANGES,
+  HIGH_RISK_ACTIVITIES,
   BRIDGE_COUNTRIES,
+  BUSINESS_INDUSTRIES,
 } from '@/lib/bridge-constants'
+import { TosIframeModal } from './tos-iframe-modal'
+import { getRequiredDocumentsForId } from '@/lib/document-requirements'
 
 const INDIVIDUAL_ID_TYPES = [
   { value: 'passport', label: 'Pasaporte' },
   { value: 'national_id', label: 'Cédula / Documento Nacional' },
   { value: 'drivers_license', label: 'Licencia de Conducir' },
-]
-
-const BUSINESS_INDUSTRIES = [
-  { value: 'technology', label: 'Tecnología' },
-  { value: 'finance', label: 'Finanzas / Fintech' },
-  { value: 'agriculture', label: 'Agricultura' },
-  { value: 'manufacturing', label: 'Manufactura' },
-  { value: 'retail', label: 'Comercio / Retail' },
-  { value: 'services', label: 'Servicios profesionales' },
-  { value: 'real_estate', label: 'Bienes raíces' },
-  { value: 'healthcare', label: 'Salud' },
-  { value: 'education', label: 'Educación' },
-  { value: 'logistics', label: 'Logística / Transporte' },
-  { value: 'energy', label: 'Energía' },
-  { value: 'other', label: 'Otro' },
 ]
 
 export function CompanyForm({
@@ -55,9 +45,11 @@ export function CompanyForm({
 }) {
   const { step, setStep, formData, updateFormData, reset } = useOnboardingStore()
   const [isUploading, setIsUploading] = useState(false)
+  // F4: ToS KYB ahora usa TosIframeModal + postMessage (igual que KYC personal)
   const [tosUrl, setTosUrl] = useState<string | null>(null)
   const [tosLoading, setTosLoading] = useState(false)
-  const [tosAccepted, setTosAccepted] = useState(false)
+  const [tosModalOpen, setTosModalOpen] = useState(false)
+  const [tosContractId, setTosContractId] = useState<string | null>(null)
   const [uploadedDocs, setUploadedDocs] = useState<Record<string, boolean>>({})
 
   const form = useForm<CompanyOnboardingValues>({
@@ -71,7 +63,8 @@ export function CompanyForm({
       incorporation_date:             (formData.incorporation_date as string) || '',
       country_of_incorporation:       (formData.country_of_incorporation as any) || ('' as any),
       business_description:           (formData.business_description as string) || '',
-      business_industry:              (formData.business_industry as string) || '',
+      business_industry:              (formData.business_industry as string[]) || [],
+      primary_website:                (formData.primary_website as string) || '',
       email:                          (formData.email as string) || '',
       phone:                          (formData.phone as string) || '',
       address1:                       (formData.address1 as string) || '',
@@ -80,11 +73,24 @@ export function CompanyForm({
       state:                          (formData.state as string) || '',
       postal_code:                    (formData.postal_code as string) || '',
       country:                        (formData.country as any) || ('' as any),
+      // F8: physical address
+      physical_address1:              (formData.physical_address1 as string) || '',
+      physical_address2:              (formData.physical_address2 as string) || '',
+      physical_city:                  (formData.physical_city as string) || '',
+      physical_state:                 (formData.physical_state as string) || '',
+      physical_postal_code:           (formData.physical_postal_code as string) || '',
+      physical_country:               (formData.physical_country as any) || undefined,
       account_purpose:                (formData.account_purpose as any) || ('' as any),
+      account_purpose_other:          (formData.account_purpose_other as string) || '',
       source_of_funds:                (formData.source_of_funds as any) || ('' as any),
-      estimated_monthly_volume:       (formData.estimated_monthly_volume as any) || ('' as any),
+      // F3: renombrado estimated_monthly_volume → expected_monthly_payments_usd
+      expected_monthly_payments_usd:  (formData.expected_monthly_payments_usd as any) || ('' as any),
       conducts_money_services:        (formData.conducts_money_services as boolean) ?? false,
       uses_bridge_for_money_services: (formData.uses_bridge_for_money_services as boolean) ?? false,
+      // F6: annual revenue (P1)
+      estimated_annual_revenue_usd:   (formData.estimated_annual_revenue_usd as any) || undefined,
+      // F7: high_risk_activities (P1)
+      high_risk_activities:           (formData.high_risk_activities as string[]) || [],
       legal_rep_first_name:           (formData.legal_rep_first_name as string) || '',
       legal_rep_last_name:            (formData.legal_rep_last_name as string) || '',
       legal_rep_position:             (formData.legal_rep_position as string) || '',
@@ -96,6 +102,11 @@ export function CompanyForm({
   })
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'ubos' })
+
+  // form.watch DESPUÉS de useForm — fix del lint "used before declaration"
+  const legalRepIdType = form.watch('legal_rep_id_type')
+  const legalRepDocs = getRequiredDocumentsForId(legalRepIdType)
+  const ubosWatched = form.watch('ubos') || []
 
   // ── Navegación entre pasos ─────────────────────────────────────
   const handleNext = async () => {
@@ -111,7 +122,7 @@ export function CompanyForm({
         'legal_rep_first_name', 'legal_rep_last_name', 'legal_rep_position', 'legal_rep_id_number',
       ])
     } else if (step === 4) {
-      isValid = await form.trigger(['account_purpose', 'source_of_funds', 'estimated_monthly_volume'])
+      isValid = await form.trigger(['account_purpose', 'source_of_funds', 'expected_monthly_payments_usd'])
     } else if (step === 5) {
       isValid = true
     }
@@ -124,7 +135,7 @@ export function CompanyForm({
 
   // ── Upload documentos empresa ──────────────────────────────────
   const handleDocUpload = async (
-    docType: 'incorporation_certificate' | 'national_id' | 'proof_of_address',
+    docType: string,
     file: File,
   ) => {
     if (!file) return
@@ -142,12 +153,12 @@ export function CompanyForm({
   }
 
   // ── Upload documentos UBO ──────────────────────────────────────
-  const handleUboDocUpload = async (index: number, file: File) => {
+  const handleUboDocUpload = async (index: number, docId: string, file: File) => {
     if (!file) return
     setIsUploading(true)
     try {
-      await OnboardingService.uploadDocument(file, 'national_id', 'ubo')
-      setUploadedDocs(prev => ({ ...prev, [`ubo_${index}`]: true }))
+      await OnboardingService.uploadDocument(file, docId, 'ubo')
+      setUploadedDocs(prev => ({ ...prev, [`ubo_${index}_${docId}`]: true }))
       toast.success(`Documento UBO #${index + 1} subido`)
     } catch (err) {
       console.error(err)
@@ -157,12 +168,18 @@ export function CompanyForm({
     }
   }
 
-  // ── Obtener link ToS KYB ───────────────────────────────────────
+  // F4: obtiene ToS link sin redirect_uri (usará postMessage desde el iframe)
   const handleGetTosLink = async () => {
+    if (tosUrl) {
+      setTosModalOpen(true)
+      return
+    }
     setTosLoading(true)
     try {
-      const res = await OnboardingService.getKybTosLink(window.location.href)
+      // Sin redirect_uri — usamos postMessage igual que en KYC personal
+      const res = await OnboardingService.getKybTosLink()
       setTosUrl(res.url)
+      setTosModalOpen(true)
     } catch (err) {
       console.error(err)
       toast.error('Error obteniendo link de Términos de Servicio')
@@ -171,13 +188,39 @@ export function CompanyForm({
     }
   }
 
+  // F4: callback cuando Bridge confirma la aceptación vía postMessage
+  const handleTosAccepted = (signedAgreementId: string) => {
+    setTosContractId(signedAgreementId)
+    setTosModalOpen(false)
+    toast.success('Términos de Servicio aceptados correctamente')
+  }
+
   // ── Submit final KYB ───────────────────────────────────────────
   async function onFinalSubmit(data: CompanyOnboardingValues) {
     if (!uploadedDocs['incorporation_certificate']) {
       toast.error('Debes subir el documento de constitución / registro de empresa')
       return
     }
-    if (!tosAccepted) {
+    const missingLegalDocs = legalRepDocs.filter(d => !uploadedDocs[`replegal_${d.id}`])
+    if (missingLegalDocs.length > 0) {
+      toast.error(`Faltan documentos del Representante Legal: ${missingLegalDocs.map(d => d.title).join(', ')}`)
+      return
+    }
+    
+    // Validar documentos de UBOs
+    let missingUbo = false
+    data.ubos?.forEach((ubo, index) => {
+      const docs = getRequiredDocumentsForId(ubo.id_type)
+      const missing = docs.filter(d => !uploadedDocs[`ubo_${index}_${d.id}`])
+      if (missing.length > 0) {
+        missingUbo = true
+        toast.error(`Socio #${index + 1}: Faltan documentos (${missing.map(d => d.title).join(', ')})`)
+      }
+    })
+    if (missingUbo) return
+    
+    // F4: validar que el ToS fue aceptado vía iframe (signed_agreement_id)
+    if (!tosContractId) {
       toast.error('Debes aceptar los Términos de Servicio de Bridge antes de continuar')
       return
     }
@@ -189,11 +232,12 @@ export function CompanyForm({
         trade_name:                     data.trade_name,
         registration_number:            data.registration_number,
         tax_id:                         data.tax_id,
-        entity_type:                    data.entity_type,
+        entity_type:                    data.entity_type as any,
         incorporation_date:             data.incorporation_date,
         country_of_incorporation:       data.country_of_incorporation,
         business_description:           data.business_description,
         business_industry:              data.business_industry,
+        primary_website:                data.primary_website || undefined,
         email:                          data.email,
         phone:                          data.phone,
         address1:                       data.address1,
@@ -202,10 +246,24 @@ export function CompanyForm({
         state:                          data.state,
         postal_code:                    data.postal_code,
         country:                        data.country,
-        account_purpose:                data.account_purpose,
-        source_of_funds:                data.source_of_funds,
+        // F8: physical address
+        physical_address1:              data.physical_address1,
+        physical_address2:              data.physical_address2,
+        physical_city:                  data.physical_city,
+        physical_state:                 data.physical_state,
+        physical_postal_code:           data.physical_postal_code,
+        physical_country:               data.physical_country,
+        account_purpose:                data.account_purpose as any,
+        account_purpose_other:          data.account_purpose === 'other' ? data.account_purpose_other : undefined,
+        source_of_funds:                data.source_of_funds as any,
+        // F3: campo renombrado
+        expected_monthly_payments_usd:  data.expected_monthly_payments_usd as any,
         conducts_money_services:        data.conducts_money_services,
         uses_bridge_for_money_services: data.uses_bridge_for_money_services,
+        // F6: annual revenue (P1)
+        estimated_annual_revenue_usd:   data.estimated_annual_revenue_usd as any,
+        // F7: high_risk_activities (P1)
+        high_risk_activities:           data.high_risk_activities,
       })
 
       // Paso 2: Agregar representante legal como director
@@ -215,30 +273,41 @@ export function CompanyForm({
         position:   data.legal_rep_position,
         is_signer:  true,
         id_number:  data.legal_rep_id_number,
-        email:      data.legal_rep_email || undefined,
+        // Fuga B — PEP del director ahora viaja al backend y a Bridge
+        is_pep:     data.legal_rep_is_pep ?? false,
+        // P0-B: Residential Address mandatory for Director
+        address1:   data.legal_rep_address1,
+        city:       data.legal_rep_city,
+        country:    data.legal_rep_country,
       })
 
       // Paso 3: Agregar UBOs
       for (const ubo of data.ubos ?? []) {
         await OnboardingService.addUbo({
-          first_name:       ubo.first_name,
-          last_name:        ubo.last_name,
-          ownership_percent: ubo.ownership_percent,
-          date_of_birth:    ubo.date_of_birth,
-          nationality:      ubo.nationality,
+          first_name:           ubo.first_name,
+          last_name:            ubo.last_name,
+          ownership_percent:    ubo.ownership_percent,
+          date_of_birth:        ubo.date_of_birth,
+          nationality:          ubo.nationality,
           country_of_residence: ubo.country_of_residence,
-          id_type:          ubo.id_type,
-          id_number:        ubo.id_number,
-          email:            ubo.email || undefined,
-          is_pep:           ubo.is_pep,
+          id_type:              ubo.id_type,
+          id_number:            ubo.id_number,
+          email:                ubo.email || undefined,
+          // Fuga A — Control prong ahora viaja al backend y se persiste en DB
+          has_control:          ubo.has_control ?? false,
+          is_pep:               ubo.is_pep ?? false,
+          // P0-B: Residential Address mandatory for UBO
+          address1:             ubo.address1,
+          city:                 ubo.city,
+          country:              ubo.country,
         })
       }
 
       // Paso 4: Crear expediente KYB (idempotente)
       await OnboardingService.createKybApplication()
 
-      // Paso 5: Registrar aceptación de ToS KYB
-      await OnboardingService.acceptKybTos()
+      // Paso 5: F4 — Registrar aceptación de ToS KYB con el signed_agreement_id
+      await OnboardingService.acceptKybTos(tosContractId ?? undefined)
 
       // Paso 6: Enviar para revisión
       await OnboardingService.submitKyb()
@@ -278,7 +347,13 @@ export function CompanyForm({
                 <FormItem>
                   <FormLabel>Tipo de Entidad</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || ''}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Selecciona tipo" /></SelectTrigger></FormControl>
+                    <FormControl>
+                      <SelectTrigger>
+                        {field.value ? (
+                          <span className="truncate">{BUSINESS_TYPES.find(t => t.value === field.value)?.label || field.value}</span>
+                        ) : <span className="text-muted-foreground">Selecciona tipo</span>}
+                      </SelectTrigger>
+                    </FormControl>
                     <SelectContent>
                       {BUSINESS_TYPES.map(t => (
                         <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
@@ -297,7 +372,19 @@ export function CompanyForm({
                 <FormItem>
                   <FormLabel>País de Constitución</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || ''}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Selecciona país" /></SelectTrigger></FormControl>
+                    <FormControl>
+                      <SelectTrigger>
+                        {field.value ? (() => {
+                          const c = BRIDGE_COUNTRIES.find(x => x.value === field.value)
+                          return c ? (
+                            <div className="flex items-center gap-2">
+                              <Flag code={c.value} fallback={<span>🌐</span>} style={{ width: 20, height: 14, objectFit: 'cover' }} className="rounded-sm shrink-0" />
+                              <span className="truncate">{c.label}</span>
+                            </div>
+                          ) : field.value
+                        })() : <span className="text-muted-foreground">Selecciona país</span>}
+                      </SelectTrigger>
+                    </FormControl>
                     <SelectContent>
                       {BRIDGE_COUNTRIES.map(c => (
                         <SelectItem key={c.value} value={c.value}>
@@ -314,18 +401,49 @@ export function CompanyForm({
               )} />
 
               <FormField control={form.control} name="business_industry" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Industria / Sector</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ''}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Selecciona sector" /></SelectTrigger></FormControl>
+                <FormItem className="col-span-2">
+                  <FormLabel>Industria / Sector (NAICS)</FormLabel>
+                  <Select
+                    onValueChange={(val: string | null) => {
+                      if (!val) return
+                      const current = field.value || []
+                      if (current.includes(val)) {
+                        field.onChange(current.filter((v: string) => v !== val))
+                      } else {
+                        field.onChange([...current, val])
+                      }
+                    }}
+                    value=""
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        {field.value && field.value.length > 0 ? (
+                          <span className="truncate">
+                            {field.value.map((v: string) => BUSINESS_INDUSTRIES.find(i => i.value === v)?.label || v).join(', ')}
+                          </span>
+                        ) : <span className="text-muted-foreground">Selecciona una o más industrias</span>}
+                      </SelectTrigger>
+                    </FormControl>
                     <SelectContent>
                       {BUSINESS_INDUSTRIES.map(i => (
-                        <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>
+                        <SelectItem key={i.value} value={i.value}>
+                          <div className="flex items-center gap-2">
+                            {field.value?.includes(i.value) && <span className="text-green-500">✓</span>}
+                            <span>{i.label}</span>
+                          </div>
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  <FormDescription className="text-xs">
+                    Selecciona las industrias que apliquen. Códigos NAICS 2022 requeridos por Bridge.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
+              )} />
+
+              <FormField control={form.control} name="primary_website" render={({ field }) => (
+                <FormItem><FormLabel>Sitio Web (opcional)</FormLabel><FormControl><Input type="url" placeholder="https://www.ejemplo.com" {...field} /></FormControl><FormDescription className="text-xs">Mejora la velocidad de aprobación KYB</FormDescription><FormMessage /></FormItem>
               )} />
 
               <FormField control={form.control} name="business_description" render={({ field }) => (
@@ -349,7 +467,8 @@ export function CompanyForm({
         {step === 3 && (
           <div className="space-y-4">
             <h2 className="text-xl font-medium">Sede y Representante Legal</h2>
-            <h3 className="text-base font-medium text-muted-foreground">Dirección Empresarial</h3>
+            <h3 className="text-base font-medium text-muted-foreground">Dirección Empresarial (Registrada)</h3>
+            <p className="text-xs text-muted-foreground">Domicilio legal de la empresa según el registro mercantil.</p>
             <div className="grid grid-cols-2 gap-4">
               <FormField control={form.control} name="address1" render={({ field }) => (
                 <FormItem className="col-span-2"><FormLabel>Calle y Número</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
@@ -367,7 +486,68 @@ export function CompanyForm({
                 <FormItem>
                   <FormLabel>País</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || ''}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Selecciona país" /></SelectTrigger></FormControl>
+                    <FormControl>
+                      <SelectTrigger>
+                        {field.value ? (() => {
+                          const c = BRIDGE_COUNTRIES.find(x => x.value === field.value)
+                          return c ? (
+                            <div className="flex items-center gap-2">
+                              <Flag code={c.value} fallback={<span>🌐</span>} style={{ width: 20, height: 14, objectFit: 'cover' }} className="rounded-sm shrink-0" />
+                              <span className="truncate">{c.label}</span>
+                            </div>
+                          ) : field.value
+                        })() : <span className="text-muted-foreground">Selecciona país</span>}
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {BRIDGE_COUNTRIES.map(c => (
+                        <SelectItem key={c.value} value={c.value}>
+                          <div className="flex items-center gap-2">
+                            <Flag code={c.value} fallback={<span>🌐</span>} style={{ width: 24, height: 16, objectFit: 'cover' }} className="rounded-sm" />
+                            <span>{c.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              {/* F8: Dirección Operacional / Física (opcional) */}
+            </div>
+
+            <h3 className="text-base font-medium text-muted-foreground pt-4">Dirección Operacional <span className="text-xs font-normal">(opcional — si es distinta a la registrada)</span></h3>
+            <p className="text-xs text-muted-foreground">Bridge la utiliza como <code>physical_address</code>. Completa solo si la operación ocurre en un lugar diferente a la sede legal.</p>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField control={form.control} name="physical_address1" render={({ field }) => (
+                <FormItem className="col-span-2"><FormLabel>Calle y Número (operacional)</FormLabel><FormControl><Input placeholder="Calle Industria 55" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="physical_city" render={({ field }) => (
+                <FormItem><FormLabel>Ciudad (operacional)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="physical_state" render={({ field }) => (
+                <FormItem><FormLabel>Estado / Provincia (operacional)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="physical_postal_code" render={({ field }) => (
+                <FormItem><FormLabel>Código Postal (operacional)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="physical_country" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>País (operacional)</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ''}>
+                    <FormControl>
+                      <SelectTrigger>
+                        {field.value ? (() => {
+                          const c = BRIDGE_COUNTRIES.find(x => x.value === field.value)
+                          return c ? (
+                            <div className="flex items-center gap-2">
+                              <Flag code={c.value} fallback={<span>🌐</span>} style={{ width: 20, height: 14, objectFit: 'cover' }} className="rounded-sm shrink-0" />
+                              <span className="truncate">{c.label}</span>
+                            </div>
+                          ) : field.value
+                        })() : <span className="text-muted-foreground">Selecciona país</span>}
+                      </SelectTrigger>
+                    </FormControl>
                     <SelectContent>
                       {BRIDGE_COUNTRIES.map(c => (
                         <SelectItem key={c.value} value={c.value}>
@@ -396,11 +576,68 @@ export function CompanyForm({
               <FormField control={form.control} name="legal_rep_position" render={({ field }) => (
                 <FormItem><FormLabel>Cargo</FormLabel><FormControl><Input placeholder="CEO, Director, etc." {...field} /></FormControl><FormMessage /></FormItem>
               )} />
+              <FormField control={form.control} name="legal_rep_id_type" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tipo de Documento</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ''}>
+                    <FormControl>
+                      <SelectTrigger>
+                        {field.value ? (
+                          <span className="truncate">{INDIVIDUAL_ID_TYPES.find(t => t.value === field.value)?.label || field.value}</span>
+                        ) : <span className="text-muted-foreground">Tipo doc.</span>}
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {INDIVIDUAL_ID_TYPES.map(t => (
+                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
               <FormField control={form.control} name="legal_rep_id_number" render={({ field }) => (
                 <FormItem><FormLabel>Nro. Documento</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
               <FormField control={form.control} name="legal_rep_email" render={({ field }) => (
-                <FormItem><FormLabel>Email Rep. Legal (opcional)</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Email Rep. Legal</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="legal_rep_address1" render={({ field }) => (
+                <FormItem className="col-span-2"><FormLabel>Dirección Residencial</FormLabel><FormControl><Input placeholder="P.ej. Calle 123" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="legal_rep_city" render={({ field }) => (
+                <FormItem><FormLabel>Ciudad Residencial</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="legal_rep_country" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>País Residencial</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ''}>
+                    <FormControl>
+                      <SelectTrigger>
+                        {field.value ? (() => {
+                          const c = BRIDGE_COUNTRIES.find(x => x.value === field.value)
+                          return c ? (
+                            <div className="flex items-center gap-2">
+                              <Flag code={c.value} fallback={<span>🌐</span>} style={{ width: 20, height: 14, objectFit: 'cover' }} className="rounded-sm shrink-0" />
+                              <span className="truncate">{c.label}</span>
+                            </div>
+                          ) : field.value
+                        })() : <span className="text-muted-foreground">Selecciona país</span>}
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {BRIDGE_COUNTRIES.map(c => (
+                        <SelectItem key={c.value} value={c.value}>
+                          <div className="flex items-center gap-2">
+                            <Flag code={c.value} fallback={<span>🌐</span>} style={{ width: 24, height: 16, objectFit: 'cover' }} className="rounded-sm" />
+                            <span>{c.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )} />
               <FormField control={form.control} name="legal_rep_is_pep" render={({ field }) => (
                 <FormItem className="flex flex-row items-start gap-3 rounded-lg border p-3">
@@ -416,7 +653,7 @@ export function CompanyForm({
           </div>
         )}
 
-        {/* ──────────── STEP 4: Información Financiera ──────────── */}
+        {/* ────────── STEP 4: Información Financiera ────────── */}
         {step === 4 && (
           <div className="space-y-4">
             <h2 className="text-xl font-medium">Información Financiera y Compliance</h2>
@@ -425,7 +662,13 @@ export function CompanyForm({
                 <FormItem>
                   <FormLabel>Propósito de la cuenta</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || ''}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Selecciona propósito" /></SelectTrigger></FormControl>
+                    <FormControl>
+                      <SelectTrigger>
+                        {field.value ? (
+                          <span className="truncate">{BUSINESS_ACCOUNT_PURPOSE.find(p => p.value === field.value)?.label || field.value}</span>
+                        ) : <span className="text-muted-foreground">Selecciona propósito</span>}
+                      </SelectTrigger>
+                    </FormControl>
                     <SelectContent>
                       {BUSINESS_ACCOUNT_PURPOSE.map(p => (
                         <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
@@ -435,11 +678,31 @@ export function CompanyForm({
                   <FormMessage />
                 </FormItem>
               )} />
+
+              {/* P1-A: conditional field when account_purpose = 'other' */}
+              {form.watch('account_purpose') === 'other' && (
+                <FormField control={form.control} name="account_purpose_other" render={({ field }) => (
+                  <FormItem className="col-span-2">
+                    <FormLabel>Especifica el propósito de la cuenta</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Describe el propósito..." />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              )}
+
               <FormField control={form.control} name="source_of_funds" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Origen de fondos</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || ''}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Selecciona origen" /></SelectTrigger></FormControl>
+                    <FormControl>
+                      <SelectTrigger>
+                        {field.value ? (
+                          <span className="truncate">{BUSINESS_SOURCE_OF_FUNDS.find(s => s.value === field.value)?.label || field.value}</span>
+                        ) : <span className="text-muted-foreground">Selecciona origen</span>}
+                      </SelectTrigger>
+                    </FormControl>
                     <SelectContent>
                       {BUSINESS_SOURCE_OF_FUNDS.map(s => (
                         <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
@@ -449,14 +712,44 @@ export function CompanyForm({
                   <FormMessage />
                 </FormItem>
               )} />
-              <FormField control={form.control} name="estimated_monthly_volume" render={({ field }) => (
+
+              {/* F3: campo renombrado */}
+              <FormField control={form.control} name="expected_monthly_payments_usd" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Volumen Estimado (USD/mes)</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || ''}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Selecciona rango" /></SelectTrigger></FormControl>
+                    <FormControl>
+                      <SelectTrigger>
+                        {field.value ? (
+                          <span className="truncate">{EXPECTED_MONTHLY_PAYMENTS.find(m => m.value === field.value)?.label || field.value}</span>
+                        ) : <span className="text-muted-foreground">Selecciona rango</span>}
+                      </SelectTrigger>
+                    </FormControl>
                     <SelectContent>
                       {EXPECTED_MONTHLY_PAYMENTS.map(m => (
                         <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              {/* F6: Ingresos anuales estimados (P1 — high-risk) */}
+              <FormField control={form.control} name="estimated_annual_revenue_usd" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Ingresos Anuales Estimados <span className="text-muted-foreground text-xs font-normal">(opcional)</span></FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ''}>
+                    <FormControl>
+                      <SelectTrigger>
+                        {field.value ? (
+                          <span className="truncate">{ANNUAL_REVENUE_RANGES.find(r => r.value === field.value)?.label || field.value}</span>
+                        ) : <span className="text-muted-foreground">Selecciona rango anual</span>}
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {ANNUAL_REVENUE_RANGES.map(r => (
+                        <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -483,6 +776,49 @@ export function CompanyForm({
                 </FormItem>
               )} />
             </div>
+
+            {/* F7: Actividades de alto riesgo — solo visible si es MSB */}
+            {form.watch('conducts_money_services') && (
+              <div className="border rounded-lg p-4 space-y-3 bg-amber-50/40 dark:bg-amber-950/20">
+                <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+                  Actividades de Alto Riesgo Regulatorio
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  Selecciona si la empresa opera en alguna de las siguientes áreas. Requerido para procesos de EDD.
+                </p>
+                <FormField
+                  control={form.control}
+                  name="high_risk_activities"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="grid grid-cols-2 gap-2">
+                        {HIGH_RISK_ACTIVITIES.map(activity => (
+                          <div key={activity.value} className="flex items-center gap-2 p-2 rounded-md border hover:bg-muted/40 cursor-pointer">
+                            <Checkbox
+                              id={`hra-${activity.value}`}
+                              checked={(field.value || []).includes(activity.value)}
+                              onCheckedChange={(checked) => {
+                                const current = field.value || []
+                                if (checked) {
+                                  field.onChange([...current, activity.value])
+                                } else {
+                                  field.onChange(current.filter((v: string) => v !== activity.value))
+                                }
+                              }}
+                            />
+                            <label htmlFor={`hra-${activity.value}`} className="text-xs cursor-pointer">
+                              {activity.label}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
+
             <div className="flex justify-between pt-4">
               <Button type="button" variant="outline" onClick={() => setStep(step - 1)}>Atrás</Button>
               <Button type="button" onClick={handleNext}>Siguiente</Button>
@@ -506,15 +842,24 @@ export function CompanyForm({
               }} />
             </div>
 
-            <div className="border p-4 rounded bg-muted/20">
-              <label className="block text-sm font-medium mb-2">
-                Documento del Representante Legal
-                {uploadedDocs['national_id'] && <span className="ml-2 text-emerald-500 text-xs">✓ Subido</span>}
-              </label>
-              <FileDropzone accept="image/*,.pdf" helperText="ID o pasaporte del representante legal" onFileSelect={(file) => {
-                if (file) handleDocUpload('national_id', file)
-              }} />
-            </div>
+            {legalRepDocs.map((docSpec) => {
+              const uploadKey = `replegal_${docSpec.id}`
+              return (
+                <div key={docSpec.id} className="border p-4 rounded bg-muted/20">
+                  <label className="block text-sm font-medium mb-2">
+                    Representante Legal: {docSpec.title}
+                    {uploadedDocs[uploadKey] && <span className="ml-2 text-emerald-500 text-xs">✓ Subido</span>}
+                  </label>
+                  <FileDropzone 
+                    accept={docSpec.accept || 'image/*,.pdf'} 
+                    helperText={docSpec.helperText || 'ID o pasaporte del representante legal'} 
+                    onFileSelect={(file) => {
+                      if (file) handleDocUpload(uploadKey, file)
+                    }} 
+                  />
+                </div>
+              )
+            })}
 
             <div className="border p-4 rounded bg-muted/20">
               <label className="block text-sm font-medium mb-2">
@@ -551,8 +896,9 @@ export function CompanyForm({
                 variant="outline"
                 size="sm"
                 onClick={() => append({
-                  first_name: '', last_name: '', ownership_percent: 0,
-                  is_pep: false, nationality: undefined,
+                  first_name: '', last_name: '', ownership_percent: 0, email: '',
+                  is_pep: false, has_control: false, nationality: undefined,
+                  address1: '', city: '', country: undefined as any
                 })}
               >
                 <PlusCircle className="w-4 h-4 mr-1" /> Agregar UBO
@@ -597,7 +943,19 @@ export function CompanyForm({
                     <FormItem>
                       <FormLabel>Nacionalidad</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value || ''}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Selecciona país" /></SelectTrigger></FormControl>
+                        <FormControl>
+                          <SelectTrigger>
+                            {field.value ? (() => {
+                              const c = BRIDGE_COUNTRIES.find(x => x.value === field.value)
+                              return c ? (
+                                <div className="flex items-center gap-2">
+                                  <Flag code={c.value} fallback={<span>🌐</span>} style={{ width: 20, height: 14, objectFit: 'cover' }} className="rounded-sm shrink-0" />
+                                  <span className="truncate">{c.label}</span>
+                                </div>
+                              ) : field.value
+                            })() : <span className="text-muted-foreground">Selecciona país</span>}
+                          </SelectTrigger>
+                        </FormControl>
                         <SelectContent>
                           {BRIDGE_COUNTRIES.map(c => (
                             <SelectItem key={c.value} value={c.value}>
@@ -615,7 +973,13 @@ export function CompanyForm({
                     <FormItem>
                       <FormLabel>Tipo de Documento</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value || ''}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Tipo doc." /></SelectTrigger></FormControl>
+                        <FormControl>
+                          <SelectTrigger>
+                            {field.value ? (
+                              <span className="truncate">{INDIVIDUAL_ID_TYPES.find(t => t.value === field.value)?.label || field.value}</span>
+                            ) : <span className="text-muted-foreground">Tipo doc.</span>}
+                          </SelectTrigger>
+                        </FormControl>
                         <SelectContent>
                           {INDIVIDUAL_ID_TYPES.map(t => (
                             <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
@@ -628,7 +992,44 @@ export function CompanyForm({
                     <FormItem><FormLabel>Nro. Documento</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
                   )} />
                   <FormField control={form.control} name={`ubos.${index}.email`} render={({ field }) => (
-                    <FormItem><FormLabel>Email UBO (opcional)</FormLabel><FormControl><Input type="email" {...field} /></FormControl></FormItem>
+                    <FormItem><FormLabel>Email UBO <span className="text-destructive text-xs">*</span></FormLabel><FormControl><Input type="email" placeholder="contacto@empresa.com" {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name={`ubos.${index}.address1`} render={({ field }) => (
+                    <FormItem className="col-span-2"><FormLabel>Dirección Residencial</FormLabel><FormControl><Input placeholder="Calle, Nro, etc." {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name={`ubos.${index}.city`} render={({ field }) => (
+                    <FormItem><FormLabel>Ciudad Residencial</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name={`ubos.${index}.country`} render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>País Residencial</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ''}>
+                        <FormControl>
+                          <SelectTrigger>
+                            {field.value ? (() => {
+                              const c = BRIDGE_COUNTRIES.find(x => x.value === field.value)
+                              return c ? (
+                                <div className="flex items-center gap-2">
+                                  <Flag code={c.value} fallback={<span>🌐</span>} style={{ width: 20, height: 14, objectFit: 'cover' }} className="rounded-sm shrink-0" />
+                                  <span className="truncate">{c.label}</span>
+                                </div>
+                              ) : field.value
+                            })() : <span className="text-muted-foreground">Selecciona país</span>}
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {BRIDGE_COUNTRIES.map(c => (
+                            <SelectItem key={c.value} value={c.value}>
+                              <div className="flex items-center gap-2">
+                                <Flag code={c.value} fallback={<span>🌐</span>} style={{ width: 24, height: 16, objectFit: 'cover' }} className="rounded-sm" />
+                                <span>{c.label}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
                   )} />
                   <FormField control={form.control} name={`ubos.${index}.is_pep`} render={({ field }) => (
                     <FormItem className="flex flex-row items-start gap-3 rounded border p-3">
@@ -636,52 +1037,76 @@ export function CompanyForm({
                       <FormLabel className="font-normal text-sm">Este UBO es PEP</FormLabel>
                     </FormItem>
                   )} />
+                  {/* F9: has_control — UBO con control operacional (no solo ownership) */}
+                  <FormField control={form.control} name={`ubos.${index}.has_control`} render={({ field }) => (
+                    <FormItem className="flex flex-row items-start gap-3 rounded border p-3">
+                      <FormControl><Checkbox checked={!!field.value} onCheckedChange={field.onChange} /></FormControl>
+                      <div>
+                        <FormLabel className="font-normal text-sm">Este UBO tiene control operacional</FormLabel>
+                        <p className="text-xs text-muted-foreground">Activa si administra o dirige la empresa aunque no sea el mayor accionista.</p>
+                      </div>
+                    </FormItem>
+                  )} />
                 </div>
-                {/* Documento del UBO */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Documento de Identidad del UBO
-                    {uploadedDocs[`ubo_${index}`] && <span className="ml-2 text-emerald-500 text-xs">✓ Subido</span>}
-                  </label>
-                  <FileDropzone
-                    accept="image/*,.pdf"
-                    helperText="ID o pasaporte del socio"
-                    onFileSelect={(file) => { if (file) handleUboDocUpload(index, file) }}
-                  />
+                {/* Documentos del UBO */}
+                <div className="pt-2 space-y-4">
+                  <h5 className="text-sm font-medium text-muted-foreground border-b pb-1 mb-2">Documentos del Socio</h5>
+                  {(() => {
+                    const currentIdType = ubosWatched[index]?.id_type
+                    const requiredDocs = getRequiredDocumentsForId(currentIdType)
+                    
+                    return requiredDocs.map(docSpec => {
+                      const upKey = `ubo_${index}_${docSpec.id}`
+                      return (
+                        <div key={docSpec.id}>
+                          <label className="block text-sm font-medium mb-2">
+                            {docSpec.title}
+                            {uploadedDocs[upKey] && <span className="ml-2 text-emerald-500 text-xs">✓ Subido</span>}
+                          </label>
+                          <FileDropzone
+                            accept={docSpec.accept || 'image/*,.pdf'}
+                            helperText={docSpec.helperText || 'Documento del socio'}
+                            onFileSelect={(file) => { if (file) handleUboDocUpload(index, docSpec.id, file) }}
+                          />
+                        </div>
+                      )
+                    })
+                  })()}
                 </div>
               </div>
             ))}
 
-            {/* Términos de Servicio KYB */}
+            {/* Términos de Servicio KYB — F4: usa TosIframeModal igual que KYC personal */}
             <div className="border rounded-lg p-5 space-y-4 bg-muted/10">
               <h3 className="font-semibold text-base">Términos de Servicio Empresarial (Bridge)</h3>
               <p className="text-sm text-muted-foreground">
                 El representante legal debe aceptar los Términos de Servicio para empresas de Bridge antes de enviar el expediente.
               </p>
-              {!tosUrl ? (
+              {tosContractId ? (
+                <div className="flex items-center gap-2 text-emerald-600 text-sm font-medium">
+                  <span>&#10003;</span> Términos aceptados correctamente
+                </div>
+              ) : (
                 <Button type="button" variant="outline" disabled={tosLoading} onClick={handleGetTosLink}>
                   {tosLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                  Obtener link de Términos de Servicio
+                  {tosUrl ? 'Revisar Términos de Servicio' : 'Obtener Términos de Servicio'}
                 </Button>
-              ) : (
-                <a href={tosUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-primary underline text-sm">
-                  <ExternalLink className="w-4 h-4" />
-                  Abrir Términos de Servicio Empresarial
-                </a>
               )}
-              <div className="flex items-start gap-3 pt-2">
-                <Checkbox id="tos-kyb" checked={tosAccepted} onCheckedChange={(v) => setTosAccepted(!!v)} />
-                <label htmlFor="tos-kyb" className="text-sm leading-snug cursor-pointer">
-                  El representante legal ha leído y acepta los Términos de Servicio de Bridge para entidades empresariales.
-                </label>
-              </div>
+              {tosUrl && !tosContractId && (
+                <TosIframeModal
+                  open={tosModalOpen}
+                  tosUrl={tosUrl}
+                  onAccepted={handleTosAccepted}
+                  onClose={() => setTosModalOpen(false)}
+                />
+              )}
             </div>
 
             <div className="flex justify-between pt-4 border-t mt-4">
               <Button type="button" variant="outline" onClick={() => setStep(step - 1)}>Atrás</Button>
               <Button
                 type="submit"
-                disabled={isUploading || form.formState.isSubmitting || !tosAccepted}
+                disabled={isUploading || form.formState.isSubmitting || !tosContractId}
               >
                 {form.formState.isSubmitting
                   ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Enviando KYB...</>

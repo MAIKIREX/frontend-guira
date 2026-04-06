@@ -152,10 +152,10 @@ export const StaffService = {
   async updateOnboardingStatus(args: {
     actor: StaffActor
     record: StaffOnboardingRecord
-    status: Extract<OnboardingStatus, 'verified' | 'rejected' | 'needs_changes'>
+    status: Extract<OnboardingStatus, 'approved' | 'rejected' | 'in_review'>
     reason: string
   }) {
-    if (args.status === 'verified') {
+    if (args.status === 'approved') {
       return apiPatch<StaffOnboardingRecord>(
         `/admin/compliance/reviews/${args.record.id}/approve`,
         { reason: args.reason }
