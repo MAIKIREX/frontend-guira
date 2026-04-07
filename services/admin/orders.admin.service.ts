@@ -46,4 +46,18 @@ export const OrdersAdminService = {
   async rejectOrder(orderId: string, rejection_reason: string): Promise<PaymentOrder> {
     return apiPost<PaymentOrder>(`/admin/payment-orders/${orderId}/fail`, { reason: rejection_reason })
   },
+
+  /**
+   * Marca una orden como enviada (processing → sent).
+   */
+  async markSent(orderId: string, notes?: string, tx_hash?: string): Promise<PaymentOrder> {
+    return apiPost<PaymentOrder>(`/admin/payment-orders/${orderId}/mark-sent`, { notes, tx_hash })
+  },
+
+  /**
+   * Completa una orden (sent → completed).
+   */
+  async completeOrder(orderId: string, notes?: string, receipt_url?: string): Promise<PaymentOrder> {
+    return apiPost<PaymentOrder>(`/admin/payment-orders/${orderId}/complete`, { notes, receipt_url })
+  },
 }

@@ -21,8 +21,10 @@ import {
   Network,
   Upload,
   Wallet,
+  Loader2,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { WalletService, type WalletBalance } from '@/services/wallet.service'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
@@ -149,6 +151,9 @@ export function CreatePaymentOrderForm({
   const [creatingOrder, setCreatingOrder] = useState(false)
   const [uploadingEvidence, setUploadingEvidence] = useState(false)
 
+  const [bridgeWallets, setBridgeWallets] = useState<WalletBalance[]>([])
+  const [loadingWallets, setLoadingWallets] = useState(false)
+
   const routeOptions = useMemo(
     () => supportedPaymentRoutes.filter((entry) => !allowedRoutes || allowedRoutes.includes(entry.key)),
     [allowedRoutes]
@@ -163,6 +168,16 @@ export function CreatePaymentOrderForm({
   })
 
   const route = useWatch({ control: form.control, name: 'route' })
+  
+  useEffect(() => {
+    if (route === 'crypto_to_crypto') {
+      setLoadingWallets(true)
+      WalletService.getWallets()
+        .then((res) => setBridgeWallets(res.filter((w) => w.address)))
+        .catch(console.error)
+        .finally(() => setLoadingWallets(false))
+    }
+  }, [route])
   const deliveryMethod = useWatch({ control: form.control, name: 'delivery_method' })
   const amountOrigin = useWatch({ control: form.control, name: 'amount_origin' })
   const originCurrency = useWatch({ control: form.control, name: 'origin_currency' })
@@ -184,12 +199,12 @@ export function CreatePaymentOrderForm({
     [supplierId, suppliers]
   )
   const supplierMethods = useMemo(
-    () => parseSupplierPaymentMethods(selectedSupplier?.payment_method ?? '', selectedSupplier ?? undefined),
+    () => parseSupplierPaymentMethods(selectedSupplier?.payment_rail ?? '', selectedSupplier ?? undefined),
     [selectedSupplier]
   )
   const supplierAchDetails = useMemo(() => getSupplierAchDetails(selectedSupplier), [selectedSupplier])
   const supplierSwiftDetails = useMemo(() => getSupplierSwiftDetails(selectedSupplier), [selectedSupplier])
-  const supplierHasCrypto = Boolean(selectedSupplier?.crypto_details?.address)
+  const supplierHasCrypto = Boolean(selectedSupplier?.bank_details?.wallet_address)
   const isDepositRouteActive = isDepositRoute(currentRoute.key)
   const routeCopy = ROUTE_STAGE_COPY[currentRoute.key]
   const shouldHideSupplier = currentRoute.key === 'us_to_wallet' || currentRoute.key === 'us_to_bolivia'
@@ -371,27 +386,27 @@ export function CreatePaymentOrderForm({
     if (!selectedSupplier) return
 
     if (deliveryMethod === 'swift' && supplierSwiftDetails) {
-      form.setValue('destination_address', selectedSupplier.address || supplierSwiftDetails.account_number || '')
+      form.setValue('destination_address', supplierSwiftDetails.account_number || '')
       form.setValue('swift_bank_name', supplierSwiftDetails.bank_name || '')
       form.setValue('swift_code', supplierSwiftDetails.swift_code || '')
-      form.setValue('swift_country', supplierSwiftDetails.bank_country || selectedSupplier.country || '')
+      form.setValue('swift_country', supplierSwiftDetails.bank_country || '')
       form.setValue('swift_iban', supplierSwiftDetails.iban || supplierSwiftDetails.account_number || '')
-      form.setValue('swift_bank_address', supplierSwiftDetails.bank_address || selectedSupplier.address || '')
+      form.setValue('swift_bank_address', supplierSwiftDetails.bank_address || '')
       return
     }
 
     if (deliveryMethod === 'ach' && supplierAchDetails) {
-      form.setValue('destination_address', selectedSupplier.address || supplierAchDetails.account_number || '')
+      form.setValue('destination_address', supplierAchDetails.account_number || '')
       form.setValue('ach_bank_name', supplierAchDetails.bank_name || '')
       form.setValue('ach_routing_number', supplierAchDetails.routing_number || '')
       form.setValue('ach_account_number', supplierAchDetails.account_number || '')
       return
     }
 
-    if (deliveryMethod === 'crypto' && selectedSupplier.crypto_details?.address) {
-      form.setValue('destination_address', selectedSupplier.crypto_details.address)
-      form.setValue('crypto_address', selectedSupplier.crypto_details.address)
-      form.setValue('crypto_network', selectedSupplier.crypto_details.network || 'Polygon')
+    if (deliveryMethod === 'crypto' && selectedSupplier.bank_details?.wallet_address) {
+      form.setValue('destination_address', String(selectedSupplier.bank_details.wallet_address))
+      form.setValue('crypto_address', String(selectedSupplier.bank_details.wallet_address))
+      form.setValue('crypto_network', String(selectedSupplier.bank_details.wallet_network || 'Polygon'))
     }
   }, [deliveryMethod, form, route, selectedSupplier, supplierAchDetails, supplierSwiftDetails])
 
@@ -414,7 +429,9 @@ export function CreatePaymentOrderForm({
   async function handleCreateOrder() {
     try {
       setCreatingOrder(true)
-      const order = await onCreateOrder(buildPaymentOrderPayload(form.getValues(), userId), supportFile, null) as PaymentOrder
+      const formValues = form.getValues()
+      const selectedSup = suppliers.find(s => s.id === formValues.supplier_id)
+      const order = await onCreateOrder(buildPaymentOrderPayload(formValues, userId, selectedSup), supportFile, null) as PaymentOrder
       setCreatedOrder(order)
       setStep('finish')
       toast.success('Expediente creado. Ahora puedes adjuntar el comprobante final o hacerlo despues.')
@@ -817,6 +834,7 @@ export function CreatePaymentOrderForm({
                                 <TextField control={form.control} disabled={disabled} label="Banco" name="ach_bank_name" />
                                 <TextField control={form.control} disabled={disabled} label="Cuenta bancaria" name="ach_account_number" />
                               </div>
+                              <TextField control={form.control} disabled={disabled} label="Nombre del titular de la cuenta" name="destination_account_holder" />
                               {/*
                             <AutoFilledPanel
                               title="Metadata autocompletada"
@@ -887,10 +905,58 @@ export function CreatePaymentOrderForm({
                               ) : null}
 
                               {deliveryMethod === 'crypto' ? (
-                                <div className="grid gap-4 lg:grid-cols-2">
-                                  <TextField control={form.control} disabled={disabled} label="Wallet destino" name="crypto_address" />
-                                  <TextField control={form.control} disabled={disabled} label="Red" name="crypto_network" />
-                                </div>
+                                <>
+                                  {route === 'crypto_to_crypto' ? (
+                                    <div className="grid gap-4 mt-4 px-4 py-4 border rounded-md bg-muted/20">
+                                      <div className="col-span-full mb-2">
+                                        <h4 className="text-sm font-semibold">Datos de Fondeo (Desde dónde envías)</h4>
+                                        <p className="text-xs text-muted-foreground mt-1">Bridge requiere conocer desde cuál red y wallet emitirás el pago. Selecciona una de tus wallets fundeadas.</p>
+                                      </div>
+                                      
+                                      <FormField
+                                        control={form.control}
+                                        name="source_crypto_address"
+                                        render={({ field }) => (
+                                          <FormItem>
+                                            <FormLabel className={FORM_LABEL_CLASS}>Wallet de Origen</FormLabel>
+                                            <FormControl>
+                                              <Select
+                                                disabled={disabled || loadingWallets}
+                                                value={field.value ?? ''}
+                                                onValueChange={(val) => {
+                                                  field.onChange(val)
+                                                  // Auto-set the network based on the selected wallet
+                                                  const selectedWallet = bridgeWallets.find((w) => w.address === val)
+                                                  if (selectedWallet?.network) {
+                                                    form.setValue('source_crypto_network', selectedWallet.network, { shouldValidate: true })
+                                                  }
+                                                }}
+                                              >
+                                                <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
+                                                  <SelectValue placeholder={loadingWallets ? "Cargando wallets..." : "Selecciona tu wallet"} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                  {bridgeWallets.map((wallet) => (
+                                                    <SelectItem key={wallet.id} value={wallet.address ?? ''}>
+                                                      {wallet.currency.toUpperCase()} - {wallet.network ? `${wallet.network.charAt(0).toUpperCase()}${wallet.network.slice(1)}` : 'Interna'} ({wallet.address?.slice(0, 6)}...{wallet.address?.slice(-4)})
+                                                    </SelectItem>
+                                                  ))}
+                                                </SelectContent>
+                                              </Select>
+                                            </FormControl>
+                                            <FormMessage />
+                                          </FormItem>
+                                        )}
+                                      />
+                                      
+                                      <TextField control={form.control} disabled={true} label="Red de Origen (Autocompletada)" name="source_crypto_network" />
+                                    </div>
+                                  ) : null}
+                                  <div className="grid gap-4 lg:grid-cols-2 mt-4">
+                                    <TextField control={form.control} disabled={disabled} label="Wallet destino" name="crypto_address" />
+                                    <TextField control={form.control} disabled={disabled} label="Red destino" name="crypto_network" />
+                                  </div>
+                                </>
                               ) : null}
 
                               {/*
@@ -1129,6 +1195,7 @@ function getDefaultValues(route: SupportedPaymentRoute): PaymentOrderFormValues 
     ach_bank_name: '',
     crypto_address: '',
     crypto_network: '',
+    destination_account_holder: '',
   }
 }
 
@@ -1459,7 +1526,7 @@ function getDetailStepFields({
   const fields: FieldPath<PaymentOrderFormValues>[] = ['amount_origin']
 
   if (route === 'us_to_bolivia' && receiveVariant === 'bank_account') {
-    return [...fields, 'origin_currency', 'destination_currency', 'ach_bank_name', 'ach_account_number']
+    return [...fields, 'origin_currency', 'destination_currency', 'ach_bank_name', 'ach_account_number', 'destination_account_holder']
   }
 
   if (route === 'us_to_bolivia' && receiveVariant === 'bank_qr') {
@@ -1538,6 +1605,7 @@ function buildReviewItems(args: {
     if (args.receiveVariant === 'bank_account') {
       items.push({ label: 'Banco', value: args.values.ach_bank_name || 'Pendiente' })
       items.push({ label: 'Cuenta bancaria', value: args.values.ach_account_number || 'Pendiente' })
+      items.push({ label: 'Titular', value: args.values.destination_account_holder || 'Pendiente' })
     }
 
     if (args.receiveVariant === 'bank_qr') {

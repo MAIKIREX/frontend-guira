@@ -33,6 +33,9 @@ export const paymentOrderSchema = z
     ach_bank_name: z.string().trim().optional(),
     crypto_address: z.string().trim().optional(),
     crypto_network: z.string().trim().optional(),
+    source_crypto_network: z.string().trim().optional(),
+    source_crypto_address: z.string().trim().optional(),
+    destination_account_holder: z.string().trim().optional(),
   })
   .superRefine((value, ctx) => {
     if (value.route === 'us_to_bolivia' && !value.receive_variant) {
@@ -59,7 +62,7 @@ export const paymentOrderSchema = z
       })
     }
 
-    if ((value.route === 'bolivia_to_exterior' || value.route === 'crypto_to_crypto') && value.payment_reason.length < 5) {
+    if ((value.route === 'bolivia_to_exterior' || value.route === 'crypto_to_crypto' || value.route === 'us_to_bolivia') && value.payment_reason.length < 5) {
       ctx.addIssue({
         code: 'custom',
         message: 'Describe el motivo del pago.',
@@ -112,6 +115,14 @@ export const paymentOrderSchema = z
       })
     }
 
+    if (value.route === 'us_to_bolivia' && !value.destination_account_holder) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'El nombre del titular de la cuenta destino es obligatorio.',
+        path: ['destination_account_holder'],
+      })
+    }
+
     if (value.delivery_method === 'crypto' || value.route === 'us_to_wallet') {
       if (!value.crypto_address) {
         ctx.addIssue({
@@ -125,6 +136,23 @@ export const paymentOrderSchema = z
           code: 'custom',
           message: 'La red es obligatoria.',
           path: ['crypto_network'],
+        })
+      }
+    }
+
+    if (value.route === 'crypto_to_crypto') {
+      if (!value.source_crypto_network) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'La red de origen es obligatoria.',
+          path: ['source_crypto_network'],
+        })
+      }
+      if (!value.source_crypto_address) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'La dirección cripto de origen es obligatoria.',
+          path: ['source_crypto_address'],
         })
       }
     }

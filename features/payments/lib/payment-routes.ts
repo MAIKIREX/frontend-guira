@@ -53,33 +53,69 @@ export function getDefaultRouteForAction(action?: string | null): SupportedPayme
   return 'bolivia_to_exterior'
 }
 
-export function buildPaymentOrderPayload(
-  values: PaymentOrderFormValues,
-  userId: string
-): any {
-  // Eliminamos el objeto "metadata" y propagamos al nivel raíz
-  // Mapeamos según el nuevo esquema del Backend
-  return {
-    user_id: userId,
-    flow_type: resolveFlowType(values.route),
-    amount: values.amount_origin,
-    business_purpose: values.payment_reason || 'Servicios',
-    external_account_id: values.supplier_id || null, // temporalmente mapeando supplier_id aquí si aplica
-    destination_currency: values.destination_currency,
-    notes: `Route: ${values.route} | Delivery: ${values.delivery_method}`
-  }
-}
-
-function resolveFlowType(route: SupportedPaymentRoute): string {
+export function resolveFlowType(route: SupportedPaymentRoute, deliveryMethod?: string): string {
   switch (route) {
     case 'bolivia_to_exterior':
-      return 'bolivia_to_world'
+      return deliveryMethod === 'crypto' ? 'bolivia_to_wallet' : 'bolivia_to_world'
     case 'us_to_bolivia':
       return 'world_to_bolivia'
     case 'us_to_wallet':
-      return 'fiat_us_to_bridge_wallet'
+      return 'world_to_wallet' // AHORA ES UN FLUJO INTERBANCARIO 1.5
     case 'crypto_to_crypto':
       return 'wallet_to_wallet'
   }
+}
+
+export function buildPaymentOrderPayload(
+  values: PaymentOrderFormValues,
+  userId: string,
+  supplier?: any
+): any {
+  const flowType = resolveFlowType(values.route, values.delivery_method)
+
+  const payload: any = {
+    flow_type: flowType,
+    amount: values.amount_origin,
+    business_purpose: values.payment_reason || 'Operación interbancaria',
+    destination_currency: values.destination_currency,
+    notes: `Route: ${values.route} | Delivery: ${values.delivery_method}`
+  }
+
+  // INCORPORACIÓN DE DATA ESPECÍFICA SEGÚN FLUJO:
+  switch (flowType) {
+    case 'bolivia_to_world':
+      // 1.1 Fiat — external_account_id requerido por el DTO backend
+      payload.external_account_id =
+        supplier?.bridge_external_account_id ||
+        supplier?.id ||
+        undefined
+      break
+    case 'bolivia_to_wallet':
+      // 1.3 Crypto (Fondeo fiat local entonces no necesita source network)
+      payload.destination_address = values.crypto_address || supplier?.bank_details?.wallet_address
+      payload.destination_network = values.crypto_network || supplier?.bank_details?.wallet_network
+      break
+    case 'wallet_to_wallet':
+      // 1.2 Crypto to Crypto
+      payload.source_network = values.source_crypto_network
+      payload.source_address = values.source_crypto_address
+      payload.source_currency = values.origin_currency 
+      
+      payload.destination_address = values.crypto_address || supplier?.bank_details?.wallet_address
+      payload.destination_network = values.crypto_network || supplier?.bank_details?.wallet_network
+      break
+    case 'world_to_bolivia':
+      // 1.4 Fiat Depósito a Bolivia
+      payload.destination_bank_name = values.ach_bank_name || values.swift_bank_name
+      payload.destination_account_number = values.ach_account_number || values.swift_iban
+      payload.destination_account_holder = values.destination_account_holder || 'Titular no especificado'
+      break
+    case 'world_to_wallet':
+      // 1.5 Depósito USA a VA
+      // virtual_account_id se inyectará en Backend
+      break
+  }
+
+  return payload
 }
 

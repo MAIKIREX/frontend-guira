@@ -102,7 +102,22 @@ export function buildDepositInstructions(args: {
               },
             ]),
       ]
-    case 'crypto_to_crypto':
+    case 'crypto_to_crypto': {
+      // Intentar leer wallets de depósito dinámicas de la configuración PSAV
+      const cryptoPsav = args.psavConfigs.filter(
+        (c) => c.currency === 'USDC' || c.currency === 'USDT' || c.currency === 'crypto'
+      )
+      if (cryptoPsav.length > 0) {
+        return cryptoPsav.map((c, i) => ({
+          id: `crypto-psav-${c.id}`,
+          title: c.name || `Wallet Guira ${i + 1}`,
+          kind: 'wallet' as const,
+          detail: c.account_number || 'Dirección no configurada',
+          accent: i === 0 ? 'emerald' : undefined,
+        }))
+      }
+      // Fallback a wallets hardcodeadas (solo si no hay PSAV crypto configurados)
+      console.warn('[deposit-instructions] Usando wallets hardcodeadas para crypto_to_crypto — configure PSAV crypto.')
       return [
         {
           id: 'crypto-polygon',
@@ -118,6 +133,7 @@ export function buildDepositInstructions(args: {
           detail: 'TLbT1mV7W6YFJ5w8x5dWQ1U1w6E4JmF8GQ',
         },
       ]
+    }
   }
 }
 

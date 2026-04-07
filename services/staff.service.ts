@@ -373,7 +373,7 @@ export const StaffService = {
   }) {
     // El backend aprueba el depósito y pasa a 'processing' vía /approve
     return apiPost<PaymentOrder>(`/admin/payment-orders/${args.order.id}/approve`, {
-      reason: args.reason,
+      notes: args.reason,
     })
   },
 
@@ -386,10 +386,9 @@ export const StaffService = {
     feeTotal: number
   }) {
     return apiPost<PaymentOrder>(`/admin/payment-orders/${args.order.id}/approve`, {
-      reason: args.reason,
+      notes: args.reason,
       exchange_rate_applied: args.exchangeRateApplied,
-      amount_converted: args.amountConverted,
-      fee_total: args.feeTotal,
+      fee_final: args.feeTotal,
     })
   },
 
@@ -400,8 +399,8 @@ export const StaffService = {
     reference: string
   }) {
     return apiPost<PaymentOrder>(`/admin/payment-orders/${args.order.id}/mark-sent`, {
-      reason: args.reason,
-      reference: args.reference,
+      notes: args.reason,
+      tx_hash: args.reference,
     })
   },
 
@@ -431,7 +430,7 @@ export const StaffService = {
     const storagePath = `payment-receipts/${uploadData.path}`
 
     return apiPost<PaymentOrder>(`/admin/payment-orders/${args.order.id}/complete`, {
-      reason: args.reason,
+      notes: args.reason,
       receipt_url: storagePath
     })
   },

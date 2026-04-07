@@ -8,12 +8,12 @@ import type {
 const METHOD_ORDER: SupplierPaymentMethod[] = ['crypto', 'ach', 'swift']
 
 export function parseSupplierPaymentMethods(
-  paymentMethod: Supplier['payment_method'],
-  supplier?: Pick<Supplier, 'bank_details' | 'crypto_details'>
+  paymentRail: string | undefined | null,
+  supplier?: Supplier | null
 ) {
-  const fromValue = Array.isArray(paymentMethod)
-    ? paymentMethod
-    : String(paymentMethod ?? '')
+  const fromValue = Array.isArray(paymentRail)
+    ? paymentRail
+    : String(paymentRail ?? '')
         .split(',')
         .map((entry) => entry.trim().toLowerCase())
         .filter(Boolean)
@@ -33,9 +33,9 @@ export function parseSupplierPaymentMethods(
   }
 
   if (normalized.size === 0) {
-    if (supplier?.crypto_details?.address) normalized.add('crypto')
-    if (getSupplierAchDetails(supplier as Supplier | undefined)) normalized.add('ach')
-    if (getSupplierSwiftDetails(supplier as Supplier | undefined)) normalized.add('swift')
+    if (supplier?.bank_details?.wallet_address) normalized.add('crypto')
+    if (getSupplierAchDetails(supplier)) normalized.add('ach')
+    if (getSupplierSwiftDetails(supplier)) normalized.add('swift')
   }
 
   return METHOD_ORDER.filter((method) => normalized.has(method))
@@ -54,10 +54,10 @@ export function getSupplierAchDetails(supplier?: Supplier | null): SupplierAchDe
 
   if (supplier.bank_details.routing_number && supplier.bank_details.account_number) {
     return {
-      bank_name: supplier.bank_details.bank_name ?? '',
-      routing_number: supplier.bank_details.routing_number,
-      account_number: supplier.bank_details.account_number,
-      bank_country: supplier.bank_details.bank_country ?? supplier.country,
+      bank_name: (supplier.bank_details.bank_name as string) ?? '',
+      routing_number: supplier.bank_details.routing_number as string,
+      account_number: supplier.bank_details.account_number as string,
+      bank_country: (supplier.bank_details.bank_country as string) ?? supplier.country,
     }
   }
 
@@ -75,11 +75,11 @@ export function getSupplierSwiftDetails(
 
   if (supplier.bank_details.swift_code && supplier.bank_details.account_number) {
     return {
-      bank_name: supplier.bank_details.bank_name ?? '',
-      swift_code: supplier.bank_details.swift_code,
-      account_number: supplier.bank_details.account_number,
-      bank_country: supplier.bank_details.bank_country ?? supplier.country,
-      bank_address: supplier.address,
+      bank_name: (supplier.bank_details.bank_name as string) ?? '',
+      swift_code: supplier.bank_details.swift_code as string,
+      account_number: supplier.bank_details.account_number as string,
+      bank_country: (supplier.bank_details.bank_country as string) ?? supplier.country,
+      bank_address: (supplier.bank_details.bank_address as string) ?? '',
     }
   }
 

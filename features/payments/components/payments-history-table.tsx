@@ -1012,14 +1012,10 @@ function readPreviousQuote(order: PaymentOrder, key: 'exchange_rate_applied' | '
 }
 
 function resolveOrderRoute(order: PaymentOrder): SupportedPaymentRoute | null {
-  const metadataRoute =
-    order.metadata &&
-      typeof order.metadata === 'object' &&
-      'route' in order.metadata &&
-      typeof order.metadata.route === 'string'
-      ? order.metadata.route
-      : null
+  const meta = order.metadata && typeof order.metadata === 'object' ? order.metadata as Record<string, unknown> : null
 
+  // 1. Intentar metadata.route (UI key almacenada al crear la orden)
+  const metadataRoute = typeof meta?.route === 'string' ? meta.route : null
   if (
     metadataRoute === 'bolivia_to_exterior' ||
     metadataRoute === 'us_to_bolivia' ||
@@ -1029,6 +1025,19 @@ function resolveOrderRoute(order: PaymentOrder): SupportedPaymentRoute | null {
     return metadataRoute
   }
 
+  // 2. Intentar flow_type del nuevo backend (campo directo en la orden o en metadata)
+  const flowType = (order as unknown as Record<string, unknown>).flow_type ?? meta?.flow_type
+  if (typeof flowType === 'string') {
+    switch (flowType) {
+      case 'bolivia_to_world': return 'bolivia_to_exterior'
+      case 'bolivia_to_wallet': return 'bolivia_to_exterior'
+      case 'wallet_to_wallet': return 'crypto_to_crypto'
+      case 'world_to_bolivia': return 'us_to_bolivia'
+      case 'world_to_wallet': return 'us_to_wallet'
+    }
+  }
+
+  // 3. Fallback a order_type legacy
   switch (order.order_type) {
     case 'BO_TO_WORLD':
       return 'bolivia_to_exterior'
