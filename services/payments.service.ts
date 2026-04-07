@@ -29,7 +29,7 @@
  */
 import { apiGet, apiPost, apiPatch, apiDelete, apiUpload } from '@/lib/api/client'
 import type { PaymentOrder } from '@/types/payment-order'
-import type { Supplier } from '@/types/supplier'
+import type { Supplier, CreateSupplierPayload } from '@/types/supplier'
 import type { PaginationParams } from '@/lib/api/types'
 
 // ── DTOs de entrada ───────────────────────────────────────────────
@@ -185,17 +185,17 @@ export const PaymentsService = {
 
   /**
    * Crea un nuevo proveedor.
-   * Para proveedores internacionales, el frontend también llamará
-   * a BridgeService.createExternalAccount() antes de guardar.
+   * El backend se encargará automáticamente de registrar en Bridge 
+   * si el proveedor es un tipo de cuenta fiat.
    */
-  async createSupplier(dto: SupplierUpsertDto): Promise<Supplier> {
+  async createSupplier(dto: CreateSupplierPayload): Promise<Supplier> {
     return apiPost<Supplier>('/suppliers', dto)
   },
 
   /**
    * Actualiza un proveedor existente.
    */
-  async updateSupplier(supplierId: string, dto: Partial<SupplierUpsertDto>): Promise<Supplier> {
+  async updateSupplier(supplierId: string, dto: Partial<CreateSupplierPayload>): Promise<Supplier> {
     return apiPatch<Supplier>(`/suppliers/${supplierId}`, dto)
   },
 

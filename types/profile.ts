@@ -7,6 +7,7 @@ export interface Profile {
   full_name: string
   onboarding_status: string
   bridge_customer_id?: string
+  avatar_url?: string
   created_at: string
   is_archived: boolean
   metadata?: Record<string, unknown>

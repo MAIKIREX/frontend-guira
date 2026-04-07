@@ -19,10 +19,33 @@ export const ProfileService = {
   },
 
   /**
-   * Actualiza campos parciales del perfil del usuario autenticado.
+   * Actualiza el avatar del perfil del usuario autenticado.
    */
-  async updateProfile(updates: Partial<Pick<Profile, 'full_name'>>): Promise<Profile> {
+  async updateProfile(updates: { avatar_url?: string }): Promise<Profile> {
     return apiPatch<Profile>('/profiles/me', updates)
+  },
+
+  /**
+   * Consigue una URL firmada de Supabase para subir el avatar directamente
+   */
+  async getAvatarUploadUrl(fileName: string): Promise<{ upload_url: string; path: string }> {
+    return apiGet<{ upload_url: string; path: string }>(`/profiles/me/avatar-upload-url?fileName=${encodeURIComponent(fileName)}`)
+  },
+
+  /**
+   * Sube la imagen a la URL firmada.
+   */
+  async uploadAvatarBinary(uploadUrl: string, file: File): Promise<void> {
+    const res = await fetch(uploadUrl, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': file.type,
+      },
+    })
+    if (!res.ok) {
+      throw new Error('No se pudo subir la imagen del avatar')
+    }
   },
 
   /**

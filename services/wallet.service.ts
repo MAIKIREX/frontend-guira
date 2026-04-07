@@ -26,13 +26,18 @@ import type { PaginationParams } from '@/lib/api/types'
 export interface WalletBalance {
   id: string
   currency: string
+  /** Dirección blockchain de la wallet (puede ser null para wallets internas) */
+  address: string | null
+  /** Red blockchain (ethereum, polygon, solana, etc.) */
+  network: string | null
   balance: number
   available_balance: number
   reserved_balance: number
-  provider: 'bridge' | 'internal'
-  network?: string
+  /** Proveedor: 'bridge' | 'internal' */
+  provider: string
   label?: string
   is_active: boolean
+  created_at?: string
 }
 
 export interface PayinRoute {

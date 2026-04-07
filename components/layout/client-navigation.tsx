@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ArrowDownToLine, ArrowUpFromLine, Headset, LayoutDashboard, Settings, UsersRound, Waypoints } from 'lucide-react'
+import { ArrowDownToLine, ArrowUpFromLine, Headset, LayoutDashboard, Settings, UsersRound, Wallet, Waypoints } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const clientLinks = [
   { href: '/panel', label: 'Panel', icon: LayoutDashboard },
+  { href: '/cuentas', label: 'Mis Cuentas', icon: Wallet },
   { href: '/depositar', label: 'Depositar', icon: ArrowDownToLine },
   { href: '/enviar', label: 'Enviar', icon: ArrowUpFromLine },
   { href: '/proveedores', label: 'Proveedores', icon: UsersRound },
