@@ -131,10 +131,34 @@ export const PaymentsService = {
   },
 
   /**
-   * Sube un comprobante/evidencia a una orden (reemplaza upload a Supabase Storage).
-   * El backend guarda el archivo y actualiza el estado de la orden automáticamente.
+   * Sube un archivo a storage y retorna su URL relativa (bucket/path).
+   * Útil para subir documentos antes de crear la orden.
    */
-  async uploadOrderEvidence(orderId: string, file: File, field: 'evidence_url' | 'receipt_url'): Promise<PaymentOrder> {
+  async uploadFileToStorage(file: File, bucket: string = 'payment-receipts'): Promise<string> {
+    const { createClient } = await import('@/lib/supabase/browser')
+    const supabase = createClient()
+    
+    const { data: { session } } = await supabase.auth.getSession()
+    const userId = session?.user?.id
+    if (!userId) throw new Error("No hay sesión activa para subir archivo")
+
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${userId}/upload_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`
+
+    const { data, error } = await supabase.storage.from(bucket).upload(fileName, file, { upsert: true })
+
+    if (error) {
+      throw new Error(`Error uploading to Supabase: ${error.message}`)
+    }
+
+    return `${bucket}/${data.path}`
+  },
+
+  /**
+   * Sube un comprobante/evidencia a una orden y notifica al backend.
+   * El backend guarda el archivo y actualiza el estado de la orden (confirm-deposit).
+   */
+  async uploadOrderEvidence(orderId: string, file: File): Promise<PaymentOrder> {
     const { createClient } = await import('@/lib/supabase/browser')
     const supabase = createClient()
     

@@ -56,7 +56,7 @@ import { DocumentUploadCard } from '@/components/shared/document-upload-card'
 import { AnimatedNextButton } from '@/components/shared/animated-next-button'
 import { AnimatedBackButton } from '@/components/shared/animated-back-button'
 import { StepProgressRail } from '@/features/payments/components/step-progress-rail'
-import { CRYPTO_NETWORK_OPTIONS, resolveCryptoNetwork } from '@/features/payments/lib/crypto-networks'
+import { CRYPTO_NETWORK_OPTIONS, CRYPTO_NETWORK_LABELS, resolveCryptoNetwork } from '@/features/payments/lib/crypto-networks'
 import {
   paymentOrderSchema,
   type PaymentOrderFormValues,
@@ -153,6 +153,7 @@ export function CreatePaymentOrderForm({
 
   const [bridgeWallets, setBridgeWallets] = useState<WalletBalance[]>([])
   const [loadingWallets, setLoadingWallets] = useState(false)
+  const [sourceWalletMode, setSourceWalletMode] = useState<'guira' | 'external'>('guira')
 
   const routeOptions = useMemo(
     () => supportedPaymentRoutes.filter((entry) => !allowedRoutes || allowedRoutes.includes(entry.key)),
@@ -207,8 +208,8 @@ export function CreatePaymentOrderForm({
   const supplierHasCrypto = Boolean(selectedSupplier?.bank_details?.wallet_address)
   const isDepositRouteActive = isDepositRoute(currentRoute.key)
   const routeCopy = ROUTE_STAGE_COPY[currentRoute.key]
-  const shouldHideSupplier = currentRoute.key === 'us_to_wallet' || currentRoute.key === 'us_to_bolivia'
-  const requiresSupplierSelection = currentRoute.key === 'bolivia_to_exterior' || currentRoute.key === 'crypto_to_crypto'
+  const shouldHideSupplier = currentRoute.key === 'us_to_wallet' || currentRoute.key === 'us_to_bolivia' || currentRoute.key === 'crypto_to_crypto'
+  const requiresSupplierSelection = currentRoute.key === 'bolivia_to_exterior'
   const hasSupplierSelected = Boolean(selectedSupplier)
   const showSupportUpload = currentRoute.key === 'us_to_bolivia' || !isDepositRouteActive
   const availableTechnicalMethods = useMemo(
@@ -254,6 +255,40 @@ export function CreatePaymentOrderForm({
     [currentRoute.key, psavConfigs, selectedSupplier]
   )
 
+  const finalInstructions = useMemo(() => {
+    const bridgeDeposit = (createdOrder as any)?.bridge_source_deposit_instructions;
+    if (bridgeDeposit && Object.keys(bridgeDeposit).length > 0) {
+      return [{
+        id: 'bridge-deposit',
+        title: 'Instrucciones de Fondeo (Bridge API)',
+        kind: 'wallet',
+        detail: [bridgeDeposit.payment_rail ?? 'crypto', bridgeDeposit.to_address].filter(Boolean).join(' | '),
+        accent: 'sky',
+      }] as DepositInstruction[];
+    }
+
+    if (createdOrder?.psav_deposit_instructions && Object.keys(createdOrder.psav_deposit_instructions).length > 0) {
+      const psav = createdOrder.psav_deposit_instructions as Record<string, string>
+      return [{
+        id: 'backend-psav',
+        title: psav.label || 'Cuenta receptora asignada',
+        kind: (psav.type === 'crypto' ? 'wallet' : 'bank') as 'wallet' | 'bank',
+        detail: psav.type === 'crypto'
+          ? [psav.network, psav.address].filter(Boolean).join(' | ')
+          : [psav.bank_name, psav.account_holder, psav.account_number].filter(Boolean).join(' | '),
+        qrUrl: psav.qr_url,
+        accent: 'sky',
+        bankCard: psav.type === 'crypto' ? undefined : {
+          bankName: psav.bank_name || 'Banco asignado',
+          accountHolder: psav.account_holder || psav.label || 'Guira',
+          accountNumber: psav.account_number || '',
+          country: psav.currency || 'BO',
+        }
+      }] as DepositInstruction[]
+    }
+    return depositInstructions
+  }, [createdOrder, depositInstructions])
+
   const reviewItems = useMemo(
     () => buildReviewItems({
       route: currentRoute.key,
@@ -265,8 +300,9 @@ export function CreatePaymentOrderForm({
       uiMethodGroup,
       supportFileName: supportFile?.name,
       evidenceFileName: evidenceFile?.name,
+      sourceWalletMode,
     }),
-    [amountOrigin, currentRoute.key, currentRoute.label, evidenceFile?.name, liveValues, receiveVariant, selectedSupplier?.name, supportFile?.name, uiMethodGroup]
+    [amountOrigin, currentRoute.key, currentRoute.label, evidenceFile?.name, liveValues, receiveVariant, selectedSupplier?.name, supportFile?.name, uiMethodGroup, sourceWalletMode]
   )
 
   useEffect(() => {
@@ -458,7 +494,7 @@ export function CreatePaymentOrderForm({
     try {
       setUploadingEvidence(true)
       await onUploadOrderFile(createdOrder.id, 'evidence_url', evidenceFile)
-      toast.success('Comprobante adjuntado. La orden paso a waiting_deposit.')
+      toast.success('Comprobante adjuntado. La orden paso a deposit_received.')
       resetFlow(form, setStep, setSupportFile, setEvidenceFile, setCreatedOrder)
     } catch (error) {
       console.error('Failed to upload evidence', error)
@@ -853,7 +889,7 @@ export function CreatePaymentOrderForm({
                           {currentRoute.key !== 'us_to_wallet' && currentRoute.key !== 'us_to_bolivia' ? (
                             <>
                               <div className={`grid gap-4 ${(route === 'bolivia_to_exterior' && uiMethodGroup !== 'crypto') ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
-                                {!(route === 'bolivia_to_exterior' && uiMethodGroup === 'crypto') ? (
+                                {!(route === 'bolivia_to_exterior' && uiMethodGroup === 'crypto') && route !== 'crypto_to_crypto' ? (
                                   <TextField control={form.control} disabled={disabled} label={getDestinationLabel(currentRoute.key)} name="destination_address" />
                                 ) : null}
                                 {!isDepositRouteActive ? (
@@ -910,51 +946,63 @@ export function CreatePaymentOrderForm({
                                     <div className="grid gap-4 mt-4 px-4 py-4 border rounded-md bg-muted/20">
                                       <div className="col-span-full mb-2">
                                         <h4 className="text-sm font-semibold">Datos de Fondeo (Desde dónde envías)</h4>
-                                        <p className="text-xs text-muted-foreground mt-1">Bridge requiere conocer desde cuál red y wallet emitirás el pago. Selecciona una de tus wallets fundeadas.</p>
+                                        <div className="flex gap-2 mt-3 mb-4">
+                                          <Button type="button" variant={sourceWalletMode === 'guira' ? 'default' : 'outline'} size="sm" onClick={() => setSourceWalletMode('guira')}>Mis Wallets Guira</Button>
+                                          <Button type="button" variant={sourceWalletMode === 'external' ? 'default' : 'outline'} size="sm" onClick={() => { setSourceWalletMode('external'); form.setValue('source_crypto_address', ''); form.setValue('source_crypto_network', ''); }}>Wallet Externa</Button>
+                                        </div>
                                       </div>
                                       
-                                      <FormField
-                                        control={form.control}
-                                        name="source_crypto_address"
-                                        render={({ field }) => (
-                                          <FormItem>
-                                            <FormLabel className={FORM_LABEL_CLASS}>Wallet de Origen</FormLabel>
-                                            <FormControl>
-                                              <Select
-                                                disabled={disabled || loadingWallets}
-                                                value={field.value ?? ''}
-                                                onValueChange={(val) => {
-                                                  field.onChange(val)
-                                                  // Auto-set the network based on the selected wallet
-                                                  const selectedWallet = bridgeWallets.find((w) => w.address === val)
-                                                  if (selectedWallet?.network) {
-                                                    form.setValue('source_crypto_network', selectedWallet.network, { shouldValidate: true })
-                                                  }
-                                                }}
-                                              >
-                                                <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
-                                                  <SelectValue placeholder={loadingWallets ? "Cargando wallets..." : "Selecciona tu wallet"} />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                  {bridgeWallets.map((wallet) => (
-                                                    <SelectItem key={wallet.id} value={wallet.address ?? ''}>
-                                                      {wallet.currency.toUpperCase()} - {wallet.network ? `${wallet.network.charAt(0).toUpperCase()}${wallet.network.slice(1)}` : 'Interna'} ({wallet.address?.slice(0, 6)}...{wallet.address?.slice(-4)})
-                                                    </SelectItem>
-                                                  ))}
-                                                </SelectContent>
-                                              </Select>
-                                            </FormControl>
-                                            <FormMessage />
-                                          </FormItem>
-                                        )}
-                                      />
-                                      
-                                      <TextField control={form.control} disabled={true} label="Red de Origen (Autocompletada)" name="source_crypto_network" />
+                                      {sourceWalletMode === 'guira' ? (
+                                        <>
+                                          <FormField
+                                            control={form.control}
+                                            name="source_crypto_address"
+                                            render={({ field }) => (
+                                              <FormItem>
+                                                <FormLabel className={FORM_LABEL_CLASS}>Wallet de Origen</FormLabel>
+                                                <FormControl>
+                                                  <Select
+                                                    disabled={disabled || loadingWallets}
+                                                    value={field.value ?? ''}
+                                                    onValueChange={(val) => {
+                                                      field.onChange(val)
+                                                      // Auto-set the network based on the selected wallet
+                                                      const selectedWallet = bridgeWallets.find((w) => w.address === val)
+                                                      if (selectedWallet?.network) {
+                                                        form.setValue('source_crypto_network', selectedWallet.network, { shouldValidate: true })
+                                                      }
+                                                    }}
+                                                  >
+                                                    <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
+                                                      <SelectValue placeholder={loadingWallets ? "Cargando wallets..." : "Selecciona tu wallet"} />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                      {bridgeWallets.map((wallet) => (
+                                                        <SelectItem key={wallet.id} value={wallet.address ?? ''}>
+                                                          {wallet.currency.toUpperCase()} - {wallet.network ? `${wallet.network.charAt(0).toUpperCase()}${wallet.network.slice(1)}` : 'Interna'} ({wallet.address?.slice(0, 6)}...{wallet.address?.slice(-4)})
+                                                        </SelectItem>
+                                                      ))}
+                                                    </SelectContent>
+                                                  </Select>
+                                                </FormControl>
+                                                <FormMessage />
+                                              </FormItem>
+                                            )}
+                                          />
+                                          
+                                          <TextField control={form.control} disabled={true} label="Red de Origen (Autocompletada)" name="source_crypto_network" />
+                                        </>
+                                      ) : (
+                                        <>
+                                          <TextField control={form.control} disabled={disabled} label="Wallet de Origen (Externa)" name="source_crypto_address" />
+                                          <NetworkSelectField control={form.control} disabled={disabled} label="Red de Origen" name="source_crypto_network" placeholder="Selecciona la red" />
+                                        </>
+                                      )}
                                     </div>
                                   ) : null}
                                   <div className="grid gap-4 lg:grid-cols-2 mt-4">
                                     <TextField control={form.control} disabled={disabled} label="Wallet destino" name="crypto_address" />
-                                    <TextField control={form.control} disabled={disabled} label="Red destino" name="crypto_network" />
+                                    <NetworkSelectField control={form.control} disabled={disabled} label="Red destino" name="crypto_network" placeholder="Selecciona la red" />
                                   </div>
                                 </>
                               ) : null}
@@ -1049,13 +1097,13 @@ export function CreatePaymentOrderForm({
                     />
 
                     <div className="grid gap-4 lg:grid-cols-2">
-                      {depositInstructions.map((instruction) => (
+                      {finalInstructions.map((instruction) => (
                         <DepositInstructionCard key={instruction.id} instruction={instruction} />
                       ))}
                     </div>
 
                     <div className="border-l-2 border-emerald-400/45 bg-emerald-400/10 px-4 py-4 text-sm text-emerald-100">
-                      El expediente ya fue creado con estado `created`. Desde aqui puedes dejar el comprobante final o subirlo despues desde Seguimiento.
+                      El expediente ya fue creado con estado `waiting_deposit`. Desde aqui puedes dejar el comprobante final o subirlo despues desde Seguimiento.
                     </div>
 
                     <DocumentInputCard
@@ -1066,7 +1114,7 @@ export function CreatePaymentOrderForm({
                     />
 
                     <div className="border-l-2 border-border/70 bg-muted/10 px-4 py-4 text-sm text-muted-foreground">
-                      Cuando el comprobante final quede adjunto y la orden siga en `created`, el sistema la movera a `waiting_deposit`.
+                      Cuando el comprobante final quede adjunto y la orden siga en `waiting_deposit`, el sistema la movera a `deposit_received`.
                     </div>
 
                     <div className="flex items-center justify-between mt-8">
@@ -1356,7 +1404,7 @@ function NetworkSelectField({
               <SelectContent>
                 {CRYPTO_NETWORK_OPTIONS.map((network) => (
                   <SelectItem key={network} value={network}>
-                    {network}
+                    {CRYPTO_NETWORK_LABELS[network]}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1537,7 +1585,7 @@ function getDetailStepFields({
     return [...fields, 'origin_currency', 'destination_currency', 'crypto_address', 'crypto_network']
   }
 
-  if (route === 'bolivia_to_exterior' || route === 'crypto_to_crypto') {
+  if (route === 'bolivia_to_exterior') {
     fields.push('supplier_id')
   }
 
@@ -1555,7 +1603,7 @@ function getDetailStepFields({
     fields.push('funding_method')
   }
 
-  if (!(route === 'bolivia_to_exterior' && uiMethodGroup === 'crypto')) {
+  if (!(route === 'bolivia_to_exterior' && uiMethodGroup === 'crypto') && route !== 'crypto_to_crypto') {
     fields.push('destination_address')
   }
 
@@ -1584,6 +1632,7 @@ function buildReviewItems(args: {
   uiMethodGroup?: UiMethodGroup
   supportFileName?: string
   evidenceFileName?: string
+  sourceWalletMode?: 'guira' | 'external'
 }) {
   const items: Array<{ label: string; value: string }> = [
     { label: 'Ruta', value: args.routeLabel },
@@ -1648,10 +1697,12 @@ function buildReviewItems(args: {
   }
 
   if (args.route === 'crypto_to_crypto') {
-    items.push({ label: 'Proveedor', value: args.supplierName })
+    items.push({ label: 'Origen (Fondeo)', value: args.sourceWalletMode === 'guira' ? 'Mis Wallets Guira' : 'Wallet Externa' })
+    items.push({ label: 'Wallet origen', value: args.values.source_crypto_address || 'Pendiente' })
+    items.push({ label: 'Red origen', value: args.values.source_crypto_network || 'Pendiente' })
     items.push({ label: 'Metodo tecnico', value: 'crypto' })
     items.push({ label: 'Wallet destino', value: args.values.crypto_address || 'Pendiente' })
-    items.push({ label: 'Red', value: args.values.crypto_network || 'Pendiente' })
+    items.push({ label: 'Red destino', value: args.values.crypto_network || 'Pendiente' })
     items.push({ label: 'Motivo', value: args.values.payment_reason || 'Pendiente' })
     items.push({ label: 'Respaldo', value: args.supportFileName ?? 'No adjuntado' })
   }
@@ -1705,7 +1756,7 @@ function getSupplierValidationMessage({
 }) {
   if (route === 'us_to_wallet') return null
   if (route === 'us_to_bolivia') return null
-  if ((route === 'bolivia_to_exterior' || route === 'crypto_to_crypto') && !selectedSupplier) {
+  if (route === 'bolivia_to_exterior' && !selectedSupplier) {
     return null
   }
 
@@ -1721,7 +1772,7 @@ function getSupplierValidationMessage({
     if (deliveryMethod === 'swift' && !supplierSwiftDetails) return 'El proveedor no tiene datos SWIFT completos.'
   }
 
-  if (route === 'crypto_to_crypto' && !supplierHasCrypto) {
+  if (route === 'crypto_to_crypto' && selectedSupplier && !supplierHasCrypto) {
     return 'El proveedor necesita una wallet destino antes de continuar.'
   }
 

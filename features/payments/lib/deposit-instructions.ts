@@ -198,25 +198,48 @@ function findNumericSetting(settings: AppSettingRow[], key: string) {
 }
 
 function resolveFeeTotal(fees: FeeConfigRow[], amountOrigin: number, route: SupportedPaymentRoute) {
-  // 1. Intentar encontrar la comision segun la ruta, o cae en supplier_payment, o la primera
-  const routeType = route === 'bolivia_to_exterior' ? 'supplier_payment' : 'wallet_funding'
-  const candidate = fees.find((fee) => fee.type === routeType) || 
-                   fees.find((fee) => fee.type === 'supplier_payment') || 
-                   fees[0]
+  if (!fees || fees.length === 0) return 15 // Fallback historico
+
+  // Mapeamos las rutas del frontend local a los operation_type de la base de datos V2
+  let targetOperation = ''
+  if (route === 'bolivia_to_exterior') targetOperation = 'interbank_bo_out'
+  else if (route === 'us_to_bolivia') targetOperation = 'interbank_bo_in'
+  else if (route === 'crypto_to_crypto') targetOperation = 'interbank_w2w'
+  else if (route === 'us_to_wallet') targetOperation = 'ramp_off_bo'
   
-  if (!candidate) return 15 // Fallback historico (monto fijo $15)
-
-  // Convertir el valor a numero (Supabase devuelve numeric como string a veces)
-  const rawValue = candidate.value
-  const feeValue = typeof rawValue === 'string' 
-    ? parseFloat(rawValue.replace(',', '.')) 
-    : (typeof rawValue === 'number' ? rawValue : 0)
-
-  if (candidate.fee_type === 'percentage') {
-    return (amountOrigin * feeValue) / 100
+  // Buscar config especifica o caer en el primer fallback si esta desactualizado
+  let candidate = fees.find((fee) => fee.operation_type === targetOperation)
+  if (!candidate) {
+    candidate = fees[0]
   }
 
-  return feeValue
+  // Obtener los valores (vienen como string desde Postgres Numeric)
+  const feePercentVal = typeof candidate.fee_percent === 'string' ? parseFloat(candidate.fee_percent) : (Number(candidate.fee_percent) || 0)
+  const feeFixedVal = typeof candidate.fee_fixed === 'string' ? parseFloat(candidate.fee_fixed) : (Number(candidate.fee_fixed) || 0)
+  const minFee = typeof candidate.min_fee === 'string' ? parseFloat(candidate.min_fee) : (Number(candidate.min_fee) || 0)
+  
+  let calculatedFee = 0
+
+  if (candidate.fee_type === 'percent') {
+    calculatedFee = (amountOrigin * feePercentVal) / 100
+  } else if (candidate.fee_type === 'fixed') {
+    calculatedFee = feeFixedVal
+  } else if (candidate.fee_type === 'mixed') {
+    calculatedFee = ((amountOrigin * feePercentVal) / 100) + feeFixedVal
+  } else {
+    // Legacy fallback for old rows if they exist
+    calculatedFee = typeof candidate.value === 'string' ? parseFloat(candidate.value) : (Number(candidate.value) || 0)
+    if (candidate.fee_type === 'percentage') {
+       calculatedFee = (amountOrigin * calculatedFee) / 100
+    }
+  }
+
+  // Retornar aplicando el cobro minimo si aplica
+  if (minFee > 0 && calculatedFee < minFee) {
+    return minFee
+  }
+
+  return calculatedFee
 }
 
 function toEstimate(values: RouteEstimate) {

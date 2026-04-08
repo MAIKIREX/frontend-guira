@@ -14,7 +14,9 @@ import {
   Landmark,
   ReceiptText,
   Wallet,
+  Loader2,
 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/browser'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -226,23 +228,10 @@ export function SupportTicketActions({ actor, onUpdated, ticket }: { actor: Staf
 
 export function OrderActions({ actor, onUpdated, order }: { actor: StaffActor; onUpdated: (order: PaymentOrder) => Promise<void> | void; order: PaymentOrder }) {
   const actions = new Set(getOrderActions(order))
-  const blockedDepositReason = !hasClientDepositEvidence(order)
-    ? 'No puedes validar el deposito porque el cliente aun no subio su comprobante.'
-    : null
   if (actions.size === 0) return null
 
   return (
     <div className="flex flex-wrap gap-3 xl:justify-end">
-      {actions.has('deposit_received') ? (
-        <OrderReasonActionDialog
-          actor={actor}
-          action="deposit_received"
-          blockedReason={blockedDepositReason}
-          label="Validar deposito del cliente"
-          onUpdated={onUpdated}
-          order={order}
-        />
-      ) : null}
       {actions.has('quote') ? <OrderQuoteDialog actor={actor} onUpdated={onUpdated} order={order} /> : null}
       {actions.has('sent') ? <OrderSentDialog actor={actor} onUpdated={onUpdated} order={order} /> : null}
       {actions.has('completed') ? <OrderCompletionDialog actor={actor} onUpdated={onUpdated} order={order} /> : null}
@@ -259,8 +248,7 @@ function getPaymentStatusColor(status: string) {
 }
 
 export function OrderDetailDialog({ actor, onUpdated, order }: { actor: StaffActor; onUpdated: (order: PaymentOrder) => Promise<void> | void; order: PaymentOrder }) {
-  const meta = order.metadata as import('@/types/payment-order').PaymentOrderMetadata | undefined
-  const destinationInfo = buildOrderDestinationInfo(meta)
+  const destinationInfo = buildOrderDestinationInfo(order)
   const summaryCards = buildOrderSummaryCards(order)
   const documentItems = buildOrderDocumentItems(order)
   const stepExpectation = getOrderStepExpectation(order)
@@ -287,7 +275,7 @@ export function OrderDetailDialog({ actor, onUpdated, order }: { actor: StaffAct
                 <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
                   <span>Creada: {formatOrderDate(order.created_at)}</span>
                   <span>Actualizada: {formatOrderDate(order.updated_at)}</span>
-                  <span>Rail: {order.processing_rail}</span>
+                  <span>Flujo: {order.flow_type ?? order.processing_rail}</span>
                 </div>
               </div>
             </div>
@@ -472,6 +460,36 @@ function DocumentStatusCard({
     ? 'hover:-translate-y-0.5 hover:border-primary/20 hover:bg-background hover:shadow-sm'
     : ''
 
+  const [loading, setLoading] = useState(false)
+
+  async function handleOpen(e: React.MouseEvent) {
+    if (!href) return
+    if (href.startsWith('http://') || href.startsWith('https://')) {
+      return
+    }
+
+    e.preventDefault()
+    setLoading(true)
+    try {
+      const supabase = createClient()
+      const parts = href.split('/')
+      const bucket = parts[0]
+      const path = parts.slice(1).join('/')
+
+      const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 3600)
+      if (error || !data?.signedUrl) {
+        throw new Error(error?.message || 'Error generating signed URL')
+      }
+
+      window.open(data.signedUrl, '_blank')
+    } catch (err) {
+      console.error('Error resolviendo URL privada:', err)
+      toast.error('No se pudo abrir el documento. Es posible que no tengas permisos para ver este archivo.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className={`min-w-0 rounded-2xl border px-3 py-3 transition-all duration-200 ${uploadedCardClassName} ${interactionClassName}`}>
       <div className="flex min-h-12 items-center justify-between gap-3">
@@ -485,13 +503,17 @@ function DocumentStatusCard({
         </div>
         {href ? (
           <a
-            aria-label={`Ver ${label}`}
-            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-background text-primary transition-colors hover:bg-muted"
-            href={href}
-            rel="noreferrer"
-            target="_blank"
+            href={href.startsWith('http') ? href : '#'}
+            target={href.startsWith('http') ? '_blank' : undefined}
+            rel="noopener noreferrer"
+            onClick={href.startsWith('http') ? undefined : handleOpen}
+            className={`inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs font-semibold shadow-sm transition-colors ${
+              tone === 'success'
+                ? 'bg-emerald-500 text-white hover:bg-emerald-600'
+                : 'bg-primary text-primary-foreground hover:bg-primary/90'
+            }`}
           >
-            <Eye className="size-4" />
+            {loading ? <Loader2 className="size-3.5 animate-spin" /> : 'Ver archivo'}
           </a>
         ) : (
           <span
@@ -514,9 +536,8 @@ function EmptyPanel({ message }: { message: string }) {
   )
 }
 
-function buildOrderDestinationInfo(meta?: import('@/types/payment-order').PaymentOrderMetadata) {
-  if (!meta) return []
-
+function buildOrderDestinationInfo(order: PaymentOrder) {
+  const meta = order.metadata as import('@/types/payment-order').PaymentOrderMetadata | undefined
   const items: Array<{ label: string; value: string }> = []
   const push = (label: string, value: unknown) => {
     if (typeof value !== 'string') return
@@ -525,25 +546,58 @@ function buildOrderDestinationInfo(meta?: import('@/types/payment-order').Paymen
     items.push({ label, value: normalized })
   }
 
-  push('Ruta', humanizeOrderRoute(meta.route))
-  push('Metodo de entrega', humanizeDeliveryMethod(meta.delivery_method))
-  push('Variante de recepcion', humanizeReceiveVariant(meta.receive_variant))
-  push('Canal de salida', humanizeUiMethodGroup(meta.ui_method_group))
-  push('Destino declarado', meta.destination_address)
-  push('Motivo del pago', meta.payment_reason)
-  push('Funding method', humanizeFundingMethod(meta.funding_method))
-  push('Fuente de instrucciones', humanizeInstructionSource(meta.instructions_source))
-  push('Stablecoin', meta.stablecoin)
-  push('Wallet destino', meta.crypto_destination?.address)
-  push('Red', meta.crypto_destination?.network)
-  push('Banco destino', meta.ach_details?.bankName ?? meta.swift_details?.bankName)
-  push('Cuenta / IBAN', meta.swift_details?.iban ?? meta.ach_details?.accountNumber)
-  push('Routing number', meta.ach_details?.routingNumber)
-  push('Codigo SWIFT', meta.swift_details?.swiftCode)
-  push('Pais del banco', meta.swift_details?.country)
-  push('Direccion del banco', meta.swift_details?.bankAddress)
+  // 1. Campos directos del nuevo backend (prioridad)
+  push('Flujo', humanizeFlowType(order.flow_type))
+  push('Categoría', order.flow_category === 'interbank' ? 'Interbancario' : order.flow_category === 'wallet_ramp' ? 'Wallet Ramp' : undefined)
+  push('Banco destino', order.destination_bank_name)
+  push('Cuenta destino', order.destination_account_number)
+  push('Titular destino', order.destination_account_holder)
+  push('Dirección destino', order.destination_address)
+  push('Red destino', order.destination_network)
+  push('Dirección origen', order.source_address)
+  push('Red origen', order.source_network)
+  push('Motivo', order.business_purpose)
+  push('Referencia', order.tx_hash ?? order.provider_reference)
+
+  // 2. Fallback a metadata legacy
+  if (items.length === 0 && meta) {
+    push('Ruta', humanizeOrderRoute(meta.route))
+    push('Metodo de entrega', humanizeDeliveryMethod(meta.delivery_method))
+    push('Variante de recepcion', humanizeReceiveVariant(meta.receive_variant))
+    push('Canal de salida', humanizeUiMethodGroup(meta.ui_method_group))
+    push('Destino declarado', meta.destination_address)
+    push('Motivo del pago', meta.payment_reason)
+    push('Funding method', humanizeFundingMethod(meta.funding_method))
+    push('Fuente de instrucciones', humanizeInstructionSource(meta.instructions_source))
+    push('Stablecoin', meta.stablecoin)
+    push('Wallet destino', meta.crypto_destination?.address)
+    push('Red', meta.crypto_destination?.network)
+    push('Banco destino', meta.ach_details?.bankName ?? meta.swift_details?.bankName)
+    push('Cuenta / IBAN', meta.swift_details?.iban ?? meta.ach_details?.accountNumber)
+    push('Routing number', meta.ach_details?.routingNumber)
+    push('Codigo SWIFT', meta.swift_details?.swiftCode)
+    push('Pais del banco', meta.swift_details?.country)
+    push('Direccion del banco', meta.swift_details?.bankAddress)
+  }
 
   return items
+}
+
+function humanizeFlowType(flowType?: string) {
+  switch (flowType) {
+    case 'bolivia_to_world': return 'Bolivia al Mundo'
+    case 'wallet_to_wallet': return 'Wallet a Wallet'
+    case 'bolivia_to_wallet': return 'Bolivia a Wallet'
+    case 'world_to_bolivia': return 'Mundo a Bolivia'
+    case 'world_to_wallet': return 'Mundo a Wallet'
+    case 'wallet_onramp_ach': return 'On-Ramp ACH'
+    case 'wallet_onramp_crypto': return 'On-Ramp Crypto'
+    case 'wallet_onramp_va': return 'On-Ramp V.Account'
+    case 'wallet_offramp_ach': return 'Off-Ramp ACH'
+    case 'wallet_offramp_crypto': return 'Off-Ramp Crypto'
+    case 'wallet_offramp_wire': return 'Off-Ramp Wire'
+    default: return flowType ?? ''
+  }
 }
 
 function humanizeOrderRoute(route?: import('@/types/payment-order').PaymentOrderMetadata['route']) {
@@ -627,6 +681,15 @@ function humanizeInstructionSource(source?: import('@/types/payment-order').Paym
 }
 
 function buildOrderSummaryCards(order: PaymentOrder) {
+  // Compatibilidad: campos nuevos con fallback a legacy
+  const amountOrigin = order.amount ?? order.amount_origin ?? 0
+  const originCurrency = order.currency ?? order.origin_currency ?? ''
+  const feeTotal = order.fee_amount ?? order.fee_total ?? 0
+  const orderLabel = humanizeFlowType(order.flow_type) || order.order_type || 'N/A'
+  const rail = order.requires_psav ? 'PSAV' : order.flow_category === 'wallet_ramp' ? 'BRIDGE' : order.processing_rail || 'N/A'
+  const amountConverted = order.amount_destination ?? order.amount_converted ?? 0
+  const destCurrency = order.destination_currency ?? ''
+
   const cards: Array<{
     accent: 'primary' | 'success' | 'warning'
     icon: typeof ReceiptText
@@ -635,19 +698,19 @@ function buildOrderSummaryCards(order: PaymentOrder) {
   }> = [
       {
         label: 'Monto origen',
-        value: `${formatNumericValue(order.amount_origin)} ${order.origin_currency}`,
+        value: `${formatNumericValue(amountOrigin)} ${originCurrency}`,
         icon: Banknote,
         accent: 'warning',
       },
       {
         label: 'Tipo de orden',
-        value: order.order_type,
+        value: orderLabel,
         icon: ReceiptText,
         accent: 'primary',
       },
       {
         label: 'Rail operativo',
-        value: order.processing_rail,
+        value: rail,
         icon: Landmark,
         accent: 'primary',
       },
@@ -659,16 +722,16 @@ function buildOrderSummaryCards(order: PaymentOrder) {
       },
       {
         label: 'Fee total',
-        value: `${formatNumericValue(order.fee_total)} ${order.origin_currency}`,
+        value: `${formatNumericValue(feeTotal)} ${originCurrency}`,
         icon: Wallet,
         accent: 'warning',
       },
     ]
 
-  if (order.amount_converted > 0) {
+  if (amountConverted > 0) {
     cards.splice(3, 0, {
       label: 'Monto convertido',
-      value: `${formatNumericValue(order.amount_converted)} ${order.destination_currency}`,
+      value: `${formatNumericValue(amountConverted)} ${destCurrency}`,
       icon: ReceiptText,
       accent: 'success',
     })
@@ -681,19 +744,19 @@ function buildOrderDocumentItems(order: PaymentOrder) {
   return [
     {
       label: 'Comprobante de deposito',
-      href: order.evidence_url,
+      href: order.deposit_proof_url ?? order.evidence_url,
       emptyMessage: 'El cliente aun no subio comprobante de deposito.',
       tone: 'default' as const,
     },
     {
       label: 'Documento de respaldo',
-      href: order.support_document_url,
+      href: order.supporting_document_url ?? order.support_document_url,
       emptyMessage: 'No existe respaldo documental adjunto.',
       tone: 'default' as const,
     },
     {
       label: 'Comprobante final staff',
-      href: order.staff_comprobante_url,
+      href: order.receipt_url ?? order.staff_comprobante_url,
       emptyMessage: 'Todavia no se genero comprobante final del staff.',
       tone: 'success' as const,
     },
@@ -775,25 +838,17 @@ function formatNumericValue(value: unknown) {
     maximumFractionDigits: 2,
   })
 }
-function OrderReasonActionDialog({ actor, action, blockedReason, label, onUpdated, order }: { actor: StaffActor; action: 'deposit_received' | 'failed'; blockedReason?: string | null; label: string; onUpdated: (order: PaymentOrder) => Promise<void> | void; order: PaymentOrder }) {
+function OrderReasonActionDialog({ actor, action, blockedReason, label, onUpdated, order }: { actor: StaffActor; action: 'failed'; blockedReason?: string | null; label: string; onUpdated: (order: PaymentOrder) => Promise<void> | void; order: PaymentOrder }) {
   const [open, setOpen] = useState(false)
   const form = useForm<{ reason: string }>({ resolver: zodResolver(staffReasonSchema), defaultValues: { reason: '' } })
 
   async function submit(values: { reason: string }) {
     try {
-      if (action === 'deposit_received') {
-        const updatedOrder = await StaffService.advancePaymentOrderToDepositReceived({ actor, order, reason: values.reason })
-        toast.success('Orden actualizada.')
-        setOpen(false)
-        form.reset({ reason: '' })
-        await onUpdated(updatedOrder)
-      } else {
-        const updatedOrder = await StaffService.failPaymentOrder({ actor, order, reason: values.reason })
-        toast.success('Orden actualizada.')
-        setOpen(false)
-        form.reset({ reason: '' })
-        await onUpdated(updatedOrder)
-      }
+      const updatedOrder = await StaffService.failPaymentOrder({ actor, order, reason: values.reason })
+      toast.success('Orden actualizada.')
+      setOpen(false)
+      form.reset({ reason: '' })
+      await onUpdated(updatedOrder)
     } catch (error) {
       console.error('Failed to update payment order', error)
       toast.error('No se pudo actualizar la orden.')
@@ -833,11 +888,16 @@ function OrderQuoteDialog({ actor, onUpdated, order }: { actor: StaffActor; onUp
   const [open, setOpen] = useState(false)
   const form = useForm<StaffOrderProcessingValues>({
     resolver: zodResolver(staffOrderProcessingSchema) as Resolver<StaffOrderProcessingValues>,
-    defaultValues: { exchange_rate_applied: order.exchange_rate_applied, amount_converted: order.amount_converted, fee_total: order.fee_total, reason: '' },
+    defaultValues: { 
+      exchange_rate_applied: order.exchange_rate_applied ?? 1, 
+      amount_converted: order.amount_converted ?? order.amount_destination ?? 0, 
+      fee_total: order.fee_amount ?? order.fee_total ?? 0, 
+      reason: '' 
+    },
   })
   const exchangeRateApplied = useWatch({ control: form.control, name: 'exchange_rate_applied' })
   const feeTotal = useWatch({ control: form.control, name: 'fee_total' })
-  const quotedAmountConverted = calculateQuotedAmountConverted(order.amount_origin, exchangeRateApplied, feeTotal)
+  const quotedAmountConverted = calculateQuotedAmountConverted(order.amount_origin ?? order.amount ?? 0, exchangeRateApplied, feeTotal)
 
   async function submit(values: StaffOrderProcessingValues) {
     try {
@@ -868,13 +928,13 @@ function OrderQuoteDialog({ actor, onUpdated, order }: { actor: StaffActor; onUp
         </DialogHeader>
         <Form {...form}>
           <form className="space-y-4" onSubmit={form.handleSubmit(submit)}>
-            <ProcessingNumberField control={form.control} label="Tipo de cambio" name="exchange_rate_applied" />
+            <ProcessingNumberField control={form.control} label="Tipo de cambio" name="exchange_rate_applied" readOnly={true} description="Valor establecido al crear la orden." />
             <div className="space-y-2">
               <Label>Monto convertido</Label>
               <Input className="bg-muted/40 font-medium" readOnly type="number" value={quotedAmountConverted} />
-              <p className="text-xs text-muted-foreground">Se calcula automaticamente segun el monto origen, el tipo de cambio y la fee total. Solo se guarda al publicar la cotizacion.</p>
+              <p className="text-xs text-muted-foreground">Valor inmutable derivado de la conversion original.</p>
             </div>
-            <ProcessingNumberField control={form.control} label="Fee total" name="fee_total" />
+            <ProcessingNumberField control={form.control} label="Fee total" name="fee_total" readOnly={true} description="Comision inmutable calculada por el sistema." />
             <FormField control={form.control} name="reason" render={({ field }) => (
               <FormItem>
                 <FormLabel>Motivo</FormLabel>
@@ -1034,10 +1094,15 @@ function ProcessingNumberField({
 function getOrderActions(order: PaymentOrder) {
   switch (order.status) {
     case 'created':
-      return ['deposit_received', 'failed'] as const
+      // Solo el usuario puede confirmar su depósito (POST /payment-orders/:id/confirm-deposit).
+      // Staff solo puede fallar la orden en este estado.
+      return ['failed'] as const
     case 'waiting_deposit':
-      return ['deposit_received', 'failed'] as const
+      // El usuario debe confirmar su depósito primero.
+      // Staff solo puede fallar la orden en este estado.
+      return ['failed'] as const
     case 'deposit_received':
+      // Staff valida el depósito y aprueba → pasa a processing.
       return ['quote', 'failed'] as const
     case 'processing':
       return ['sent', 'failed'] as const

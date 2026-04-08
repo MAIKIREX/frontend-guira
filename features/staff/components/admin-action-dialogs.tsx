@@ -538,8 +538,11 @@ function PsavUpsertDialog({ actor, label, onUpdated, record }: { actor: StaffAct
     resolver: zodResolver(adminPsavRecordSchema),
     defaultValues: {
       name: (record?.name as string) ?? '',
+      type: (record?.type as 'bank_bo' | 'bank_us' | 'crypto') ?? 'bank_bo',
       bank_name: (record?.bank_name as string) ?? '',
       account_number: (record?.account_number as string) ?? '',
+      crypto_address: (record?.crypto_address as string) ?? '',
+      crypto_network: (record?.crypto_network as string) ?? '',
       currency: (record?.currency as string) ?? '',
       is_active: record?.is_active ?? true,
       reason: '',
@@ -548,6 +551,7 @@ function PsavUpsertDialog({ actor, label, onUpdated, record }: { actor: StaffAct
 
   // Watch fields for live preview
   const watchedName = form.watch('name')
+  const watchedType = form.watch('type')
   const watchedBank = form.watch('bank_name')
   const watchedAccount = form.watch('account_number')
   const watchedCurrency = form.watch('currency')
@@ -567,8 +571,11 @@ function PsavUpsertDialog({ actor, label, onUpdated, record }: { actor: StaffAct
 
       const payload: Record<string, unknown> = {
         name: values.name,
+        type: values.type,
         bank_name: values.bank_name,
         account_number: values.account_number,
+        crypto_address: values.crypto_address,
+        crypto_network: values.crypto_network,
         currency: values.currency,
         is_active: values.is_active,
         qr_url: qrUrl,
@@ -623,27 +630,67 @@ function PsavUpsertDialog({ actor, label, onUpdated, record }: { actor: StaffAct
                       <FormMessage className="text-[11px]" />
                     </FormItem>
                   )} />
-                  <FormField control={form.control} name="bank_name" render={({ field }) => (
+                  <FormField control={form.control} name="type" render={({ field }) => (
                     <FormItem className="space-y-1.5">
-                      <FormLabel className="text-[13px] font-semibold text-foreground/80">Entidad Bancaria</FormLabel>
-                      <FormControl><Input {...field} placeholder="Banco de ejemplo" className="h-10 bg-muted/20 border-border/60 focus:bg-background transition-all" /></FormControl>
+                      <FormLabel className="text-[13px] font-semibold text-foreground/80">Tipo Operativo</FormLabel>
+                      <FormControl>
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <SelectTrigger className="h-10 bg-muted/20 border-border/60 focus:bg-background transition-all">
+                            <SelectValue placeholder="Selecciona..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="bank_bo">Banco BO</SelectItem>
+                            <SelectItem value="bank_us">Banco US</SelectItem>
+                            <SelectItem value="crypto">Wallet Crypto</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
                       <FormMessage className="text-[11px]" />
                     </FormItem>
                   )} />
                 </div>
 
+                {watchedType !== 'crypto' ? (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <FormField control={form.control} name="bank_name" render={({ field }) => (
+                      <FormItem className="space-y-1.5">
+                        <FormLabel className="text-[13px] font-semibold text-foreground/80">Entidad Bancaria</FormLabel>
+                        <FormControl><Input {...field} placeholder="Banco de ejemplo" className="h-10 bg-muted/20 border-border/60 focus:bg-background transition-all" /></FormControl>
+                        <FormMessage className="text-[11px]" />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="account_number" render={({ field }) => (
+                      <FormItem className="space-y-1.5">
+                        <FormLabel className="text-[13px] font-semibold text-foreground/80">Número de Cuenta</FormLabel>
+                        <FormControl><Input {...field} placeholder="000-000-000" className="h-10 bg-muted/20 border-border/60 focus:bg-background transition-all" /></FormControl>
+                        <FormMessage className="text-[11px]" />
+                      </FormItem>
+                    )} />
+                  </div>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <FormField control={form.control} name="crypto_network" render={({ field }) => (
+                      <FormItem className="space-y-1.5">
+                        <FormLabel className="text-[13px] font-semibold text-foreground/80">Red Crypto</FormLabel>
+                        <FormControl><Input {...field} placeholder="TRC20, ERC20" className="h-10 bg-muted/20 border-border/60 focus:bg-background transition-all" /></FormControl>
+                        <FormMessage className="text-[11px]" />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="crypto_address" render={({ field }) => (
+                      <FormItem className="space-y-1.5">
+                        <FormLabel className="text-[13px] font-semibold text-foreground/80">Address (Wallet)</FormLabel>
+                        <FormControl><Input {...field} placeholder="0x..." className="h-10 bg-muted/20 border-border/60 focus:bg-background transition-all" /></FormControl>
+                        <FormMessage className="text-[11px]" />
+                      </FormItem>
+                    )} />
+                  </div>
+                )}
+
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <FormField control={form.control} name="account_number" render={({ field }) => (
-                    <FormItem className="space-y-1.5">
-                      <FormLabel className="text-[13px] font-semibold text-foreground/80">Número de Cuenta</FormLabel>
-                      <FormControl><Input {...field} placeholder="000-000-000" className="h-10 bg-muted/20 border-border/60 focus:bg-background transition-all" /></FormControl>
-                      <FormMessage className="text-[11px]" />
-                    </FormItem>
-                  )} />
                   <FormField control={form.control} name="currency" render={({ field }) => (
                     <FormItem className="space-y-1.5">
                       <FormLabel className="text-[13px] font-semibold text-foreground/80">Divisa</FormLabel>
-                      <FormControl><Input {...field} placeholder="BOB, USD..." className="h-10 bg-muted/20 border-border/60 focus:bg-background transition-all" /></FormControl>
+                      <FormControl><Input {...field} placeholder="BOB, USD, USDT..." className="h-10 bg-muted/20 border-border/60 focus:bg-background transition-all" /></FormControl>
                       <FormMessage className="text-[11px]" />
                     </FormItem>
                   )} />

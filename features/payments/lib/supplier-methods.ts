@@ -1,9 +1,22 @@
-import type {
-  Supplier,
-  SupplierAchDetails,
-  SupplierPaymentMethod,
-  SupplierSwiftDetails,
-} from '@/types/supplier'
+import type { Supplier } from '@/types/supplier'
+
+export type SupplierPaymentMethod = 'crypto' | 'ach' | 'swift'
+
+export interface SupplierAchDetails {
+  bank_name: string
+  routing_number: string
+  account_number: string
+  bank_country: string
+}
+
+export interface SupplierSwiftDetails {
+  bank_name: string
+  swift_code: string
+  account_number: string
+  bank_country: string
+  bank_address: string
+  iban?: string
+}
 
 const METHOD_ORDER: SupplierPaymentMethod[] = ['crypto', 'ach', 'swift']
 
@@ -49,7 +62,7 @@ export function getSupplierAchDetails(supplier?: Supplier | null): SupplierAchDe
   if (!supplier?.bank_details) return undefined
 
   if (supplier.bank_details.ach) {
-    return supplier.bank_details.ach
+    return supplier.bank_details.ach as SupplierAchDetails
   }
 
   if (supplier.bank_details.routing_number && supplier.bank_details.account_number) {
@@ -70,7 +83,7 @@ export function getSupplierSwiftDetails(
   if (!supplier?.bank_details) return undefined
 
   if (supplier.bank_details.swift) {
-    return supplier.bank_details.swift
+    return supplier.bank_details.swift as SupplierSwiftDetails
   }
 
   if (supplier.bank_details.swift_code && supplier.bank_details.account_number) {

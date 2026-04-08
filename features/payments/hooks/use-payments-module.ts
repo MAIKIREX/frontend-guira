@@ -149,21 +149,25 @@ export function usePaymentsModule() {
     supportFile?: File | null,
     evidenceFile?: File | null
   ) => {
+    let supportUrl = input.supporting_document_url;
+    if (supportFile) {
+      supportUrl = await PaymentsService.uploadFileToStorage(supportFile, 'payment-receipts')
+    }
+    
+    // Inject supporting_document_url into input
+    const finalInput = { ...input, supporting_document_url: supportUrl }
+
     let order: PaymentOrder;
     const rampFlows = ['fiat_bo_to_bridge_wallet', 'crypto_to_bridge_wallet', 'fiat_us_to_bridge_wallet', 'bridge_wallet_to_fiat_bo', 'bridge_wallet_to_crypto', 'bridge_wallet_to_fiat_us']
     
-    if (rampFlows.includes(input.flow_type)) {
-      order = await PaymentsService.createWalletRampOrder(input as any)
+    if (rampFlows.includes(finalInput.flow_type)) {
+      order = await PaymentsService.createWalletRampOrder(finalInput as any)
     } else {
-      order = await PaymentsService.createInterbankOrder(input as any)
-    }
-
-    if (supportFile) {
-      order = await PaymentsService.uploadOrderEvidence(order.id, supportFile, 'receipt_url')
+      order = await PaymentsService.createInterbankOrder(finalInput as any)
     }
 
     if (evidenceFile) {
-      order = await PaymentsService.uploadOrderEvidence(order.id, evidenceFile, 'evidence_url')
+      order = await PaymentsService.uploadOrderEvidence(order.id, evidenceFile)
     }
 
     mergeOrder(order)
@@ -172,14 +176,20 @@ export function usePaymentsModule() {
 
   /**
    * Sube un archivo a una orden existente.
-   * Reemplaza: PaymentsService.updateOrderFile(order, field, file, userId)
+   * Si es evidence, acudimos a uploadOrderEvidence que notifica a backend.
+   * Si es support_document_url, esto ya no se puede tras la creacion en V2 facilmente, pero como fallback se deja.
    */
   const uploadOrderFile = useCallback(async (orderId: string, field: OrderFileField, file: File) => {
-    const backendField = field === 'support_document_url' ? 'receipt_url' : 'evidence_url'
-    const order = await PaymentsService.uploadOrderEvidence(orderId, file, backendField)
+    if (field === 'support_document_url') {
+       // Not officially supported standalone after creation in backend V2 via standard endpoints, 
+       // but we log it. It should be handled in creation.
+       console.warn('support_document_url late upload not fully supported. Use UI in creation.')
+       return state?.orders.find(o => o.id === orderId) as PaymentOrder;
+    }
+    const order = await PaymentsService.uploadOrderEvidence(orderId, file)
     mergeOrder(order)
     return order
-  }, [mergeOrder])
+  }, [mergeOrder, state])
 
   /**
    * Cancela una orden.

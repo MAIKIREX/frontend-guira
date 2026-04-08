@@ -46,7 +46,7 @@ export const paymentOrderSchema = z
       })
     }
 
-    if ((value.route === 'bolivia_to_exterior' || value.route === 'crypto_to_crypto') && !value.supplier_id) {
+    if (value.route === 'bolivia_to_exterior' && !value.supplier_id) {
       ctx.addIssue({
         code: 'custom',
         message: 'Selecciona un proveedor o beneficiario antes de continuar.',
@@ -80,7 +80,7 @@ export const paymentOrderSchema = z
       }
     }
 
-    if (value.delivery_method === 'swift' && (value.route === 'bolivia_to_exterior' || value.route === 'us_to_bolivia')) {
+    if (value.delivery_method === 'swift' && value.route === 'us_to_bolivia') {
       const requiredFields: Array<[keyof typeof value, string]> = [
         ['swift_bank_name', 'El banco es obligatorio.'],
         ['swift_code', 'El codigo SWIFT es obligatorio.'],
@@ -96,17 +96,11 @@ export const paymentOrderSchema = z
       })
     }
 
-    if (value.delivery_method === 'ach' && (value.route === 'bolivia_to_exterior' || value.route === 'us_to_bolivia')) {
-      const requiredFields: Array<[keyof typeof value, string]> = value.route === 'us_to_bolivia'
-        ? [
-            ['ach_account_number', 'La cuenta bancaria es obligatoria.'],
-            ['ach_bank_name', 'El banco es obligatorio.'],
-          ]
-        : [
-            ['ach_routing_number', 'El routing number es obligatorio.'],
-            ['ach_account_number', 'La cuenta ACH es obligatoria.'],
-            ['ach_bank_name', 'El banco ACH es obligatorio.'],
-          ]
+    if (value.delivery_method === 'ach' && value.route === 'us_to_bolivia') {
+      const requiredFields: Array<[keyof typeof value, string]> = [
+        ['ach_account_number', 'La cuenta bancaria es obligatoria.'],
+        ['ach_bank_name', 'El banco es obligatorio.'],
+      ]
 
       requiredFields.forEach(([field, message]) => {
         if (!value[field]) {

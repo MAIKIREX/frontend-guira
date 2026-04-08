@@ -314,16 +314,18 @@ export function StaffOrdersTable({
     },
   } as const
   const filteredOrders = orders.filter((order) => {
+    const resolvedType = order.flow_type ?? order.order_type
+    const resolvedRail = order.processing_rail ?? order.flow_type
     const matchesStatus = matchesFilterValue(order.status, statusFilter)
-    const matchesRail = matchesFilterValue(order.processing_rail, railFilter)
-    const matchesType = matchesFilterValue(order.order_type, typeFilter)
+    const matchesRail = matchesFilterValue(resolvedRail, railFilter)
+    const matchesType = matchesFilterValue(resolvedType, typeFilter)
     const matchesSearch = matchesQuery(deferredQuery, [
       order.id,
       order.user_id,
-      order.order_type,
-      order.processing_rail,
+      resolvedType,
+      resolvedRail,
       order.status,
-      order.origin_currency,
+      order.currency ?? order.origin_currency,
       order.destination_currency,
       order.metadata?.reference,
     ])
@@ -368,13 +370,13 @@ export function StaffOrdersTable({
                   label: 'Rail',
                   value: railFilter,
                   onChange: setRailFilter,
-                  options: buildOptions(orders, (order) => order.processing_rail),
+                  options: buildOptions(orders, (order) => order.processing_rail ?? order.flow_type),
                 },
                 {
                   label: 'Tipo',
                   value: typeFilter,
                   onChange: setTypeFilter,
-                  options: buildOptions(orders, (order) => order.order_type),
+                  options: buildOptions(orders, (order) => order.flow_type ?? order.order_type),
                 },
               ]}
               onReset={() => {
@@ -415,23 +417,26 @@ export function StaffOrdersTable({
                       <div className="grid gap-3 rounded-xl border border-border/60 bg-muted/15 p-3 sm:grid-cols-2">
                         <div className="space-y-1">
                           <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Tipo</div>
-                          <div className="text-sm font-medium text-foreground">{order.order_type}</div>
+                          <div className="text-sm font-medium text-foreground">{order.flow_type ?? order.order_type ?? '—'}</div>
                         </div>
                         <div className="space-y-1">
                           <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Rail</div>
-                          <div className="text-sm font-medium text-foreground">{order.processing_rail}</div>
+                          <div className="text-sm font-medium text-foreground">{order.processing_rail ?? order.flow_type ?? '—'}</div>
                         </div>
                         <div className="space-y-1 sm:col-span-2">
                           <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Monto</div>
-                          <div className="text-sm font-medium text-foreground">{order.amount_origin} {order.origin_currency}</div>
+                          <div className="text-sm font-medium text-foreground">
+                            {order.amount ?? order.amount_origin ?? '—'}{' '}
+                            {order.currency ?? order.origin_currency ?? ''}
+                          </div>
                         </div>
                         <div className="space-y-1 sm:col-span-2">
                           <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Archivos</div>
                           <div className="mt-1 flex flex-wrap gap-1">
-                            {order.support_document_url ? <Badge variant="outline">support</Badge> : null}
-                            {order.evidence_url ? <Badge variant="outline">deposit-proof</Badge> : null}
-                            {order.staff_comprobante_url ? <Badge variant="outline">staff</Badge> : null}
-                            {!order.support_document_url && !order.evidence_url && !order.staff_comprobante_url ? <span className="text-xs text-muted-foreground">Sin archivos</span> : null}
+                            {(order.supporting_document_url ?? order.support_document_url) ? <Badge variant="outline">respaldo</Badge> : null}
+                            {(order.deposit_proof_url ?? order.evidence_url) ? <Badge variant="outline">comprobante</Badge> : null}
+                            {(order.receipt_url ?? order.staff_comprobante_url) ? <Badge variant="outline">staff</Badge> : null}
+                            {!(order.supporting_document_url ?? order.support_document_url) && !(order.deposit_proof_url ?? order.evidence_url) && !(order.receipt_url ?? order.staff_comprobante_url) ? <span className="text-xs text-muted-foreground">Sin archivos</span> : null}
                           </div>
                         </div>
                       </div>
@@ -470,9 +475,12 @@ export function StaffOrdersTable({
                           <div className="font-medium">#{order.id.slice(0, 8)}</div>
                           <div className="text-xs text-muted-foreground">{formatDate(order.created_at)}</div>
                         </TableCell>
-                        <TableCell>{order.order_type}</TableCell>
-                        <TableCell>{order.processing_rail}</TableCell>
-                        <TableCell>{order.amount_origin} {order.origin_currency}</TableCell>
+                        <TableCell>{order.flow_type ?? order.order_type ?? '—'}</TableCell>
+                        <TableCell>{order.processing_rail ?? order.flow_type ?? '—'}</TableCell>
+                        <TableCell>
+                          {order.amount ?? order.amount_origin ?? '—'}{' '}
+                          {order.currency ?? order.origin_currency ?? ''}
+                        </TableCell>
                         <TableCell>
                           <div className="space-y-1">
                             <StatusBadge value={order.status} />
@@ -483,10 +491,10 @@ export function StaffOrdersTable({
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {order.support_document_url ? <Badge variant="outline">support</Badge> : null}
-                            {order.evidence_url ? <Badge variant="outline">deposit-proof</Badge> : null}
-                            {order.staff_comprobante_url ? <Badge variant="outline">staff</Badge> : null}
-                            {!order.support_document_url && !order.evidence_url && !order.staff_comprobante_url ? <span className="text-xs text-muted-foreground">Sin archivos</span> : null}
+                            {(order.supporting_document_url ?? order.support_document_url) ? <Badge variant="outline">respaldo</Badge> : null}
+                            {(order.deposit_proof_url ?? order.evidence_url) ? <Badge variant="outline">comprobante</Badge> : null}
+                            {(order.receipt_url ?? order.staff_comprobante_url) ? <Badge variant="outline">staff</Badge> : null}
+                            {!(order.supporting_document_url ?? order.support_document_url) && !(order.deposit_proof_url ?? order.evidence_url) && !(order.receipt_url ?? order.staff_comprobante_url) ? <span className="text-xs text-muted-foreground">Sin archivos</span> : null}
                           </div>
                         </TableCell>
                         <TableCell>

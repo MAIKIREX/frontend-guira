@@ -11,7 +11,7 @@ export type OrderStatus =
 
 export type DeliveryMethod = 'swift' | 'ach' | 'crypto'
 export type FundingMethod = 'bs' | 'crypto' | 'ach' | 'wallet'
-export type OrderFileField = 'support_document_url' | 'evidence_url'
+export type OrderFileField = 'supporting_document_url' | 'support_document_url' | 'evidence_url'
 export type ReceiveVariant = 'bank_account' | 'bank_qr' | 'wallet'
 export type UiMethodGroup = 'bank' | 'crypto'
 
@@ -54,14 +54,15 @@ export interface PaymentOrderMetadata {
 export interface PaymentOrder {
   id: string
   user_id: string
-  order_type: OrderType
-  processing_rail: ProcessingRail
-  amount_origin: number
-  origin_currency: string
-  amount_converted: number
-  destination_currency: string
-  exchange_rate_applied: number
-  fee_total: number
+  // ── Legacy fields (existing payment_orders) — opcionales para compatibilidad V2 ──
+  order_type?: OrderType
+  processing_rail?: ProcessingRail
+  amount_origin?: number
+  origin_currency?: string
+  amount_converted?: number
+  destination_currency?: string
+  exchange_rate_applied?: number
+  fee_total?: number
   status: OrderStatus
   beneficiary_id?: string | null
   supplier_id?: string | null
@@ -71,14 +72,60 @@ export interface PaymentOrder {
   staff_comprobante_url?: string
   created_at: string
   updated_at: string
+  // ── New backend fields (payment_orders v2) ──
+  flow_type?: string
+  flow_category?: 'interbank' | 'wallet_ramp'
+  requires_psav?: boolean
+  wallet_id?: string
+  amount?: number
+  currency?: string
+  fee_amount?: number
+  net_amount?: number
+  // Source
+  source_type?: string
+  source_currency?: string
+  source_address?: string
+  source_network?: string
+  // Destination
+  destination_type?: string
+  destination_bank_name?: string
+  destination_account_number?: string
+  destination_account_holder?: string
+  destination_qr_url?: string
+  destination_address?: string
+  destination_network?: string
+  external_account_id?: string
+  // PSAV / Admin
+  psav_deposit_instructions?: Record<string, unknown>
+  deposit_proof_url?: string
+  approved_by?: string
+  approved_at?: string
+  amount_destination?: number
+  // Bridge
+  bridge_transfer_id?: string
+  bridge_source_deposit_instructions?: Record<string, unknown>
+  // Tracking
+  tx_hash?: string
+  provider_reference?: string
+  receipt_url?: string
+  // Metadatos
+  business_purpose?: string
+  supporting_document_url?: string
+  notes?: string
+  failure_reason?: string
+  completed_at?: string
 }
 
 export interface FeeConfigRow {
   id: string
-  type: string
-  fee_type: string
-  value: string | number
-  currency: string
+  type?: string
+  fee_type?: string
+  value?: string | number
+  currency?: string
+  operation_type?: string
+  fee_percent?: string | number
+  fee_fixed?: string | number
+  min_fee?: string | number
 }
 
 export interface AppSettingRow {

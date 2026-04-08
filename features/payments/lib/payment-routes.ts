@@ -78,7 +78,8 @@ export function buildPaymentOrderPayload(
     amount: values.amount_origin,
     business_purpose: values.payment_reason || 'Operación interbancaria',
     destination_currency: values.destination_currency,
-    notes: `Route: ${values.route} | Delivery: ${values.delivery_method}`
+    notes: `Route: ${values.route} | Delivery: ${values.delivery_method}`,
+    supplier_id: supplier?.id || undefined
   }
 
   // INCORPORACIÓN DE DATA ESPECÍFICA SEGÚN FLUJO:
@@ -94,6 +95,7 @@ export function buildPaymentOrderPayload(
       // 1.3 Crypto (Fondeo fiat local entonces no necesita source network)
       payload.destination_address = values.crypto_address || supplier?.bank_details?.wallet_address
       payload.destination_network = values.crypto_network || supplier?.bank_details?.wallet_network
+      payload.destination_currency = values.destination_currency
       break
     case 'wallet_to_wallet':
       // 1.2 Crypto to Crypto
@@ -103,6 +105,7 @@ export function buildPaymentOrderPayload(
       
       payload.destination_address = values.crypto_address || supplier?.bank_details?.wallet_address
       payload.destination_network = values.crypto_network || supplier?.bank_details?.wallet_network
+      payload.destination_currency = values.destination_currency
       break
     case 'world_to_bolivia':
       // 1.4 Fiat Depósito a Bolivia

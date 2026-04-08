@@ -14,7 +14,7 @@
  * - ConfigAdminService.getFeesConfig() / getPsavConfigs() / getSettings()
  */
 import { useCallback, useEffect, useState } from 'react'
-import { OrdersAdminService } from '@/services/admin/orders.admin.service'
+import { apiGet } from '@/lib/api/client'
 import { UsersAdminService } from '@/services/admin/users.admin.service'
 import { ComplianceAdminService } from '@/services/admin/compliance.admin.service'
 import { SupportAdminService } from '@/services/admin/support.admin.service'
@@ -56,7 +56,7 @@ export function useStaffDashboard() {
         appSettingsRes,
         auditLogsRes,
       ] = await Promise.all([
-        OrdersAdminService.getAllOrders({ limit: 100 }),
+        apiGet<PaymentOrder[]>('/admin/payment-orders', { params: { limit: 100 } }),
         UsersAdminService.getUsers({ limit: 100 }),
         ComplianceAdminService.getReviews({ status: 'under_review' }),
         SupportAdminService.getAllTickets({ status: 'open', limit: 50 }),

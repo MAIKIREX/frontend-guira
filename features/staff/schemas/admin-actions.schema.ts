@@ -30,8 +30,11 @@ export const adminJsonRecordSchema = z.object({
 
 export const adminPsavRecordSchema = z.object({
   name: z.string().trim().min(2, 'Ingresa un nombre.'),
-  bank_name: z.string().trim().min(2, 'Ingresa el banco.'),
-  account_number: z.string().trim().min(2, 'Ingresa el número.'),
+  type: z.enum(['bank_bo', 'bank_us', 'crypto']),
+  bank_name: z.string().trim().optional(),
+  account_number: z.string().trim().optional(),
+  crypto_address: z.string().trim().optional(),
+  crypto_network: z.string().trim().optional(),
   currency: z.string().trim().min(1, 'Ingresa la moneda.'),
   is_active: z.boolean(),
   reason: z.string().trim().min(5, 'Ingresa un motivo descriptivo.'),

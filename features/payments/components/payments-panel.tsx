@@ -195,9 +195,9 @@ export function PaymentsPanel() {
         <TabsContent value="suppliers">
           <SuppliersSection
             disabled={!canOperate}
-            onCreateSupplier={createSupplier}
+            onCreateSupplier={(input) => createSupplier({ ...input, user_id: user.id } as any)}
             onDeleteSupplier={deleteSupplier}
-            onUpdateSupplier={updateSupplier}
+            onUpdateSupplier={(id, input) => updateSupplier(id, input as any)}
             suppliers={snapshot.suppliers}
             userId={user.id}
           />

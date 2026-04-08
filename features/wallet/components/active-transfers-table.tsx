@@ -57,11 +57,11 @@ export function ActiveTransfersTable({
         {paymentOrders.map((order) => (
           <TableRow key={`order-${order.id}`}>
             <TableCell className="font-medium">Expediente</TableCell>
-            <TableCell>{order.order_type.replace(/_/g, ' ')}</TableCell>
+            <TableCell>{(order.order_type || order.flow_type || '').replace(/_/g, ' ')}</TableCell>
             <TableCell>
               <Badge variant="outline">{order.status}</Badge>
             </TableCell>
-            <TableCell>{formatMoney(order.amount_origin, order.origin_currency)}</TableCell>
+            <TableCell>{formatMoney(order.amount_origin ?? order.amount ?? 0, order.origin_currency ?? order.currency ?? '')}</TableCell>
             <TableCell>{formatDateTime(order.created_at)}</TableCell>
           </TableRow>
         ))}

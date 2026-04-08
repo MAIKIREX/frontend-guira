@@ -417,7 +417,7 @@ export const StaffService = {
     
     // As per the SQL policy, we upload to our own actor's ID as the root folder
     const fileExt = args.comprobanteFile.name.split('.').pop()
-    const fileName = `${args.actor.userId}/${args.order.id}_receipt_${Date.now()}.${fileExt}`
+    const fileName = `${args.order.user_id}/${args.order.id}_receipt_${Date.now()}.${fileExt}`
 
     const { data: uploadData, error } = await supabase.storage
       .from('payment-receipts')

@@ -16,6 +16,7 @@ import { buildDepositInstructions } from '@/features/payments/lib/deposit-instru
 import { generatePaymentPdf } from '@/features/payments/lib/generate-payment-pdf'
 import { ACCEPTED_UPLOADS } from '@/lib/file-validation'
 import { cn, interactiveCardClassName } from '@/lib/utils'
+import { useSignedUrl } from '@/hooks/use-signed-url'
 import type { ActivityLog } from '@/types/activity-log'
 import type { OrderFileField, PaymentOrder, PsavConfigRow } from '@/types/payment-order'
 import type { Supplier } from '@/types/supplier'
@@ -228,7 +229,8 @@ export function PaymentsHistoryTable({
           : []
         const primaryDepositInstructions = depositInstructions.filter((instruction) => instruction.kind !== 'note')
         const noteDepositInstructions = depositInstructions.filter((instruction) => instruction.kind === 'note')
-        const showFundingInstructions = depositInstructions.length > 0 && OPEN_ORDER_STATUSES.has(order.status)
+        const hasEvidence = Boolean(order.deposit_proof_url || order.evidence_url)
+        const showFundingInstructions = depositInstructions.length > 0 && OPEN_ORDER_STATUSES.has(order.status) && !hasEvidence
         const statusMeta = getStatusMeta(order.status)
 
         return (
@@ -255,7 +257,7 @@ export function PaymentsHistoryTable({
                   <div className="space-y-1">
                     <CardTitle className="text-xl sm:text-2xl md:text-[1.65rem] tracking-[-0.03em]">Expediente #{order.id.slice(0, 8)}</CardTitle>
                     <CardDescription className="text-xs sm:text-sm">
-                      Creado el {format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')} con destino {order.destination_currency}. {isDepositOrder(order) ? 'Esta operacion usa un flujo de fondeo previo con validacion posterior.' : 'La orden avanza con soporte documental y evidencia operativa.'}
+                      Creado el {format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')} con destino {order.destination_currency ?? order.currency}. {isDepositOrder(order) ? 'Esta operacion usa un flujo de fondeo previo con validacion posterior.' : 'La orden avanza con soporte documental y evidencia operativa.'}
                     </CardDescription>
                   </div>
                   
@@ -267,11 +269,11 @@ export function PaymentsHistoryTable({
                     </div>
                     <div className="flex flex-col gap-1 rounded-xl bg-muted/40 p-3 border border-border/40">
                       <span className="text-[10px] sm:text-[11px] uppercase tracking-wider text-muted-foreground">Origen</span>
-                      <span className="text-xs sm:text-sm font-medium text-foreground truncate">{order.amount_origin} {order.origin_currency}</span>
+                      <span className="text-xs sm:text-sm font-medium text-foreground truncate">{order.amount_origin ?? order.amount} {order.origin_currency ?? order.currency}</span>
                     </div>
                     <div className="flex flex-col gap-1 rounded-xl bg-muted/40 p-3 border border-border/40 col-span-2 md:col-span-1">
                       <span className="text-[10px] sm:text-[11px] uppercase tracking-wider text-muted-foreground">Destino</span>
-                      <span className="text-xs sm:text-sm font-medium text-foreground truncate">{order.amount_converted} {order.destination_currency}</span>
+                      <span className="text-xs sm:text-sm font-medium text-foreground truncate">{order.amount_converted ?? order.amount_destination ?? 0} {order.destination_currency ?? order.currency}</span>
                     </div>
                   </div>
                 </div>
@@ -548,16 +550,16 @@ function QuoteCard({ order, quotePreparedAt }: { order: PaymentOrder; quotePrepa
           value={String(order.exchange_rate_applied ?? 0)}
         />
         <InfoBlock
-          highlight={quoteChanges.includes('amount_converted')}
+          highlight={quoteChanges.includes('amount_converted') || quoteChanges.includes('amount_destination')}
           label="Monto convertido"
-          subtitle={readPreviousQuote(order, 'amount_converted')}
-          value={`${order.amount_converted ?? 0} ${order.destination_currency}`}
+          subtitle={readPreviousQuote(order, 'amount_converted') || readPreviousQuote(order, 'amount_destination')}
+          value={`${order.amount_converted ?? order.amount_destination ?? 0} ${order.destination_currency ?? order.currency ?? ''}`}
         />
         <InfoBlock
-          highlight={quoteChanges.includes('fee_total')}
+          highlight={quoteChanges.includes('fee_total') || quoteChanges.includes('fee_amount')}
           label="Fee total"
-          subtitle={readPreviousQuote(order, 'fee_total')}
-          value={`${order.fee_total ?? 0} ${order.origin_currency}`}
+          subtitle={readPreviousQuote(order, 'fee_total') || readPreviousQuote(order, 'fee_amount')}
+          value={`${order.fee_total ?? order.fee_amount ?? 0} ${order.origin_currency ?? order.currency ?? ''}`}
         />
       </div>
       <div className="rounded-2xl border border-dashed border-border/70 px-4 py-3 text-sm text-muted-foreground">
@@ -591,12 +593,16 @@ function AttachmentPanel({
   const depositOrder = isDepositOrder(order)
   const showSupportUploader = !depositOrder || order.order_type === 'WORLD_TO_BO'
 
+  const supportingUrl = order.supporting_document_url
+  const evidenceUrl = order.evidence_url || order.deposit_proof_url
+  const staffComprobanteUrl = order.staff_comprobante_url || order.receipt_url
+
   return (
     <div className="space-y-4">
       <div className="grid gap-2 text-sm">
-        {showSupportUploader ? <AttachmentStatus label="Respaldo documental" url={order.support_document_url} /> : null}
-        <AttachmentStatus label={depositOrder ? 'Comprobante de deposito' : 'Evidencia'} url={order.evidence_url} />
-        <AttachmentStatus label="Comprobante staff" url={order.staff_comprobante_url} />
+        {showSupportUploader ? <AttachmentStatus label="Respaldo documental" url={supportingUrl} /> : null}
+        <AttachmentStatus label={depositOrder ? 'Comprobante de deposito' : 'Evidencia'} url={evidenceUrl} />
+        <AttachmentStatus label="Comprobante staff" url={staffComprobanteUrl} />
       </div>
 
       {openUploads ? (
@@ -604,28 +610,28 @@ function AttachmentPanel({
           {showSupportUploader ? (
             <AttachmentUploader
               accept={ACCEPTED_UPLOADS}
-              busy={busy === `${order.id}-support_document_url`}
+              busy={busy === `${order.id}-supporting_document_url`}
               disabled={disabled}
-              existingUrl={order.support_document_url}
+              existingUrl={supportingUrl}
               label="Respaldo"
               onFileChange={(file) =>
                 onFileChange((current) => ({
                   ...current,
                   [order.id]: {
                     ...current[order.id],
-                    support_document_url: file,
+                    supporting_document_url: file,
                   },
                 }))
               }
-              selectedFile={files[order.id]?.support_document_url}
-              onUpload={() => onUpload(order, 'support_document_url')}
+              selectedFile={files[order.id]?.supporting_document_url}
+              onUpload={() => onUpload(order, 'supporting_document_url')}
             />
           ) : null}
           <AttachmentUploader
             accept={ACCEPTED_UPLOADS}
             busy={busy === `${order.id}-evidence_url`}
             disabled={disabled}
-            existingUrl={order.evidence_url}
+            existingUrl={evidenceUrl}
             label={depositOrder ? 'Comprobante' : 'Evidencia'}
             onFileChange={(file) =>
               onFileChange((current) => ({
@@ -755,14 +761,18 @@ function NoticeCard({ icon: Icon, title, description }: { icon: typeof ShieldAle
   )
 }
 
-function AttachmentStatus({ label, url }: { label: string; url?: string }) {
+function AttachmentStatus({ label, url }: { label: string; url?: string | null }) {
+  const resolvedUrl = useSignedUrl(url)
+
   return (
     <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-background/70 px-4 py-3">
       <span className="text-sm text-muted-foreground">{label}</span>
-      {url ? (
-        <a className="text-sm font-medium text-primary underline-offset-4 hover:underline" href={url} rel="noreferrer" target="_blank">
+      {resolvedUrl ? (
+        <a className="text-sm font-medium text-primary underline-offset-4 hover:underline" href={resolvedUrl} rel="noreferrer" target="_blank">
           Ver archivo
         </a>
+      ) : url ? (
+        <span className="text-sm text-muted-foreground">Obteniendo enlace...</span>
       ) : (
         <span className="text-sm text-muted-foreground">Pendiente</span>
       )}
@@ -783,19 +793,21 @@ function AttachmentUploader({
   accept: string
   busy?: boolean
   disabled?: boolean
-  existingUrl?: string
+  existingUrl?: string | null
   label: string
   onFileChange: (file: File | undefined) => void
   onUpload: () => void
   selectedFile?: File
 }) {
+  const resolvedExistingUrl = useSignedUrl(existingUrl)
+
   return (
     <DocumentUploadCard
       accept={accept}
       description={undefined}
       disabled={disabled}
       emptyStateText="Aun no hay archivo entregado."
-      existingUrl={existingUrl}
+      existingUrl={resolvedExistingUrl || existingUrl || undefined}
       existingUrlLabel="Ver archivo ya entregado"
       file={selectedFile ?? null}
       helperText={`Arrastra ${label.toLowerCase()} o haz click para seleccionarlo.`}
@@ -985,15 +997,26 @@ function humanizeActivity(action: string) {
   }
 }
 
+export type QuoteField = 'exchange_rate_applied' | 'amount_converted' | 'amount_destination' | 'fee_total' | 'fee_amount'
+
 function getQuoteChanges(order: PaymentOrder) {
   const previous = getPreviousQuote(order)
   if (!previous) return []
 
-  return (['exchange_rate_applied', 'amount_converted', 'fee_total'] as const).filter((key) => {
-    const previousValue = previous[key]
-    const currentValue = order[key]
-    return Number(previousValue ?? 0) !== Number(currentValue ?? 0)
-  })
+  const changes: string[] = []
+  const keys: QuoteField[] = ['exchange_rate_applied', 'amount_converted', 'amount_destination', 'fee_total', 'fee_amount']
+  
+  for (const key of keys) {
+    if (key in previous) {
+      const previousValue = previous[key]
+      const currentValue = order[key as keyof PaymentOrder]
+      if (Number(previousValue ?? 0) !== Number(currentValue ?? 0)) {
+        changes.push(key)
+      }
+    }
+  }
+
+  return changes
 }
 
 function getPreviousQuote(order: PaymentOrder) {
@@ -1001,11 +1024,11 @@ function getPreviousQuote(order: PaymentOrder) {
   if (!metadata || typeof metadata !== 'object' || !('quote_previous' in metadata)) return null
   const previous = metadata.quote_previous
   return previous && typeof previous === 'object'
-    ? (previous as Partial<Record<'exchange_rate_applied' | 'amount_converted' | 'fee_total', number>>)
+    ? (previous as Partial<Record<QuoteField, number>>)
     : null
 }
 
-function readPreviousQuote(order: PaymentOrder, key: 'exchange_rate_applied' | 'amount_converted' | 'fee_total') {
+function readPreviousQuote(order: PaymentOrder, key: QuoteField) {
   const previous = getPreviousQuote(order)
   if (!previous || previous[key] === undefined || previous[key] === null) return null
   return String(previous[key])
