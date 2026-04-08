@@ -7,7 +7,7 @@ import type { PaymentOrderFormValues } from '@/features/payments/schemas/payment
 
 export type SupportedPaymentRoute =
   | 'bolivia_to_exterior'
-  | 'us_to_bolivia'
+  | 'world_to_bolivia'
   | 'us_to_wallet'
   | 'crypto_to_crypto'
 
@@ -24,7 +24,7 @@ export const supportedPaymentRoutes: Array<{
     supportedDeliveryMethods: ['swift', 'ach', 'crypto'],
   },
   {
-    key: 'us_to_bolivia',
+    key: 'world_to_bolivia',
     label: 'Exterior a Bolivia',
     description: 'Expediente WORLD_TO_BO para depositos desde el exterior con destino Bolivia.',
     supportedDeliveryMethods: ['ach'],
@@ -57,7 +57,7 @@ export function resolveFlowType(route: SupportedPaymentRoute, deliveryMethod?: s
   switch (route) {
     case 'bolivia_to_exterior':
       return deliveryMethod === 'crypto' ? 'bolivia_to_wallet' : 'bolivia_to_world'
-    case 'us_to_bolivia':
+    case 'world_to_bolivia':
       return 'world_to_bolivia'
     case 'us_to_wallet':
       return 'world_to_wallet' // AHORA ES UN FLUJO INTERBANCARIO 1.5

@@ -94,7 +94,7 @@ interface CreatePaymentOrderFormProps {
 }
 
 const STEP_ORDER: StepKey[] = ['route', 'method', 'detail', 'review', 'finish']
-const DEPOSIT_ROUTES: SupportedPaymentRoute[] = ['us_to_bolivia', 'us_to_wallet']
+const DEPOSIT_ROUTES: SupportedPaymentRoute[] = ['world_to_bolivia', 'us_to_wallet']
 const FORM_LABEL_CLASS = 'text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground'
 const FORM_TEXT_CLASS = 'tracking-[0.01em]'
 const FORM_UNDERLINE_INPUT_CLASS = 'h-11 rounded-none border-0 border-b border-input bg-transparent px-0 py-0 shadow-none transition-colors focus-visible:border-primary focus-visible:ring-0 disabled:bg-transparent'
@@ -106,7 +106,7 @@ const ROUTE_STAGE_COPY: Record<SupportedPaymentRoute, {
   finishTitle: string
   finishDescription: string
 }> = {
-  us_to_bolivia: {
+  world_to_bolivia: {
     detailTitle: 'Completa el expediente de deposito',
     detailDescription: 'Primero eliges como recibir. Luego completas solo los datos necesarios para esa variante.',
     finishTitle: 'Adjunta el comprobante del deposito',
@@ -208,10 +208,10 @@ export function CreatePaymentOrderForm({
   const supplierHasCrypto = Boolean(selectedSupplier?.bank_details?.wallet_address)
   const isDepositRouteActive = isDepositRoute(currentRoute.key)
   const routeCopy = ROUTE_STAGE_COPY[currentRoute.key]
-  const shouldHideSupplier = currentRoute.key === 'us_to_wallet' || currentRoute.key === 'us_to_bolivia' || currentRoute.key === 'crypto_to_crypto'
+  const shouldHideSupplier = currentRoute.key === 'us_to_wallet' || currentRoute.key === 'world_to_bolivia' || currentRoute.key === 'crypto_to_crypto'
   const requiresSupplierSelection = currentRoute.key === 'bolivia_to_exterior'
   const hasSupplierSelected = Boolean(selectedSupplier)
-  const showSupportUpload = currentRoute.key === 'us_to_bolivia' || !isDepositRouteActive
+  const showSupportUpload = currentRoute.key === 'world_to_bolivia' || !isDepositRouteActive
   const availableTechnicalMethods = useMemo(
     () => getDeliveryMethodsForRoute(currentRoute.key, uiMethodGroup, supplierMethods),
     [currentRoute.key, uiMethodGroup, supplierMethods]
@@ -321,7 +321,7 @@ export function CreatePaymentOrderForm({
       if (!form.getValues('ui_method_group')) form.setValue('ui_method_group', 'bank')
     }
 
-    if (route === 'us_to_bolivia') {
+    if (route === 'world_to_bolivia') {
       form.setValue('origin_currency', 'USD')
       form.setValue('destination_currency', 'Bs')
       if (!form.getValues('receive_variant')) form.setValue('receive_variant', 'bank_account')
@@ -350,7 +350,7 @@ export function CreatePaymentOrderForm({
   }, [form, route])
 
   useEffect(() => {
-    if (route === 'us_to_bolivia' && receiveVariant === 'bank_qr') {
+    if (route === 'world_to_bolivia' && receiveVariant === 'bank_qr') {
       form.setValue('supplier_id', '')
       form.setValue('delivery_method', 'ach')
       form.setValue('destination_address', 'QR Bolivia')
@@ -361,7 +361,7 @@ export function CreatePaymentOrderForm({
       form.setValue('crypto_network', '')
     }
 
-    if (route === 'us_to_bolivia' && receiveVariant === 'bank_account') {
+    if (route === 'world_to_bolivia' && receiveVariant === 'bank_account') {
       form.setValue('supplier_id', '')
       form.setValue('delivery_method', 'ach')
       form.setValue('ach_routing_number', '')
@@ -389,7 +389,7 @@ export function CreatePaymentOrderForm({
   }, [availableTechnicalMethods, form])
 
   useEffect(() => {
-    if (route === 'us_to_bolivia') return
+    if (route === 'world_to_bolivia') return
     if (!selectedSupplier) return
     if (route === 'us_to_wallet') return
 
@@ -417,7 +417,7 @@ export function CreatePaymentOrderForm({
   }, [currentRoute.supportedDeliveryMethods, form, receiveVariant, route, selectedSupplier, supplierAchDetails, supplierMethods, supplierSwiftDetails, uiMethodGroup])
 
   useEffect(() => {
-    if (route === 'us_to_bolivia') return
+    if (route === 'world_to_bolivia') return
     if (route === 'us_to_wallet') return
     if (!selectedSupplier) return
 
@@ -521,10 +521,6 @@ export function CreatePaymentOrderForm({
         return
       }
 
-      if (route === 'us_to_bolivia' && receiveVariant === 'bank_qr' && !supportFile) {
-        toast.error('Adjunta el QR bancario o respaldo para continuar.')
-        return
-      }
 
       if (route === 'bolivia_to_exterior' && !supportFile) {
         toast.error('Debes adjuntar el documento de respaldo para continuar.')
@@ -632,7 +628,7 @@ export function CreatePaymentOrderForm({
                       title={getMethodTitle(currentRoute.key)}
                       description={getMethodDescription(currentRoute.key)}
                     />
-                    {currentRoute.key === 'us_to_bolivia' ? (
+                    {currentRoute.key === 'world_to_bolivia' ? (
                       <FormField
                         control={form.control}
                         name="receive_variant"
@@ -792,51 +788,47 @@ export function CreatePaymentOrderForm({
 
                       {supplierValidationMessage && hasSupplierSelected ? <ValidationNotice message={supplierValidationMessage} /> : null}
 
-                      {currentRoute.key === 'us_to_bolivia' && receiveVariant === 'bank_qr' ? (
+                      {currentRoute.key === 'world_to_bolivia' ? (
                         <DocumentInputCard
                           file={supportFile}
-                          label="QR bancario o respaldo"
-                          description="Adjunta el QR bancario o respaldo. Se guardara como support_document_url."
+                          label="QR bancario o comprobante (Opcional)"
+                          description="Adjunta la imagen del QR de la cuenta bancaria. Se guardará como destination_qr_url."
                           onFileChange={setSupportFile}
                         />
                       ) : null}
 
                       {shouldShowExpandedDetail ? (
                         <>
-                          <div className={`grid gap-4 ${shouldHideSupplier ? 'lg:grid-cols-2' : 'lg:grid-cols-3'}`}>
-                            <TextField control={form.control} disabled={disabled} label="Moneda origen" name="origin_currency" />
-                            <TextField control={form.control} disabled={disabled} label="Moneda destino" name="destination_currency" />
-                            {!shouldHideSupplier ? (
-                              <FormField
-                                control={form.control}
-                                name="delivery_method"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel className={FORM_LABEL_CLASS}>Metodo tecnico final</FormLabel>
-                                    <FormControl>
-                                      <Select
-                                        value={field.value}
-                                        onValueChange={field.onChange}
-                                        disabled={disabled || route === 'crypto_to_crypto' || (route === 'bolivia_to_exterior' && uiMethodGroup === 'crypto') || availableTechnicalMethods.length <= 1}
-                                      >
-                                        <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {availableTechnicalMethods.map((method) => (
-                                            <SelectItem key={method} value={method}>
-                                              {method}
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            ) : null}
-                          </div>
+                          {!shouldHideSupplier ? (
+                            <FormField
+                              control={form.control}
+                              name="delivery_method"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className={FORM_LABEL_CLASS}>Metodo tecnico final</FormLabel>
+                                  <FormControl>
+                                    <Select
+                                      value={field.value}
+                                      onValueChange={field.onChange}
+                                      disabled={disabled || route === 'crypto_to_crypto' || (route === 'bolivia_to_exterior' && uiMethodGroup === 'crypto') || availableTechnicalMethods.length <= 1}
+                                    >
+                                      <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {availableTechnicalMethods.map((method) => (
+                                          <SelectItem key={method} value={method}>
+                                            {method}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          ) : null}
                           {currentRoute.key === 'us_to_wallet' ? (
                             <>
                               <div className="grid gap-4 lg:grid-cols-2">
@@ -864,36 +856,21 @@ export function CreatePaymentOrderForm({
                             </>
                           ) : null}
 
-                          {currentRoute.key === 'us_to_bolivia' && receiveVariant === 'bank_account' ? (
+                          {currentRoute.key === 'world_to_bolivia' ? (
                             <>
                               <div className="grid gap-4 lg:grid-cols-2">
                                 <TextField control={form.control} disabled={disabled} label="Banco" name="ach_bank_name" />
                                 <TextField control={form.control} disabled={disabled} label="Cuenta bancaria" name="ach_account_number" />
                               </div>
                               <TextField control={form.control} disabled={disabled} label="Nombre del titular de la cuenta" name="destination_account_holder" />
-                              {/*
-                            <AutoFilledPanel
-                              title="Metadata autocompletada"
-                              rows={buildMetadataPreview({
-                                route,
-                                deliveryMethod,
-                                receiveVariant,
-                                uiMethodGroup,
-                                values: form.getValues(),
-                              })}
-                            />
-                            */}
                             </>
                           ) : null}
 
-                          {currentRoute.key !== 'us_to_wallet' && currentRoute.key !== 'us_to_bolivia' ? (
+                          {currentRoute.key !== 'us_to_wallet' && currentRoute.key !== 'world_to_bolivia' ? (
                             <>
-                              <div className={`grid gap-4 ${(route === 'bolivia_to_exterior' && uiMethodGroup !== 'crypto') ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
+                              <div className={`grid gap-4 ${(route === 'bolivia_to_exterior' && uiMethodGroup !== 'crypto') ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
                                 {!(route === 'bolivia_to_exterior' && uiMethodGroup === 'crypto') && route !== 'crypto_to_crypto' ? (
                                   <TextField control={form.control} disabled={disabled} label={getDestinationLabel(currentRoute.key)} name="destination_address" />
-                                ) : null}
-                                {!isDepositRouteActive ? (
-                                  <TextField control={form.control} disabled={disabled} label="Stablecoin" name="stablecoin" />
                                 ) : null}
                                 {route === 'bolivia_to_exterior' ? (
                                   <FormField
@@ -922,7 +899,7 @@ export function CreatePaymentOrderForm({
                                 ) : null}
                               </div>
 
-                              {deliveryMethod === 'swift' && (route === 'bolivia_to_exterior' || route === 'us_to_bolivia') ? (
+                              {deliveryMethod === 'swift' && (route === 'bolivia_to_exterior' || route === 'world_to_bolivia') ? (
                                 <div className="grid gap-4 lg:grid-cols-2">
                                   <TextField control={form.control} disabled={disabled} label="Banco" name="swift_bank_name" />
                                   <TextField control={form.control} disabled={disabled} label="Codigo SWIFT" name="swift_code" />
@@ -990,7 +967,7 @@ export function CreatePaymentOrderForm({
                                             )}
                                           />
                                           
-                                          <TextField control={form.control} disabled={true} label="Red de Origen (Autocompletada)" name="source_crypto_network" />
+                                          <NetworkSelectField control={form.control} disabled={true} label="Red de Origen (Autocompletada)" name="source_crypto_network" placeholder="Autocompletado" />
                                         </>
                                       ) : (
                                         <>
@@ -1022,11 +999,11 @@ export function CreatePaymentOrderForm({
                             </>
                           ) : null}
 
-                          {currentRoute.key !== 'us_to_wallet' && currentRoute.key !== 'us_to_bolivia' && !isDepositRouteActive ? (
+                          {currentRoute.key !== 'us_to_wallet' && currentRoute.key !== 'world_to_bolivia' && !isDepositRouteActive ? (
                             <TextField control={form.control} disabled={disabled} label="Motivo del pago" name="payment_reason" />
                           ) : null}
 
-                          {showSupportUpload && !(currentRoute.key === 'us_to_bolivia' && receiveVariant === 'bank_qr') ? (
+                          {showSupportUpload && !(currentRoute.key === 'world_to_bolivia' && receiveVariant === 'bank_qr') ? (
                             <DocumentInputCard
                               file={supportFile}
                               label="Documento de respaldo"
@@ -1218,7 +1195,7 @@ function getDefaultValues(route: SupportedPaymentRoute): PaymentOrderFormValues 
 
   return {
     route,
-    receive_variant: route === 'us_to_bolivia' ? 'bank_account' : undefined,
+    receive_variant: route === 'world_to_bolivia' ? 'bank_account' : undefined,
     ui_method_group: route === 'bolivia_to_exterior' ? 'bank' : undefined,
     supplier_id: '',
     amount_origin: 0,
@@ -1396,7 +1373,7 @@ function NetworkSelectField({
             <Select
               disabled={disabled}
               onValueChange={field.onChange}
-              value={resolveCryptoNetwork(typeof field.value === 'string' ? field.value : undefined)}
+              value={field.value ? resolveCryptoNetwork(field.value as string) : undefined}
             >
               <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
                 <SelectValue placeholder={placeholder} />
@@ -1498,7 +1475,7 @@ function getStepLabel(step: StepKey) {
 
 function getMethodTitle(route: SupportedPaymentRoute) {
   switch (route) {
-    case 'us_to_bolivia':
+    case 'world_to_bolivia':
       return 'Selecciona como quieres recibir'
     case 'us_to_wallet':
       return 'Selecciona el metodo de recepcion'
@@ -1511,7 +1488,7 @@ function getMethodTitle(route: SupportedPaymentRoute) {
 
 function getMethodDescription(route: SupportedPaymentRoute) {
   switch (route) {
-    case 'us_to_bolivia':
+    case 'world_to_bolivia':
       return 'Esta eleccion define si el detalle se completa con proveedor bancario o con QR.'
     case 'us_to_wallet':
       return 'La recepcion final siempre ocurre en tu wallet, aunque el rail tecnico de fondeo sea PSAV.'
@@ -1526,7 +1503,7 @@ function getAmountLabel(route: SupportedPaymentRoute) {
   switch (route) {
     case 'bolivia_to_exterior':
       return 'Monto en bolivianos'
-    case 'us_to_bolivia':
+    case 'world_to_bolivia':
       return 'Monto a depositar'
     case 'us_to_wallet':
       return 'Monto en USD a fondear'
@@ -1539,7 +1516,7 @@ function getDestinationLabel(route: SupportedPaymentRoute) {
   switch (route) {
     case 'bolivia_to_exterior':
       return 'Cuenta o destino del beneficiario'
-    case 'us_to_bolivia':
+    case 'world_to_bolivia':
       return 'Cuenta destino en Bolivia'
     case 'us_to_wallet':
       return 'Direccion de la billetera'
@@ -1553,7 +1530,7 @@ function isDepositRoute(route: SupportedPaymentRoute) {
 }
 
 function getMethodStepFields(route: SupportedPaymentRoute): FieldPath<PaymentOrderFormValues>[] {
-  if (route === 'us_to_bolivia') return ['receive_variant']
+  if (route === 'world_to_bolivia') return ['receive_variant']
   if (route === 'bolivia_to_exterior') return ['ui_method_group']
   return []
 }
@@ -1573,12 +1550,8 @@ function getDetailStepFields({
 }): FieldPath<PaymentOrderFormValues>[] {
   const fields: FieldPath<PaymentOrderFormValues>[] = ['amount_origin']
 
-  if (route === 'us_to_bolivia' && receiveVariant === 'bank_account') {
+  if (route === 'world_to_bolivia') {
     return [...fields, 'origin_currency', 'destination_currency', 'ach_bank_name', 'ach_account_number', 'destination_account_holder']
-  }
-
-  if (route === 'us_to_bolivia' && receiveVariant === 'bank_qr') {
-    return fields
   }
 
   if (route === 'us_to_wallet') {
@@ -1607,11 +1580,11 @@ function getDetailStepFields({
     fields.push('destination_address')
   }
 
-  if (deliveryMethod === 'swift' && (route === 'bolivia_to_exterior' || route === 'us_to_bolivia')) {
+  if (deliveryMethod === 'swift' && route === 'bolivia_to_exterior') {
     fields.push('swift_bank_name', 'swift_code', 'swift_iban', 'swift_bank_address', 'swift_country')
   }
 
-  if (deliveryMethod === 'ach' && (route === 'bolivia_to_exterior' || route === 'us_to_bolivia')) {
+  if (deliveryMethod === 'ach' && route === 'bolivia_to_exterior') {
     fields.push('ach_routing_number', 'ach_account_number', 'ach_bank_name')
   }
 
@@ -1648,17 +1621,14 @@ function buildReviewItems(args: {
     items.push({ label: 'Grupo', value: args.uiMethodGroup })
   }
 
-  if (args.route === 'us_to_bolivia') {
+  if (args.route === 'world_to_bolivia') {
     items.push({ label: 'Metodo tecnico', value: 'ach' })
+    items.push({ label: 'Banco', value: args.values.ach_bank_name || 'Pendiente' })
+    items.push({ label: 'Cuenta bancaria', value: args.values.ach_account_number || 'Pendiente' })
+    items.push({ label: 'Titular', value: args.values.destination_account_holder || 'Pendiente' })
 
-    if (args.receiveVariant === 'bank_account') {
-      items.push({ label: 'Banco', value: args.values.ach_bank_name || 'Pendiente' })
-      items.push({ label: 'Cuenta bancaria', value: args.values.ach_account_number || 'Pendiente' })
-      items.push({ label: 'Titular', value: args.values.destination_account_holder || 'Pendiente' })
-    }
-
-    if (args.receiveVariant === 'bank_qr') {
-      items.push({ label: 'Respaldo QR', value: args.supportFileName ?? 'No adjuntado' })
+    if (args.supportFileName) {
+      items.push({ label: 'Respaldo QR', value: args.supportFileName })
     }
   }
 
@@ -1722,7 +1692,7 @@ function getDeliveryMethodsForRoute(
   if (route === 'bolivia_to_exterior' && uiMethodGroup === 'bank') {
     return ['ach', 'swift'].filter((method) => supplierMethods.includes(method as 'ach' | 'swift'))
   }
-  if (route === 'us_to_bolivia') {
+  if (route === 'world_to_bolivia') {
     return ['ach']
   }
   return ['ach']
@@ -1755,7 +1725,7 @@ function getSupplierValidationMessage({
   supplierHasCrypto: boolean
 }) {
   if (route === 'us_to_wallet') return null
-  if (route === 'us_to_bolivia') return null
+  if (route === 'world_to_bolivia') return null
   if (route === 'bolivia_to_exterior' && !selectedSupplier) {
     return null
   }

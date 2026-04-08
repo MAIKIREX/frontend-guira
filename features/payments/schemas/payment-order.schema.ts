@@ -4,7 +4,7 @@ export const paymentOrderSchema = z
   .object({
     route: z.enum([
       'bolivia_to_exterior',
-      'us_to_bolivia',
+      'world_to_bolivia',
       'us_to_wallet',
       'crypto_to_crypto',
     ]),
@@ -36,15 +36,9 @@ export const paymentOrderSchema = z
     source_crypto_network: z.string().trim().optional(),
     source_crypto_address: z.string().trim().optional(),
     destination_account_holder: z.string().trim().optional(),
+    destination_qr_url: z.string().trim().optional(),
   })
   .superRefine((value, ctx) => {
-    if (value.route === 'us_to_bolivia' && !value.receive_variant) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Selecciona como quieres recibir en Bolivia.',
-        path: ['receive_variant'],
-      })
-    }
 
     if (value.route === 'bolivia_to_exterior' && !value.supplier_id) {
       ctx.addIssue({
@@ -62,7 +56,7 @@ export const paymentOrderSchema = z
       })
     }
 
-    if ((value.route === 'bolivia_to_exterior' || value.route === 'crypto_to_crypto' || value.route === 'us_to_bolivia') && value.payment_reason.length < 5) {
+    if ((value.route === 'bolivia_to_exterior' || value.route === 'crypto_to_crypto' || value.route === 'world_to_bolivia') && value.payment_reason.length < 5) {
       ctx.addIssue({
         code: 'custom',
         message: 'Describe el motivo del pago.',
@@ -80,26 +74,11 @@ export const paymentOrderSchema = z
       }
     }
 
-    if (value.delivery_method === 'swift' && value.route === 'us_to_bolivia') {
-      const requiredFields: Array<[keyof typeof value, string]> = [
-        ['swift_bank_name', 'El banco es obligatorio.'],
-        ['swift_code', 'El codigo SWIFT es obligatorio.'],
-        ['swift_iban', 'El IBAN es obligatorio.'],
-        ['swift_bank_address', 'La direccion del banco es obligatoria.'],
-        ['swift_country', 'El pais del banco es obligatorio.'],
-      ]
-
-      requiredFields.forEach(([field, message]) => {
-        if (!value[field]) {
-          ctx.addIssue({ code: 'custom', message, path: [field] })
-        }
-      })
-    }
-
-    if (value.delivery_method === 'ach' && value.route === 'us_to_bolivia') {
+    if (value.route === 'world_to_bolivia') {
       const requiredFields: Array<[keyof typeof value, string]> = [
         ['ach_account_number', 'La cuenta bancaria es obligatoria.'],
         ['ach_bank_name', 'El banco es obligatorio.'],
+        ['destination_account_holder', 'El nombre del titular de la cuenta destino es obligatorio.'],
       ]
 
       requiredFields.forEach(([field, message]) => {
@@ -109,15 +88,7 @@ export const paymentOrderSchema = z
       })
     }
 
-    if (value.route === 'us_to_bolivia' && !value.destination_account_holder) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'El nombre del titular de la cuenta destino es obligatorio.',
-        path: ['destination_account_holder'],
-      })
-    }
-
-    if (value.delivery_method === 'crypto' || value.route === 'us_to_wallet') {
+    if (value.delivery_method === 'crypto') {
       if (!value.crypto_address) {
         ctx.addIssue({
           code: 'custom',

@@ -156,6 +156,10 @@ export function usePaymentsModule() {
     
     // Inject supporting_document_url into input
     const finalInput = { ...input, supporting_document_url: supportUrl }
+    
+    if (finalInput.flow_type === 'world_to_bolivia' && supportUrl) {
+      finalInput.destination_qr_url = supportUrl
+    }
 
     let order: PaymentOrder;
     const rampFlows = ['fiat_bo_to_bridge_wallet', 'crypto_to_bridge_wallet', 'fiat_us_to_bridge_wallet', 'bridge_wallet_to_fiat_bo', 'bridge_wallet_to_crypto', 'bridge_wallet_to_fiat_us']

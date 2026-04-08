@@ -1038,14 +1038,16 @@ function resolveOrderRoute(order: PaymentOrder): SupportedPaymentRoute | null {
   const meta = order.metadata && typeof order.metadata === 'object' ? order.metadata as Record<string, unknown> : null
 
   // 1. Intentar metadata.route (UI key almacenada al crear la orden)
-  const metadataRoute = typeof meta?.route === 'string' ? meta.route : null
+  let metadataRoute = typeof meta?.route === 'string' ? meta.route : null
+  if (metadataRoute === 'us_to_bolivia') metadataRoute = 'world_to_bolivia'
+  
   if (
     metadataRoute === 'bolivia_to_exterior' ||
-    metadataRoute === 'us_to_bolivia' ||
+    metadataRoute === 'world_to_bolivia' ||
     metadataRoute === 'us_to_wallet' ||
     metadataRoute === 'crypto_to_crypto'
   ) {
-    return metadataRoute
+    return metadataRoute as SupportedPaymentRoute
   }
 
   // 2. Intentar flow_type del nuevo backend (campo directo en la orden o en metadata)
@@ -1055,7 +1057,7 @@ function resolveOrderRoute(order: PaymentOrder): SupportedPaymentRoute | null {
       case 'bolivia_to_world': return 'bolivia_to_exterior'
       case 'bolivia_to_wallet': return 'bolivia_to_exterior'
       case 'wallet_to_wallet': return 'crypto_to_crypto'
-      case 'world_to_bolivia': return 'us_to_bolivia'
+      case 'world_to_bolivia': return 'world_to_bolivia'
       case 'world_to_wallet': return 'us_to_wallet'
     }
   }
@@ -1065,7 +1067,7 @@ function resolveOrderRoute(order: PaymentOrder): SupportedPaymentRoute | null {
     case 'BO_TO_WORLD':
       return 'bolivia_to_exterior'
     case 'WORLD_TO_BO':
-      return 'us_to_bolivia'
+      return 'world_to_bolivia'
     case 'US_TO_WALLET':
       return 'us_to_wallet'
     case 'CRYPTO_TO_CRYPTO':

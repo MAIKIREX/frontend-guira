@@ -24,7 +24,7 @@ const MODE_CONFIG: Record<WorkspaceMode, {
     description: 'Aqui se concentran los flujos donde el fondeo viene de EE.UU. o del exterior y termina en wallet o Bolivia.',
     eyebrow: 'Depositar',
     defaultRoute: 'us_to_wallet',
-    allowedRoutes: ['us_to_wallet', 'us_to_bolivia'],
+    allowedRoutes: ['us_to_wallet', 'world_to_bolivia'],
   },
   enviar: {
     title: 'Enviar valor a otros destinos',

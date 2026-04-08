@@ -48,7 +48,7 @@ export function estimateRouteValues(args: {
   let selectedBaseRate = legacyRate
   if (args.route === 'bolivia_to_exterior') {
     selectedBaseRate = parallelBuyRate
-  } else if (args.route === 'us_to_bolivia') {
+  } else if (args.route === 'world_to_bolivia') {
     selectedBaseRate = parallelSellRate
   }
 
@@ -78,7 +78,7 @@ export function buildDepositInstructions(args: {
   switch (args.route) {
     case 'bolivia_to_exterior':
       return psavInstructions
-    case 'us_to_bolivia':
+    case 'world_to_bolivia':
       return [
         {
           id: 'world-hardcoded-bank',
@@ -203,7 +203,7 @@ function resolveFeeTotal(fees: FeeConfigRow[], amountOrigin: number, route: Supp
   // Mapeamos las rutas del frontend local a los operation_type de la base de datos V2
   let targetOperation = ''
   if (route === 'bolivia_to_exterior') targetOperation = 'interbank_bo_out'
-  else if (route === 'us_to_bolivia') targetOperation = 'interbank_bo_in'
+  else if (route === 'world_to_bolivia') targetOperation = 'interbank_bo_in'
   else if (route === 'crypto_to_crypto') targetOperation = 'interbank_w2w'
   else if (route === 'us_to_wallet') targetOperation = 'ramp_off_bo'
   
