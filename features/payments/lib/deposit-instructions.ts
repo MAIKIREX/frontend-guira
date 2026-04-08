@@ -78,16 +78,46 @@ export function buildDepositInstructions(args: {
   switch (args.route) {
     case 'bolivia_to_exterior':
       return psavInstructions
-    case 'world_to_bolivia':
+    case 'world_to_bolivia': {
+      // Buscar cuentas PSAV de tipo bank_us (USD) para recibir depósitos del exterior
+      const usBankPsav = args.psavConfigs.filter(
+        (c) => c.type === 'bank_us' && c.is_active
+      )
+      if (usBankPsav.length > 0) {
+        return usBankPsav.map((c, i) => {
+          const parts = [
+            c.bank_name,
+            c.account_number ? `Account: ${c.account_number}` : null,
+            c.routing_number ? `Routing: ${c.routing_number}` : null,
+            c.account_holder ? `Titular: ${c.account_holder}` : null,
+          ].filter(Boolean).join(' | ')
+          return {
+            id: `world-psav-${c.id}`,
+            title: c.name || `Cuenta USD ${i + 1}`,
+            kind: 'bank' as const,
+            detail: parts || 'Datos bancarios no configurados',
+            accent: 'sky',
+            bankCard: {
+              bankName: c.bank_name || 'Banco no configurado',
+              accountHolder: c.account_holder || c.name || 'PSAV',
+              accountNumber: c.account_number || 'Sin cuenta',
+              country: 'US',
+            },
+          }
+        })
+      }
+      // No hay cuentas PSAV bank_us activas — mostrar aviso en vez de datos ficticios
+      console.warn('[deposit-instructions] No hay cuentas PSAV bank_us configuradas para world_to_bolivia.')
       return [
         {
-          id: 'world-hardcoded-bank',
-          title: 'Cuenta receptora Guira',
-          kind: 'bank' as const,
-          detail: 'Bank of Example | Checking 00123456789 | ABA 021000021 | Holder: Guira Operations LLC',
+          id: 'world-no-psav',
+          title: 'Instrucciones no disponibles',
+          kind: 'note' as const,
+          detail: 'No se encontraron cuentas receptoras USD configuradas. Contacte al administrador para habilitar las instrucciones de deposito.',
           accent: 'sky',
         },
       ]
+    }
     case 'us_to_wallet':
       return [
         ...(psavInstructions.length > 0

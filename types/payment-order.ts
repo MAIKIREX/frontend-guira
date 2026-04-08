@@ -139,11 +139,17 @@ export interface AppSettingRow {
 export interface PsavConfigRow {
   id: string
   name?: string
+  type?: string
   bank_name?: string
   account_number?: string
+  routing_number?: string
+  account_holder?: string
   currency?: string
   is_active?: boolean
   qr_url?: string
+  crypto_address?: string
+  crypto_network?: string
+  metadata?: Record<string, unknown>
   [key: string]: unknown
 }
 

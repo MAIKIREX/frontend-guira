@@ -146,19 +146,25 @@ export function usePaymentsModule() {
    */
   const createOrder = useCallback(async (
     input: any,
-    supportFile?: File | null,
-    evidenceFile?: File | null
+    qrFile?: File | null,
+    supportFile?: File | null
   ) => {
-    let supportUrl = input.supporting_document_url;
+    // Subir QR bancario (solo world_to_bolivia) → destination_qr_url
+    let qrUrl: string | undefined = undefined
+    if (qrFile && input.flow_type === 'world_to_bolivia') {
+      qrUrl = await PaymentsService.uploadFileToStorage(qrFile, 'payment-receipts')
+    }
+
+    // Subir documento de respaldo → supporting_document_url
+    let supportUrl = input.supporting_document_url
     if (supportFile) {
       supportUrl = await PaymentsService.uploadFileToStorage(supportFile, 'payment-receipts')
     }
-    
-    // Inject supporting_document_url into input
-    const finalInput = { ...input, supporting_document_url: supportUrl }
-    
-    if (finalInput.flow_type === 'world_to_bolivia' && supportUrl) {
-      finalInput.destination_qr_url = supportUrl
+
+    const finalInput = {
+      ...input,
+      supporting_document_url: supportUrl,
+      ...(qrUrl ? { destination_qr_url: qrUrl } : {}),
     }
 
     let order: PaymentOrder;
@@ -170,13 +176,10 @@ export function usePaymentsModule() {
       order = await PaymentsService.createInterbankOrder(finalInput as any)
     }
 
-    if (evidenceFile) {
-      order = await PaymentsService.uploadOrderEvidence(order.id, evidenceFile)
-    }
-
     mergeOrder(order)
     return order
   }, [mergeOrder])
+
 
   /**
    * Sube un archivo a una orden existente.

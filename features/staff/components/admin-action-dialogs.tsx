@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -541,6 +541,8 @@ function PsavUpsertDialog({ actor, label, onUpdated, record }: { actor: StaffAct
       type: (record?.type as 'bank_bo' | 'bank_us' | 'crypto') ?? 'bank_bo',
       bank_name: (record?.bank_name as string) ?? '',
       account_number: (record?.account_number as string) ?? '',
+      routing_number: (record?.routing_number as string) ?? '',
+      account_holder: (record?.account_holder as string) ?? '',
       crypto_address: (record?.crypto_address as string) ?? '',
       crypto_network: (record?.crypto_network as string) ?? '',
       currency: (record?.currency as string) ?? '',
@@ -555,6 +557,19 @@ function PsavUpsertDialog({ actor, label, onUpdated, record }: { actor: StaffAct
   const watchedBank = form.watch('bank_name')
   const watchedAccount = form.watch('account_number')
   const watchedCurrency = form.watch('currency')
+
+  // Auto-populate currency when type changes (only for new records or when currency is empty/default)
+  useEffect(() => {
+    const currencyMap: Record<string, string> = { bank_bo: 'BOB', bank_us: 'USD', crypto: 'USDT' }
+    const autoCurrency = currencyMap[watchedType] ?? ''
+    const currentCurrency = form.getValues('currency')
+    // Only auto-set if the field is empty or if it matches another auto-value (user hasn't typed custom)
+    const autoValues = Object.values(currencyMap)
+    if (!currentCurrency || autoValues.includes(currentCurrency)) {
+      form.setValue('currency', autoCurrency)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedType])
 
   async function submit(values: AdminPsavRecordValues) {
     try {
@@ -574,6 +589,8 @@ function PsavUpsertDialog({ actor, label, onUpdated, record }: { actor: StaffAct
         type: values.type,
         bank_name: values.bank_name,
         account_number: values.account_number,
+        routing_number: values.routing_number,
+        account_holder: values.account_holder,
         crypto_address: values.crypto_address,
         crypto_network: values.crypto_network,
         currency: values.currency,
@@ -651,22 +668,53 @@ function PsavUpsertDialog({ actor, label, onUpdated, record }: { actor: StaffAct
                 </div>
 
                 {watchedType !== 'crypto' ? (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <FormField control={form.control} name="bank_name" render={({ field }) => (
-                      <FormItem className="space-y-1.5">
-                        <FormLabel className="text-[13px] font-semibold text-foreground/80">Entidad Bancaria</FormLabel>
-                        <FormControl><Input {...field} placeholder="Banco de ejemplo" className="h-10 bg-muted/20 border-border/60 focus:bg-background transition-all" /></FormControl>
-                        <FormMessage className="text-[11px]" />
-                      </FormItem>
-                    )} />
-                    <FormField control={form.control} name="account_number" render={({ field }) => (
-                      <FormItem className="space-y-1.5">
-                        <FormLabel className="text-[13px] font-semibold text-foreground/80">Número de Cuenta</FormLabel>
-                        <FormControl><Input {...field} placeholder="000-000-000" className="h-10 bg-muted/20 border-border/60 focus:bg-background transition-all" /></FormControl>
-                        <FormMessage className="text-[11px]" />
-                      </FormItem>
-                    )} />
-                  </div>
+                  <>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <FormField control={form.control} name="bank_name" render={({ field }) => (
+                        <FormItem className="space-y-1.5">
+                          <FormLabel className="text-[13px] font-semibold text-foreground/80">Entidad Bancaria</FormLabel>
+                          <FormControl><Input {...field} placeholder="Banco de ejemplo" className="h-10 bg-muted/20 border-border/60 focus:bg-background transition-all" /></FormControl>
+                          <FormMessage className="text-[11px]" />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="account_number" render={({ field }) => (
+                        <FormItem className="space-y-1.5">
+                          <FormLabel className="text-[13px] font-semibold text-foreground/80">Número de Cuenta</FormLabel>
+                          <FormControl><Input {...field} placeholder="000-000-000" className="h-10 bg-muted/20 border-border/60 focus:bg-background transition-all" /></FormControl>
+                          <FormMessage className="text-[11px]" />
+                        </FormItem>
+                      )} />
+                    </div>
+                    {watchedType === 'bank_us' && (
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <FormField control={form.control} name="routing_number" render={({ field }) => (
+                          <FormItem className="space-y-1.5">
+                            <FormLabel className="text-[13px] font-semibold text-foreground/80">Routing Number (ABA)</FormLabel>
+                            <FormControl><Input {...field} placeholder="021000021" className="h-10 bg-muted/20 border-border/60 focus:bg-background transition-all font-mono" /></FormControl>
+                            <FormMessage className="text-[11px]" />
+                          </FormItem>
+                        )} />
+                        <FormField control={form.control} name="account_holder" render={({ field }) => (
+                          <FormItem className="space-y-1.5">
+                            <FormLabel className="text-[13px] font-semibold text-foreground/80">Titular de la Cuenta</FormLabel>
+                            <FormControl><Input {...field} placeholder="Nombre completo o empresa" className="h-10 bg-muted/20 border-border/60 focus:bg-background transition-all" /></FormControl>
+                            <FormMessage className="text-[11px]" />
+                          </FormItem>
+                        )} />
+                      </div>
+                    )}
+                    {watchedType === 'bank_bo' && (
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <FormField control={form.control} name="account_holder" render={({ field }) => (
+                          <FormItem className="space-y-1.5">
+                            <FormLabel className="text-[13px] font-semibold text-foreground/80">Titular de la Cuenta</FormLabel>
+                            <FormControl><Input {...field} placeholder="Nombre completo o empresa" className="h-10 bg-muted/20 border-border/60 focus:bg-background transition-all" /></FormControl>
+                            <FormMessage className="text-[11px]" />
+                          </FormItem>
+                        )} />
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div className="grid gap-4 sm:grid-cols-2">
                     <FormField control={form.control} name="crypto_network" render={({ field }) => (
@@ -691,6 +739,7 @@ function PsavUpsertDialog({ actor, label, onUpdated, record }: { actor: StaffAct
                     <FormItem className="space-y-1.5">
                       <FormLabel className="text-[13px] font-semibold text-foreground/80">Divisa</FormLabel>
                       <FormControl><Input {...field} placeholder="BOB, USD, USDT..." className="h-10 bg-muted/20 border-border/60 focus:bg-background transition-all" /></FormControl>
+                      <p className="text-[10px] text-muted-foreground mt-1">Se establece automáticamente según el tipo, pero puedes modificarla.</p>
                       <FormMessage className="text-[11px]" />
                     </FormItem>
                   )} />
@@ -773,10 +822,22 @@ function PsavUpsertDialog({ actor, label, onUpdated, record }: { actor: StaffAct
                 <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Banco</div>
                 <div className="text-sm font-semibold truncate text-foreground/90">{watchedBank || 'Banco Ejemplo'}</div>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 border-b border-border/30 pb-3">
                 <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Cuenta ({watchedCurrency || 'CUR'})</div>
                 <div className="text-xs font-mono font-medium text-foreground/70">{watchedAccount || '0000 0000 0000'}</div>
               </div>
+              {watchedType === 'bank_us' && form.watch('routing_number') && (
+                <div className="space-y-1 border-b border-border/30 pb-3">
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Routing (ABA)</div>
+                  <div className="text-xs font-mono font-medium text-foreground/70">{form.watch('routing_number')}</div>
+                </div>
+              )}
+              {form.watch('account_holder') && (
+                <div className="space-y-1">
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Titular</div>
+                  <div className="text-xs font-semibold truncate text-foreground/70">{form.watch('account_holder')}</div>
+                </div>
+              )}
             </div>
 
             <div className="flex-1" />

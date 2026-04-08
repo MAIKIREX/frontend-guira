@@ -146,6 +146,7 @@ export function CreatePaymentOrderForm({
 }: CreatePaymentOrderFormProps) {
   const [step, setStep] = useState<StepKey>('route')
   const [supportFile, setSupportFile] = useState<File | null>(null)
+  const [qrFile, setQrFile] = useState<File | null>(null)
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null)
   const [createdOrder, setCreatedOrder] = useState<PaymentOrder | null>(null)
   const [creatingOrder, setCreatingOrder] = useState(false)
@@ -467,7 +468,7 @@ export function CreatePaymentOrderForm({
       setCreatingOrder(true)
       const formValues = form.getValues()
       const selectedSup = suppliers.find(s => s.id === formValues.supplier_id)
-      const order = await onCreateOrder(buildPaymentOrderPayload(formValues, userId, selectedSup), supportFile, null) as PaymentOrder
+      const order = await onCreateOrder(buildPaymentOrderPayload(formValues, userId, selectedSup), qrFile, supportFile) as PaymentOrder
       setCreatedOrder(order)
       setStep('finish')
       toast.success('Expediente creado. Ahora puedes adjuntar el comprobante final o hacerlo despues.')
@@ -487,7 +488,7 @@ export function CreatePaymentOrderForm({
 
     if (!evidenceFile) {
       toast.success('El expediente ya fue creado. Puedes subir el comprobante mas tarde desde Seguimiento.')
-      resetFlow(form, setStep, setSupportFile, setEvidenceFile, setCreatedOrder)
+      resetFlow(form, setStep, setSupportFile, setQrFile, setEvidenceFile, setCreatedOrder)
       return
     }
 
@@ -495,7 +496,7 @@ export function CreatePaymentOrderForm({
       setUploadingEvidence(true)
       await onUploadOrderFile(createdOrder.id, 'evidence_url', evidenceFile)
       toast.success('Comprobante adjuntado. La orden paso a deposit_received.')
-      resetFlow(form, setStep, setSupportFile, setEvidenceFile, setCreatedOrder)
+      resetFlow(form, setStep, setSupportFile, setQrFile, setEvidenceFile, setCreatedOrder)
     } catch (error) {
       console.error('Failed to upload evidence', error)
       toast.error('No se pudo adjuntar el comprobante final.')
@@ -790,10 +791,10 @@ export function CreatePaymentOrderForm({
 
                       {currentRoute.key === 'world_to_bolivia' ? (
                         <DocumentInputCard
-                          file={supportFile}
-                          label="QR bancario o comprobante (Opcional)"
-                          description="Adjunta la imagen del QR de la cuenta bancaria. Se guardará como destination_qr_url."
-                          onFileChange={setSupportFile}
+                          file={qrFile}
+                          label="QR bancario (Opcional)"
+                          description="Adjunta la imagen del QR de la cuenta bancaria destino. Se guardará como destination_qr_url."
+                          onFileChange={setQrFile}
                         />
                       ) : null}
 
@@ -863,6 +864,7 @@ export function CreatePaymentOrderForm({
                                 <TextField control={form.control} disabled={disabled} label="Cuenta bancaria" name="ach_account_number" />
                               </div>
                               <TextField control={form.control} disabled={disabled} label="Nombre del titular de la cuenta" name="destination_account_holder" />
+                              <TextField control={form.control} disabled={disabled} label="Motivo del pago" name="payment_reason" />
                             </>
                           ) : null}
 
@@ -1003,6 +1005,7 @@ export function CreatePaymentOrderForm({
                             <TextField control={form.control} disabled={disabled} label="Motivo del pago" name="payment_reason" />
                           ) : null}
 
+
                           {showSupportUpload && !(currentRoute.key === 'world_to_bolivia' && receiveVariant === 'bank_qr') ? (
                             <DocumentInputCard
                               file={supportFile}
@@ -1097,7 +1100,7 @@ export function CreatePaymentOrderForm({
                     <div className="flex items-center justify-between mt-8">
                       <AnimatedBackButton
                         disabled={uploadingEvidence}
-                        onClick={() => resetFlow(form, setStep, setSupportFile, setEvidenceFile, setCreatedOrder)}
+                        onClick={() => resetFlow(form, setStep, setSupportFile, setQrFile, setEvidenceFile, setCreatedOrder)}
                       >
                         Finalizar despues
                       </AnimatedBackButton>
@@ -1120,11 +1123,13 @@ function resetFlow(
   form: ReturnType<typeof useForm<PaymentOrderFormValues>>,
   setStep: (step: StepKey) => void,
   setSupportFile: (file: File | null) => void,
+  setQrFile: (file: File | null) => void,
   setEvidenceFile: (file: File | null) => void,
   setCreatedOrder: (order: PaymentOrder | null) => void
 ) {
   form.reset(getDefaultValues(form.getValues('route')))
   setSupportFile(null)
+  setQrFile(null)
   setEvidenceFile(null)
   setCreatedOrder(null)
   setStep('route')
