@@ -552,6 +552,20 @@ function buildOrderDestinationInfo(order: PaymentOrder) {
   // 1. Campos directos del nuevo backend (prioridad)
   push('Flujo', humanizeFlowType(order.flow_type))
   push('Categoría', order.flow_category === 'interbank' ? 'Interbancario' : order.flow_category === 'wallet_ramp' ? 'Wallet Ramp' : undefined)
+  
+  if (order.flow_category === 'wallet_ramp') {
+    push('Wallet Bridge', order.wallet_id)
+
+    // Mostrar instrucciones VA si están disponibles en los datos directos
+    const instr = order.bridge_source_deposit_instructions as Record<string, string> | undefined
+    if (instr?.type === 'virtual_account') {
+      push('Banco VA', instr.bank_name)
+      push('Cuenta VA', instr.account_number)
+      push('Routing Number', instr.routing_number)
+      push('Titular VA', instr.account_name ?? instr.beneficiary_name)
+    }
+  }
+
   push('Banco destino', order.destination_bank_name)
   push('Cuenta destino', order.destination_account_number)
   push('Titular destino', order.destination_account_holder)
@@ -563,7 +577,7 @@ function buildOrderDestinationInfo(order: PaymentOrder) {
   push('Referencia', order.tx_hash ?? order.provider_reference)
 
   // 2. Fallback a metadata legacy
-  if (items.length === 0 && meta) {
+  if (items.length <= 4 && meta) {
     push('Ruta', humanizeOrderRoute(meta.route))
     push('Metodo de entrega', humanizeDeliveryMethod(meta.delivery_method))
     push('Variante de recepcion', humanizeReceiveVariant(meta.receive_variant))
@@ -588,24 +602,30 @@ function buildOrderDestinationInfo(order: PaymentOrder) {
 
 function humanizeFlowType(flowType?: string) {
   switch (flowType) {
-    case 'fiat_bo_to_bridge_wallet':
     case 'bolivia_to_world': 
       return 'Bolivia al Mundo'
-    case 'crypto_to_bridge_wallet':
     case 'wallet_to_wallet': 
       return 'Wallet a Wallet'
-    case 'fiat_us_to_bridge_wallet':
     case 'world_to_wallet': 
       return 'Mundo a Wallet'
-    case 'bridge_wallet_to_fiat_bo':
     case 'world_to_bolivia': 
       return 'Mundo a Bolivia'
-    case 'bridge_wallet_to_crypto':
-      return 'Wallet a Crypto'
-    case 'bridge_wallet_to_fiat_us':
-      return 'Wallet a USA'
     case 'bolivia_to_wallet': 
       return 'Bolivia a Wallet'
+
+    case 'fiat_bo_to_bridge_wallet':
+      return 'Fondeo Wallet (Bolivia)'
+    case 'crypto_to_bridge_wallet':
+      return 'Fondeo Wallet (Crypto)'
+    case 'fiat_us_to_bridge_wallet':
+      return 'Fondeo Wallet (USA)'
+    case 'bridge_wallet_to_fiat_bo':
+      return 'Retiro Wallet (Bolivia)'
+    case 'bridge_wallet_to_crypto':
+      return 'Retiro Wallet (Crypto)'
+    case 'bridge_wallet_to_fiat_us':
+      return 'Retiro Wallet (USA)'
+
     default: return flowType ?? ''
   }
 }

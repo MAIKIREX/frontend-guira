@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,8 +8,10 @@ import { useAuthStore } from '@/stores/auth-store'
 import { useProfileStore } from '@/stores/profile-store'
 import { usePaymentsModule } from '@/features/payments/hooks/use-payments-module'
 import { CreatePaymentOrderForm } from '@/features/payments/components/create-payment-order-form'
+
 import { PaymentsHistoryTable } from '@/features/payments/components/payments-history-table'
 import { SuppliersSection } from '@/features/payments/components/suppliers-section'
+import { WalletService, type WalletBalance } from '@/services/wallet.service'
 import type { SupportedPaymentRoute } from '@/features/payments/lib/payment-routes'
 
 const MODE_CONFIG: Record<WorkspaceMode, {
@@ -24,7 +26,7 @@ const MODE_CONFIG: Record<WorkspaceMode, {
     description: 'Aqui se concentran los flujos donde el fondeo viene de EE.UU. o del exterior y termina en wallet o Bolivia.',
     eyebrow: 'Depositar',
     defaultRoute: 'us_to_wallet',
-    allowedRoutes: ['us_to_wallet', 'world_to_bolivia'],
+    allowedRoutes: ['us_to_wallet', 'world_to_bolivia', 'wallet_ramp_deposit'],
   },
   enviar: {
     title: 'Enviar valor a otros destinos',
@@ -52,6 +54,17 @@ export function ClientOperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const { user } = useAuthStore()
   const { profile } = useProfileStore()
   const payments = usePaymentsModule()
+
+  // Wallets del usuario (para DepositWalletRampForm flujos 2.1 y 2.2)
+  const [userWallets, setUserWallets] = useState<WalletBalance[]>([])
+
+  useEffect(() => {
+    if (mode === 'depositar') {
+      WalletService.getWallets()
+        .then((data) => setUserWallets((data ?? []).filter((w) => w.is_active)))
+        .catch(() => { /* silent — el form muestra estado vacío */ })
+    }
+  }, [mode])
 
   const handleCreateOrder = useCallback(async (...args: Parameters<typeof payments.createOrder>) => {
     return payments.createOrder(...args)
@@ -91,19 +104,22 @@ export function ClientOperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
 
   return (
     <div className="space-y-6">
-      {mode === 'depositar' || mode === 'enviar' ? (
+
+
+      {/* ── Formulario interbanc (world_to_bolivia en depositar; flujos enviar en enviar) */}
+      {(mode === 'depositar' || mode === 'enviar') ? (
         <CreatePaymentOrderForm
-          appSettings={payments.snapshot.appSettings}
+          appSettings={payments.snapshot?.appSettings ?? []}
           allowedRoutes={config.allowedRoutes}
           defaultRoute={config.defaultRoute!}
           disabled={!canOperate}
-          exchangeRates={(payments.snapshot as any).exchangeRates ?? []}
-          feesConfig={payments.snapshot.feesConfig}
+          exchangeRates={(payments.snapshot as any)?.exchangeRates ?? []}
+          feesConfig={payments.snapshot?.feesConfig ?? []}
           onCreateOrder={handleCreateOrder}
           onUploadOrderFile={handleUploadOrderFile}
-          psavConfigs={payments.snapshot.psavConfigs}
-          suppliers={payments.snapshot.suppliers}
-          userId={user.id}
+          psavConfigs={payments.snapshot?.psavConfigs ?? []}
+          suppliers={payments.snapshot?.suppliers ?? []}
+          userId={user!.id}
         />
       ) : null}
 

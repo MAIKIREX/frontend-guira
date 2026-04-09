@@ -73,6 +73,12 @@ export interface CreateWalletRampOrderDto {
   external_account_id?: string
   liquidation_address_id?: string
   destination_currency?: string
+  
+  // Newly typed fields from payload mapping
+  wallet_id?: string
+  virtual_account_id?: string
+  source_network?: string
+  source_address?: string
 }
 
 export interface SupplierUpsertDto {

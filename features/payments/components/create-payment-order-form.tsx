@@ -22,9 +22,11 @@ import {
   Upload,
   Wallet,
   Loader2,
+  Banknote,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { WalletService, type WalletBalance } from '@/services/wallet.service'
+import { BridgeService, type VirtualAccount } from '@/services/bridge.service'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
@@ -57,6 +59,7 @@ import { DocumentUploadCard } from '@/components/shared/document-upload-card'
 import { AnimatedNextButton } from '@/components/shared/animated-next-button'
 import { AnimatedBackButton } from '@/components/shared/animated-back-button'
 import { StepProgressRail } from '@/features/payments/components/step-progress-rail'
+import { WalletRampDetailStep } from '@/features/payments/components/wallet-ramp-detail-step'
 import { CRYPTO_NETWORK_OPTIONS, CRYPTO_NETWORK_LABELS, resolveCryptoNetwork } from '@/features/payments/lib/crypto-networks'
 import {
   paymentOrderSchema,
@@ -96,7 +99,7 @@ interface CreatePaymentOrderFormProps {
 }
 
 const STEP_ORDER: StepKey[] = ['route', 'method', 'detail', 'review', 'finish']
-const DEPOSIT_ROUTES: SupportedPaymentRoute[] = ['world_to_bolivia', 'us_to_wallet']
+const DEPOSIT_ROUTES: SupportedPaymentRoute[] = ['world_to_bolivia', 'us_to_wallet', 'wallet_ramp_deposit']
 const FORM_LABEL_CLASS = 'text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground'
 const FORM_TEXT_CLASS = 'tracking-[0.01em]'
 const FORM_UNDERLINE_INPUT_CLASS = 'h-11 rounded-none border-0 border-b border-input bg-transparent px-0 py-0 shadow-none transition-colors focus-visible:border-primary focus-visible:ring-0 disabled:bg-transparent'
@@ -132,6 +135,12 @@ const ROUTE_STAGE_COPY: Record<SupportedPaymentRoute, {
     finishTitle: 'Adjunta el comprobante del fondeo',
     finishDescription: 'La orden digital ya fue creada. Puedes adjuntar el comprobante final o continuar despues.',
   },
+  wallet_ramp_deposit: {
+    detailTitle: 'Detalle de la recarga a tu wallet',
+    detailDescription: 'Completa los montos y datos necesarios para generar las instrucciones.',
+    finishTitle: 'Guía de Depósito',
+    finishDescription: 'El expediente fue creado. Sigue las instrucciones de fondeo y haz el depósito cuando estés listo. Opcionalmente sube tu comprobante de una vez.',
+  },
 }
 
 export function CreatePaymentOrderForm({
@@ -158,6 +167,8 @@ export function CreatePaymentOrderForm({
 
   const [bridgeWallets, setBridgeWallets] = useState<WalletBalance[]>([])
   const [loadingWallets, setLoadingWallets] = useState(false)
+  const [virtualAccounts, setVirtualAccounts] = useState<VirtualAccount[]>([])
+  const [loadingVirtualAccounts, setLoadingVirtualAccounts] = useState(false)
   const [sourceWalletMode, setSourceWalletMode] = useState<'guira' | 'external'>('guira')
 
   const routeOptions = useMemo(
@@ -176,12 +187,20 @@ export function CreatePaymentOrderForm({
   const route = useWatch({ control: form.control, name: 'route' })
   
   useEffect(() => {
-    if (route === 'crypto_to_crypto') {
+    if (route === 'crypto_to_crypto' || route === 'wallet_ramp_deposit') {
       setLoadingWallets(true)
       WalletService.getWallets()
-        .then((res) => setBridgeWallets(res.filter((w) => w.address)))
+        .then((res) => setBridgeWallets(res.filter((w) => w.network)))
         .catch(console.error)
         .finally(() => setLoadingWallets(false))
+    }
+
+    if (route === 'wallet_ramp_deposit') {
+      setLoadingVirtualAccounts(true)
+      BridgeService.listVirtualAccounts()
+        .then(setVirtualAccounts)
+        .catch(console.error)
+        .finally(() => setLoadingVirtualAccounts(false))
     }
   }, [route])
   const deliveryMethod = useWatch({ control: form.control, name: 'delivery_method' })
@@ -240,7 +259,7 @@ export function CreatePaymentOrderForm({
       destinationCurrency: destination,
       amountOrigin: originAmount,
     }
-  }, [amountOrigin, exchangeRateApplied, originCurrency, destinationCurrency, liveFeeTotal, liveAmountConverted])
+  }, [amountOrigin, exchangeRateApplied, originCurrency, destinationCurrency, liveFeeTotal, liveAmountConverted, currentRoute.key])
 
   const supplierValidationMessage = useMemo(
     () => getSupplierValidationMessage({
@@ -267,13 +286,35 @@ export function CreatePaymentOrderForm({
   )
 
   const finalInstructions = useMemo(() => {
+    if (currentRoute.key === 'wallet_ramp_deposit' && createdOrder) {
+      // Usaremos directamente las deposit instructions generadas a través de `buildDepositInstructions`,
+      // pero para `bridge_source_deposit_instructions` las resolvemos si es necesario.
+    }
+
     const bridgeDeposit = (createdOrder as any)?.bridge_source_deposit_instructions;
     if (bridgeDeposit && Object.keys(bridgeDeposit).length > 0) {
+      if (bridgeDeposit.type === 'virtual_account') {
+        return [{
+          id: 'va-bank-deposit',
+          title: bridgeDeposit.label || `Depósito bancario VA (${bridgeDeposit.source_currency?.toUpperCase() ?? 'USD'})`,
+          kind: 'bank',
+          detail: [bridgeDeposit.bank_name, bridgeDeposit.account_number].filter(Boolean).join(' | '),
+          accent: 'sky',
+          bankCard: {
+            bankName: bridgeDeposit.bank_name || 'Banco VA',
+            accountHolder: bridgeDeposit.account_name || bridgeDeposit.beneficiary_name || 'Virtual Account',
+            accountNumber: bridgeDeposit.account_number || '',
+            routingNumber: bridgeDeposit.routing_number || '',
+            country: 'US',
+          }
+        }] as DepositInstruction[];
+      }
+
       return [{
         id: 'bridge-deposit',
-        title: 'Instrucciones de Fondeo (Bridge API)',
+        title: bridgeDeposit.label || 'Instrucciones de Fondeo (Bridge API)',
         kind: 'wallet',
-        detail: [bridgeDeposit.payment_rail ?? 'crypto', bridgeDeposit.to_address].filter(Boolean).join(' | '),
+        detail: [bridgeDeposit.payment_rail ?? bridgeDeposit.chain ?? 'crypto', bridgeDeposit.to_address ?? bridgeDeposit.address].filter(Boolean).join(' | '),
         accent: 'sky',
       }] as DepositInstruction[];
     }
@@ -306,14 +347,16 @@ export function CreatePaymentOrderForm({
       values: liveValues,
       enteredAmountOrigin: Number(amountOrigin) || 0,
       routeLabel: currentRoute.label,
-      supplierName: selectedSupplier?.name ?? 'Sin proveedor',
+      supplierName: selectedSupplier?.name || 'Pendiente',
       receiveVariant,
       uiMethodGroup,
-      supportFileName: supportFile?.name,
-      evidenceFileName: evidenceFile?.name,
+      supportFileName: supportFile?.name ?? evidenceFile?.name ?? undefined,
+      evidenceFileName: evidenceFile?.name ?? undefined,
       sourceWalletMode,
+      bridgeWallets,
+      virtualAccounts,
     }),
-    [amountOrigin, currentRoute.key, currentRoute.label, evidenceFile?.name, liveValues, receiveVariant, selectedSupplier?.name, supportFile?.name, uiMethodGroup, sourceWalletMode]
+    [amountOrigin, bridgeWallets, virtualAccounts, currentRoute.key, currentRoute.label, evidenceFile?.name, liveValues, receiveVariant, selectedSupplier?.name, sourceWalletMode, supportFile?.name, uiMethodGroup]
   )
 
   useEffect(() => {
@@ -522,40 +565,53 @@ export function CreatePaymentOrderForm({
     }
 
     if (step === 'detail') {
-      if (supplierValidationMessage) {
-        toast.error(supplierValidationMessage)
-        return
+      if (route === 'wallet_ramp_deposit') {
+        const isValidWalletRamp = await form.trigger([
+          'amount_origin',
+          'wallet_ramp_method',
+          'wallet_ramp_wallet_id',
+          'wallet_ramp_va_id',
+          'wallet_ramp_source_network',
+          'wallet_ramp_source_address'
+        ], { shouldFocus: true })
+
+        if (!isValidWalletRamp) return
+      } else {
+        if (supplierValidationMessage) {
+          toast.error(supplierValidationMessage)
+          return
+        }
+
+        if (route === 'crypto_to_crypto' && !supportFile) {
+          setShowSupportFileError(true)
+          toast.error('Debes adjuntar el documento de respaldo antes de continuar.')
+          return
+        }
+
+        if (route === 'world_to_bolivia' && !supportFile) {
+          setShowSupportFileError(true)
+          toast.error('Debes adjuntar el documento de respaldo para continuar.')
+          return
+        }
+
+        if (route === 'bolivia_to_exterior' && !supportFile) {
+          setShowSupportFileError(true)
+          toast.error('Debes adjuntar el documento de respaldo para continuar.')
+          return
+        }
+
+        setShowSupportFileError(false)
+
+        const isValidDetail = await form.trigger(getDetailStepFields({
+          route,
+          deliveryMethod,
+          receiveVariant,
+          uiMethodGroup,
+          hasSupplierSelected,
+        }), { shouldFocus: true })
+
+        if (!isValidDetail) return
       }
-
-      if (route === 'crypto_to_crypto' && !supportFile) {
-        setShowSupportFileError(true)
-        toast.error('Debes adjuntar el documento de respaldo antes de continuar.')
-        return
-      }
-
-      if (route === 'world_to_bolivia' && !supportFile) {
-        setShowSupportFileError(true)
-        toast.error('Debes adjuntar el documento de respaldo para continuar.')
-        return
-      }
-
-      if (route === 'bolivia_to_exterior' && !supportFile) {
-        setShowSupportFileError(true)
-        toast.error('Debes adjuntar el documento de respaldo para continuar.')
-        return
-      }
-
-      setShowSupportFileError(false)
-
-      const isValidDetail = await form.trigger(getDetailStepFields({
-        route,
-        deliveryMethod,
-        receiveVariant,
-        uiMethodGroup,
-        hasSupplierSelected,
-      }), { shouldFocus: true })
-
-      if (!isValidDetail) return
     }
 
     if (step === 'review') {
@@ -736,6 +792,59 @@ export function CreatePaymentOrderForm({
                       />
                     ) : null}
 
+                    {currentRoute.key === 'wallet_ramp_deposit' ? (
+                      <FormField
+                        control={form.control}
+                        name="wallet_ramp_method"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className={FORM_LABEL_CLASS}>¿Desde dónde depositas?</FormLabel>
+                            <FormControl>
+                              <div className="grid gap-3 md:grid-cols-3">
+                                <SelectionCard
+                                  description="Deposita bolivianos y recibe USDC al tipo de cambio del día."
+                                  disabled={disabled}
+                                  icon={Banknote}
+                                  isSelected={field.value === 'fiat_bo'}
+                                  onClick={() => {
+                                    field.onChange('fiat_bo')
+                                    form.setValue('origin_currency', 'BOB')
+                                    form.setValue('destination_currency', 'USDC')
+                                  }}
+                                  title="Desde bolivianos (BOB)"
+                                />
+                                <SelectionCard
+                                  description="Envía cripto desde una wallet externa y recibe USDC."
+                                  disabled={disabled}
+                                  icon={Network}
+                                  isSelected={field.value === 'crypto'}
+                                  onClick={() => {
+                                    field.onChange('crypto')
+                                    form.setValue('origin_currency', 'USDT')
+                                    form.setValue('destination_currency', 'USDC')
+                                  }}
+                                  title="Desde crypto externo"
+                                />
+                                <SelectionCard
+                                  description="Fondea vía ACH/Wire desde EE.UU. usando tu Virtual Account."
+                                  disabled={disabled}
+                                  icon={Landmark}
+                                  isSelected={field.value === 'fiat_us'}
+                                  onClick={() => {
+                                    field.onChange('fiat_us')
+                                    form.setValue('origin_currency', 'USD')
+                                    form.setValue('destination_currency', 'USDC')
+                                  }}
+                                  title="Desde cuenta USD (EEUU)"
+                                />
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    ) : null}
+
                     <div className="flex items-center justify-between mt-8">
                       <AnimatedBackButton onClick={handleBack}>
                         Volver
@@ -757,17 +866,33 @@ export function CreatePaymentOrderForm({
                     />
 
                     <div className="grid gap-4">
-                      <NumericField control={form.control} disabled={disabled} label={getAmountLabel(currentRoute.key)} name="amount_origin" />
-                      <InlineSummaryBar
-                        exchangeRate={summaryStats.exchangeRate}
-                        feeTotal={summaryStats.feeTotal}
-                        netAmountDestination={summaryStats.netAmountDestination}
-                        originCurrency={summaryStats.originCurrency}
-                        destinationCurrency={summaryStats.destinationCurrency}
-                        amountOrigin={summaryStats.amountOrigin}
-                      />
+                      {route === 'wallet_ramp_deposit' ? (
+                        <WalletRampDetailStep
+                          form={form}
+                          method={form.watch('wallet_ramp_method') || 'fiat_bo'}
+                          wallets={bridgeWallets}
+                          virtualAccounts={virtualAccounts}
+                          loadingVirtualAccounts={loadingVirtualAccounts}
+                          onVaCreated={(va) => setVirtualAccounts(prev => [...prev, va])}
+                          exchangeRates={exchangeRates}
+                          feesConfig={feesConfig}
+                          disabled={disabled}
+                        />
+                      ) : (
+                        <>
+                          <NumericField control={form.control} disabled={disabled} label={getAmountLabel(currentRoute.key)} name="amount_origin" />
+                          <InlineSummaryBar
+                            exchangeRate={summaryStats.exchangeRate}
+                            feeTotal={summaryStats.feeTotal}
+                            netAmountDestination={summaryStats.netAmountDestination}
+                            originCurrency={summaryStats.originCurrency}
+                            destinationCurrency={summaryStats.destinationCurrency}
+                            amountOrigin={summaryStats.amountOrigin}
+                          />
+                        </>
+                      )}
 
-                      {!shouldHideSupplier ? (
+                      {!shouldHideSupplier && route !== 'wallet_ramp_deposit' ? (
                         <FormField
                           control={form.control}
                           name="supplier_id"
@@ -817,8 +942,7 @@ export function CreatePaymentOrderForm({
 
                       {/* El campo QR bancario (Opcional) fue removido de aquí para trasladarlo al método 'bank_qr' posteriormente */}
 
-
-                      {shouldShowExpandedDetail ? (
+                      {shouldShowExpandedDetail && route !== 'wallet_ramp_deposit' ? (
                         <>
                           {!shouldHideSupplier ? (
                             <FormField
@@ -1222,6 +1346,24 @@ function getDefaultValues(route: SupportedPaymentRoute): PaymentOrderFormValues 
     }
   }
 
+  if (route === 'wallet_ramp_deposit') {
+    return {
+      route,
+      wallet_ramp_method: 'fiat_bo',
+      amount_origin: 0,
+      amount_converted: 0,
+      fee_total: 0,
+      exchange_rate_applied: 1,
+      origin_currency: 'BOB',
+      destination_currency: 'USDC',
+      delivery_method: 'ach', // Not really used but required by schema
+      payment_reason: 'Deposit to wallet',
+      intended_amount: 0,
+      destination_address: '',
+      stablecoin: 'USDC',
+    } as any
+  }
+
   return {
     route,
     receive_variant: route === 'world_to_bolivia' ? 'bank_account' : undefined,
@@ -1578,6 +1720,8 @@ function getMethodTitle(route: SupportedPaymentRoute) {
       return 'Selecciona el grupo de metodo'
     case 'crypto_to_crypto':
       return 'Selecciona el metodo digital'
+    case 'wallet_ramp_deposit':
+      return 'Elige tu cuenta de origen'
   }
 }
 
@@ -1591,6 +1735,8 @@ function getMethodDescription(route: SupportedPaymentRoute) {
       return 'Primero eliges si la salida final va por banco o por crypto. Luego se muestran solo los campos de esa rama.'
     case 'crypto_to_crypto':
       return 'La salida final es digital y el detalle se autocompleta desde el proveedor cripto.'
+    case 'wallet_ramp_deposit':
+      return 'Tus opciones para depositar a tu saldo en base a tu procedencia.'
   }
 }
 
@@ -1604,6 +1750,8 @@ function getAmountLabel(route: SupportedPaymentRoute) {
       return 'Monto en USD a fondear'
     case 'crypto_to_crypto':
       return 'Monto en USDC'
+    case 'wallet_ramp_deposit':
+      return 'Monto'
   }
 }
 
@@ -1617,6 +1765,8 @@ function getDestinationLabel(route: SupportedPaymentRoute) {
       return 'Direccion de la billetera'
     case 'crypto_to_crypto':
       return 'Wallet destino'
+    case 'wallet_ramp_deposit':
+      return 'Direccion'
   }
 }
 
@@ -1627,6 +1777,7 @@ function isDepositRoute(route: SupportedPaymentRoute) {
 function getMethodStepFields(route: SupportedPaymentRoute): FieldPath<PaymentOrderFormValues>[] {
   if (route === 'world_to_bolivia') return ['receive_variant']
   if (route === 'bolivia_to_exterior') return ['ui_method_group']
+  if (route === 'wallet_ramp_deposit') return ['wallet_ramp_method']
   return []
 }
 
@@ -1701,12 +1852,18 @@ function buildReviewItems(args: {
   supportFileName?: string
   evidenceFileName?: string
   sourceWalletMode?: 'guira' | 'external'
+  bridgeWallets?: WalletBalance[]
+  virtualAccounts?: VirtualAccount[]
 }) {
   const items: Array<{ label: string; value: string }> = [
     { label: 'Ruta', value: args.routeLabel },
     { label: 'Monto ingresado', value: formatMoney(args.enteredAmountOrigin, args.values.origin_currency) },
-    { label: 'Tipo de cambio', value: formatExchangeRate(args.values.exchange_rate_applied, args.values.origin_currency, args.values.destination_currency) },
   ]
+
+  // Only show exchange rate here if not a wallet ramp (ramp handles its own form syncing differently, or we can use the default if synced)
+  if (args.route !== 'wallet_ramp_deposit') {
+    items.push({ label: 'Tipo de cambio', value: formatExchangeRate(args.values.exchange_rate_applied, args.values.origin_currency, args.values.destination_currency) })
+  }
 
   if (args.receiveVariant) {
     items.push({ label: 'Variante', value: args.receiveVariant })
@@ -1771,6 +1928,39 @@ function buildReviewItems(args: {
     items.push({ label: 'Red destino', value: args.values.crypto_network || 'Pendiente' })
     items.push({ label: 'Motivo', value: args.values.payment_reason || 'Pendiente' })
     items.push({ label: 'Respaldo', value: args.supportFileName ?? 'No adjuntado' })
+  }
+
+  if (args.route === 'wallet_ramp_deposit') {
+    items.push({ label: 'Método de Fondeo', value: args.values.wallet_ramp_method === 'fiat_bo' ? 'Fiat BO' : args.values.wallet_ramp_method === 'fiat_us' ? 'Fiat US' : 'Crypto' })
+    
+    if (args.values.fee_total !== undefined) {
+      items.push({ label: 'Fee estimado', value: formatMoney(args.values.fee_total, args.values.origin_currency) })
+    }
+    
+    if (args.values.exchange_rate_applied !== undefined && args.values.exchange_rate_applied !== 0 && args.values.wallet_ramp_method === 'fiat_bo') {
+      items.push({ label: 'Tipo de cambio', value: formatExchangeRate(args.values.exchange_rate_applied, args.values.origin_currency, args.values.destination_currency) })
+    }
+    
+    if (args.values.amount_converted !== undefined) {
+      items.push({ label: 'Recibirás aprox.', value: formatMoney(args.values.amount_converted, args.values.destination_currency) })
+    }
+
+    if (args.values.wallet_ramp_method === 'fiat_bo' || args.values.wallet_ramp_method === 'crypto') {
+      const wallet = args.bridgeWallets?.find(w => w.id === args.values.wallet_ramp_wallet_id)
+      const readableWallet = wallet ? `Wallet ${wallet.currency} (${wallet.network})` : (args.values.wallet_ramp_wallet_id || 'Pendiente')
+      items.push({ label: 'Wallet Bridge Destino', value: readableWallet })
+    }
+    if (args.values.wallet_ramp_method === 'crypto') {
+      items.push({ label: 'Red Cripto Origen', value: args.values.wallet_ramp_source_network || 'Pendiente' })
+      items.push({ label: 'Dirección Cripto Origen', value: args.values.wallet_ramp_source_address || 'Pendiente' })
+    }
+    if (args.values.wallet_ramp_method === 'fiat_us') {
+      const vaSelected = args.virtualAccounts?.find(va => va.id === args.values.wallet_ramp_va_id)
+      const vaReadable = vaSelected 
+        ? `${vaSelected.bank_name ?? 'Banco VA'} — ****${vaSelected.account_number?.slice(-4) ?? ''}`
+        : (args.values.wallet_ramp_va_id || 'Pendiente')
+      items.push({ label: 'Virtual Account Origen', value: vaReadable })
+    }
   }
 
   items.push({ label: 'Comprobante final', value: args.evidenceFileName ?? 'Se cargara en la etapa final' })

@@ -10,6 +10,7 @@ export type SupportedPaymentRoute =
   | 'world_to_bolivia'
   | 'us_to_wallet'
   | 'crypto_to_crypto'
+  | 'wallet_ramp_deposit'
 
 export const supportedPaymentRoutes: Array<{
   key: SupportedPaymentRoute
@@ -41,6 +42,12 @@ export const supportedPaymentRoutes: Array<{
     description: 'Expediente CRYPTO_TO_CRYPTO con DIGITAL_NETWORK.',
     supportedDeliveryMethods: ['crypto'],
   },
+  {
+    key: 'wallet_ramp_deposit',
+    label: 'Deposita a tu wallet',
+    description: 'Fondea tu wallet Bridge desde bolivianos, crypto externo o USD (EE.UU.).',
+    supportedDeliveryMethods: [], // no aplica delivery method técnico
+  },
 ]
 
 export const unsupportedPaymentRoutes = [
@@ -53,7 +60,7 @@ export function getDefaultRouteForAction(action?: string | null): SupportedPayme
   return 'bolivia_to_exterior'
 }
 
-export function resolveFlowType(route: SupportedPaymentRoute, deliveryMethod?: string): string {
+export function resolveFlowType(route: SupportedPaymentRoute, deliveryMethod?: string, walletRampMethod?: string): string {
   switch (route) {
     case 'bolivia_to_exterior':
       return deliveryMethod === 'crypto' ? 'bolivia_to_wallet' : 'bolivia_to_world'
@@ -63,6 +70,10 @@ export function resolveFlowType(route: SupportedPaymentRoute, deliveryMethod?: s
       return 'world_to_wallet' // AHORA ES UN FLUJO INTERBANCARIO 1.5
     case 'crypto_to_crypto':
       return 'wallet_to_wallet'
+    case 'wallet_ramp_deposit':
+      if (walletRampMethod === 'fiat_bo') return 'fiat_bo_to_bridge_wallet'
+      if (walletRampMethod === 'crypto') return 'crypto_to_bridge_wallet'
+      return 'fiat_us_to_bridge_wallet'
   }
 }
 
@@ -71,7 +82,7 @@ export function buildPaymentOrderPayload(
   userId: string,
   supplier?: any
 ): any {
-  const flowType = resolveFlowType(values.route, values.delivery_method)
+  const flowType = resolveFlowType(values.route, values.delivery_method, values.wallet_ramp_method)
 
   const payload: any = {
     flow_type: flowType,
@@ -116,6 +127,17 @@ export function buildPaymentOrderPayload(
     case 'world_to_wallet':
       // 1.5 Depósito USA a VA
       // virtual_account_id se inyectará en Backend
+      break
+    case 'fiat_bo_to_bridge_wallet':
+      payload.wallet_id = values.wallet_ramp_wallet_id
+      break
+    case 'crypto_to_bridge_wallet':
+      payload.wallet_id = values.wallet_ramp_wallet_id
+      payload.source_network = values.wallet_ramp_source_network
+      payload.source_address = values.wallet_ramp_source_address
+      break
+    case 'fiat_us_to_bridge_wallet':
+      payload.virtual_account_id = values.wallet_ramp_va_id
       break
   }
 

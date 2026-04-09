@@ -7,6 +7,7 @@ export const paymentOrderSchema = z
       'world_to_bolivia',
       'us_to_wallet',
       'crypto_to_crypto',
+      'wallet_ramp_deposit',
     ]),
     receive_variant: z.enum(['bank_account', 'bank_qr', 'wallet']).optional(),
     ui_method_group: z.enum(['bank', 'crypto']).optional(),
@@ -17,10 +18,10 @@ export const paymentOrderSchema = z
     exchange_rate_applied: z.coerce.number().positive('Ingresa un tipo de cambio valido.'),
     origin_currency: z.string().trim().min(1, 'Selecciona la moneda origen.'),
     destination_currency: z.string().trim().min(1, 'Selecciona la moneda destino.'),
-    delivery_method: z.enum(['swift', 'ach', 'crypto']),
-    payment_reason: z.string().trim(),
-    intended_amount: z.coerce.number().nonnegative('Ingresa un monto valido.'),
-    destination_address: z.string().trim().min(3, 'Ingresa el destino.'),
+    delivery_method: z.enum(['swift', 'ach', 'crypto']).optional(),
+    payment_reason: z.string().trim().optional().default(''),
+    intended_amount: z.coerce.number().nonnegative('Ingresa un monto valido.').optional().default(0),
+    destination_address: z.string().trim().optional().default(''),
     stablecoin: z.string().trim().min(2, 'Ingresa la stablecoin.'),
     funding_method: z.enum(['bs', 'crypto', 'ach', 'wallet']).optional(),
     swift_bank_name: z.string().trim().optional(),
@@ -37,8 +38,52 @@ export const paymentOrderSchema = z
     source_crypto_address: z.string().trim().optional(),
     destination_account_holder: z.string().trim().optional(),
     destination_qr_url: z.string().trim().optional(),
+    wallet_ramp_method: z.enum(['fiat_bo', 'crypto', 'fiat_us']).optional(),
+    wallet_ramp_wallet_id: z.string().optional(),
+    wallet_ramp_va_id: z.string().optional(),
+    wallet_ramp_source_network: z.string().optional(),
+    wallet_ramp_source_address: z.string().optional(),
   })
   .superRefine((value, ctx) => {
+    
+    if (value.route === 'wallet_ramp_deposit') {
+      if (!value.wallet_ramp_method) {
+        ctx.addIssue({ code: 'custom', message: 'Debes seleccionar un método de fondeo.', path: ['wallet_ramp_method'] })
+      }
+      
+      if (value.wallet_ramp_method === 'fiat_bo' || value.wallet_ramp_method === 'crypto') {
+        if (!value.wallet_ramp_wallet_id) {
+          ctx.addIssue({ code: 'custom', message: 'Selecciona una billetera destino.', path: ['wallet_ramp_wallet_id'] })
+        }
+      }
+
+      if (value.wallet_ramp_method === 'fiat_us') {
+        if (!value.wallet_ramp_va_id) {
+          ctx.addIssue({ code: 'custom', message: 'Selecciona tu cuenta virtual origen.', path: ['wallet_ramp_va_id'] })
+        }
+      }
+
+      if (value.wallet_ramp_method === 'crypto') {
+        if (!value.wallet_ramp_source_network) {
+          ctx.addIssue({ code: 'custom', message: 'Selecciona la red de origen.', path: ['wallet_ramp_source_network'] })
+        }
+        if (!value.wallet_ramp_source_address) {
+          ctx.addIssue({ code: 'custom', message: 'Ingresa la dirección cripto origen.', path: ['wallet_ramp_source_address'] })
+        }
+      }
+
+      // Early return to avoid triggering interbank route validations
+      return
+    }
+
+    // Enforce delivery_method and destination_address for non-wallet-ramp routes
+    if (!value.delivery_method) {
+      ctx.addIssue({ code: 'custom', message: 'Selecciona un método de entrega.', path: ['delivery_method'] })
+    }
+
+    if (!value.destination_address || value.destination_address.length < 3) {
+      ctx.addIssue({ code: 'custom', message: 'Ingresa el destino.', path: ['destination_address'] })
+    }
 
     if (value.route === 'bolivia_to_exterior' && !value.supplier_id) {
       ctx.addIssue({
@@ -56,7 +101,7 @@ export const paymentOrderSchema = z
       })
     }
 
-    if ((value.route === 'bolivia_to_exterior' || value.route === 'crypto_to_crypto' || value.route === 'world_to_bolivia') && value.payment_reason.length < 5) {
+    if ((value.route === 'bolivia_to_exterior' || value.route === 'crypto_to_crypto' || value.route === 'world_to_bolivia') && (value.payment_reason?.length ?? 0) < 5) {
       ctx.addIssue({
         code: 'custom',
         message: 'Describe el motivo del pago.',
@@ -124,3 +169,4 @@ export const paymentOrderSchema = z
   })
 
 export type PaymentOrderFormValues = z.infer<typeof paymentOrderSchema>
+

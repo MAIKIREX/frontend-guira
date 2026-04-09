@@ -2,6 +2,7 @@ import type { FeeConfigRow, PaymentOrder, PsavConfigRow, PsavDepositInstructions
 import type { Supplier } from '@/types/supplier'
 import type { SupportedPaymentRoute } from '@/features/payments/lib/payment-routes'
 
+
 /** Registro de tipo de cambio desde exchange_rates_config (backend V2) */
 export interface ExchangeRateRecord {
   id?: string
@@ -181,6 +182,8 @@ export function buildDepositInstructions(args: {
         },
       ]
     }
+    default:
+      return []
   }
 }
 
@@ -483,7 +486,7 @@ function readString(record: Record<string, unknown>, keys: string[]) {
 
 // findNumericSetting eliminado — las tasas de cambio ahora vienen de exchange_rates_config
 
-function resolveFeeTotal(fees: FeeConfigRow[], amountOrigin: number, route: SupportedPaymentRoute) {
+export function resolveFeeTotal(fees: FeeConfigRow[], amountOrigin: number, route: SupportedPaymentRoute) {
   if (!fees || fees.length === 0) return 15 // Fallback historico
 
   // Mapeamos las rutas del frontend local a los operation_type de la base de datos V2
@@ -492,6 +495,10 @@ function resolveFeeTotal(fees: FeeConfigRow[], amountOrigin: number, route: Supp
   else if (route === 'world_to_bolivia') targetOperation = 'interbank_bo_in'
   else if (route === 'crypto_to_crypto') targetOperation = 'interbank_w2w'
   else if (route === 'us_to_wallet') targetOperation = 'ramp_off_bo'
+  // Wallet ramp deposit flows (2.1, 2.2, 2.3)
+  else if ((route as string) === 'fiat_bo_to_bridge_wallet') targetOperation = 'ramp_on_bo'
+  else if ((route as string) === 'crypto_to_bridge_wallet') targetOperation = 'ramp_on_crypto'
+  else if ((route as string) === 'fiat_us_to_bridge_wallet') targetOperation = 'ramp_on_fiat_us'
   
   // Buscar config especifica o caer en el primer fallback si esta desactualizado
   let candidate = fees.find((fee) => fee.operation_type === targetOperation)
@@ -562,3 +569,5 @@ function resolveExchangeRate(args: {
 
   return 1
 }
+
+
