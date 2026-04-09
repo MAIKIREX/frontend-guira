@@ -183,6 +183,7 @@ export function PaymentsPanel() {
             appSettings={snapshot.appSettings}
             defaultRoute={getDefaultRouteForAction(action)}
             disabled={!canOperate}
+            exchangeRates={(snapshot as any).exchangeRates ?? []}
             feesConfig={snapshot.feesConfig}
             onCreateOrder={createOrder}
             onUploadOrderFile={uploadOrderFile}

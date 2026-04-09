@@ -50,6 +50,7 @@ import {
   buildDepositInstructions,
   estimateRouteValues,
   type DepositInstruction,
+  type ExchangeRateRecord,
 } from '@/features/payments/lib/deposit-instructions'
 import { DepositInstructionCard } from '@/features/payments/components/deposit-instruction-card'
 import { DocumentUploadCard } from '@/components/shared/document-upload-card'
@@ -91,6 +92,7 @@ interface CreatePaymentOrderFormProps {
   feesConfig: FeeConfigRow[]
   appSettings: AppSettingRow[]
   psavConfigs: PsavConfigRow[]
+  exchangeRates: ExchangeRateRecord[]
 }
 
 const STEP_ORDER: StepKey[] = ['route', 'method', 'detail', 'review', 'finish']
@@ -143,9 +145,11 @@ export function CreatePaymentOrderForm({
   feesConfig,
   appSettings,
   psavConfigs,
+  exchangeRates,
 }: CreatePaymentOrderFormProps) {
   const [step, setStep] = useState<StepKey>('route')
   const [supportFile, setSupportFile] = useState<File | null>(null)
+  const [showSupportFileError, setShowSupportFileError] = useState(false)
   const [qrFile, setQrFile] = useState<File | null>(null)
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null)
   const [createdOrder, setCreatedOrder] = useState<PaymentOrder | null>(null)
@@ -191,6 +195,8 @@ export function CreatePaymentOrderForm({
   const receiveVariant = useWatch({ control: form.control, name: 'receive_variant' })
   const uiMethodGroup = useWatch({ control: form.control, name: 'ui_method_group' })
   const exchangeRateApplied = useWatch({ control: form.control, name: 'exchange_rate_applied' })
+  const liveFeeTotal = useWatch({ control: form.control, name: 'fee_total' })
+  const liveAmountConverted = useWatch({ control: form.control, name: 'amount_converted' })
 
   const currentRoute = useMemo(
     () => routeOptions.find((entry) => entry.key === route) ?? routeOptions[0] ?? supportedPaymentRoutes[0],
@@ -218,19 +224,23 @@ export function CreatePaymentOrderForm({
     [currentRoute.key, uiMethodGroup, supplierMethods]
   )
 
-  const summaryStats = useMemo(() => ({
-    exchangeRate: formatExchangeRate(
-      exchangeRateApplied || 0,
-      originCurrency || '',
-      destinationCurrency || ''
-    ),
-    conversion: formatConversionPreview({
-      amountOrigin: Number(amountOrigin) || 0,
-      exchangeRateApplied: exchangeRateApplied || 0,
-      originCurrency: originCurrency || '',
-      destinationCurrency: destinationCurrency || '',
-    }),
-  }), [amountOrigin, exchangeRateApplied, originCurrency, destinationCurrency])
+  const summaryStats = useMemo(() => {
+    const origin = originCurrency || ''
+    const destination = destinationCurrency || ''
+    const originAmount = Number(amountOrigin) || 0
+    const rate = exchangeRateApplied || 0
+    const fee = Number(liveFeeTotal) || 0
+    const netAmount = Number(liveAmountConverted) || 0
+
+    return {
+      exchangeRate: formatExchangeRate(rate, origin, destination),
+      feeTotal: fee,
+      netAmountDestination: netAmount,
+      originCurrency: origin,
+      destinationCurrency: destination,
+      amountOrigin: originAmount,
+    }
+  }, [amountOrigin, exchangeRateApplied, originCurrency, destinationCurrency, liveFeeTotal, liveAmountConverted])
 
   const supplierValidationMessage = useMemo(
     () => getSupplierValidationMessage({
@@ -453,7 +463,7 @@ export function CreatePaymentOrderForm({
       route: currentRoute.key,
       originCurrency: originCurrency || '',
       destinationCurrency: destinationCurrency || '',
-      appSettings,
+      exchangeRates: exchangeRates as ExchangeRateRecord[],
       feesConfig,
     })
 
@@ -461,7 +471,7 @@ export function CreatePaymentOrderForm({
     form.setValue('exchange_rate_applied', estimate.exchangeRateApplied)
     form.setValue('fee_total', estimate.feeTotal)
     form.setValue('intended_amount', estimate.amountConverted || 0)
-  }, [amountOrigin, appSettings, currentRoute.key, destinationCurrency, feesConfig, form, originCurrency])
+  }, [amountOrigin, exchangeRates, currentRoute.key, destinationCurrency, feesConfig, form, originCurrency])
 
   async function handleCreateOrder() {
     try {
@@ -518,15 +528,24 @@ export function CreatePaymentOrderForm({
       }
 
       if (route === 'crypto_to_crypto' && !supportFile) {
+        setShowSupportFileError(true)
         toast.error('Debes adjuntar el documento de respaldo antes de continuar.')
         return
       }
 
-
-      if (route === 'bolivia_to_exterior' && !supportFile) {
+      if (route === 'world_to_bolivia' && !supportFile) {
+        setShowSupportFileError(true)
         toast.error('Debes adjuntar el documento de respaldo para continuar.')
         return
       }
+
+      if (route === 'bolivia_to_exterior' && !supportFile) {
+        setShowSupportFileError(true)
+        toast.error('Debes adjuntar el documento de respaldo para continuar.')
+        return
+      }
+
+      setShowSupportFileError(false)
 
       const isValidDetail = await form.trigger(getDetailStepFields({
         route,
@@ -647,8 +666,8 @@ export function CreatePaymentOrderForm({
                                   title="Recibir en cuenta bancaria"
                                 />
                                 <SelectionCard
-                                  description="Adjunta el QR bancario o respaldo y crea el expediente sin proveedor."
-                                  disabled={disabled}
+                                  description="Adjunta el QR bancario o respaldo y crea el expediente sin proveedor. (Próximamente)"
+                                  disabled={true} // Inhabilitado temporalmente a petición
                                   icon={FileText}
                                   isSelected={field.value === 'bank_qr'}
                                   onClick={() => field.onChange('bank_qr')}
@@ -739,7 +758,14 @@ export function CreatePaymentOrderForm({
 
                     <div className="grid gap-4">
                       <NumericField control={form.control} disabled={disabled} label={getAmountLabel(currentRoute.key)} name="amount_origin" />
-                      <InlineSummaryBar exchangeRate={summaryStats.exchangeRate} conversion={summaryStats.conversion} />
+                      <InlineSummaryBar
+                        exchangeRate={summaryStats.exchangeRate}
+                        feeTotal={summaryStats.feeTotal}
+                        netAmountDestination={summaryStats.netAmountDestination}
+                        originCurrency={summaryStats.originCurrency}
+                        destinationCurrency={summaryStats.destinationCurrency}
+                        amountOrigin={summaryStats.amountOrigin}
+                      />
 
                       {!shouldHideSupplier ? (
                         <FormField
@@ -789,14 +815,8 @@ export function CreatePaymentOrderForm({
 
                       {supplierValidationMessage && hasSupplierSelected ? <ValidationNotice message={supplierValidationMessage} /> : null}
 
-                      {currentRoute.key === 'world_to_bolivia' ? (
-                        <DocumentInputCard
-                          file={qrFile}
-                          label="QR bancario (Opcional)"
-                          description="Adjunta la imagen del QR de la cuenta bancaria destino. Se guardará como destination_qr_url."
-                          onFileChange={setQrFile}
-                        />
-                      ) : null}
+                      {/* El campo QR bancario (Opcional) fue removido de aquí para trasladarlo al método 'bank_qr' posteriormente */}
+
 
                       {shouldShowExpandedDetail ? (
                         <>
@@ -901,7 +921,7 @@ export function CreatePaymentOrderForm({
                                 ) : null}
                               </div>
 
-                              {deliveryMethod === 'swift' && (route === 'bolivia_to_exterior' || route === 'world_to_bolivia') ? (
+                              {deliveryMethod === 'swift' && route === 'bolivia_to_exterior' ? (
                                 <div className="grid gap-4 lg:grid-cols-2">
                                   <TextField control={form.control} disabled={disabled} label="Banco" name="swift_bank_name" />
                                   <TextField control={form.control} disabled={disabled} label="Codigo SWIFT" name="swift_code" />
@@ -1001,21 +1021,25 @@ export function CreatePaymentOrderForm({
                             </>
                           ) : null}
 
-                          {currentRoute.key !== 'us_to_wallet' && currentRoute.key !== 'world_to_bolivia' && !isDepositRouteActive ? (
+                          {currentRoute.key !== 'us_to_wallet' && !isDepositRouteActive ? (
                             <TextField control={form.control} disabled={disabled} label="Motivo del pago" name="payment_reason" />
                           ) : null}
 
 
                           {showSupportUpload && !(currentRoute.key === 'world_to_bolivia' && receiveVariant === 'bank_qr') ? (
                             <DocumentInputCard
+                              className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
                               file={supportFile}
                               label="Documento de respaldo"
                               description={
-                                route === 'bolivia_to_exterior' || route === 'crypto_to_crypto'
+                                route === 'bolivia_to_exterior' || route === 'crypto_to_crypto' || route === 'world_to_bolivia'
                                   ? 'Obligatorio en esta ruta. Se guardara como support_document_url al crear la orden.'
                                   : 'Documento Opcional.'
                               }
-                              onFileChange={setSupportFile}
+                              onFileChange={(f) => {
+                                setSupportFile(f)
+                                if (f) setShowSupportFileError(false)
+                              }}
                             />
                           ) : null}
                         </>
@@ -1248,14 +1272,17 @@ function DocumentInputCard({
   description,
   file,
   onFileChange,
+  className,
 }: {
   label: string
   description: string
   file: File | null
   onFileChange: (file: File | null) => void
+  className?: string
 }) {
   return (
     <DocumentUploadCard
+      className={className}
       label={label}
       description={description}
       file={file}
@@ -1279,14 +1306,77 @@ function SectionHeading({ icon: Icon, eyebrow, title, description }: { icon: typ
   )
 }
 
-function InlineSummaryBar({ exchangeRate, conversion }: { exchangeRate: string; conversion: string }) {
+function InlineSummaryBar({
+  exchangeRate,
+  feeTotal,
+  netAmountDestination,
+  originCurrency,
+  destinationCurrency,
+  amountOrigin,
+}: {
+  exchangeRate: string
+  feeTotal: number
+  netAmountDestination: number
+  originCurrency: string
+  destinationCurrency: string
+  amountOrigin: number
+}) {
+  const hasAmount = amountOrigin > 0
+  const hasCurrencyChange = originCurrency.trim().toUpperCase() !== destinationCurrency.trim().toUpperCase()
+
   return (
-    <div className="border-y border-border/60 py-4">
-      <div className='flex justify-between'>
-        <div className={FORM_LABEL_CLASS}>Tipo de cambio</div>
-        <div className="mt-1 text-sm font-semibold tracking-[0.01em] text-foreground">{exchangeRate}</div>
+    <div className="rounded-xl border border-border/60 bg-muted/10 divide-y divide-border/40 overflow-hidden">
+      {/* Tipo de cambio */}
+      <div className="flex items-center justify-between px-4 py-3">
+        <span className={FORM_LABEL_CLASS}>Tipo de cambio</span>
+        <span className="text-sm font-semibold tracking-[0.01em] text-foreground">{exchangeRate}</span>
       </div>
-      <div className="mt-2 text-xs tracking-[0.01em] text-muted-foreground">{conversion}</div>
+
+      {/* Conversión bruta (solo si hay monto ingresado) */}
+      {hasAmount ? (
+        <>
+          <div className="flex items-center justify-between px-4 py-3">
+            <span className={FORM_LABEL_CLASS}>Monto ingresado</span>
+            <span className="text-sm font-medium text-foreground">
+              {amountOrigin.toFixed(2)} {originCurrency}
+            </span>
+          </div>
+
+          {/* Comisión */}
+          <div className="flex items-center justify-between px-4 py-3">
+            <div>
+              <span className={FORM_LABEL_CLASS}>Comisión estimada</span>
+              <p className="mt-0.5 text-[10px] text-muted-foreground/70 tracking-wider">
+                Calculada según tarifa de la ruta
+              </p>
+            </div>
+            <span className="text-sm font-medium text-destructive/80">
+              − {feeTotal.toFixed(2)} {originCurrency}
+            </span>
+          </div>
+
+          {/* Monto neto al destino — el dato clave de transparencia */}
+          <div className="flex items-center justify-between px-4 py-3.5 bg-primary/5">
+            <div>
+              <span className={cn(FORM_LABEL_CLASS, 'text-primary/80')}>Monto que llegará al destino</span>
+              <p className="mt-0.5 text-[10px] text-muted-foreground/70 tracking-wider">
+                {hasCurrencyChange
+                  ? `Después de comisión y conversión a ${destinationCurrency}`
+                  : 'Después de descontar la comisión'}
+              </p>
+            </div>
+            <span className="text-base font-bold tracking-[-0.02em] text-primary">
+              {netAmountDestination.toFixed(2)} {destinationCurrency}
+            </span>
+          </div>
+        </>
+      ) : (
+        <div className="px-4 py-3">
+          <span className="text-xs text-muted-foreground/70 tracking-wider">
+            Ingresa el monto para ver el estimado de comisión y lo que llegará al destino.
+          </span>
+        </div>
+      )}
     </div>
   )
 }
@@ -1556,7 +1646,7 @@ function getDetailStepFields({
   const fields: FieldPath<PaymentOrderFormValues>[] = ['amount_origin']
 
   if (route === 'world_to_bolivia') {
-    return [...fields, 'origin_currency', 'destination_currency', 'ach_bank_name', 'ach_account_number', 'destination_account_holder']
+    return [...fields, 'origin_currency', 'destination_currency', 'ach_bank_name', 'ach_account_number', 'destination_account_holder', 'payment_reason']
   }
 
   if (route === 'us_to_wallet') {
@@ -1631,9 +1721,10 @@ function buildReviewItems(args: {
     items.push({ label: 'Banco', value: args.values.ach_bank_name || 'Pendiente' })
     items.push({ label: 'Cuenta bancaria', value: args.values.ach_account_number || 'Pendiente' })
     items.push({ label: 'Titular', value: args.values.destination_account_holder || 'Pendiente' })
+    items.push({ label: 'Motivo', value: args.values.payment_reason || 'Pendiente' })
 
     if (args.supportFileName) {
-      items.push({ label: 'Respaldo QR', value: args.supportFileName })
+      items.push({ label: 'Respaldo', value: args.supportFileName })
     }
   }
 

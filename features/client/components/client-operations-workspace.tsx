@@ -97,6 +97,7 @@ export function ClientOperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
           allowedRoutes={config.allowedRoutes}
           defaultRoute={config.defaultRoute!}
           disabled={!canOperate}
+          exchangeRates={(payments.snapshot as any).exchangeRates ?? []}
           feesConfig={payments.snapshot.feesConfig}
           onCreateOrder={handleCreateOrder}
           onUploadOrderFile={handleUploadOrderFile}

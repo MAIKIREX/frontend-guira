@@ -239,6 +239,7 @@ export function usePaymentsModule() {
       feesConfig: state.feesConfig,
       appSettings: state.appSettings,
       psavConfigs: state.psavConfigs,
+      exchangeRates: state.exchangeRates,
       gaps: state.gaps,
     } : null,
     state,

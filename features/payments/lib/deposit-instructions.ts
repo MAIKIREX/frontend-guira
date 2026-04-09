@@ -1,6 +1,15 @@
-import type { AppSettingRow, FeeConfigRow, PaymentOrder, PsavConfigRow, PsavDepositInstructionsPayload, BridgeDepositInstructionsPayload } from '@/types/payment-order'
+import type { FeeConfigRow, PaymentOrder, PsavConfigRow, PsavDepositInstructionsPayload, BridgeDepositInstructionsPayload } from '@/types/payment-order'
 import type { Supplier } from '@/types/supplier'
 import type { SupportedPaymentRoute } from '@/features/payments/lib/payment-routes'
+
+/** Registro de tipo de cambio desde exchange_rates_config (backend V2) */
+export interface ExchangeRateRecord {
+  id?: string
+  pair: string
+  rate: number
+  spread_percent?: number
+  updated_at?: string
+}
 
 type InstructionKind = 'bank' | 'wallet' | 'qr' | 'note'
 
@@ -30,26 +39,34 @@ export function estimateRouteValues(args: {
   route: SupportedPaymentRoute
   originCurrency: string
   destinationCurrency: string
-  appSettings: AppSettingRow[]
+  exchangeRates: ExchangeRateRecord[]
   feesConfig: FeeConfigRow[]
 }) {
   const amountOrigin = Number.isFinite(args.amountOrigin) ? args.amountOrigin : 0
 
-  // 1. Obtener tasas de configuracion (con fallback a la tasa antigua bolivia_exchange_rate o 6.96)
-  const legacyRate = findNumericSetting(args.appSettings, 'bolivia_exchange_rate') ?? 6.96
-  const parallelBuyRate = findNumericSetting(args.appSettings, 'parallel_buy_rate') ?? legacyRate
-  const parallelSellRate = findNumericSetting(args.appSettings, 'parallel_sell_rate') ?? legacyRate
-
   const baseFeeTotal = resolveFeeTotal(args.feesConfig, amountOrigin, args.route)
 
-  // 2. Determinar que tasa base aplicar segun la direccion de la operacion
-  // bo_to_world -> compra de dolares -> parallel_buy_rate
-  // world_to_bo -> venta de dolares -> parallel_sell_rate
-  let selectedBaseRate = legacyRate
+  // Determinar el par de tipo de cambio correcto segun la ruta
+  // bo_to_world -> BOB_USD (compra de dolares)
+  // world_to_bo -> USD_BOB (venta de dolares)
+  let ratePair = ''
   if (args.route === 'bolivia_to_exterior') {
-    selectedBaseRate = parallelBuyRate
+    ratePair = 'BOB_USD'
   } else if (args.route === 'world_to_bolivia') {
-    selectedBaseRate = parallelSellRate
+    ratePair = 'USD_BOB'
+  }
+
+  // Buscar la tasa en exchange_rates_config cargado del backend
+  const rateRecord = ratePair
+    ? args.exchangeRates.find((r) => r.pair?.toUpperCase() === ratePair)
+    : null
+
+  let selectedBaseRate = rateRecord?.rate ?? 1
+
+  // Aplicar spread si existe (spread se descuenta: effective = base * (1 - spread/100))
+  const spreadPercent = rateRecord?.spread_percent ?? 0
+  if (spreadPercent > 0) {
+    selectedBaseRate = selectedBaseRate * (1 - spreadPercent / 100)
   }
 
   const effectiveRate = resolveExchangeRate({
@@ -464,24 +481,7 @@ function readString(record: Record<string, unknown>, keys: string[]) {
   return ''
 }
 
-function findNumericSetting(settings: AppSettingRow[], key: string) {
-  const normalizedKey = key.trim().toLowerCase()
-  const match = settings.find((setting) => {
-    const sKey = (setting.key || setting.name || '').trim().toLowerCase()
-    return sKey === normalizedKey
-  })
-
-  if (typeof match?.value === 'number') {
-    return Number.isFinite(match.value) ? match.value : null
-  }
-
-  if (typeof match?.value === 'string') {
-    const parsed = Number(match.value.trim().replace(',', '.'))
-    return Number.isFinite(parsed) ? parsed : null
-  }
-
-  return null
-}
+// findNumericSetting eliminado — las tasas de cambio ahora vienen de exchange_rates_config
 
 function resolveFeeTotal(fees: FeeConfigRow[], amountOrigin: number, route: SupportedPaymentRoute) {
   if (!fees || fees.length === 0) return 15 // Fallback historico

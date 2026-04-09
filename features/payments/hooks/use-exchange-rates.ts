@@ -1,30 +1,29 @@
 'use client'
 
 /**
- * use-exchange-rates.ts — NUEVO HOOK
+ * use-exchange-rates.ts
  *
- * Obtiene las tasas de cambio y configuración de la plataforma del backend.
- * Sustituye: getNumericSetting(snapshot.appSettings, 'parallel_buy_rate')
+ * Obtiene las tasas de cambio del backend desde exchange_rates_config.
+ * Las tasas se sincronizan automáticamente desde el cron o manualmente desde admin.
  *
- * El panel (client-dashboard.tsx) ya no depende de PaymentsSnapshot
- * para mostrar tasas — las tasas vienen directamente del backend.
+ * Pares soportados: BOB_USD, USD_BOB, BOB_USDC, USDC_BOB
  */
 import { useCallback, useEffect, useState } from 'react'
 import { PaymentsService } from '@/services/payments.service'
-import { ProfileService } from '@/services/profile.service'
 
 export interface ExchangeRatePair {
-  from_currency: string
-  to_currency: string
+  id?: string
+  pair: string
   rate: number
-  label?: string
+  spread_percent?: number
+  updated_at?: string
+  updated_by?: string
 }
 
 export interface PlatformRates {
-  buyRate: number | null    // Tasa de compra USD (enviar Bs → USD)
-  sellRate: number | null   // Tasa de venta USD (depositar USD → Bs)
+  buyRate: number | null    // Tasa de compra USD (enviar Bs → USD) → par BOB_USD
+  sellRate: number | null   // Tasa de venta USD (depositar USD → Bs) → par USD_BOB
   rawRates: ExchangeRatePair[]
-  publicSettings: Record<string, string>
 }
 
 export function useExchangeRates() {
@@ -32,7 +31,6 @@ export function useExchangeRates() {
     buyRate: null,
     sellRate: null,
     rawRates: [],
-    publicSettings: {},
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -42,33 +40,20 @@ export function useExchangeRates() {
     setError(null)
 
     try {
-      const [rawRates, publicSettings] = await Promise.all([
-        PaymentsService.getExchangeRates() as Promise<ExchangeRatePair[]>,
-        ProfileService.getPublicSettings(),
-      ])
+      const rawRates = await PaymentsService.getExchangeRates() as ExchangeRatePair[]
 
-      // Extrae las tasas clave del array de pares
+      // Extrae las tasas clave del array de pares (exchange_rates_config)
       const buyPair = rawRates.find(
-        (r: any) => r.pair === 'BOB_USD'
+        (r) => r.pair?.toUpperCase() === 'BOB_USD'
       )
       const sellPair = rawRates.find(
-        (r: any) => r.pair === 'USD_BOB'
+        (r) => r.pair?.toUpperCase() === 'USD_BOB'
       )
 
-      // Fallback: leer de publicSettings si el módulo exchange-rates no está disponible
-      const buyFromSettings = publicSettings['parallel_buy_rate']
-        ? parseFloat(publicSettings['parallel_buy_rate'])
-        : null
-
-      const sellFromSettings = publicSettings['parallel_sell_rate']
-        ? parseFloat(publicSettings['parallel_sell_rate'])
-        : null
-
       setRates({
-        buyRate: (buyPair?.rate ?? buyFromSettings) || null,
-        sellRate: (sellPair?.rate ?? sellFromSettings) || null,
+        buyRate: buyPair?.rate ?? null,
+        sellRate: sellPair?.rate ?? null,
         rawRates,
-        publicSettings,
       })
     } catch (err) {
       console.error('Failed to load exchange rates', err)
