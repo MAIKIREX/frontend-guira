@@ -41,6 +41,8 @@ import type { Profile } from '@/types/profile'
 import type { StaffActor } from '@/types/staff'
 import type { BridgeTransfer } from '@/types/bridge-transfer'
 import type { AuditLog } from '@/types/activity-log'
+import { useAdminBridgePayouts } from '@/features/staff/hooks/use-admin-bridge-payouts'
+import { BridgeAdminService, type AdminBridgePayout } from '@/services/admin/bridge.admin.service'
 
 export function StaffOverviewPanel({
   snapshot,
@@ -538,10 +540,24 @@ export function StaffPayinsPanel({
 }
 
 export function StaffTransfersPanel({
-  snapshot,
   showHeader = true,
 }: Pick<StaffDashboardLoadedState, 'snapshot'> & { showHeader?: boolean }) {
-  return <TransfersTable transfers={snapshot.transfers} showHeader={showHeader} />
+  const { state, loading, error, reload } = useAdminBridgePayouts()
+
+  if (loading) {
+    return <div className="p-8 text-center text-sm text-muted-foreground">Cargando transferencias de liquidación...</div>
+  }
+
+  if (error || !state) {
+    return (
+      <div className="p-8 text-center text-sm text-destructive">
+        {error || 'No se pudieron cargar los payouts.'}
+        <Button variant="outline" size="sm" onClick={reload} className="mt-4 block mx-auto">Reintentar</Button>
+      </div>
+    )
+  }
+
+  return <AdminBridgePayoutsTable payouts={state.payouts} showHeader={showHeader} reload={reload} />
 }
 
 export function StaffSupportTable({
@@ -1324,54 +1340,119 @@ function AuditTable({ logs }: { logs: AuditLog[] }) {
   )
 }
 
-function TransfersTable({
-  transfers,
+function AdminBridgePayoutsTable({
+  payouts = [],
   showHeader = true,
+  reload,
 }: {
-  transfers: BridgeTransfer[]
+  payouts?: AdminBridgePayout[]
   showHeader?: boolean
+  reload: () => void
 }) {
+  const [processingId, setProcessingId] = useState<string | null>(null)
+
+  const handleApprove = async (payout: AdminBridgePayout) => {
+    if (!window.confirm(`¿Aprobar el pago de ${payout.amount} ${payout.currency} a la cuenta ${payout.external_account_id}? Esta acción liquidará los fondos a través de Bridge.`)) return
+    
+    setProcessingId(payout.id)
+    try {
+      await BridgeAdminService.approvePayout(payout.id, { notes: 'Aprobado desde dashboard Staff' })
+      toast.success('Payout aprobado con éxito')
+      reload()
+    } catch (err: any) {
+      toast.error('Error al aprobar: ' + (err.message || 'Desconocido'))
+    } finally {
+      setProcessingId(null)
+    }
+  }
+
+  const handleReject = async (payout: AdminBridgePayout) => {
+    const reason = window.prompt(`Rechazando el pago de ${payout.amount}. Motivo de rechazo:`)
+    if (reason === null) return // Cancelado por el usuario
+    if (reason.trim() === '') {
+      toast.error('Debes proporcionar un motivo de rechazo')
+      return
+    }
+    
+    setProcessingId(payout.id)
+    try {
+      await BridgeAdminService.rejectPayout(payout.id, { rejection_reason: reason })
+      toast.success('Payout rechazado y saldo retornado')
+      reload()
+    } catch (err: any) {
+      toast.error('Error al rechazar: ' + (err.message || 'Desconocido'))
+    } finally {
+      setProcessingId(null)
+    }
+  }
+
   return (
     <Card className="overflow-hidden">
       {showHeader ? (
         <CardHeader>
-          <CardTitle>Bridge transfers</CardTitle>
-          <CardDescription>Lectura operativa de `bridge_transfers`. Se mantiene sin acciones por falta de transiciones documentadas.</CardDescription>
+          <CardTitle>Bridge Payouts</CardTitle>
+          <CardDescription>Bandeja operativa de liquidaciones vía Bridge (PULLs directos y liquidaciones de cuenta de usuario a cuenta externa).</CardDescription>
         </CardHeader>
       ) : null}
       <CardContent>
         <div className="space-y-3 md:hidden">
-          {transfers.length === 0 ? (
+          {payouts.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-center text-sm text-muted-foreground">
-              No hay transferencias para mostrar.
+              No hay liquidaciones para mostrar.
             </div>
           ) : (
-            transfers.map((transfer) => (
-              <Card key={transfer.id} className="border-border/70 bg-card/95 shadow-sm">
+            payouts.map((payout) => (
+              <Card key={payout.id} className="border-border/70 bg-card/95 shadow-sm">
                 <CardContent className="space-y-4 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium text-foreground">#{transfer.id.slice(0, 8)}</div>
-                      <div className="mt-1 text-xs text-muted-foreground">{formatDate(transfer.created_at)}</div>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-foreground">#{payout.id.slice(0, 8)}</div>
+                        <div className="mt-1 text-xs text-muted-foreground">{payout.user_full_name || payout.user_email || payout.user_id.slice(0, 8)}</div>
+                        <div className="mt-0.5 text-[10px] text-muted-foreground">{formatDate(payout.created_at)}</div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <StatusBadge value={payout.status} />
+                      </div>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <StatusBadge value={transfer.status} />
-                    </div>
-                  </div>
 
-                  <div className="grid gap-3 rounded-xl border border-border/60 bg-muted/15 p-3 sm:grid-cols-2">
-                    <div className="space-y-1">
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Kind</div>
-                      <div className="text-sm font-medium text-foreground">{transfer.transfer_kind}</div>
+                    <div className="grid gap-3 rounded-xl border border-border/60 bg-muted/15 p-3 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Destino (Rail)</div>
+                        <div className="text-sm font-medium text-foreground">{payout.payment_rail}</div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Cuenta</div>
+                        <div className="text-sm font-medium text-foreground">{payout.external_account_id?.slice(0, 10)}...</div>
+                      </div>
+                      <div className="space-y-1 sm:col-span-2">
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Monto</div>
+                        <div className="text-sm font-medium text-foreground">{payout.amount} {payout.currency}</div>
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Business Purpose</div>
-                      <div className="text-sm font-medium text-foreground">{transfer.business_purpose || '-'}</div>
-                    </div>
-                    <div className="space-y-1 sm:col-span-2">
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Monto</div>
-                      <div className="text-sm font-medium text-foreground">{transfer.amount} {transfer.currency}</div>
-                    </div>
+
+                    {payout.status === 'pending_approval' && (
+                      <div className="flex gap-2 pt-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex-1 bg-green-50 text-green-700 hover:bg-green-100 border-green-200"
+                          onClick={() => handleApprove(payout)}
+                          disabled={!!processingId}
+                        >
+                          {processingId === payout.id ? 'Aprobando...' : 'Aprobar'}
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex-1 bg-red-50 text-red-700 hover:bg-red-100 border-red-200"
+                          onClick={() => handleReject(payout)}
+                          disabled={!!processingId}
+                        >
+                          {processingId === payout.id ? '...' : 'Rechazar'}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -1383,26 +1464,55 @@ function TransfersTable({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Kind</TableHead>
-                <TableHead>Business purpose</TableHead>
+                <TableHead>ID / Usuario</TableHead>
+                <TableHead>Rail / Destino</TableHead>
                 <TableHead>Monto</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead>Fecha</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {transfers.length === 0 ? (
-                <EmptyRow colSpan={6} message="No hay transferencias para mostrar." />
+              {payouts.length === 0 ? (
+                <EmptyRow colSpan={6} message="No hay liquidaciones para mostrar." />
               ) : (
-                transfers.map((transfer) => (
-                  <TableRow key={transfer.id}>
-                    <TableCell className="font-medium">#{transfer.id.slice(0, 8)}</TableCell>
-                    <TableCell>{transfer.transfer_kind}</TableCell>
-                    <TableCell>{transfer.business_purpose}</TableCell>
-                    <TableCell>{transfer.amount} {transfer.currency}</TableCell>
-                    <TableCell><StatusBadge value={transfer.status} /></TableCell>
-                    <TableCell>{formatDate(transfer.created_at)}</TableCell>
+                payouts.map((payout) => (
+                  <TableRow key={payout.id}>
+                    <TableCell>
+                      <div className="font-medium">#{payout.id.slice(0, 8)}</div>
+                      <div className="text-xs text-muted-foreground">{payout.user_full_name || payout.user_email || payout.user_id.slice(0,8)}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium">{payout.payment_rail}</div>
+                      <div className="text-xs text-muted-foreground">{payout.external_account_id?.slice(0, 10)}...</div>
+                    </TableCell>
+                    <TableCell className="font-medium">{payout.amount} {payout.currency}</TableCell>
+                    <TableCell><StatusBadge value={payout.status} /></TableCell>
+                    <TableCell>{formatDate(payout.created_at)}</TableCell>
+                    <TableCell className="text-right">
+                      {payout.status === 'pending_approval' && (
+                        <div className="flex justify-end gap-2">
+                          <Button 
+                            variant="default" 
+                            size="sm" 
+                            className="bg-green-600 hover:bg-green-700 h-8 text-xs px-3"
+                            onClick={() => handleApprove(payout)}
+                            disabled={!!processingId}
+                          >
+                            Aprobar
+                          </Button>
+                          <Button 
+                            variant="destructive" 
+                            size="sm" 
+                            className="h-8 text-xs px-3"
+                            onClick={() => handleReject(payout)}
+                            disabled={!!processingId}
+                          >
+                            Rechazar
+                          </Button>
+                        </div>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))
               )}

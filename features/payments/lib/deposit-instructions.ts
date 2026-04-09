@@ -1,4 +1,4 @@
-import type { AppSettingRow, FeeConfigRow, PsavConfigRow } from '@/types/payment-order'
+import type { AppSettingRow, FeeConfigRow, PaymentOrder, PsavConfigRow, PsavDepositInstructionsPayload, BridgeDepositInstructionsPayload } from '@/types/payment-order'
 import type { Supplier } from '@/types/supplier'
 import type { SupportedPaymentRoute } from '@/features/payments/lib/payment-routes'
 
@@ -165,6 +165,262 @@ export function buildDepositInstructions(args: {
       ]
     }
   }
+}
+
+/**
+ * Construye instrucciones de depósito leyendo directamente los campos
+ * que el backend persiste en cada orden (`psav_deposit_instructions` o
+ * `bridge_source_deposit_instructions`), en vez de depender de la
+ * configuración global PSAV.
+ *
+ * Esta función reemplaza a `buildDepositInstructions` en el historial
+ * de transacciones (donde la orden ya existe y tiene instrucciones asignadas).
+ */
+export function buildDepositInstructionsFromOrder(order: PaymentOrder): DepositInstruction[] {
+  // 1. Intentar leer instrucciones PSAV persistidas por orden
+  const psav = parseOrderInstructions(order.psav_deposit_instructions)
+  if (psav) {
+    return convertPsavPayloadToInstructions(psav, order)
+  }
+
+  // 2. Intentar leer instrucciones Bridge persistidas por orden
+  const bridge = parseOrderInstructions(order.bridge_source_deposit_instructions)
+  if (bridge) {
+    return convertBridgePayloadToInstructions(bridge, order)
+  }
+
+  // 3. Sin instrucciones de depósito en la orden
+  return []
+}
+
+/** Verifica que el campo sea un objeto no vacío. */
+function parseOrderInstructions(
+  raw: PsavDepositInstructionsPayload | BridgeDepositInstructionsPayload | Record<string, unknown> | undefined | null,
+): Record<string, unknown> | null {
+  if (!raw || typeof raw !== 'object') return null
+  if (Object.keys(raw).length === 0) return null
+  return raw as Record<string, unknown>
+}
+
+function convertPsavPayloadToInstructions(
+  payload: Record<string, unknown>,
+  order: PaymentOrder,
+): DepositInstruction[] {
+  const type = String(payload.type ?? 'bank')
+  const label = str(payload, 'label') || str(payload, 'account_name') || 'Cuenta de depósito'
+  const currency = str(payload, 'currency') || order.currency || ''
+
+  // Tipo crypto (PSAV crypto address)
+  if (type === 'crypto') {
+    const address = str(payload, 'address') || str(payload, 'crypto_address') || 'Dirección no disponible'
+    const network = str(payload, 'network') || str(payload, 'crypto_network') || ''
+    return [
+      {
+        id: `order-${order.id}-crypto`,
+        title: label,
+        kind: 'wallet',
+        detail: address,
+        accent: 'emerald',
+      },
+      ...(network
+        ? [
+            {
+              id: `order-${order.id}-crypto-note`,
+              title: 'Red de depósito',
+              kind: 'note' as const,
+              detail: `Deposita en la red ${network}. Verifica que la red coincida antes de transferir fondos.`,
+              accent: 'amber',
+            },
+          ]
+        : []),
+    ]
+  }
+
+  // Tipo bank o virtual_account
+  const bankName = str(payload, 'bank_name') || 'Banco no especificado'
+  const accountHolder = str(payload, 'account_holder')
+    || str(payload, 'account_holder_name')
+    || str(payload, 'beneficiary_name')
+    || str(payload, 'account_name')
+    || label
+  const accountNumber = str(payload, 'account_number') || 'Sin número de cuenta'
+  const routingNumber = str(payload, 'routing_number')
+  const qrUrl = str(payload, 'qr_url')
+
+  const detailParts = [bankName, accountHolder, accountNumber, routingNumber ? `Routing: ${routingNumber}` : null, currency]
+    .filter(Boolean)
+    .join(' | ')
+
+  return [
+    {
+      id: `order-${order.id}-bank`,
+      title: type === 'virtual_account' ? 'Tu Virtual Account' : label,
+      kind: 'bank',
+      detail: detailParts,
+      accent: 'sky',
+      qrUrl: qrUrl || undefined,
+      bankCard: {
+        bankName,
+        accountHolder,
+        accountNumber,
+        country: currency,
+      },
+    },
+  ]
+}
+
+function convertBridgePayloadToInstructions(
+  payload: Record<string, unknown>,
+  order: PaymentOrder,
+): DepositInstruction[] {
+  const type = str(payload, 'type') || ''
+  const label = str(payload, 'label') || 'Instrucciones de depósito'
+
+  // Liquidation address (crypto_to_bridge_wallet)
+  if (type === 'liquidation_address') {
+    const address = str(payload, 'address') || 'Dirección no disponible'
+    const chain = str(payload, 'chain') || ''
+    return [
+      {
+        id: `order-${order.id}-liq`,
+        title: label,
+        kind: 'wallet',
+        detail: address,
+        accent: 'emerald',
+      },
+      ...(chain
+        ? [
+            {
+              id: `order-${order.id}-liq-note`,
+              title: 'Red requerida',
+              kind: 'note' as const,
+              detail: `Deposita en la cadena ${chain}. El fondeo será acreditado automáticamente a tu wallet.`,
+              accent: 'amber',
+            },
+          ]
+        : []),
+    ]
+  }
+
+  // Virtual account (fiat_us_to_bridge_wallet)
+  if (type === 'virtual_account') {
+    const bankName = str(payload, 'bank_name') || 'Banco de VA'
+    const accountName = str(payload, 'account_name') || 'Cuenta Virtual'
+    const accountNumber = str(payload, 'account_number') || ''
+    const routingNumber = str(payload, 'routing_number') || ''
+    const currency = str(payload, 'source_currency') || str(payload, 'currency') || 'USD'
+
+    const detailParts = [bankName, accountName, accountNumber, routingNumber ? `Routing: ${routingNumber}` : null, currency]
+      .filter(Boolean)
+      .join(' | ')
+
+    return [
+      {
+        id: `order-${order.id}-va`,
+        title: 'Tu Virtual Account',
+        kind: 'bank',
+        detail: detailParts,
+        accent: 'sky',
+        bankCard: {
+          bankName,
+          accountHolder: accountName,
+          accountNumber: accountNumber || routingNumber || 'Sin referencia',
+          country: currency,
+        },
+      },
+    ]
+  }
+
+  // Bridge source_deposit_instructions genérico (wallet_to_wallet transfer)
+  // La respuesta de Bridge puede venir con formato variado
+  const bankName = str(payload, 'bank_name') || str(payload, 'bank_beneficiary_name') || ''
+  const accountNumber = str(payload, 'bank_account_number') || str(payload, 'account_number') || ''
+  const routingNumber = str(payload, 'bank_routing_number') || str(payload, 'routing_number') || ''
+  const depositMessage = str(payload, 'deposit_message') || ''
+  const paymentRail = str(payload, 'payment_rail') || ''
+  const address = str(payload, 'address') || str(payload, 'to_address') || ''
+
+  // Si tiene una address crypto, mostrar como wallet
+  if (address && !bankName && !accountNumber) {
+    return [
+      {
+        id: `order-${order.id}-bridge-wallet`,
+        title: label,
+        kind: 'wallet',
+        detail: address,
+        accent: 'emerald',
+      },
+      ...(depositMessage
+        ? [
+            {
+              id: `order-${order.id}-bridge-memo`,
+              title: 'Memo / Referencia',
+              kind: 'note' as const,
+              detail: depositMessage,
+              accent: 'amber',
+            },
+          ]
+        : []),
+    ]
+  }
+
+  // Si tiene datos bancarios, mostrar como bank
+  if (bankName || accountNumber) {
+    const detailParts = [bankName, accountNumber, routingNumber ? `Routing: ${routingNumber}` : null, paymentRail ? `Rail: ${paymentRail.toUpperCase()}` : null]
+      .filter(Boolean)
+      .join(' | ')
+
+    return [
+      {
+        id: `order-${order.id}-bridge-bank`,
+        title: label,
+        kind: 'bank',
+        detail: detailParts,
+        accent: 'sky',
+        bankCard: {
+          bankName: bankName || 'Bridge',
+          accountHolder: str(payload, 'bank_beneficiary_name') || 'Bridge',
+          accountNumber: accountNumber || 'Sin referencia',
+          country: str(payload, 'currency') || 'USD',
+        },
+      },
+      ...(depositMessage
+        ? [
+            {
+              id: `order-${order.id}-bridge-memo`,
+              title: 'Memo / Referencia',
+              kind: 'note' as const,
+              detail: depositMessage,
+              accent: 'amber',
+            },
+          ]
+        : []),
+    ]
+  }
+
+  // Payload desconocido — mostrar nota genérica con lo que haya
+  const summary = Object.entries(payload)
+    .filter(([, v]) => v != null && v !== '')
+    .map(([k, v]) => `${k}: ${String(v)}`)
+    .join(' | ')
+
+  if (!summary) return []
+
+  return [
+    {
+      id: `order-${order.id}-bridge-raw`,
+      title: label,
+      kind: 'note',
+      detail: summary,
+      accent: 'sky',
+    },
+  ]
+}
+
+/** Lectura segura de string desde un record. */
+function str(obj: Record<string, unknown>, key: string): string {
+  const v = obj[key]
+  return typeof v === 'string' && v.trim() ? v.trim() : ''
 }
 
 function getPsavInstructions(psavConfigs: PsavConfigRow[]): DepositInstruction[] {

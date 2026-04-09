@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 export const staffReasonSchema = z.object({
   reason: z.string().trim().min(5, 'Ingresa un motivo descriptivo de al menos 5 caracteres.'),
+  notify_user: z.boolean().default(true),
 })
 
 export const staffOnboardingActionSchema = z.object({
@@ -23,6 +24,7 @@ export const staffOrderProcessingSchema = z.object({
 
 export const staffOrderSentSchema = z.object({
   reference: z.string().trim().min(3, 'Ingresa una referencia o hash.'),
+  provider_reference: z.string().optional(),
   reason: z.string().trim().min(5, 'Ingresa un motivo descriptivo de al menos 5 caracteres.'),
 })
 
@@ -35,3 +37,4 @@ export type StaffSupportActionValues = z.infer<typeof staffSupportActionSchema>
 export type StaffOrderProcessingValues = z.infer<typeof staffOrderProcessingSchema>
 export type StaffOrderSentValues = z.infer<typeof staffOrderSentSchema>
 export type StaffOrderCompletionValues = z.infer<typeof staffOrderCompletionSchema>
+export type StaffReasonValues = z.infer<typeof staffReasonSchema>

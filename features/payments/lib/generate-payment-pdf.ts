@@ -14,26 +14,35 @@ export function generatePaymentPdf(order: PaymentOrder, supplier?: Supplier | nu
   doc.setFontSize(18)
   doc.text('Comprobante operativo', START_X, START_Y)
 
+  // Resolve V1/V2 field values
+  const orderType = order.flow_type ?? order.order_type ?? 'N/D'
+  const rail = order.flow_category ?? order.processing_rail ?? 'N/D'
+  const amountOrigin = order.amount_origin ?? order.amount ?? 0
+  const originCurrency = order.origin_currency ?? order.currency ?? ''
+  const amountDest = order.amount_converted ?? order.amount_destination ?? 0
+  const destCurrency = order.destination_currency ?? order.currency ?? ''
+  const fee = order.fee_total ?? order.fee_amount ?? 0
+
   doc.setFontSize(11)
   const rows = [
     ['Expediente', order.id],
     ['Estado', order.status],
-    ['Tipo', order.order_type],
-    ['Rail', order.processing_rail],
-    ['Monto origen', `${order.amount_origin} ${order.origin_currency}`],
-    ['Monto destino', `${order.amount_converted} ${order.destination_currency}`],
+    ['Tipo', orderType],
+    ['Rail', rail],
+    ['Monto origen', `${amountOrigin} ${originCurrency}`],
+    ['Monto destino', `${amountDest} ${destCurrency}`],
     ['Tipo de cambio', toDisplayValue(order.exchange_rate_applied)],
-    ['Fee total', toDisplayValue(order.fee_total)],
-    ['Motivo', readString(metadata, 'payment_reason')],
+    ['Fee total', toDisplayValue(fee)],
+    ['Proposito', order.business_purpose ?? readString(metadata, 'payment_reason')],
     ['Metodo entrega', readString(metadata, 'delivery_method')],
-    ['Direccion destino', readString(metadata, 'destination_address')],
+    ['Direccion destino', order.destination_address ?? readString(metadata, 'destination_address')],
     ['Stablecoin', readString(metadata, 'stablecoin')],
     ['Proveedor', supplier?.name ?? 'No asignado'],
-    ['Referencia', readString(metadata, 'reference')],
-    ['Motivo rechazo', readString(metadata, 'rejection_reason')],
+    ['Referencia', order.provider_reference ?? readString(metadata, 'reference')],
+    ['Motivo rechazo', order.failure_reason ?? readString(metadata, 'rejection_reason')],
     ['Creado', formatDateTime(order.created_at)],
     ['Actualizado', formatDateTime(order.updated_at)],
-    ['Completado', readString(metadata, 'completed_at') ? formatDateTime(readString(metadata, 'completed_at')) : 'N/D'],
+    ['Completado', order.completed_at ? formatDateTime(order.completed_at) : readString(metadata, 'completed_at') ? formatDateTime(readString(metadata, 'completed_at')) : 'N/D'],
   ]
 
   let y = 34

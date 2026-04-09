@@ -116,7 +116,6 @@ export const StaffService = {
     return {
       onboarding: mappedOnboarding,
       payinRoutes: [],   // Tabla mantenida en modo lectura sin acciones definidas
-      transfers: [],     // Sin acciones definidas en la documentación actual
       orders: ordersResponse.data ?? [],
       users: usersWithPhotos as StaffUserRecord[],
       support: supportResponse.data ?? [],
@@ -366,16 +365,7 @@ export const StaffService = {
 
   // ── ÓRDENES DE PAGO ──────────────────────────────────────────────────────────
 
-  async advancePaymentOrderToDepositReceived(args: {
-    actor: StaffActor
-    order: PaymentOrder
-    reason: string
-  }) {
-    // El backend aprueba el depósito y pasa a 'processing' vía /approve
-    return apiPost<PaymentOrder>(`/admin/payment-orders/${args.order.id}/approve`, {
-      notes: args.reason,
-    })
-  },
+
 
   async preparePaymentOrderQuote(args: {
     actor: StaffActor
@@ -397,10 +387,12 @@ export const StaffService = {
     order: PaymentOrder
     reason: string
     reference: string
+    providerReference?: string
   }) {
     return apiPost<PaymentOrder>(`/admin/payment-orders/${args.order.id}/mark-sent`, {
       notes: args.reason,
       tx_hash: args.reference,
+      provider_reference: args.providerReference,
     })
   },
 
@@ -439,9 +431,11 @@ export const StaffService = {
     actor: StaffActor
     order: PaymentOrder
     reason: string
+    notifyUser: boolean
   }) {
     return apiPost<PaymentOrder>(`/admin/payment-orders/${args.order.id}/fail`, {
       reason: args.reason,
+      notify_user: args.notifyUser,
     })
   },
 

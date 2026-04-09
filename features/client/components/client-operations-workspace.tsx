@@ -91,53 +91,6 @@ export function ClientOperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
 
   return (
     <div className="space-y-6">
-      {/*<section className="grid gap-4 xl:grid-cols-[1.45fr_0.95fr]">
-        <Card className="border-border/80 bg-muted/10">
-          <CardHeader className="gap-3 md:flex-row md:items-start md:justify-between">
-            <div className="space-y-2">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">{config.eyebrow}</div>
-              <CardTitle className="text-2xl tracking-tight">{config.title}</CardTitle>
-              <CardDescription>{config.description}</CardDescription>
-            </div>
-            <Button onClick={() => { payments.reload(); wallet.reload() }} type="button" variant="outline">
-              <RefreshCw />
-              Actualizar
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {!canOperate ? (
-              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-muted-foreground">
-                <div className="mb-2 flex items-center gap-2 font-medium text-foreground">
-                  <ShieldAlert className="size-4" />
-                  Operacion restringida
-                </div>
-                Puedes revisar tus datos, pero no crear ni mutar expedientes mientras el perfil no este verificado.
-              </div>
-            ) : null}
-
-            <div className="grid gap-3 md:grid-cols-3">
-              <MetricTile label="Proveedores" value={String(payments.snapshot.suppliers.length)} icon={WalletCards} />
-              <MetricTile label="Expedientes" value={String(payments.snapshot.paymentOrders.length)} icon={Waypoints} />
-              <MetricTile label="Actividad" value={String(payments.snapshot.activityLogs.length)} icon={RefreshCw} />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Contexto de cuenta</CardTitle>
-            <CardDescription>El panel conserva el estado operativo del cliente a la vista.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <MetricRow label="Rol" value={profile?.role ?? 'sin rol'} />
-            <MetricRow label="Onboarding" value={profile?.onboarding_status ?? 'sin perfil'} />
-            <MetricRow label="Wallet" value={wallet.snapshot?.wallet?.currency ?? 'Sin wallet'} />
-            <MetricRow label="Ordenes activas" value={String(wallet.snapshot?.activePaymentOrders.length ?? 0)} />
-            <MetricRow label="Transferencias activas" value={String(wallet.snapshot?.pendingBridgeTransfers.length ?? 0)} />
-          </CardContent>
-        </Card>
-      </section>*/}
-
       {mode === 'depositar' || mode === 'enviar' ? (
         <CreatePaymentOrderForm
           appSettings={payments.snapshot.appSettings}

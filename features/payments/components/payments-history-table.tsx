@@ -12,15 +12,14 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DepositInstructionCard } from '@/features/payments/components/deposit-instruction-card'
-import { buildDepositInstructions } from '@/features/payments/lib/deposit-instructions'
+import { buildDepositInstructionsFromOrder } from '@/features/payments/lib/deposit-instructions'
 import { generatePaymentPdf } from '@/features/payments/lib/generate-payment-pdf'
 import { ACCEPTED_UPLOADS } from '@/lib/file-validation'
 import { cn, interactiveCardClassName } from '@/lib/utils'
 import { useSignedUrl } from '@/hooks/use-signed-url'
 import type { ActivityLog } from '@/types/activity-log'
-import type { OrderFileField, PaymentOrder, PsavConfigRow } from '@/types/payment-order'
+import type { OrderFileField, PaymentOrder } from '@/types/payment-order'
 import type { Supplier } from '@/types/supplier'
-import type { SupportedPaymentRoute } from '@/features/payments/lib/payment-routes'
 
 const OPEN_ORDER_STATUSES = new Set(['created', 'waiting_deposit'])
 const FLOW_STAGES: Array<{ key: PaymentOrder['status']; label: string }> = [
@@ -35,7 +34,8 @@ const FLOW_STAGES: Array<{ key: PaymentOrder['status']; label: string }> = [
 interface PaymentsHistoryTableProps {
   orders: PaymentOrder[]
   suppliers: Supplier[]
-  psavConfigs: PsavConfigRow[]
+  /** @deprecated Ya no se usa — las instrucciones se leen de cada orden. Se mantiene como prop opcional para compatibilidad temporal. */
+  psavConfigs?: unknown[]
   activityLogs: ActivityLog[]
   disabled?: boolean
   onUploadOrderFile: (orderId: string, field: OrderFileField, file: File) => Promise<unknown>
@@ -45,7 +45,6 @@ interface PaymentsHistoryTableProps {
 export function PaymentsHistoryTable({
   orders,
   suppliers,
-  psavConfigs,
   activityLogs,
   disabled,
   onUploadOrderFile,
@@ -198,6 +197,7 @@ export function PaymentsHistoryTable({
               <SelectItem value="sent">Enviado</SelectItem>
               <SelectItem value="completed">Completado</SelectItem>
               <SelectItem value="failed">Fallido</SelectItem>
+              <SelectItem value="cancelled">Cancelado</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -219,14 +219,8 @@ export function PaymentsHistoryTable({
         const orderActivity = activityByOrderId.get(order.id) ?? []
         const quotePreparedAt = getMetadataDate(order.metadata, 'quote_prepared_at')
         const isExpanded = expandedOrders[order.id] ?? true
-        const route = resolveOrderRoute(order)
-        const depositInstructions = route
-          ? buildDepositInstructions({
-            route,
-            psavConfigs,
-            selectedSupplier: supplier ?? null,
-          })
-          : []
+        // Leer instrucciones de depósito directamente de la orden (persistidas por backend)
+        const depositInstructions = buildDepositInstructionsFromOrder(order)
         const primaryDepositInstructions = depositInstructions.filter((instruction) => instruction.kind !== 'note')
         const noteDepositInstructions = depositInstructions.filter((instruction) => instruction.kind === 'note')
         const hasEvidence = Boolean(order.deposit_proof_url || order.evidence_url)
@@ -251,8 +245,8 @@ export function PaymentsHistoryTable({
                     <Badge className={cn("text-xs", statusMeta.badgeClass)} variant={getStatusVariant(order.status)}>
                       {statusMeta.label}
                     </Badge>
-                    <Badge className="text-xs" variant="outline">{humanizeOrderType(order.order_type)}</Badge>
-                    <Badge className="text-xs" variant="outline">{humanizeRail(order.processing_rail)}</Badge>
+                    <Badge className="text-xs" variant="outline">{humanizeOrderType(order)}</Badge>
+                    <Badge className="text-xs" variant="outline">{humanizeRail(order)}</Badge>
                   </div>
                   <div className="space-y-1">
                     <CardTitle className="text-xl sm:text-2xl md:text-[1.65rem] tracking-[-0.03em]">Expediente #{order.id.slice(0, 8)}</CardTitle>
@@ -404,7 +398,40 @@ export function PaymentsHistoryTable({
 }
 
 function StatusRail({ order }: { order: PaymentOrder }) {
+  const isTerminal = order.status === 'cancelled' || order.status === 'failed'
   const currentIndex = FLOW_STAGES.findIndex((stage) => stage.key === order.status)
+
+  // For terminal states (cancelled, failed), show a dedicated banner instead of the rail
+  if (isTerminal) {
+    const meta = getStatusMeta(order.status)
+    return (
+      <div className="py-2">
+        <div className={cn(
+          "flex items-center gap-3 rounded-2xl border p-4",
+          order.status === 'cancelled'
+            ? "border-orange-400/30 bg-orange-400/5"
+            : "border-destructive/30 bg-destructive/5"
+        )}>
+          <div className={cn(
+            "flex size-10 shrink-0 items-center justify-center rounded-full border text-sm font-bold",
+            order.status === 'cancelled'
+              ? "border-orange-400/50 bg-orange-400/10 text-orange-400"
+              : "border-destructive/50 bg-destructive/10 text-destructive"
+          )}>
+            ✕
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold text-foreground">{meta.label}</div>
+            <div className="text-xs text-muted-foreground">
+              {order.status === 'cancelled'
+                ? 'Este expediente fue anulado y no continuará en el flujo operativo.'
+                : 'Este expediente fue marcado como fallido. Consulta la bitácora para más detalles.'}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="py-2">
@@ -863,6 +890,7 @@ function ToolbarMetric({ label, value }: { label: string; value: string }) {
 function getStatusVariant(status: PaymentOrder['status']) {
   if (status === 'failed') return 'destructive' as const
   if (status === 'completed') return 'default' as const
+  if (status === 'cancelled') return 'outline' as const
   return 'outline' as const
 }
 
@@ -882,6 +910,10 @@ function getStatusMeta(status: PaymentOrder['status']) {
       return { badgeClass: 'border-emerald-400/35 bg-emerald-400/10 text-emerald-700 dark:text-emerald-300', eyebrow: 'Cierre', label: 'Completado' }
     case 'failed':
       return { badgeClass: 'border-destructive/35 bg-destructive/10', eyebrow: 'Incidencia', label: 'Fallido' }
+    case 'cancelled':
+      return { badgeClass: 'border-orange-400/35 bg-orange-400/10 text-orange-700 dark:text-orange-300', eyebrow: 'Anulacion', label: 'Cancelado' }
+    default:
+      return { badgeClass: 'border-border/30 bg-muted/10 text-muted-foreground', eyebrow: 'Desconocido', label: status ?? 'Sin estado' }
   }
 }
 
@@ -911,6 +943,10 @@ function getConsolidatedStatusMessage(order: PaymentOrder, quotePreparedAt: stri
       return 'Operacion cerrada correctamente. Puedes descargar el PDF, revisar el comprobante final y consultar el historial como respaldo operativo del cierre.'
     case 'failed':
       return 'El expediente fue marcado como fallido y la orden ha sido cerrada. Revisa la razon registrada en la metadata o en la bitacora de actividad.'
+    case 'cancelled':
+      return 'Este expediente fue cancelado. La operacion no se ejecuto y los fondos asociados (si los hubiera) seran devueltos segun la politica operativa vigente.'
+    default:
+      return 'Estado no reconocido. Contacta a soporte si necesitas mas informacion sobre este expediente.'
   }
 }
 
@@ -929,6 +965,10 @@ function getUrgencyLabel(status: PaymentOrder['status']) {
       return 'Cerrado'
     case 'failed':
       return 'Incidencia'
+    case 'cancelled':
+      return 'Cancelado'
+    default:
+      return 'Sin estado'
   }
 }
 
@@ -947,40 +987,80 @@ function getUrgencyBadgeClass(status: PaymentOrder['status']) {
       return 'border-emerald-400/35 bg-emerald-400/10 text-emerald-700 dark:text-emerald-300'
     case 'failed':
       return 'border-destructive/35 bg-destructive/10 text-destructive'
+    case 'cancelled':
+      return 'border-orange-400/35 bg-orange-400/10 text-orange-700 dark:text-orange-300'
+    default:
+      return 'border-border/35 bg-muted/10 text-muted-foreground'
   }
 }
 
-function humanizeOrderType(orderType: PaymentOrder['order_type']) {
-  switch (orderType) {
-    case 'BO_TO_WORLD':
-      return 'BO a exterior'
-    case 'WORLD_TO_BO':
-      return 'Exterior a BO'
-    case 'US_TO_WALLET':
-      return 'US a wallet'
-    case 'CRYPTO_TO_CRYPTO':
-      return 'Crypto a crypto'
-    default:
-      return orderType
+function humanizeOrderType(order: PaymentOrder) {
+  // V2: use flow_type first
+  if (order.flow_type) {
+    switch (order.flow_type) {
+      case 'bolivia_to_world': return 'BO a exterior'
+      case 'bolivia_to_wallet': return 'BO a wallet'
+      case 'wallet_to_wallet': return 'Crypto a crypto'
+      case 'world_to_bolivia': return 'Exterior a BO'
+      case 'world_to_wallet': return 'US a wallet'
+      case 'fiat_bo_to_bridge_wallet': return 'BO a Bridge'
+      case 'crypto_to_bridge_wallet': return 'Crypto a Bridge'
+      case 'fiat_us_to_bridge_wallet': return 'US a Bridge'
+      case 'bridge_wallet_to_fiat_bo': return 'Bridge a BO'
+      case 'bridge_wallet_to_crypto': return 'Bridge a crypto'
+      case 'bridge_wallet_to_fiat_us': return 'Bridge a US'
+      default: return order.flow_type
+    }
+  }
+  // V1: legacy order_type
+  switch (order.order_type) {
+    case 'BO_TO_WORLD': return 'BO a exterior'
+    case 'WORLD_TO_BO': return 'Exterior a BO'
+    case 'US_TO_WALLET': return 'US a wallet'
+    case 'CRYPTO_TO_CRYPTO': return 'Crypto a crypto'
+    default: return order.order_type ?? 'Sin tipo'
   }
 }
 
-function humanizeRail(rail: PaymentOrder['processing_rail']) {
-  switch (rail) {
-    case 'ACH':
-      return 'Rail ACH'
-    case 'SWIFT':
-      return 'Rail SWIFT'
-    case 'PSAV':
-      return 'Rail PSAV'
-    case 'DIGITAL_NETWORK':
-      return 'Rail digital'
-    default:
-      return rail
+function humanizeRail(order: PaymentOrder) {
+  // V2: use flow_category
+  if (order.flow_category) {
+    switch (order.flow_category) {
+      case 'interbank': return 'Interbancario'
+      case 'wallet_ramp': return 'Wallet ramp'
+      default: return order.flow_category
+    }
+  }
+  // V1: legacy processing_rail
+  switch (order.processing_rail) {
+    case 'ACH': return 'Rail ACH'
+    case 'SWIFT': return 'Rail SWIFT'
+    case 'PSAV': return 'Rail PSAV'
+    case 'DIGITAL_NETWORK': return 'Rail digital'
+    default: return order.processing_rail ?? 'Sin rail'
   }
 }
 
 function isDepositOrder(order: PaymentOrder) {
+  // Si la orden tiene instrucciones de depósito persistidas, es un flujo de fondeo
+  if (order.psav_deposit_instructions && typeof order.psav_deposit_instructions === 'object' && Object.keys(order.psav_deposit_instructions).length > 0) {
+    return true
+  }
+  if (order.bridge_source_deposit_instructions && typeof order.bridge_source_deposit_instructions === 'object' && Object.keys(order.bridge_source_deposit_instructions).length > 0) {
+    return true
+  }
+  // V2: check flow_type
+  if (order.flow_type) {
+    const depositFlows = [
+      'bolivia_to_world', 'bolivia_to_wallet',
+      'world_to_bolivia', 'world_to_wallet',
+      'wallet_to_wallet',
+      'fiat_us_to_bridge_wallet', 'fiat_bo_to_bridge_wallet',
+      'crypto_to_bridge_wallet',
+    ]
+    return depositFlows.includes(order.flow_type)
+  }
+  // V1: legacy order_type
   return order.order_type === 'WORLD_TO_BO' || order.order_type === 'US_TO_WALLET'
 }
 
@@ -1033,49 +1113,5 @@ function readPreviousQuote(order: PaymentOrder, key: QuoteField) {
   if (!previous || previous[key] === undefined || previous[key] === null) return null
   return String(previous[key])
 }
-
-function resolveOrderRoute(order: PaymentOrder): SupportedPaymentRoute | null {
-  const meta = order.metadata && typeof order.metadata === 'object' ? order.metadata as Record<string, unknown> : null
-
-  // 1. Intentar metadata.route (UI key almacenada al crear la orden)
-  let metadataRoute = typeof meta?.route === 'string' ? meta.route : null
-  if (metadataRoute === 'us_to_bolivia') metadataRoute = 'world_to_bolivia'
-  
-  if (
-    metadataRoute === 'bolivia_to_exterior' ||
-    metadataRoute === 'world_to_bolivia' ||
-    metadataRoute === 'us_to_wallet' ||
-    metadataRoute === 'crypto_to_crypto'
-  ) {
-    return metadataRoute as SupportedPaymentRoute
-  }
-
-  // 2. Intentar flow_type del nuevo backend (campo directo en la orden o en metadata)
-  const flowType = (order as unknown as Record<string, unknown>).flow_type ?? meta?.flow_type
-  if (typeof flowType === 'string') {
-    switch (flowType) {
-      case 'bolivia_to_world': return 'bolivia_to_exterior'
-      case 'bolivia_to_wallet': return 'bolivia_to_exterior'
-      case 'wallet_to_wallet': return 'crypto_to_crypto'
-      case 'world_to_bolivia': return 'world_to_bolivia'
-      case 'world_to_wallet': return 'us_to_wallet'
-    }
-  }
-
-  // 3. Fallback a order_type legacy
-  switch (order.order_type) {
-    case 'BO_TO_WORLD':
-      return 'bolivia_to_exterior'
-    case 'WORLD_TO_BO':
-      return 'world_to_bolivia'
-    case 'US_TO_WALLET':
-      return 'us_to_wallet'
-    case 'CRYPTO_TO_CRYPTO':
-      return 'crypto_to_crypto'
-    default:
-      return null
-  }
-}
-
 
 

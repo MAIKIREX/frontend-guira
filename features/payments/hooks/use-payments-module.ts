@@ -18,12 +18,14 @@ import { useCallback, useEffect, useState } from 'react'
 import { PaymentsService } from '@/services/payments.service'
 import type { PaymentOrder, AppSettingRow, FeeConfigRow, PsavConfigRow, CreatePaymentOrderInput, SupplierUpsertInput, OrderFileField } from '@/types/payment-order'
 import type { Supplier } from '@/types/supplier'
+import type { ActivityLog } from '@/types/activity-log'
 
 // ── Tipo local que reemplaza PaymentSnapshot ─────────────────────
 // (PaymentSnapshot era un antipatrón: acoplaba 6 entidades en un solo blob)
 export interface PaymentsModuleState {
   orders: PaymentOrder[]
   suppliers: Supplier[]
+  activityLogs: ActivityLog[]
   /** Configuración de fees, tasas PSAV y app settings cargados del backend */
   feesConfig: FeeConfigRow[]
   psavConfigs: PsavConfigRow[]
@@ -43,12 +45,19 @@ export function usePaymentsModule() {
     setError(null)
 
     try {
-      // Carga paralela — reemplaza el getSnapshot() con 6 queries en 1
+      // Carga paralela — queries principales (obligatorias)
       const [rawOrders, suppliers, feesConfig, exchangeRates] = await Promise.all([
         PaymentsService.getOrders(),
         PaymentsService.getSuppliers(),
         PaymentsService.getFeesConfig(),
         PaymentsService.getExchangeRates(),
+      ])
+
+      // Carga paralela — queries secundarias (opcionales, no bloquean la vista)
+      const [activityResult, psavResult, settingsResult] = await Promise.allSettled([
+        PaymentsService.getActivityLogs(),
+        PaymentsService.getPsavConfigs(),
+        PaymentsService.getAppSettings(),
       ])
 
       // Normalize: backend may return a wrapped object { data: [...] } or { items: [...] }
@@ -60,12 +69,17 @@ export function usePaymentsModule() {
             ? (rawOrders as any).items
             : []
 
+      const activityLogs = activityResult.status === 'fulfilled' ? activityResult.value : []
+      const psavConfigs = psavResult.status === 'fulfilled' ? psavResult.value : []
+      const appSettings = settingsResult.status === 'fulfilled' ? settingsResult.value : []
+
       setState({
         orders,
         suppliers,
+        activityLogs,
         feesConfig: feesConfig as FeeConfigRow[],
-        psavConfigs: [] as PsavConfigRow[],
-        appSettings: [] as AppSettingRow[],
+        psavConfigs,
+        appSettings,
         exchangeRates,
         gaps: [],
       })
@@ -183,15 +197,22 @@ export function usePaymentsModule() {
 
   /**
    * Sube un archivo a una orden existente.
-   * Si es evidence, acudimos a uploadOrderEvidence que notifica a backend.
-   * Si es support_document_url, esto ya no se puede tras la creacion en V2 facilmente, pero como fallback se deja.
+   * - evidence_url: sube a storage y notifica al backend via confirm-deposit.
+   * - support_document_url / supporting_document_url: sube a storage y actualiza
+   *   el estado local de la orden (el backend no tiene endpoint standalone para esto
+   *   post-creación, pero el archivo sí queda persistido en Storage).
    */
   const uploadOrderFile = useCallback(async (orderId: string, field: OrderFileField, file: File) => {
-    if (field === 'support_document_url') {
-       // Not officially supported standalone after creation in backend V2 via standard endpoints, 
-       // but we log it. It should be handled in creation.
-       console.warn('support_document_url late upload not fully supported. Use UI in creation.')
-       return state?.orders.find(o => o.id === orderId) as PaymentOrder;
+    if (field === 'support_document_url' || field === 'supporting_document_url') {
+      // Upload to Supabase Storage and update order state optimistically
+      const storagePath = await PaymentsService.uploadFileToStorage(file, 'payment-receipts')
+      const currentOrder = state?.orders.find(o => o.id === orderId)
+      if (currentOrder) {
+        const updatedOrder = { ...currentOrder, supporting_document_url: storagePath }
+        mergeOrder(updatedOrder)
+        return updatedOrder
+      }
+      throw new Error(`Order ${orderId} not found in local state`)
     }
     const order = await PaymentsService.uploadOrderEvidence(orderId, file)
     mergeOrder(order)
@@ -214,7 +235,7 @@ export function usePaymentsModule() {
     snapshot: state ? {
       suppliers: state.suppliers,
       paymentOrders: state.orders,
-      activityLogs: [],
+      activityLogs: state.activityLogs,
       feesConfig: state.feesConfig,
       appSettings: state.appSettings,
       psavConfigs: state.psavConfigs,

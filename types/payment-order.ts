@@ -8,6 +8,8 @@ export type OrderStatus =
   | 'sent'
   | 'completed'
   | 'failed'
+  | 'cancelled'
+  | 'swept_external'
 
 export type DeliveryMethod = 'swift' | 'ach' | 'crypto'
 export type FundingMethod = 'bs' | 'crypto' | 'ach' | 'wallet'
@@ -49,6 +51,54 @@ export interface PaymentOrderMetadata {
   reference?: string
   completed_at?: string
   rejection_reason?: string
+}
+
+/**
+ * Shape del JSON que el backend persiste en `psav_deposit_instructions`
+ * al crear una orden que requiere depósito PSAV o Virtual Account.
+ */
+export interface PsavDepositInstructionsPayload {
+  type: 'bank' | 'crypto' | 'virtual_account'
+  label?: string
+  bank_name?: string
+  account_number?: string
+  routing_number?: string
+  account_holder?: string
+  qr_url?: string
+  currency?: string
+  address?: string
+  network?: string
+  // Virtual Account fields (world_to_wallet)
+  account_holder_name?: string
+  beneficiary_name?: string
+  source_currency?: string
+  account_name?: string
+}
+
+/**
+ * Shape del JSON que el backend persiste en `bridge_source_deposit_instructions`
+ * para órdenes que involucran Bridge Transfer API, liquidation addresses o VAs.
+ */
+export interface BridgeDepositInstructionsPayload {
+  type?: 'liquidation_address' | 'virtual_account' | string
+  address?: string
+  chain?: string
+  label?: string
+  account_name?: string
+  account_number?: string
+  routing_number?: string
+  bank_name?: string
+  source_currency?: string
+  // Bridge Transfer API source_deposit_instructions fields
+  payment_rail?: string
+  currency?: string
+  bank_address?: string
+  bank_routing_number?: string
+  bank_account_number?: string
+  bank_beneficiary_name?: string
+  bank_beneficiary_address?: string
+  deposit_message?: string
+  [key: string]: unknown
 }
 
 export interface PaymentOrder {
@@ -95,15 +145,15 @@ export interface PaymentOrder {
   destination_address?: string
   destination_network?: string
   external_account_id?: string
-  // PSAV / Admin
-  psav_deposit_instructions?: Record<string, unknown>
+  // PSAV / Admin — instrucciones de depósito persistidas por orden
+  psav_deposit_instructions?: PsavDepositInstructionsPayload | Record<string, unknown>
   deposit_proof_url?: string
   approved_by?: string
   approved_at?: string
   amount_destination?: number
   // Bridge
   bridge_transfer_id?: string
-  bridge_source_deposit_instructions?: Record<string, unknown>
+  bridge_source_deposit_instructions?: BridgeDepositInstructionsPayload | Record<string, unknown>
   // Tracking
   tx_hash?: string
   provider_reference?: string

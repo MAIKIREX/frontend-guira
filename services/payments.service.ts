@@ -28,8 +28,9 @@
  *   GET /exchange-rates
  */
 import { apiGet, apiPost, apiPatch, apiDelete, apiUpload } from '@/lib/api/client'
-import type { PaymentOrder } from '@/types/payment-order'
+import type { PaymentOrder, PsavConfigRow, AppSettingRow } from '@/types/payment-order'
 import type { Supplier, CreateSupplierPayload } from '@/types/supplier'
+import type { ActivityLog } from '@/types/activity-log'
 import type { PaginationParams } from '@/lib/api/types'
 
 // ── DTOs de entrada ───────────────────────────────────────────────
@@ -251,5 +252,62 @@ export const PaymentsService = {
    */
   async getExchangeRate(pair: string): Promise<unknown> {
     return apiGet<unknown>(`/payment-orders/exchange-rates/${pair}`)
+  },
+
+  // ── PSAV Configs (cuentas receptoras para instrucciones de depósito) ────
+
+  /**
+   * Cuentas PSAV activas (visibles para el cliente para instrucciones de depósito).
+   * Usa el endpoint público de payment-orders/psav-accounts.
+   * Si falla (endpoint no disponible para clientes), retorna array vacío silenciosamente.
+   */
+  async getPsavConfigs(): Promise<PsavConfigRow[]> {
+    try {
+      return await apiGet<PsavConfigRow[]>('/payment-orders/psav-accounts')
+    } catch {
+      // Fallback: si el endpoint no está disponible para clientes, vacío
+      console.warn('[PaymentsService] PSAV configs endpoint not available for client role')
+      return []
+    }
+  },
+
+  // ── App Settings (tasas de cambio y configuración pública) ──────────────
+
+  /**
+   * Settings públicos del sistema (tasas paralelas, etc).
+   * Usa /settings/public que no requiere rol admin.
+   */
+  async getAppSettings(): Promise<AppSettingRow[]> {
+    try {
+      const raw = await apiGet<Record<string, string> | AppSettingRow[]>('/settings/public')
+      // /settings/public puede retornar un objeto {key: value} o un array
+      if (Array.isArray(raw)) return raw
+      // Convertir objeto plano a formato AppSettingRow
+      return Object.entries(raw).map(([key, value]) => ({
+        id: key,
+        key,
+        name: key,
+        value,
+      }))
+    } catch {
+      console.warn('[PaymentsService] Public settings endpoint not available')
+      return []
+    }
+  },
+
+  // ── Activity Logs ──────────────────────────────────────────────────────
+
+  /**
+   * Activity logs del usuario autenticado.
+   * El backend determina el userId por JWT.
+   */
+  async getActivityLogs(): Promise<ActivityLog[]> {
+    try {
+      const raw = await apiGet<ActivityLog[] | { data: ActivityLog[] }>('/activity')
+      return Array.isArray(raw) ? raw : Array.isArray((raw as any)?.data) ? (raw as any).data : []
+    } catch {
+      console.warn('[PaymentsService] Activity logs endpoint not available')
+      return []
+    }
   },
 }

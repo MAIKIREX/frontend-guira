@@ -23,6 +23,7 @@ import { Label } from '@/components/ui/label'
 import { DocumentUploadCard } from '@/components/shared/document-upload-card'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import {
   Dialog,
@@ -45,6 +46,7 @@ import {
   type StaffOrderProcessingValues,
   type StaffOrderSentValues,
   type StaffSupportActionValues,
+  type StaffReasonValues,
 } from '@/features/staff/schemas/staff-actions.schema'
 import { StaffService } from '@/services/staff.service'
 import { ACCEPTED_UPLOADS } from '@/lib/file-validation'
@@ -241,9 +243,10 @@ export function OrderActions({ actor, onUpdated, order }: { actor: StaffActor; o
 }
 
 function getPaymentStatusColor(status: string) {
-  if (status === 'created' || status === 'waiting_deposit' || status === 'requires_quote_approval') return 'bg-amber-400/15 text-amber-700 dark:text-amber-300'
+  if (status === 'created' || status === 'waiting_deposit') return 'bg-amber-400/15 text-amber-700 dark:text-amber-300'
   if (status === 'deposit_received' || status === 'processing' || status === 'sent') return 'bg-cyan-400/15 text-sky-700 dark:text-cyan-300'
   if (status === 'completed') return 'bg-emerald-400/15 text-emerald-700 dark:text-emerald-300'
+  if (status === 'failed' || status === 'cancelled' || status === 'swept_external') return 'bg-red-500/15 text-red-700 dark:text-red-300'
   return 'bg-red-500/15 text-red-700 dark:text-red-300'
 }
 
@@ -585,17 +588,24 @@ function buildOrderDestinationInfo(order: PaymentOrder) {
 
 function humanizeFlowType(flowType?: string) {
   switch (flowType) {
-    case 'bolivia_to_world': return 'Bolivia al Mundo'
-    case 'wallet_to_wallet': return 'Wallet a Wallet'
-    case 'bolivia_to_wallet': return 'Bolivia a Wallet'
-    case 'world_to_bolivia': return 'Mundo a Bolivia'
-    case 'world_to_wallet': return 'Mundo a Wallet'
-    case 'wallet_onramp_ach': return 'On-Ramp ACH'
-    case 'wallet_onramp_crypto': return 'On-Ramp Crypto'
-    case 'wallet_onramp_va': return 'On-Ramp V.Account'
-    case 'wallet_offramp_ach': return 'Off-Ramp ACH'
-    case 'wallet_offramp_crypto': return 'Off-Ramp Crypto'
-    case 'wallet_offramp_wire': return 'Off-Ramp Wire'
+    case 'fiat_bo_to_bridge_wallet':
+    case 'bolivia_to_world': 
+      return 'Bolivia al Mundo'
+    case 'crypto_to_bridge_wallet':
+    case 'wallet_to_wallet': 
+      return 'Wallet a Wallet'
+    case 'fiat_us_to_bridge_wallet':
+    case 'world_to_wallet': 
+      return 'Mundo a Wallet'
+    case 'bridge_wallet_to_fiat_bo':
+    case 'world_to_bolivia': 
+      return 'Mundo a Bolivia'
+    case 'bridge_wallet_to_crypto':
+      return 'Wallet a Crypto'
+    case 'bridge_wallet_to_fiat_us':
+      return 'Wallet a USA'
+    case 'bolivia_to_wallet': 
+      return 'Bolivia a Wallet'
     default: return flowType ?? ''
   }
 }
@@ -802,6 +812,23 @@ function getOrderStepExpectation(order: PaymentOrder) {
         description:
           'Esta orden ya esta marcada como failed. La seccion se mantiene como referencia para entender en que punto quedo el expediente y consultar sus respaldos.',
       }
+    case 'cancelled':
+      return {
+        title: 'La orden fue cancelada.',
+        description:
+          'El usuario o el sistema ha cancelado esta orden antes de que pudiera progresar.',
+      }
+    case 'swept_external':
+      return {
+        title: 'Fondos barridos externamente.',
+        description:
+          'Los fondos han sido barridos por un servicio externo (como Bridge). Es un estado terminal automático.',
+      }
+    default:
+      return {
+        title: 'Sin acciones disponibles.',
+        description: 'La orden se encuentra en un estado que no requiere accion operativa.'
+      }
   }
 }
 
@@ -821,6 +848,12 @@ function humanizeOrderStatus(status: PaymentOrder['status']) {
       return 'Completada'
     case 'failed':
       return 'Failed'
+    case 'cancelled':
+      return 'Cancelada'
+    case 'swept_external':
+      return 'Barrida (Ext)'
+    default:
+      return status ?? 'Desconocida'
   }
 }
 
@@ -840,14 +873,17 @@ function formatNumericValue(value: unknown) {
 }
 function OrderReasonActionDialog({ actor, action, blockedReason, label, onUpdated, order }: { actor: StaffActor; action: 'failed'; blockedReason?: string | null; label: string; onUpdated: (order: PaymentOrder) => Promise<void> | void; order: PaymentOrder }) {
   const [open, setOpen] = useState(false)
-  const form = useForm<{ reason: string }>({ resolver: zodResolver(staffReasonSchema), defaultValues: { reason: '' } })
+  const form = useForm<StaffReasonValues>({ 
+    resolver: zodResolver(staffReasonSchema) as any, 
+    defaultValues: { reason: '', notify_user: true } 
+  })
 
-  async function submit(values: { reason: string }) {
+  async function submit(values: StaffReasonValues) {
     try {
-      const updatedOrder = await StaffService.failPaymentOrder({ actor, order, reason: values.reason })
+      const updatedOrder = await StaffService.failPaymentOrder({ actor, order, reason: values.reason, notifyUser: values.notify_user })
       toast.success('Orden actualizada.')
       setOpen(false)
-      form.reset({ reason: '' })
+      form.reset({ reason: '', notify_user: true })
       await onUpdated(updatedOrder)
     } catch (error) {
       console.error('Failed to update payment order', error)
@@ -869,6 +905,17 @@ function OrderReasonActionDialog({ actor, action, blockedReason, label, onUpdate
         </DialogHeader>
         <Form {...form}>
           <form className="space-y-4" onSubmit={form.handleSubmit(submit)}>
+            <FormField control={form.control} name="notify_user" render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <FormLabel className="text-base">Notificar al cliente</FormLabel>
+                  <DialogDescription>Se enviara un email al cliente indicando el fallo de la orden.</DialogDescription>
+                </div>
+                <FormControl>
+                  <Switch checked={field.value} onCheckedChange={field.onChange} />
+                </FormControl>
+              </FormItem>
+            )} />
             <FormField control={form.control} name="reason" render={({ field }) => (
               <FormItem>
                 <FormLabel>Motivo</FormLabel>
@@ -928,13 +975,13 @@ function OrderQuoteDialog({ actor, onUpdated, order }: { actor: StaffActor; onUp
         </DialogHeader>
         <Form {...form}>
           <form className="space-y-4" onSubmit={form.handleSubmit(submit)}>
-            <ProcessingNumberField control={form.control} label="Tipo de cambio" name="exchange_rate_applied" readOnly={true} description="Valor establecido al crear la orden." />
+            <ProcessingNumberField control={form.control} label="Tipo de cambio" name="exchange_rate_applied" description="Puedes ajustar la tasa real final." />
             <div className="space-y-2">
               <Label>Monto convertido</Label>
               <Input className="bg-muted/40 font-medium" readOnly type="number" value={quotedAmountConverted} />
-              <p className="text-xs text-muted-foreground">Valor inmutable derivado de la conversion original.</p>
+              <p className="text-xs text-muted-foreground">Valor derivado automaticamente.</p>
             </div>
-            <ProcessingNumberField control={form.control} label="Fee total" name="fee_total" readOnly={true} description="Comision inmutable calculada por el sistema." />
+            <ProcessingNumberField control={form.control} label="Fee total" name="fee_total" description="Ajusta la comision final de la operacion en moneda origen." />
             <FormField control={form.control} name="reason" render={({ field }) => (
               <FormItem>
                 <FormLabel>Motivo</FormLabel>
@@ -953,11 +1000,11 @@ function OrderQuoteDialog({ actor, onUpdated, order }: { actor: StaffActor; onUp
 function OrderSentDialog({ actor, onUpdated, order }: { actor: StaffActor; onUpdated: (order: PaymentOrder) => Promise<void> | void; order: PaymentOrder }) {
   const [open, setOpen] = useState(false)
   const currentReference = typeof order.metadata === 'object' && order.metadata && 'reference' in order.metadata ? String(order.metadata.reference ?? '') : ''
-  const form = useForm<StaffOrderSentValues>({ resolver: zodResolver(staffOrderSentSchema), defaultValues: { reference: currentReference, reason: '' } })
+  const form = useForm<StaffOrderSentValues>({ resolver: zodResolver(staffOrderSentSchema), defaultValues: { reference: currentReference, provider_reference: '', reason: '' } })
 
   async function submit(values: StaffOrderSentValues) {
     try {
-      const updatedOrder = await StaffService.advancePaymentOrderToSent({ actor, order, reason: values.reason, reference: values.reference })
+      const updatedOrder = await StaffService.advancePaymentOrderToSent({ actor, order, reason: values.reason, reference: values.reference, providerReference: values.provider_reference })
       toast.success('Orden movida a sent.')
       setOpen(false)
       await onUpdated(updatedOrder)
@@ -979,8 +1026,15 @@ function OrderSentDialog({ actor, onUpdated, order }: { actor: StaffActor; onUpd
           <form className="space-y-4" onSubmit={form.handleSubmit(submit)}>
             <FormField control={form.control} name="reference" render={({ field }) => (
               <FormItem>
-                <FormLabel>Referencia</FormLabel>
-                <FormControl><Input {...field} placeholder="Hash o referencia bancaria" /></FormControl>
+                <FormLabel>Hash / TxID (Visible al cliente)</FormLabel>
+                <FormControl><Input {...field} placeholder="Identificador publico de la transaccion" /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="provider_reference" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Referencia interna PSAV (Opcional)</FormLabel>
+                <FormControl><Input {...field} placeholder="Código o referencia interna provista por el PSAV" /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />
