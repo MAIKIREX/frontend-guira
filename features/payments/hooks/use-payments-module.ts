@@ -45,13 +45,21 @@ export function usePaymentsModule() {
     setError(null)
 
     try {
-      // Carga paralela — queries principales (obligatorias)
-      const [rawOrders, suppliers, feesConfig, exchangeRates] = await Promise.all([
+      // Carga paralela — queries principales
+      const [ordersResult, suppliersResult, feesResult, ratesResult] = await Promise.allSettled([
         PaymentsService.getOrders(),
         PaymentsService.getSuppliers(),
         PaymentsService.getFeesConfig(),
         PaymentsService.getExchangeRates(),
       ])
+
+      if (ordersResult.status === 'rejected') throw ordersResult.reason
+      if (suppliersResult.status === 'rejected') throw suppliersResult.reason
+
+      const rawOrders = ordersResult.value
+      const suppliers = suppliersResult.value
+      const feesConfig = feesResult.status === 'fulfilled' ? feesResult.value : []
+      const exchangeRates = ratesResult.status === 'fulfilled' ? ratesResult.value : []
 
       // Carga paralela — queries secundarias (opcionales, no bloquean la vista)
       const [activityResult, psavResult, settingsResult] = await Promise.allSettled([

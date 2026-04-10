@@ -25,7 +25,7 @@ const MODE_CONFIG: Record<WorkspaceMode, {
     title: 'Depositar a tus rieles de salida',
     description: 'Aqui se concentran los flujos donde el fondeo viene de EE.UU. o del exterior y termina en wallet o Bolivia.',
     eyebrow: 'Depositar',
-    defaultRoute: 'us_to_wallet',
+    defaultRoute: 'wallet_ramp_deposit',
     allowedRoutes: ['us_to_wallet', 'world_to_bolivia', 'wallet_ramp_deposit'],
   },
   enviar: {
@@ -33,7 +33,7 @@ const MODE_CONFIG: Record<WorkspaceMode, {
     description: 'Aqui se crean expedientes para sacar fondos desde Bolivia o moverlos entre redes digitales.',
     eyebrow: 'Enviar',
     defaultRoute: 'bolivia_to_exterior',
-    allowedRoutes: ['bolivia_to_exterior', 'crypto_to_crypto'],
+    allowedRoutes: ['bolivia_to_exterior', 'crypto_to_crypto', 'wallet_ramp_withdraw'],
   },
   proveedores: {
     title: 'Agenda operativa de proveedores',

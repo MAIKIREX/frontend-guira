@@ -11,12 +11,14 @@ export type SupportedPaymentRoute =
   | 'us_to_wallet'
   | 'crypto_to_crypto'
   | 'wallet_ramp_deposit'
+  | 'wallet_ramp_withdraw'
 
 export const supportedPaymentRoutes: Array<{
   key: SupportedPaymentRoute
   label: string
   description: string
   supportedDeliveryMethods: DeliveryMethod[]
+  disabled?: boolean
 }> = [
   {
     key: 'bolivia_to_exterior',
@@ -35,6 +37,7 @@ export const supportedPaymentRoutes: Array<{
     label: 'USA a wallet',
     description: 'Expediente US_TO_WALLET para fondeo PSAV con entrega final a wallet.',
     supportedDeliveryMethods: ['ach'],
+    disabled: true,
   },
   {
     key: 'crypto_to_crypto',
@@ -48,6 +51,12 @@ export const supportedPaymentRoutes: Array<{
     description: 'Fondea tu wallet Bridge desde bolivianos, crypto externo o USD (EE.UU.).',
     supportedDeliveryMethods: [], // no aplica delivery method técnico
   },
+  {
+    key: 'wallet_ramp_withdraw',
+    label: 'Retirar fondos de mi Wallet',
+    description: 'Retira fondos de tu wallet a tu cuenta en Bolivia (BOB), cuenta en EE.UU. o a una wallet externa.',
+    supportedDeliveryMethods: [], // no aplica delivery method técnico
+  },
 ]
 
 export const unsupportedPaymentRoutes = [
@@ -56,11 +65,12 @@ export const unsupportedPaymentRoutes = [
 ] as const
 
 export function getDefaultRouteForAction(action?: string | null): SupportedPaymentRoute {
-  if (action === 'fund') return 'us_to_wallet'
+  if (action === 'fund') return 'world_to_bolivia'
+  if (action === 'withdraw') return 'wallet_ramp_withdraw'
   return 'bolivia_to_exterior'
 }
 
-export function resolveFlowType(route: SupportedPaymentRoute, deliveryMethod?: string, walletRampMethod?: string): string {
+export function resolveFlowType(route: SupportedPaymentRoute, deliveryMethod?: string, walletRampMethod?: string, walletRampWithdrawMethod?: string): string {
   switch (route) {
     case 'bolivia_to_exterior':
       return deliveryMethod === 'crypto' ? 'bolivia_to_wallet' : 'bolivia_to_world'
@@ -74,6 +84,10 @@ export function resolveFlowType(route: SupportedPaymentRoute, deliveryMethod?: s
       if (walletRampMethod === 'fiat_bo') return 'fiat_bo_to_bridge_wallet'
       if (walletRampMethod === 'crypto') return 'crypto_to_bridge_wallet'
       return 'fiat_us_to_bridge_wallet'
+    case 'wallet_ramp_withdraw':
+      if (walletRampWithdrawMethod === 'crypto') return 'bridge_wallet_to_crypto'
+      if (walletRampWithdrawMethod === 'fiat_us') return 'bridge_wallet_to_fiat_us'
+      return 'bridge_wallet_to_fiat_bo'
   }
 }
 
@@ -82,7 +96,11 @@ export function buildPaymentOrderPayload(
   userId: string,
   supplier?: any
 ): any {
-  const flowType = resolveFlowType(values.route, values.delivery_method, values.wallet_ramp_method)
+  const flowType = resolveFlowType(values.route, values.delivery_method, values.wallet_ramp_method, values.wallet_ramp_withdraw_method)
+  const isWalletRamp = [
+    'fiat_bo_to_bridge_wallet', 'crypto_to_bridge_wallet', 'fiat_us_to_bridge_wallet',
+    'bridge_wallet_to_fiat_bo', 'bridge_wallet_to_crypto', 'bridge_wallet_to_fiat_us',
+  ].includes(flowType)
 
   const payload: any = {
     flow_type: flowType,
@@ -90,7 +108,8 @@ export function buildPaymentOrderPayload(
     business_purpose: values.payment_reason || 'Operación interbancaria',
     destination_currency: values.destination_currency,
     notes: `Route: ${values.route} | Delivery: ${values.delivery_method}`,
-    supplier_id: supplier?.id || undefined
+    // supplier_id solo es aceptado por el DTO interbank, no el wallet_ramp
+    ...(isWalletRamp ? {} : { supplier_id: supplier?.id || undefined }),
   }
 
   // INCORPORACIÓN DE DATA ESPECÍFICA SEGÚN FLUJO:
@@ -138,6 +157,22 @@ export function buildPaymentOrderPayload(
       break
     case 'fiat_us_to_bridge_wallet':
       payload.virtual_account_id = values.wallet_ramp_va_id
+      break
+    case 'bridge_wallet_to_fiat_bo':
+      payload.wallet_id = values.wallet_ramp_wallet_id
+      payload.destination_bank_name = values.withdraw_bank_name
+      payload.destination_account_number = values.withdraw_account_number
+      payload.destination_account_holder = values.withdraw_account_holder
+      break
+    case 'bridge_wallet_to_crypto':
+      payload.wallet_id = values.wallet_ramp_wallet_id
+      payload.destination_address = values.crypto_address
+      payload.destination_network = values.crypto_network
+      payload.destination_currency = values.destination_currency || 'USDC'
+      break
+    case 'bridge_wallet_to_fiat_us':
+      payload.wallet_id = values.wallet_ramp_wallet_id
+      payload.external_account_id = supplier?.bridge_external_account_id || supplier?.id || undefined
       break
   }
 

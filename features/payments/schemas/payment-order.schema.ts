@@ -8,6 +8,7 @@ export const paymentOrderSchema = z
       'us_to_wallet',
       'crypto_to_crypto',
       'wallet_ramp_deposit',
+      'wallet_ramp_withdraw',
     ]),
     receive_variant: z.enum(['bank_account', 'bank_qr', 'wallet']).optional(),
     ui_method_group: z.enum(['bank', 'crypto']).optional(),
@@ -43,6 +44,11 @@ export const paymentOrderSchema = z
     wallet_ramp_va_id: z.string().optional(),
     wallet_ramp_source_network: z.string().optional(),
     wallet_ramp_source_address: z.string().optional(),
+    // Wallet withdraw (bridge_wallet_to_fiat_bo / crypto / fiat_us) fields
+    wallet_ramp_withdraw_method: z.enum(['fiat_bo', 'crypto', 'fiat_us']).optional(),
+    withdraw_bank_name: z.string().trim().optional(),
+    withdraw_account_number: z.string().trim().optional(),
+    withdraw_account_holder: z.string().trim().optional(),
   })
   .superRefine((value, ctx) => {
     
@@ -73,6 +79,42 @@ export const paymentOrderSchema = z
       }
 
       // Early return to avoid triggering interbank route validations
+      return
+    }
+
+    // ── Wallet withdraw route validations
+    if (value.route === 'wallet_ramp_withdraw') {
+      if (!value.wallet_ramp_withdraw_method) {
+        ctx.addIssue({ code: 'custom', message: 'Debes seleccionar un método de retiro.', path: ['wallet_ramp_withdraw_method'] })
+      }
+      
+      if (!value.wallet_ramp_wallet_id) {
+        ctx.addIssue({ code: 'custom', message: 'Selecciona la wallet de origen.', path: ['wallet_ramp_wallet_id'] })
+      }
+
+      if (value.wallet_ramp_withdraw_method === 'fiat_bo') {
+        if (!value.withdraw_bank_name || value.withdraw_bank_name.length < 2) {
+          ctx.addIssue({ code: 'custom', message: 'El nombre del banco es obligatorio.', path: ['withdraw_bank_name'] })
+        }
+        if (!value.withdraw_account_number || value.withdraw_account_number.length < 4) {
+          ctx.addIssue({ code: 'custom', message: 'El número de cuenta es obligatorio.', path: ['withdraw_account_number'] })
+        }
+        if (!value.withdraw_account_holder || value.withdraw_account_holder.length < 3) {
+          ctx.addIssue({ code: 'custom', message: 'El nombre del titular es obligatorio.', path: ['withdraw_account_holder'] })
+        }
+      } else if (value.wallet_ramp_withdraw_method === 'crypto') {
+        if (!value.crypto_address) {
+          ctx.addIssue({ code: 'custom', message: 'La direccion cripto es obligatoria.', path: ['crypto_address'] })
+        }
+        if (!value.crypto_network) {
+           ctx.addIssue({ code: 'custom', message: 'La red es obligatoria.', path: ['crypto_network'] })
+        }
+      } else if (value.wallet_ramp_withdraw_method === 'fiat_us') {
+        if (!value.supplier_id) {
+          ctx.addIssue({ code: 'custom', message: 'Selecciona un proveedor para el retiro.', path: ['supplier_id'] })
+        }
+      }
+      
       return
     }
 

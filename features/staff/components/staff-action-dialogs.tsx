@@ -808,12 +808,30 @@ function getOrderStepExpectation(order: PaymentOrder) {
         description:
           'Aqui se espera definir la tasa real, la fee total y confirmar el monto convertido final antes de mover la orden a processing.',
       }
-    case 'processing':
+    case 'processing': {
+      // Flujos 100% automáticos: Bridge maneja todo, no requiere acción manual
+      const fullyAutoFlows = ['bridge_wallet_to_crypto', 'bridge_wallet_to_fiat_us']
+      if (fullyAutoFlows.includes(order.flow_type ?? '') && !order.requires_psav) {
+        return {
+          title: 'Transferencia en curso vía Bridge.',
+          description:
+            'Los fondos están siendo transferidos automáticamente por Bridge. El webhook actualizará el estado cuando se complete o falle. No se requiere acción manual.',
+        }
+      }
+      // Flujo híbrido bridge_wallet_to_fiat_bo: Bridge completó el Tramo 1 → PSAV recibió crypto
+      if (order.flow_type === 'bridge_wallet_to_fiat_bo' && !order.requires_psav) {
+        return {
+          title: 'PSAV debe convertir USDC a BOB y depositar al cliente.',
+          description:
+            'Bridge ya transfirió el crypto al PSAV. Ahora el PSAV debe convertir los fondos a bolivianos y depositarlos en la cuenta bancaria del cliente. Cuando el PSAV confirme el envío, marcar como "Enviado".',
+        }
+      }
       return {
         title: 'Registrar la salida de la operacion.',
         description:
           'Cuando la transferencia o envio ya fue ejecutado, registra la referencia correspondiente para mover la orden a sent.',
       }
+    }
     case 'sent':
       return {
         title: 'Cerrar el expediente con el comprobante final.',
@@ -990,18 +1008,18 @@ function OrderQuoteDialog({ actor, onUpdated, order }: { actor: StaffActor; onUp
       <DialogTrigger render={<Button className="min-h-12 w-full justify-center px-4 text-sm font-semibold sm:w-auto" variant="outline" />}>Preparar cotizacion</DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Publicar cotizacion final</DialogTitle>
-          <DialogDescription>Define la tasa real, el monto final y la comision. Al publicarla, la orden pasa inmediatamente a `processing`.</DialogDescription>
+          <DialogTitle>Confirmar cotizacion</DialogTitle>
+          <DialogDescription>Verifica que el tipo de cambio, el monto convertido y la comision sean correctos antes de mover la orden a `processing`.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form className="space-y-4" onSubmit={form.handleSubmit(submit)}>
-            <ProcessingNumberField control={form.control} label="Tipo de cambio" name="exchange_rate_applied" description="Puedes ajustar la tasa real final." />
+            <ProcessingNumberField control={form.control} label="Tipo de cambio" name="exchange_rate_applied" readOnly description="Tasa de cambio aplicada al crear la orden." />
             <div className="space-y-2">
               <Label>Monto convertido</Label>
               <Input className="bg-muted/40 font-medium" readOnly type="number" value={quotedAmountConverted} />
-              <p className="text-xs text-muted-foreground">Valor derivado automaticamente.</p>
+              <p className="text-xs text-muted-foreground">Valor derivado automaticamente del monto origen, tipo de cambio y fee.</p>
             </div>
-            <ProcessingNumberField control={form.control} label="Fee total" name="fee_total" description="Ajusta la comision final de la operacion en moneda origen." />
+            <ProcessingNumberField control={form.control} label="Fee total" name="fee_total" readOnly description="Comision calculada al crear la orden." />
             <FormField control={form.control} name="reason" render={({ field }) => (
               <FormItem>
                 <FormLabel>Motivo</FormLabel>
@@ -1009,7 +1027,7 @@ function OrderQuoteDialog({ actor, onUpdated, order }: { actor: StaffActor; onUp
                 <FormMessage />
               </FormItem>
             )} />
-            <DialogFooter><Button disabled={form.formState.isSubmitting} type="submit">{form.formState.isSubmitting ? 'Guardando...' : 'Publicar cotizacion'}</Button></DialogFooter>
+            <DialogFooter><Button disabled={form.formState.isSubmitting} type="submit">{form.formState.isSubmitting ? 'Guardando...' : 'Confirmar cotizacion'}</Button></DialogFooter>
           </form>
         </Form>
       </DialogContent>
@@ -1166,6 +1184,18 @@ function ProcessingNumberField({
 }
 
 function getOrderActions(order: PaymentOrder) {
+  // Flujos 100% automatizados por Bridge (no requieren admin pipeline)
+  const fullyAutoFlows = ['bridge_wallet_to_crypto', 'bridge_wallet_to_fiat_us']
+  if (fullyAutoFlows.includes(order.flow_type ?? '') && !order.requires_psav) {
+    if (['created', 'processing'].includes(order.status)) {
+      return ['failed'] as const
+    }
+    return [] as const
+  }
+
+  // bridge_wallet_to_fiat_bo: flujo híbrido (Bridge auto Tramo 1 + PSAV manual Tramo 2)
+  // El pipeline sent→completed sigue activo para que staff gestione el payout BOB
+
   switch (order.status) {
     case 'created':
       // Solo el usuario puede confirmar su depósito (POST /payment-orders/:id/confirm-deposit).

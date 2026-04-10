@@ -60,6 +60,7 @@ import { AnimatedNextButton } from '@/components/shared/animated-next-button'
 import { AnimatedBackButton } from '@/components/shared/animated-back-button'
 import { StepProgressRail } from '@/features/payments/components/step-progress-rail'
 import { WalletRampDetailStep } from '@/features/payments/components/wallet-ramp-detail-step'
+import { WalletWithdrawDetailStep } from '@/features/payments/components/wallet-withdraw-detail-step'
 import { CRYPTO_NETWORK_OPTIONS, CRYPTO_NETWORK_LABELS, resolveCryptoNetwork } from '@/features/payments/lib/crypto-networks'
 import {
   paymentOrderSchema,
@@ -99,7 +100,7 @@ interface CreatePaymentOrderFormProps {
 }
 
 const STEP_ORDER: StepKey[] = ['route', 'method', 'detail', 'review', 'finish']
-const DEPOSIT_ROUTES: SupportedPaymentRoute[] = ['world_to_bolivia', 'us_to_wallet', 'wallet_ramp_deposit']
+const DEPOSIT_ROUTES: SupportedPaymentRoute[] = ['world_to_bolivia', 'us_to_wallet', 'wallet_ramp_deposit', 'wallet_ramp_withdraw']
 const FORM_LABEL_CLASS = 'text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground'
 const FORM_TEXT_CLASS = 'tracking-[0.01em]'
 const FORM_UNDERLINE_INPUT_CLASS = 'h-11 rounded-none border-0 border-b border-input bg-transparent px-0 py-0 shadow-none transition-colors focus-visible:border-primary focus-visible:ring-0 disabled:bg-transparent'
@@ -141,6 +142,12 @@ const ROUTE_STAGE_COPY: Record<SupportedPaymentRoute, {
     finishTitle: 'Guía de Depósito',
     finishDescription: 'El expediente fue creado. Sigue las instrucciones de fondeo y haz el depósito cuando estés listo. Opcionalmente sube tu comprobante de una vez.',
   },
+  wallet_ramp_withdraw: {
+    detailTitle: 'Detalle del retiro a Bolivia',
+    detailDescription: 'Ingresa el monto, selecciona tu wallet Bridge y los datos de tu cuenta bancaria boliviana.',
+    finishTitle: 'Retiro en proceso',
+    finishDescription: 'Tu orden fue creada y la transferencia de fondos está en camino. Recibirás tus bolivianos en tu cuenta bancaria.',
+  },
 }
 
 export function CreatePaymentOrderForm({
@@ -169,7 +176,6 @@ export function CreatePaymentOrderForm({
   const [loadingWallets, setLoadingWallets] = useState(false)
   const [virtualAccounts, setVirtualAccounts] = useState<VirtualAccount[]>([])
   const [loadingVirtualAccounts, setLoadingVirtualAccounts] = useState(false)
-  const [sourceWalletMode, setSourceWalletMode] = useState<'guira' | 'external'>('guira')
 
   const routeOptions = useMemo(
     () => supportedPaymentRoutes.filter((entry) => !allowedRoutes || allowedRoutes.includes(entry.key)),
@@ -187,7 +193,7 @@ export function CreatePaymentOrderForm({
   const route = useWatch({ control: form.control, name: 'route' })
   
   useEffect(() => {
-    if (route === 'crypto_to_crypto' || route === 'wallet_ramp_deposit') {
+    if (route === 'crypto_to_crypto' || route === 'wallet_ramp_deposit' || route === 'wallet_ramp_withdraw') {
       setLoadingWallets(true)
       WalletService.getWallets()
         .then((res) => setBridgeWallets(res.filter((w) => w.network)))
@@ -216,6 +222,7 @@ export function CreatePaymentOrderForm({
   const exchangeRateApplied = useWatch({ control: form.control, name: 'exchange_rate_applied' })
   const liveFeeTotal = useWatch({ control: form.control, name: 'fee_total' })
   const liveAmountConverted = useWatch({ control: form.control, name: 'amount_converted' })
+  const walletRampWithdrawMethod = useWatch({ control: form.control, name: 'wallet_ramp_withdraw_method' })
 
   const currentRoute = useMemo(
     () => routeOptions.find((entry) => entry.key === route) ?? routeOptions[0] ?? supportedPaymentRoutes[0],
@@ -234,10 +241,18 @@ export function CreatePaymentOrderForm({
   const supplierHasCrypto = Boolean(selectedSupplier?.bank_details?.wallet_address)
   const isDepositRouteActive = isDepositRoute(currentRoute.key)
   const routeCopy = ROUTE_STAGE_COPY[currentRoute.key]
-  const shouldHideSupplier = currentRoute.key === 'us_to_wallet' || currentRoute.key === 'world_to_bolivia' || currentRoute.key === 'crypto_to_crypto'
+  const shouldHideSupplier = currentRoute.key === 'us_to_wallet' || currentRoute.key === 'world_to_bolivia' || currentRoute.key === 'crypto_to_crypto' || (currentRoute.key === 'wallet_ramp_withdraw' && walletRampWithdrawMethod !== 'fiat_us')
   const requiresSupplierSelection = currentRoute.key === 'bolivia_to_exterior'
   const hasSupplierSelected = Boolean(selectedSupplier)
   const showSupportUpload = currentRoute.key === 'world_to_bolivia' || !isDepositRouteActive
+
+  // Para retiros a cuenta bancaria US, solo mostrar proveedores con external account registrada en Bridge
+  const filteredSuppliers = useMemo(() => {
+    if (currentRoute.key === 'wallet_ramp_withdraw' && walletRampWithdrawMethod === 'fiat_us') {
+      return suppliers.filter((s) => s.bridge_external_account_id)
+    }
+    return suppliers
+  }, [suppliers, currentRoute.key, walletRampWithdrawMethod])
   const availableTechnicalMethods = useMemo(
     () => getDeliveryMethodsForRoute(currentRoute.key, uiMethodGroup, supplierMethods),
     [currentRoute.key, uiMethodGroup, supplierMethods]
@@ -352,11 +367,10 @@ export function CreatePaymentOrderForm({
       uiMethodGroup,
       supportFileName: supportFile?.name ?? evidenceFile?.name ?? undefined,
       evidenceFileName: evidenceFile?.name ?? undefined,
-      sourceWalletMode,
       bridgeWallets,
       virtualAccounts,
     }),
-    [amountOrigin, bridgeWallets, virtualAccounts, currentRoute.key, currentRoute.label, evidenceFile?.name, liveValues, receiveVariant, selectedSupplier?.name, sourceWalletMode, supportFile?.name, uiMethodGroup]
+    [amountOrigin, bridgeWallets, virtualAccounts, currentRoute.key, currentRoute.label, evidenceFile?.name, liveValues, receiveVariant, selectedSupplier?.name, supportFile?.name, uiMethodGroup]
   )
 
   useEffect(() => {
@@ -521,7 +535,9 @@ export function CreatePaymentOrderForm({
       setCreatingOrder(true)
       const formValues = form.getValues()
       const selectedSup = suppliers.find(s => s.id === formValues.supplier_id)
-      const order = await onCreateOrder(buildPaymentOrderPayload(formValues, userId, selectedSup), qrFile, supportFile) as PaymentOrder
+      const payload = buildPaymentOrderPayload(formValues, userId, selectedSup)
+      console.log('🔍 Payment order payload:', JSON.stringify(payload, null, 2))
+      const order = await onCreateOrder(payload, qrFile, supportFile) as PaymentOrder
       setCreatedOrder(order)
       setStep('finish')
       toast.success('Expediente creado. Ahora puedes adjuntar el comprobante final o hacerlo despues.')
@@ -565,7 +581,19 @@ export function CreatePaymentOrderForm({
     }
 
     if (step === 'detail') {
-      if (route === 'wallet_ramp_deposit') {
+      if (route === 'wallet_ramp_withdraw') {
+        const isValidWithdraw = await form.trigger([
+          'amount_origin',
+          'wallet_ramp_wallet_id',
+          'withdraw_bank_name',
+          'withdraw_account_number',
+          'withdraw_account_holder',
+          'crypto_address',
+          'crypto_network',
+          'supplier_id',
+        ], { shouldFocus: true })
+        if (!isValidWithdraw) return
+      } else if (route === 'wallet_ramp_deposit') {
         const isValidWalletRamp = await form.trigger([
           'amount_origin',
           'wallet_ramp_method',
@@ -669,7 +697,7 @@ export function CreatePaymentOrderForm({
                                 <SelectionCard
                                   key={entry.key}
                                   description={entry.description}
-                                  disabled={disabled}
+                                  disabled={disabled || entry.disabled}
                                   icon={Landmark}
                                   isSelected={field.value === entry.key}
                                   onClick={() => {
@@ -845,6 +873,59 @@ export function CreatePaymentOrderForm({
                       />
                     ) : null}
 
+                    {currentRoute.key === 'wallet_ramp_withdraw' ? (
+                      <FormField
+                        control={form.control}
+                        name="wallet_ramp_withdraw_method"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className={FORM_LABEL_CLASS}>¿Hacia dónde retiras?</FormLabel>
+                            <FormControl>
+                              <div className="grid gap-3 md:grid-cols-3">
+                                <SelectionCard
+                                  description="Recibe bolivianos automatizado en tu cuenta bancaria a través del PSAV local."
+                                  disabled={disabled}
+                                  icon={Banknote}
+                                  isSelected={field.value === 'fiat_bo'}
+                                  onClick={() => {
+                                    field.onChange('fiat_bo')
+                                    form.setValue('origin_currency', 'USDC')
+                                    form.setValue('destination_currency', 'BOB')
+                                  }}
+                                  title="A cuenta bancaria en Bolivia"
+                                />
+                                <SelectionCard
+                                  description="Envía fondos de forma directa a una wallet cripto externa (on-chain)."
+                                  disabled={disabled}
+                                  icon={Network}
+                                  isSelected={field.value === 'crypto'}
+                                  onClick={() => {
+                                    field.onChange('crypto')
+                                    form.setValue('origin_currency', 'USDC')
+                                    form.setValue('destination_currency', 'USDC')
+                                  }}
+                                  title="A wallet cripto externa"
+                                />
+                                <SelectionCard
+                                  description="Retira fondos hacia una cuenta bancaria estadounidense vía ACH/Wire."
+                                  disabled={disabled}
+                                  icon={Landmark}
+                                  isSelected={field.value === 'fiat_us'}
+                                  onClick={() => {
+                                    field.onChange('fiat_us')
+                                    form.setValue('origin_currency', 'USDC')
+                                    form.setValue('destination_currency', 'USD')
+                                  }}
+                                  title="A cuenta bancaria (EE.UU.)"
+                                />
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    ) : null}
+
                     <div className="flex items-center justify-between mt-8">
                       <AnimatedBackButton onClick={handleBack}>
                         Volver
@@ -866,7 +947,16 @@ export function CreatePaymentOrderForm({
                     />
 
                     <div className="grid gap-4">
-                      {route === 'wallet_ramp_deposit' ? (
+                      {route === 'wallet_ramp_withdraw' ? (
+                        <WalletWithdrawDetailStep
+                          form={form}
+                          method={walletRampWithdrawMethod || 'fiat_bo'}
+                          wallets={bridgeWallets}
+                          exchangeRates={exchangeRates}
+                          feesConfig={feesConfig}
+                          disabled={disabled}
+                        />
+                      ) : route === 'wallet_ramp_deposit' ? (
                         <WalletRampDetailStep
                           form={form}
                           method={form.watch('wallet_ramp_method') || 'fiat_bo'}
@@ -912,17 +1002,30 @@ export function CreatePaymentOrderForm({
                                   </SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value="none">Sin proveedor cargado</SelectItem>
-                                    {suppliers.map((supplier) => (
+                                    {filteredSuppliers.map((supplier) => (
                                       <SelectItem key={supplier.id} value={supplier.id ?? supplier.name}>
-                                        {supplier.name}
+                                        <span>{supplier.name}</span>
+                                        {supplier.bridge_external_account_id ? (
+                                          <span className="ml-1.5 text-xs text-muted-foreground">
+                                            ({supplier.payment_rail?.toUpperCase() ?? 'BANK'} · External Account)
+                                          </span>
+                                        ) : null}
                                       </SelectItem>
                                     ))}
                                   </SelectContent>
                                 </Select>
                               </FormControl>
-                              <p className="text-xs text-muted-foreground">
-                                Debes crear un proveedor con los datos correctos antes de usar esta opcion.
-                              </p>
+                              {currentRoute.key === 'wallet_ramp_withdraw' && walletRampWithdrawMethod === 'fiat_us' && filteredSuppliers.length === 0 ? (
+                                <p className="text-xs text-amber-500">
+                                  No tienes proveedores con cuenta externa bancaria (ACH/Wire) registrada. Crea uno en la sección Proveedores para continuar.
+                                </p>
+                              ) : (
+                                <p className="text-xs text-muted-foreground">
+                                  {currentRoute.key === 'wallet_ramp_withdraw' && walletRampWithdrawMethod === 'fiat_us'
+                                    ? 'Solo se muestran proveedores con cuenta bancaria externa registrada en Bridge (ACH/Wire).'
+                                    : 'Debes crear un proveedor con los datos correctos antes de usar esta opcion.'}
+                                </p>
+                              )}
                               <div className="flex flex-wrap items-center gap-3">
                                 <Link
                                   className="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium transition-colors hover:bg-muted"
@@ -1012,7 +1115,7 @@ export function CreatePaymentOrderForm({
                             </>
                           ) : null}
 
-                          {currentRoute.key !== 'us_to_wallet' && currentRoute.key !== 'world_to_bolivia' ? (
+                          {currentRoute.key !== 'us_to_wallet' && currentRoute.key !== 'world_to_bolivia' && currentRoute.key !== 'wallet_ramp_withdraw' ? (
                             <>
                               <div className={`grid gap-4 ${(route === 'bolivia_to_exterior' && uiMethodGroup !== 'crypto') ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
                                 {!(route === 'bolivia_to_exterior' && uiMethodGroup === 'crypto') && route !== 'crypto_to_crypto' ? (
@@ -1069,58 +1172,9 @@ export function CreatePaymentOrderForm({
                                     <div className="grid gap-4 mt-4 px-4 py-4 border rounded-md bg-muted/20">
                                       <div className="col-span-full mb-2">
                                         <h4 className="text-sm font-semibold">Datos de Fondeo (Desde dónde envías)</h4>
-                                        <div className="flex gap-2 mt-3 mb-4">
-                                          <Button type="button" variant={sourceWalletMode === 'guira' ? 'default' : 'outline'} size="sm" onClick={() => setSourceWalletMode('guira')}>Mis Wallets Guira</Button>
-                                          <Button type="button" variant={sourceWalletMode === 'external' ? 'default' : 'outline'} size="sm" onClick={() => { setSourceWalletMode('external'); form.setValue('source_crypto_address', ''); form.setValue('source_crypto_network', ''); }}>Wallet Externa</Button>
-                                        </div>
                                       </div>
-                                      
-                                      {sourceWalletMode === 'guira' ? (
-                                        <>
-                                          <FormField
-                                            control={form.control}
-                                            name="source_crypto_address"
-                                            render={({ field }) => (
-                                              <FormItem>
-                                                <FormLabel className={FORM_LABEL_CLASS}>Wallet de Origen</FormLabel>
-                                                <FormControl>
-                                                  <Select
-                                                    disabled={disabled || loadingWallets}
-                                                    value={field.value ?? ''}
-                                                    onValueChange={(val) => {
-                                                      field.onChange(val)
-                                                      // Auto-set the network based on the selected wallet
-                                                      const selectedWallet = bridgeWallets.find((w) => w.address === val)
-                                                      if (selectedWallet?.network) {
-                                                        form.setValue('source_crypto_network', selectedWallet.network, { shouldValidate: true })
-                                                      }
-                                                    }}
-                                                  >
-                                                    <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
-                                                      <SelectValue placeholder={loadingWallets ? "Cargando wallets..." : "Selecciona tu wallet"} />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                      {bridgeWallets.map((wallet) => (
-                                                        <SelectItem key={wallet.id} value={wallet.address ?? ''}>
-                                                          {wallet.currency.toUpperCase()} - {wallet.network ? `${wallet.network.charAt(0).toUpperCase()}${wallet.network.slice(1)}` : 'Interna'} ({wallet.address?.slice(0, 6)}...{wallet.address?.slice(-4)})
-                                                        </SelectItem>
-                                                      ))}
-                                                    </SelectContent>
-                                                  </Select>
-                                                </FormControl>
-                                                <FormMessage />
-                                              </FormItem>
-                                            )}
-                                          />
-                                          
-                                          <NetworkSelectField control={form.control} disabled={true} label="Red de Origen (Autocompletada)" name="source_crypto_network" placeholder="Autocompletado" />
-                                        </>
-                                      ) : (
-                                        <>
-                                          <TextField control={form.control} disabled={disabled} label="Wallet de Origen (Externa)" name="source_crypto_address" />
-                                          <NetworkSelectField control={form.control} disabled={disabled} label="Red de Origen" name="source_crypto_network" placeholder="Selecciona la red" />
-                                        </>
-                                      )}
+                                      <TextField control={form.control} disabled={disabled} label="Wallet de Origen (Externa)" name="source_crypto_address" />
+                                      <NetworkSelectField control={form.control} disabled={disabled} label="Red de Origen" name="source_crypto_network" placeholder="Selecciona la red" />
                                     </div>
                                   ) : null}
                                   <div className="grid gap-4 lg:grid-cols-2 mt-4">
@@ -1224,38 +1278,107 @@ export function CreatePaymentOrderForm({
                       description={routeCopy.finishDescription}
                     />
 
-                    <div className="grid gap-4 lg:grid-cols-2">
-                      {finalInstructions.map((instruction) => (
-                        <DepositInstructionCard key={instruction.id} instruction={instruction} />
-                      ))}
-                    </div>
+                    {route === 'wallet_ramp_withdraw' ? (
+                      <>
+                        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-6 text-sm space-y-3">
+                          <div className="flex items-center gap-2 font-medium text-emerald-400">
+                            <Loader2 className="size-4 animate-spin" />
+                            Tu retiro está siendo procesado…
+                          </div>
+                          <p className="text-muted-foreground">
+                            {walletRampWithdrawMethod === 'crypto'
+                              ? 'Tu transferencia on-chain fue iniciada desde tu wallet Bridge hacia la dirección destino. Bridge procesará el envío automáticamente y el estado se actualizará cuando se complete.'
+                              : walletRampWithdrawMethod === 'fiat_us'
+                                ? 'Tu retiro fue iniciado desde tu wallet Bridge hacia tu cuenta bancaria estadounidense. Bridge procesará la transferencia vía ACH/Wire automáticamente.'
+                                : 'La transferencia cripto ya fue iniciada desde tu wallet Bridge hacia el PSAV. Una vez que el PSAV reciba los fondos, los convertirá a bolivianos y los depositará en tu cuenta bancaria. El staff confirmará cada etapa.'}
+                          </p>
+                          <div className="mt-4 grid gap-2 text-xs text-muted-foreground">
+                            <div className="flex justify-between rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
+                              <span>Estado actual</span>
+                              <span className="font-medium text-amber-400">En proceso</span>
+                            </div>
+                            {walletRampWithdrawMethod === 'crypto' ? (
+                              <>
+                                <div className="flex justify-between rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
+                                  <span>Dirección destino</span>
+                                  <span className="font-medium text-foreground font-mono text-[11px]">{form.getValues('crypto_address')?.slice(0, 10)}…{form.getValues('crypto_address')?.slice(-6)}</span>
+                                </div>
+                                <div className="flex justify-between rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
+                                  <span>Red</span>
+                                  <span className="font-medium text-foreground capitalize">{form.getValues('crypto_network')}</span>
+                                </div>
+                              </>
+                            ) : walletRampWithdrawMethod === 'fiat_us' ? (
+                              <div className="flex justify-between rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
+                                <span>Método</span>
+                                <span className="font-medium text-foreground">Cuenta bancaria (USD) vía ACH/Wire</span>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="flex justify-between rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
+                                  <span>Destino</span>
+                                  <span className="font-medium text-foreground">{form.getValues('withdraw_bank_name')} — ****{form.getValues('withdraw_account_number')?.slice(-4)}</span>
+                                </div>
+                                <div className="flex justify-between rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
+                                  <span>Titular</span>
+                                  <span className="font-medium text-foreground">{form.getValues('withdraw_account_holder')}</span>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
 
-                    <div className="border-l-2 border-emerald-400/45 bg-emerald-400/10 px-4 py-4 text-sm text-emerald-100">
-                      El expediente ya fue creado con estado `waiting_deposit`. Desde aqui puedes dejar el comprobante final o subirlo despues desde Seguimiento.
-                    </div>
+                        <div className="border-l-2 border-border/70 bg-muted/10 px-4 py-4 text-sm text-muted-foreground">
+                          {walletRampWithdrawMethod === 'fiat_bo'
+                            ? 'Puedes dar seguimiento a esta orden desde el tab "Seguimiento". No es necesario subir comprobante; el proceso es automático en la primera etapa.'
+                            : 'Tu retiro es procesado automáticamente por Bridge. El estado se actualizará cuando se complete. Puedes dar seguimiento desde el tab "Seguimiento".'}
+                        </div>
 
-                    <DocumentInputCard
-                      file={evidenceFile}
-                      label="Comprobante final"
-                      description="Adjunta aqui el comprobante del deposito o fondeo. Se guardara en evidence_url."
-                      onFileChange={setEvidenceFile}
-                    />
+                        <div className="flex items-center justify-end mt-8">
+                          <AnimatedNextButton
+                            disabled={disabled}
+                            onClick={() => resetFlow(form, setStep, setSupportFile, setQrFile, setEvidenceFile, setCreatedOrder)}
+                          >
+                            Cerrar
+                          </AnimatedNextButton>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="grid gap-4 lg:grid-cols-2">
+                          {finalInstructions.map((instruction) => (
+                            <DepositInstructionCard key={instruction.id} instruction={instruction} />
+                          ))}
+                        </div>
 
-                    <div className="border-l-2 border-border/70 bg-muted/10 px-4 py-4 text-sm text-muted-foreground">
-                      Cuando el comprobante final quede adjunto y la orden siga en `waiting_deposit`, el sistema la movera a `deposit_received`.
-                    </div>
+                        <div className="border-l-2 border-emerald-400/45 bg-emerald-400/10 px-4 py-4 text-sm text-emerald-100">
+                          El expediente ya fue creado con estado `waiting_deposit`. Desde aqui puedes dejar el comprobante final o subirlo despues desde Seguimiento.
+                        </div>
 
-                    <div className="flex items-center justify-between mt-8">
-                      <AnimatedBackButton
-                        disabled={uploadingEvidence}
-                        onClick={() => resetFlow(form, setStep, setSupportFile, setQrFile, setEvidenceFile, setCreatedOrder)}
-                      >
-                        Finalizar despues
-                      </AnimatedBackButton>
-                      <AnimatedNextButton disabled={disabled || uploadingEvidence || !createdOrder} onClick={handleFinishEvidenceUpload}>
-                        {uploadingEvidence ? 'Adjuntando...' : evidenceFile ? 'Adjuntar y cerrar' : 'Cerrar sin comprobante'}
-                      </AnimatedNextButton>
-                    </div>
+                        <DocumentInputCard
+                          file={evidenceFile}
+                          label="Comprobante final"
+                          description="Adjunta aqui el comprobante del deposito o fondeo. Se guardara en evidence_url."
+                          onFileChange={setEvidenceFile}
+                        />
+
+                        <div className="border-l-2 border-border/70 bg-muted/10 px-4 py-4 text-sm text-muted-foreground">
+                          Cuando el comprobante final quede adjunto y la orden siga en `waiting_deposit`, el sistema la movera a `deposit_received`.
+                        </div>
+
+                        <div className="flex items-center justify-between mt-8">
+                          <AnimatedBackButton
+                            disabled={uploadingEvidence}
+                            onClick={() => resetFlow(form, setStep, setSupportFile, setQrFile, setEvidenceFile, setCreatedOrder)}
+                          >
+                            Finalizar despues
+                          </AnimatedBackButton>
+                          <AnimatedNextButton disabled={disabled || uploadingEvidence || !createdOrder} onClick={handleFinishEvidenceUpload}>
+                            {uploadingEvidence ? 'Adjuntando...' : evidenceFile ? 'Adjuntar y cerrar' : 'Cerrar sin comprobante'}
+                          </AnimatedNextButton>
+                        </div>
+                      </>
+                    )}
                   </AnimatedStepPanel>
                 ) : null}
               </AnimatePresence>
@@ -1361,6 +1484,26 @@ function getDefaultValues(route: SupportedPaymentRoute): PaymentOrderFormValues 
       intended_amount: 0,
       destination_address: '',
       stablecoin: 'USDC',
+    } as any
+  }
+
+  if (route === 'wallet_ramp_withdraw') {
+    return {
+      route,
+      amount_origin: 0,
+      amount_converted: 0,
+      fee_total: 0,
+      exchange_rate_applied: 1,
+      origin_currency: 'USDC',
+      destination_currency: 'BOB',
+      delivery_method: 'ach',
+      payment_reason: 'Retiro de fondos wallet a Bolivia',
+      intended_amount: 0,
+      destination_address: '',
+      stablecoin: 'USDC',
+      withdraw_bank_name: '',
+      withdraw_account_number: '',
+      withdraw_account_holder: '',
     } as any
   }
 
@@ -1722,6 +1865,8 @@ function getMethodTitle(route: SupportedPaymentRoute) {
       return 'Selecciona el metodo digital'
     case 'wallet_ramp_deposit':
       return 'Elige tu cuenta de origen'
+    case 'wallet_ramp_withdraw':
+      return 'Retiro de fondos'
   }
 }
 
@@ -1737,6 +1882,8 @@ function getMethodDescription(route: SupportedPaymentRoute) {
       return 'La salida final es digital y el detalle se autocompleta desde el proveedor cripto.'
     case 'wallet_ramp_deposit':
       return 'Tus opciones para depositar a tu saldo en base a tu procedencia.'
+    case 'wallet_ramp_withdraw':
+      return 'Los fondos USDC se enviarán al PSAV. El PSAV los convertirá y depositará BOB en tu cuenta bancaria.'
   }
 }
 
@@ -1752,6 +1899,8 @@ function getAmountLabel(route: SupportedPaymentRoute) {
       return 'Monto en USDC'
     case 'wallet_ramp_deposit':
       return 'Monto'
+    case 'wallet_ramp_withdraw':
+      return 'Monto a retirar (USDC)'
   }
 }
 
@@ -1767,6 +1916,8 @@ function getDestinationLabel(route: SupportedPaymentRoute) {
       return 'Wallet destino'
     case 'wallet_ramp_deposit':
       return 'Direccion'
+    case 'wallet_ramp_withdraw':
+      return 'Cuenta bancaria destino'
   }
 }
 
@@ -1778,6 +1929,7 @@ function getMethodStepFields(route: SupportedPaymentRoute): FieldPath<PaymentOrd
   if (route === 'world_to_bolivia') return ['receive_variant']
   if (route === 'bolivia_to_exterior') return ['ui_method_group']
   if (route === 'wallet_ramp_deposit') return ['wallet_ramp_method']
+  if (route === 'wallet_ramp_withdraw') return ['wallet_ramp_withdraw_method']
   return []
 }
 
@@ -1802,6 +1954,10 @@ function getDetailStepFields({
 
   if (route === 'us_to_wallet') {
     return [...fields, 'origin_currency', 'destination_currency', 'crypto_address', 'crypto_network']
+  }
+
+  if (route === 'wallet_ramp_withdraw') {
+    return ['amount_origin', 'wallet_ramp_wallet_id', 'withdraw_bank_name', 'withdraw_account_number', 'withdraw_account_holder', 'crypto_address', 'crypto_network', 'supplier_id']
   }
 
   if (route === 'bolivia_to_exterior') {
@@ -1851,7 +2007,6 @@ function buildReviewItems(args: {
   uiMethodGroup?: UiMethodGroup
   supportFileName?: string
   evidenceFileName?: string
-  sourceWalletMode?: 'guira' | 'external'
   bridgeWallets?: WalletBalance[]
   virtualAccounts?: VirtualAccount[]
 }) {
@@ -1920,7 +2075,7 @@ function buildReviewItems(args: {
   }
 
   if (args.route === 'crypto_to_crypto') {
-    items.push({ label: 'Origen (Fondeo)', value: args.sourceWalletMode === 'guira' ? 'Mis Wallets Guira' : 'Wallet Externa' })
+    items.push({ label: 'Origen (Fondeo)', value: 'Wallet Externa' })
     items.push({ label: 'Wallet origen', value: args.values.source_crypto_address || 'Pendiente' })
     items.push({ label: 'Red origen', value: args.values.source_crypto_network || 'Pendiente' })
     items.push({ label: 'Metodo tecnico', value: 'crypto' })
@@ -1960,6 +2115,39 @@ function buildReviewItems(args: {
         ? `${vaSelected.bank_name ?? 'Banco VA'} — ****${vaSelected.account_number?.slice(-4) ?? ''}`
         : (args.values.wallet_ramp_va_id || 'Pendiente')
       items.push({ label: 'Virtual Account Origen', value: vaReadable })
+    }
+  }
+
+  if (args.route === 'wallet_ramp_withdraw') {
+    const method = args.values.wallet_ramp_withdraw_method || 'fiat_bo'
+    const wallet = args.bridgeWallets?.find(w => w.id === args.values.wallet_ramp_wallet_id)
+    const readableWallet = wallet ? `${wallet.currency.toUpperCase()} Wallet (${wallet.available_balance.toFixed(2)} disponible)` : 'Pendiente'
+    items.push({ label: 'Wallet Bridge Origen', value: readableWallet })
+    items.push({ label: 'Método Destino', value: method === 'fiat_bo' ? 'Cuenta bancaria (BOB)' : method === 'crypto' ? 'Wallet cripto externa' : 'Cuenta bancaria (USD)' })
+
+    if (args.values.fee_total !== undefined && args.values.fee_total > 0) {
+      items.push({ label: 'Fee estimado', value: formatMoney(args.values.fee_total, 'USDC') })
+    }
+
+    if (method === 'fiat_bo') {
+      items.push({ label: 'Tipo de cambio', value: formatExchangeRate(args.values.exchange_rate_applied, 'USDC', 'BOB') })
+      if (args.values.amount_converted !== undefined) {
+        items.push({ label: 'Recibirás aprox.', value: formatMoney(args.values.amount_converted, 'BOB') })
+      }
+      items.push({ label: 'Banco destino', value: (args.values as any).withdraw_bank_name || 'Pendiente' })
+      items.push({ label: 'Cuenta destino', value: (args.values as any).withdraw_account_number || 'Pendiente' })
+      items.push({ label: 'Titular', value: (args.values as any).withdraw_account_holder || 'Pendiente' })
+    } else if (method === 'crypto') {
+      if (args.values.amount_converted !== undefined) {
+        items.push({ label: 'Recibirás aprox.', value: formatMoney(args.values.amount_converted, 'USDC') })
+      }
+      items.push({ label: 'Cripto destino', value: args.values.crypto_address || 'Pendiente' })
+      items.push({ label: 'Red destino', value: args.values.crypto_network || 'Pendiente' })
+    } else if (method === 'fiat_us') {
+      if (args.values.amount_converted !== undefined) {
+        items.push({ label: 'Recibirás aprox.', value: formatMoney(args.values.amount_converted, 'USD') })
+      }
+      items.push({ label: 'Proveedor', value: args.supplierName || 'Pendiente' })
     }
   }
 

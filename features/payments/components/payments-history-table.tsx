@@ -1006,7 +1006,7 @@ function humanizeOrderType(order: PaymentOrder) {
       case 'fiat_bo_to_bridge_wallet': return 'BO a Bridge'
       case 'crypto_to_bridge_wallet': return 'Crypto a Bridge'
       case 'fiat_us_to_bridge_wallet': return 'US a Bridge'
-      case 'bridge_wallet_to_fiat_bo': return 'Bridge a BO'
+      case 'bridge_wallet_to_fiat_bo': return 'Retirar fondos de mi Wallet'
       case 'bridge_wallet_to_crypto': return 'Bridge a crypto'
       case 'bridge_wallet_to_fiat_us': return 'Bridge a US'
       default: return order.flow_type
