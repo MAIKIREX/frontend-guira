@@ -957,6 +957,7 @@ function OrderReasonActionDialog({ actor, action, blockedReason, label, onUpdate
             <FormField control={form.control} name="reason" render={({ field }) => (
               <FormItem>
                 <FormLabel>Motivo</FormLabel>
+                <QuickCommentsList comments={QUICK_COMMENTS.failed} onSelect={(c) => form.setValue('reason', c, { shouldValidate: true })} />
                 <FormControl><Textarea {...field} placeholder="Describe la accion realizada" /></FormControl>
                 <FormMessage />
               </FormItem>
@@ -1023,6 +1024,7 @@ function OrderQuoteDialog({ actor, onUpdated, order }: { actor: StaffActor; onUp
             <FormField control={form.control} name="reason" render={({ field }) => (
               <FormItem>
                 <FormLabel>Motivo</FormLabel>
+                <QuickCommentsList comments={QUICK_COMMENTS.quote} onSelect={(c) => form.setValue('reason', c, { shouldValidate: true })} />
                 <FormControl><Textarea {...field} placeholder="Resume la validacion realizada" /></FormControl>
                 <FormMessage />
               </FormItem>
@@ -1079,6 +1081,7 @@ function OrderSentDialog({ actor, onUpdated, order }: { actor: StaffActor; onUpd
             <FormField control={form.control} name="reason" render={({ field }) => (
               <FormItem>
                 <FormLabel>Motivo</FormLabel>
+                <QuickCommentsList comments={QUICK_COMMENTS.sent} onSelect={(c) => form.setValue('reason', c, { shouldValidate: true })} />
                 <FormControl><Textarea {...field} placeholder="Contexto del envio" /></FormControl>
                 <FormMessage />
               </FormItem>
@@ -1137,6 +1140,7 @@ function OrderCompletionDialog({ actor, onUpdated, order }: { actor: StaffActor;
             <FormField control={form.control} name="reason" render={({ field }) => (
               <FormItem>
                 <FormLabel>Motivo</FormLabel>
+                <QuickCommentsList comments={QUICK_COMMENTS.completed} onSelect={(c) => form.setValue('reason', c, { shouldValidate: true })} />
                 <FormControl><Textarea {...field} placeholder="Detalle del cierre de expediente" /></FormControl>
                 <FormMessage />
               </FormItem>
@@ -1254,4 +1258,48 @@ function normalizeNumericValue(value: unknown) {
 
   return 0
 }
+
+const QUICK_COMMENTS = {
+  failed: [
+    "No se recibio el deposito bancario",
+    "Comprobante ilegible o invalido",
+    "Rechazado por motivos de Compliance",
+  ],
+  quote: [
+    "Deposito bancario validado. Cotizacion lista.",
+    "Comprobante verificado. Se respeta tasa pactada.",
+  ],
+  sent: [
+    "Fondos liberados desde PSAV",
+    "Transferencia procesada. Hash generado.",
+  ],
+  completed: [
+    "Expediente administrativo cerrado",
+    "Comprobante final del staff adjunto y orden completada",
+  ],
+}
+
+function QuickCommentsList({
+  comments,
+  onSelect,
+}: {
+  comments: string[]
+  onSelect: (comment: string) => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-2 mb-3 mt-1">
+      {comments.map((comment, idx) => (
+        <button
+          key={idx}
+          type="button"
+          onClick={() => onSelect(comment)}
+          className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80"
+        >
+          {comment}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 
