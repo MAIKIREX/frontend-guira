@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import {
   FormControl,
   FormField,
@@ -35,6 +35,13 @@ const METHOD_META = {
   fiat_us: { originCurrency: 'USD', destCurrency: 'USDC' }
 }
 
+// Hoisted outside the component so the reference is stable across renders
+const FLOW_TYPE_MAP: Record<string, string> = {
+  fiat_bo: 'fiat_bo_to_bridge_wallet',
+  crypto: 'crypto_to_bridge_wallet',
+  fiat_us: 'fiat_us_to_bridge_wallet',
+}
+
 interface WalletRampDetailStepProps {
   form: any
   method: 'fiat_bo' | 'crypto' | 'fiat_us'
@@ -61,15 +68,12 @@ export function WalletRampDetailStep({
   const [vaDialogOpen, setVaDialogOpen] = useState(false)
   const meta = METHOD_META[method]
 
-  const flowTypeMap: Record<string, any> = {
-    fiat_bo: 'fiat_bo_to_bridge_wallet',
-    crypto: 'crypto_to_bridge_wallet',
-    fiat_us: 'fiat_us_to_bridge_wallet',
-  }
+  // Ref to track previous estimate values and skip redundant setValue calls
+  const prevEstimateRef = useRef<{ feeTotal: number; exchangeRateApplied: number; amountConverted: number } | null>(null)
 
   const amount = form.watch('amount_origin')
   const estimate = React.useMemo(() => {
-    const feeTotal = resolveFeeTotal(feesConfig, Number(amount) || 0, flowTypeMap[method] as any)
+    const feeTotal = resolveFeeTotal(feesConfig, Number(amount) || 0, FLOW_TYPE_MAP[method] as any)
     let exchangeRateApplied = 1
 
     if (method === 'fiat_bo') {
@@ -89,12 +93,23 @@ export function WalletRampDetailStep({
       exchangeRateApplied,
       amountConverted
     }
-  }, [method, amount, exchangeRates, feesConfig, flowTypeMap])
+  }, [method, amount, exchangeRates, feesConfig])
 
   React.useEffect(() => {
-    form.setValue('fee_total', estimate.feeTotal)
-    form.setValue('exchange_rate_applied', estimate.exchangeRateApplied)
-    form.setValue('amount_converted', estimate.amountConverted)
+    const prev = prevEstimateRef.current
+    // Only call setValue when the computed values have actually changed
+    if (
+      prev &&
+      prev.feeTotal === estimate.feeTotal &&
+      prev.exchangeRateApplied === estimate.exchangeRateApplied &&
+      prev.amountConverted === estimate.amountConverted
+    ) {
+      return
+    }
+    prevEstimateRef.current = estimate
+    form.setValue('fee_total', estimate.feeTotal, { shouldValidate: false, shouldDirty: false, shouldTouch: false })
+    form.setValue('exchange_rate_applied', estimate.exchangeRateApplied, { shouldValidate: false, shouldDirty: false, shouldTouch: false })
+    form.setValue('amount_converted', estimate.amountConverted, { shouldValidate: false, shouldDirty: false, shouldTouch: false })
   }, [estimate, form])
 
   return (

@@ -826,8 +826,8 @@ export function CreatePaymentOrderForm({
                                   title="Desde crypto externo"
                                 />
                                 <SelectionCard
-                                  description="Fondea vía ACH/Wire desde EE.UU. usando tu Virtual Account."
-                                  disabled={disabled}
+                                  description="Tu Virtual Account fondea tu wallet automáticamente. No necesitas crear un expediente."
+                                  disabled={true}
                                   icon={Landmark}
                                   isSelected={field.value === 'fiat_us'}
                                   onClick={() => {
@@ -835,7 +835,7 @@ export function CreatePaymentOrderForm({
                                     form.setValue('origin_currency', 'USD')
                                     form.setValue('destination_currency', 'USDC')
                                   }}
-                                  title="Desde cuenta USD (EEUU)"
+                                  title="Desde cuenta USD (EEUU) — Automático"
                                 />
                               </div>
                             </FormControl>
