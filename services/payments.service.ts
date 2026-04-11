@@ -204,6 +204,15 @@ export const PaymentsService = {
     return apiPost<PaymentOrder>(`/payment-orders/${orderId}/cancel`)
   },
 
+  /**
+   * Actualiza campos de una orden existente.
+   * Usado para persistir URLs de documentos adjuntos post-creación
+   * (e.g. supporting_document_url).
+   */
+  async updateOrder(orderId: string, data: Partial<PaymentOrder>): Promise<PaymentOrder> {
+    return apiPatch<PaymentOrder>(`/payment-orders/${orderId}`, data)
+  },
+
   // ── Proveedores (Suppliers) ───────────────────────────────────
 
   /**

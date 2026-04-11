@@ -25,6 +25,7 @@ export interface DepositInstruction {
     bankName: string
     accountHolder: string
     accountNumber: string
+    routingNumber?: string
     country: string
   }
 }

@@ -1,0 +1,14 @@
+services:
+  guira-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: "https://culyqtrtuxznkedohryg.supabase.co"
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1bHlxdHJ0dXh6bmtlZG9ocnlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2NDAwODksImV4cCI6MjA5MDIxNjA4OX0.RgGjCQn1Pi_O0pA3n8WGuLPwra_MKbz5KBuqntmscL4"
+        NEXT_PUBLIC_API_URL: "https://backend-guira.onrender.com/api"
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production

@@ -212,15 +212,24 @@ export function usePaymentsModule() {
    */
   const uploadOrderFile = useCallback(async (orderId: string, field: OrderFileField, file: File) => {
     if (field === 'support_document_url' || field === 'supporting_document_url') {
-      // Upload to Supabase Storage and update order state optimistically
+      // Upload to Supabase Storage
       const storagePath = await PaymentsService.uploadFileToStorage(file, 'payment-receipts')
-      const currentOrder = state?.orders.find(o => o.id === orderId)
-      if (currentOrder) {
-        const updatedOrder = { ...currentOrder, supporting_document_url: storagePath }
+      // Intentar persistir la URL en el backend vía PATCH
+      try {
+        const updatedOrder = await PaymentsService.updateOrder(orderId, { supporting_document_url: storagePath })
         mergeOrder(updatedOrder)
         return updatedOrder
+      } catch {
+        // Fallback: si el backend no soporta PATCH aún, actualizar solo localmente
+        console.warn(`[usePaymentsModule] No se pudo persistir supporting_document_url en backend para order ${orderId}. Actualización solo local.`)
+        const currentOrder = state?.orders.find(o => o.id === orderId)
+        if (currentOrder) {
+          const updatedOrder = { ...currentOrder, supporting_document_url: storagePath }
+          mergeOrder(updatedOrder)
+          return updatedOrder
+        }
+        throw new Error(`Order ${orderId} not found in local state`)
       }
-      throw new Error(`Order ${orderId} not found in local state`)
     }
     const order = await PaymentsService.uploadOrderEvidence(orderId, file)
     mergeOrder(order)

@@ -1,0 +1,50 @@
+# ── Dependencies ──
+node_modules
+.pnp
+.pnp.*
+.yarn/*
+
+# ── Build artifacts ──
+.next
+out
+build
+
+# ── Version control ──
+.git
+.gitignore
+
+# ── IDE / editor ──
+.vscode
+.agents
+
+# ── Env files (injected at build via --build-arg) ──
+.env*
+
+# ── Docker files (avoid recursion) ──
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# ── Misc ──
+*.md
+*.log
+*.txt
+*.tsbuildinfo
+next-env.d.ts
+coverage
+db_guira_mbv
+db_guira_mvp
+new_db
+fix
+informacion
+upgrade_frontend
+upgraes
+tmp.txt
+ts_errors.log
+ts_errors.txt
+tsc.log
+lint.txt
+lint2.txt
+lint3.txt
+skills-lock.json
+delete-storage.ts

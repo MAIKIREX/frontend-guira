@@ -29,7 +29,22 @@ const FLOW_STAGES: Array<{ key: PaymentOrder['status']; label: string }> = [
   { key: 'processing', label: 'Procesando' },
   { key: 'sent', label: 'Enviado' },
   { key: 'completed', label: 'Completado' },
+  { key: 'failed', label: 'Fallido' },
+  { key: 'cancelled', label: 'Cancelado' },
 ]
+
+const STATUS_FILTER_LABELS: Record<string, string> = {
+  all: 'Todos los estados',
+  created: 'Orden creada',
+  waiting_deposit: 'Esperando deposito',
+  deposit_received: 'Deposito validado',
+  processing: 'Procesando',
+  sent: 'Enviado',
+  completed: 'Completado',
+  failed: 'Fallido',
+  cancelled: 'Cancelado',
+  swept_external: 'Swept external',
+}
 
 interface PaymentsHistoryTableProps {
   orders: PaymentOrder[]
@@ -95,10 +110,16 @@ export function PaymentsHistoryTable({
     () =>
       safeOrders.filter((order) => {
         const statusMatches = statusFilter === 'all' || order.status === statusFilter
-        const searchMatches = !search || order.id.toLowerCase().includes(search.toLowerCase())
-        return statusMatches && searchMatches
+        if (!search) return statusMatches
+        const q = search.toLowerCase()
+        const idMatches = order.id.toLowerCase().includes(q)
+        const supplier = order.supplier_id ? suppliersById.get(order.supplier_id) : null
+        const supplierMatches = supplier?.name?.toLowerCase().includes(q) ?? false
+        const amountStr = String(order.amount_origin ?? order.amount ?? '')
+        const amountMatches = amountStr.includes(q)
+        return statusMatches && (idMatches || supplierMatches || amountMatches)
       }),
-    [safeOrders, search, statusFilter]
+    [safeOrders, search, statusFilter, suppliersById]
   )
 
   if (safeOrders.length === 0) {
@@ -180,13 +201,15 @@ export function PaymentsHistoryTable({
             <Input
               className="h-11 border-border/60 bg-background/80 pl-9"
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar por numero de expediente"
+              placeholder="Buscar por expediente, proveedor o monto"
               value={search}
             />
           </div>
           <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | PaymentOrder['status'])}>
             <SelectTrigger className="h-11 w-full border-border/60 bg-background/80">
-              <SelectValue placeholder="Filtrar por estado" />
+              <SelectValue placeholder="Filtrar por estado">
+                {STATUS_FILTER_LABELS[statusFilter] ?? statusFilter}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos los estados</SelectItem>
@@ -440,8 +463,7 @@ function StatusRail({ order }: { order: PaymentOrder }) {
         {FLOW_STAGES.map((stage, index) => {
           const isCurrent = stage.key === order.status
           const isReached = currentIndex >= index
-          const isComplete = currentIndex > index
-          
+
           if (!isReached && index > currentIndex + 1) return null; // Only show up to next step
 
           return (
@@ -679,6 +701,9 @@ function AttachmentPanel({
 }
 
 function ActivityPanel({ orderActivity }: { orderActivity: ActivityLog[] }) {
+  const [showAll, setShowAll] = useState(false)
+  const visibleActivity = showAll ? orderActivity : orderActivity.slice(0, 6)
+
   return (
     <div>
       {orderActivity.length === 0 ? (
@@ -687,7 +712,7 @@ function ActivityPanel({ orderActivity }: { orderActivity: ActivityLog[] }) {
         </div>
       ) : (
         <div className="space-y-2">
-          {orderActivity.slice(0, 6).map((entry) => (
+          {visibleActivity.map((entry) => (
             <div key={entry.id} className="flex items-start justify-between gap-4 rounded-2xl border border-border/60 bg-background/70 px-4 py-3 text-sm">
               <div className="space-y-1">
                 <div className="font-medium text-foreground">{humanizeActivity(entry.action)}</div>
@@ -696,6 +721,15 @@ function ActivityPanel({ orderActivity }: { orderActivity: ActivityLog[] }) {
               <div className="text-right text-xs text-muted-foreground">{format(new Date(entry.created_at), 'dd/MM/yyyy HH:mm')}</div>
             </div>
           ))}
+          {orderActivity.length > 6 ? (
+            <button
+              className="w-full rounded-2xl border border-dashed border-border/60 py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+              onClick={() => setShowAll((prev) => !prev)}
+              type="button"
+            >
+              {showAll ? 'Ver menos' : `Ver ${orderActivity.length - 6} evento${orderActivity.length - 6 === 1 ? '' : 's'} más`}
+            </button>
+          ) : null}
         </div>
       )}
     </div>
