@@ -409,8 +409,8 @@ export function CreatePaymentOrderForm({
     }
 
     if (route === 'crypto_to_crypto') {
-      form.setValue('origin_currency', 'USDC')
-      form.setValue('destination_currency', 'USDC')
+      if (!form.getValues('origin_currency')) form.setValue('origin_currency', 'USDC')
+      if (!form.getValues('destination_currency')) form.setValue('destination_currency', 'USDC')
       form.setValue('delivery_method', 'crypto')
       form.setValue('stablecoin', 'USDC')
       form.setValue('ui_method_group', 'crypto')
@@ -1169,13 +1169,19 @@ export function CreatePaymentOrderForm({
                               {deliveryMethod === 'crypto' ? (
                                 <>
                                   {route === 'crypto_to_crypto' ? (
-                                    <div className="grid gap-4 mt-4 px-4 py-4 border rounded-md bg-muted/20">
-                                      <div className="col-span-full mb-2">
-                                        <h4 className="text-sm font-semibold">Datos de Fondeo (Desde dónde envías)</h4>
+                                    <>
+                                      <div className="grid gap-4 lg:grid-cols-2 mt-4">
+                                        <CurrencySelectField control={form.control} disabled={disabled} label="Moneda de origen" name="origin_currency" placeholder="Selecciona moneda" />
+                                        <CurrencySelectField control={form.control} disabled={disabled} label="Moneda de destino" name="destination_currency" placeholder="Selecciona moneda" />
                                       </div>
-                                      <TextField control={form.control} disabled={disabled} label="Wallet de Origen (Externa)" name="source_crypto_address" />
-                                      <NetworkSelectField control={form.control} disabled={disabled} label="Red de Origen" name="source_crypto_network" placeholder="Selecciona la red" />
-                                    </div>
+                                      <div className="grid gap-4 mt-4 px-4 py-4 border rounded-md bg-muted/20">
+                                        <div className="col-span-full mb-2">
+                                          <h4 className="text-sm font-semibold">Datos de Fondeo (Desde dónde envías)</h4>
+                                        </div>
+                                        <TextField control={form.control} disabled={disabled} label="Wallet de Origen (Externa)" name="source_crypto_address" />
+                                        <NetworkSelectField control={form.control} disabled={disabled} label="Red de Origen" name="source_crypto_network" placeholder="Selecciona la red" />
+                                      </div>
+                                    </>
                                   ) : null}
                                   <div className="grid gap-4 lg:grid-cols-2 mt-4">
                                     <TextField control={form.control} disabled={disabled} label="Wallet destino" name="crypto_address" />
@@ -1762,6 +1768,57 @@ function NetworkSelectField({
                 {CRYPTO_NETWORK_OPTIONS.map((network) => (
                   <SelectItem key={network} value={network}>
                     {CRYPTO_NETWORK_LABELS[network]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  )
+}
+
+const CRYPTO_CURRENCY_OPTIONS = [
+  { value: 'USDC', label: 'USDC' },
+  { value: 'USDT', label: 'USDT (Tether)' },
+  { value: 'ETH', label: 'ETH (Ethereum)' },
+] as const
+
+function CurrencySelectField({
+  control,
+  name,
+  label,
+  placeholder,
+  disabled,
+}: {
+  control: Control<PaymentOrderFormValues>
+  name: FieldPath<PaymentOrderFormValues>
+  label: string
+  placeholder: string
+  disabled?: boolean
+}) {
+  return (
+    <FormField
+      control={control}
+      name={name}
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel className={FORM_LABEL_CLASS}>{label}</FormLabel>
+          <FormControl>
+            <Select
+              disabled={disabled}
+              onValueChange={field.onChange}
+              value={(field.value as string) || undefined}
+            >
+              <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
+                <SelectValue placeholder={placeholder} />
+              </SelectTrigger>
+              <SelectContent>
+                {CRYPTO_CURRENCY_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
                   </SelectItem>
                 ))}
               </SelectContent>
