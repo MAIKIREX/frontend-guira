@@ -94,7 +94,7 @@ export function ClientDashboard() {
     feeTotal: 0,
     amountConverted: action === 'depositar'
       ? amountOrigin * (sellRate ?? 0)
-      : amountOrigin * (buyRate ?? 0),
+      : (buyRate ? amountOrigin / buyRate : 0),
     exchangeRateApplied: action === 'depositar' ? (sellRate ?? 0) : (buyRate ?? 0),
   }
 
@@ -406,9 +406,7 @@ function parseAmount(value: string) {
   return Number.isFinite(normalized) ? normalized : 0
 }
 
-function safeInverseRate(value: number) {
-  return value === 0 ? 0 : 1 / value
-}
+
 
 function formatNumber(value: number | null) {
   const normalized = typeof value === 'number' && Number.isFinite(value) ? value : 0
@@ -420,5 +418,5 @@ function formatMoney(value: number, currency: string) {
 }
 
 function formatExchangeRate(value: number, originCurrency: string, destinationCurrency: string) {
-  return `1 ${originCurrency} = ${formatNumber(value)} ${destinationCurrency}`
+  return `1 USD = ${formatNumber(value)} Bs`
 }

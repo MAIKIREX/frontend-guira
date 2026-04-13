@@ -9,6 +9,7 @@ import { PasswordInput } from '@/components/ui/password-input'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { AuthService } from '@/services/auth.service'
 import { toast } from 'sonner'
+import { getErrorMessage } from '@/lib/utils'
 import Link from 'next/link'
 
 export function LoginForm() {
@@ -23,11 +24,7 @@ export function LoginForm() {
       toast.success('Sesión iniciada')
       // El AuthGuard redigirá al lugar correspondiente
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        toast.error(error.message || 'Credenciales inválidas')
-      } else {
-        toast.error('Credenciales inválidas')
-      }
+      toast.error(`Error al iniciar sesión: ${getErrorMessage(error)}`)
     }
   }
 
@@ -35,11 +32,7 @@ export function LoginForm() {
     try {
       await AuthService.loginWithGoogle()
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        toast.error(error.message || 'Error con Google')
-      } else {
-        toast.error('Error con Google')
-      }
+      toast.error(`Error con Google: ${getErrorMessage(error)}`)
     }
   }
 

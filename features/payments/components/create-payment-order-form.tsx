@@ -25,6 +25,7 @@ import {
   Banknote,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { getErrorMessage } from '@/lib/utils'
 import { WalletService, type WalletBalance } from '@/services/wallet.service'
 import { BridgeService, type VirtualAccount } from '@/services/bridge.service'
 import { Button } from '@/components/ui/button'
@@ -543,7 +544,7 @@ export function CreatePaymentOrderForm({
       toast.success('Expediente creado. Ahora puedes adjuntar el comprobante final o hacerlo despues.')
     } catch (error) {
       console.error('Failed to create payment order', error)
-      toast.error('No se pudo crear el expediente.')
+      toast.error(`No se pudo crear el expediente: ${getErrorMessage(error)}`)
     } finally {
       setCreatingOrder(false)
     }
@@ -568,7 +569,7 @@ export function CreatePaymentOrderForm({
       resetFlow(form, setStep, setSupportFile, setQrFile, setEvidenceFile, setCreatedOrder)
     } catch (error) {
       console.error('Failed to upload evidence', error)
-      toast.error('No se pudo adjuntar el comprobante final.')
+      toast.error(`No se pudo adjuntar el comprobante final: ${getErrorMessage(error)}`)
     } finally {
       setUploadingEvidence(false)
     }
@@ -2289,7 +2290,12 @@ function formatExchangeRate(value: number, originCurrency?: string, destinationC
   const normalized = Number.isFinite(value) ? value : 0
   const origin = originCurrency || 'Origen'
   const destination = destinationCurrency || 'Destino'
-  return `1 ${origin} = ${normalized.toFixed(4)} ${destination}`
+  // Todas las tasas están en BOB por USD ahora
+  // Para rutas BOB→USD, invertir la presentación
+  if (origin === 'Bs' && (destination === 'USD' || destination === 'USDC')) {
+    return `1 USD = ${normalized.toFixed(2)} Bs`
+  }
+  return `1 ${origin} = ${normalized.toFixed(2)} ${destination}`
 }
 
 function formatConversionPreview(args: {
@@ -2306,7 +2312,9 @@ function formatConversionPreview(args: {
   let converted = amount
 
   if (origin.trim().toUpperCase() !== destination.trim().toUpperCase()) {
-    converted = amount * rate
+    // Para Bs→USD/USDC: dividir (la tasa es BOB por 1 USD)
+    const isBobToUsd = origin === 'Bs' && (destination === 'USD' || destination === 'USDC')
+    converted = isBobToUsd ? (rate > 0 ? amount / rate : 0) : amount * rate
   }
 
   return `${formatMoney(amount, origin)} -> ${formatMoney(converted, destination)}`

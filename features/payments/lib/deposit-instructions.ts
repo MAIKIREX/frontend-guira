@@ -65,24 +65,30 @@ export function estimateRouteValues(args: {
 
   let selectedBaseRate = rateRecord?.rate ?? 1
 
-  // Aplicar spread si existe (spread se descuenta: effective = base * (1 - spread/100))
+  // Aplicar spread si existe
+  // BOB_* (dividimos): spread SUBE la tasa → penaliza al usuario
+  // USD_*/USDC_* (multiplicamos): spread BAJA la tasa → penaliza al usuario
   const spreadPercent = rateRecord?.spread_percent ?? 0
   if (spreadPercent > 0) {
-    selectedBaseRate = selectedBaseRate * (1 - spreadPercent / 100)
+    const isBobPair = ratePair.startsWith('BOB_')
+    const spreadMultiplier = isBobPair
+      ? (1 + spreadPercent / 100)
+      : (1 - spreadPercent / 100)
+    selectedBaseRate = selectedBaseRate * spreadMultiplier
   }
 
-  const effectiveRate = resolveExchangeRate({
-    baseRate: selectedBaseRate,
-    originCurrency: args.originCurrency,
-    destinationCurrency: args.destinationCurrency,
-  })
-
-  // Aplicar formula: amount_converted = (amount_origin - fee_total) * rate
-  const amountConverted = Math.max((amountOrigin - baseFeeTotal) * effectiveRate, 0)
+  // Con la nueva semántica, la tasa siempre es "BOB por 1 USD"
+  // BOB→USD: dividir. USD→BOB: multiplicar.
+  const isBobToUsd = ratePair ? ratePair.startsWith('BOB_') : false;
+  const netAmount = amountOrigin - baseFeeTotal;
+  
+  const amountConverted = isBobToUsd
+    ? Math.max(netAmount / selectedBaseRate, 0)
+    : Math.max(netAmount * selectedBaseRate, 0);
 
   return toEstimate({
     amountConverted,
-    exchangeRateApplied: effectiveRate,
+    exchangeRateApplied: selectedBaseRate,
     feeTotal: baseFeeTotal,
   })
 }
@@ -557,22 +563,7 @@ function resolveExchangeRate(args: {
   originCurrency: string
   destinationCurrency: string
 }) {
-  const origin = args.originCurrency.trim().toUpperCase()
-  const destination = args.destinationCurrency.trim().toUpperCase()
-
-  if (!origin || !destination || origin === destination) {
-    return 1
-  }
-
-  if (origin === 'USD' && destination === 'BS') {
-    return args.baseRate
-  }
-
-  if (origin === 'BS' && destination === 'USD') {
-    return args.baseRate === 0 ? 0 : 1 / args.baseRate
-  }
-
-  return 1
+  return args.baseRate
 }
 
 

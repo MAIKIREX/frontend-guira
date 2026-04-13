@@ -15,7 +15,7 @@ import { DepositInstructionCard } from '@/features/payments/components/deposit-i
 import { buildDepositInstructionsFromOrder } from '@/features/payments/lib/deposit-instructions'
 import { generatePaymentPdf } from '@/features/payments/lib/generate-payment-pdf'
 import { ACCEPTED_UPLOADS } from '@/lib/file-validation'
-import { cn, interactiveCardClassName } from '@/lib/utils'
+import { cn, interactiveCardClassName, getErrorMessage } from '@/lib/utils'
 import { useSignedUrl } from '@/hooks/use-signed-url'
 import type { ActivityLog } from '@/types/activity-log'
 import type { OrderFileField, PaymentOrder } from '@/types/payment-order'
@@ -151,9 +151,9 @@ export function PaymentsHistoryTable({
           [field]: undefined,
         },
       }))
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to upload order file', error)
-      toast.error('No se pudo subir el archivo.')
+      toast.error(`No se pudo subir el archivo: ${getErrorMessage(error)}`)
     } finally {
       setBusyKey(null)
     }
@@ -164,9 +164,9 @@ export function PaymentsHistoryTable({
     try {
       await onCancelOrder(order)
       toast.success('Expediente cancelado.')
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to cancel order', error)
-      toast.error('No se pudo cancelar el expediente.')
+      toast.error(`No se pudo cancelar el expediente: ${getErrorMessage(error)}`)
     } finally {
       setBusyKey(null)
     }

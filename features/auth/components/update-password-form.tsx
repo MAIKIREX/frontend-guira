@@ -8,6 +8,7 @@ import { PasswordInput } from '@/components/ui/password-input'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { AuthService } from '@/services/auth.service'
 import { toast } from 'sonner'
+import { getErrorMessage } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 
 export function UpdatePasswordForm() {
@@ -24,11 +25,7 @@ export function UpdatePasswordForm() {
       toast.success('Contraseña actualizada. Ya puedes ingresar al sistema.')
       router.push('/login')
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        toast.error(error.message || 'Error al actualizar')
-      } else {
-        toast.error('Error al actualizar')
-      }
+      toast.error(`Error al actualizar: ${getErrorMessage(error)}`)
     }
   }
 

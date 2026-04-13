@@ -17,3 +17,31 @@ export const interactiveRowClassName = cn(
   interactiveClickableCardClassName,
   "hover:bg-muted/20"
 )
+
+export function getErrorMessage(error: unknown, fallbackMessage = 'Ha ocurrido un error inesperado.'): string {
+  if (error === null || error === undefined) {
+    return fallbackMessage;
+  }
+
+  if (typeof error === 'object') {
+    const axiosError = error as any;
+    if (axiosError.response?.data?.message) {
+      const msg = axiosError.response.data.message;
+      return Array.isArray(msg) ? msg[0] : msg;
+    }
+    
+    if (axiosError.response?.data?.error) {
+      return axiosError.response.data.error;
+    }
+
+    if ('message' in error && typeof (error as Error).message === 'string') {
+      return (error as Error).message;
+    }
+  }
+
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  return fallbackMessage;
+}

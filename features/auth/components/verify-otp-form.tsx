@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { AuthService } from '@/services/auth.service'
 import { toast } from 'sonner'
+import { getErrorMessage } from '@/lib/utils'
 import {
   InputOTP,
   InputOTPGroup,
@@ -22,11 +23,11 @@ export function VerifyOtpForm() {
 
   async function handleVerify() {
     if (token.length !== 8) {
-      toast.error('Por favor ingresa el código completo de 8 dígitos.')
+      toast.warning('Por favor ingresa el código completo de 8 dígitos.')
       return
     }
     if (!email) {
-      toast.error('No se encontró el correo electrónico. Intenta registrarte de nuevo.')
+      toast.warning('No se encontró el correo electrónico. Intenta registrarte de nuevo.')
       return
     }
 
@@ -36,11 +37,7 @@ export function VerifyOtpForm() {
       toast.success('¡Cuenta verificada exitosamente!')
       router.push('/onboarding')
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        toast.error(error.message || 'Código incorrecto o expirado.')
-      } else {
-        toast.error('Código incorrecto o expirado.')
-      }
+      toast.error(`Código incorrecto o expirado: ${getErrorMessage(error)}`)
     } finally {
       setIsSubmitting(false)
     }

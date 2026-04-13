@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { AuthService } from '@/services/auth.service'
 import { toast } from 'sonner'
+import { getErrorMessage } from '@/lib/utils'
 import Link from 'next/link'
 import { useState } from 'react'
 
@@ -25,11 +26,7 @@ export function RecoveryForm() {
       setSent(true)
       toast.success('Correo de recuperación enviado')
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        toast.error(error.message || 'Ocurrió un error')
-      } else {
-        toast.error('Ocurrió un error')
-      }
+      toast.error(`Ocurrió un error: ${getErrorMessage(error)}`)
     }
   }
 

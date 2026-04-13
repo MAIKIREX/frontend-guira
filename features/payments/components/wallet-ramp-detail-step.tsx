@@ -80,13 +80,18 @@ export function WalletRampDetailStep({
       const rateRecord = exchangeRates.find((r) => r.pair?.toUpperCase() === 'BOB_USDC') ?? exchangeRates.find((r) => r.pair?.toUpperCase() === 'BOB_USD')
       if (rateRecord) {
         const spread = rateRecord.spread_percent ?? 0
-        exchangeRateApplied = rateRecord.rate * (1 - spread / 100)
+        // BOB_USDC: dividimos → spread SUBE la tasa para penalizar al usuario
+        exchangeRateApplied = rateRecord.rate * (1 + spread / 100)
       } else {
-        exchangeRateApplied = 1 / 6.96
+        exchangeRateApplied = 6.96
       }
     }
 
-    const amountConverted = Math.max(((Number(amount) || 0) - feeTotal) * exchangeRateApplied, 0)
+    // Fiat BO → USDC: dividir por tasa (BOB/USD)
+    const netAmt = Math.max((Number(amount) || 0) - feeTotal, 0)
+    const amountConverted = method === 'fiat_bo'
+      ? netAmt / exchangeRateApplied
+      : netAmt * exchangeRateApplied
 
     return {
       feeTotal,

@@ -12,7 +12,7 @@ import { AuthService } from '@/services/auth.service'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { Check, X } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, getErrorMessage } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 
 export function RegisterForm() {
@@ -38,11 +38,7 @@ export function RegisterForm() {
       toast.success('Cuenta creada. Revisa tu correo electrónico.')
       router.push(`/registro/verificar?email=${encodeURIComponent(data.email)}`)
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        toast.error(error.message || 'Error al intentar registrar')
-      } else {
-        toast.error('Error al intentar registrar')
-      }
+      toast.error(`Error al intentar registrar: ${getErrorMessage(error)}`)
     }
   }
 

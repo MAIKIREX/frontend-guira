@@ -1691,7 +1691,7 @@ function AdminBridgeTransfersTable({
 
       {/* Modal JSON Raw Response — solo super_admin */}
       <Dialog open={rawModalData !== null} onOpenChange={(open) => { if (!open) setRawModalData(null) }}>
-        <DialogContent className="max-w-5xl w-[95vw] max-h-[90vh] overflow-hidden flex flex-col gap-0">
+        <DialogContent className="max-w-5xl sm:max-w-5xl w-[95vw] max-h-[90vh] overflow-hidden flex flex-col gap-0">
           <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/30">
             <div className="flex items-center justify-between">
               <div>
