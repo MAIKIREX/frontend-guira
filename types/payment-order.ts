@@ -173,9 +173,12 @@ export interface FeeConfigRow {
   value?: string | number
   currency?: string
   operation_type?: string
+  payment_rail?: string
   fee_percent?: string | number
   fee_fixed?: string | number
   min_fee?: string | number
+  max_fee?: string | number
+  is_active?: boolean
 }
 
 export interface AppSettingRow {

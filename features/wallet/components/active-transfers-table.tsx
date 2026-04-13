@@ -45,11 +45,11 @@ export function ActiveTransfersTable({
         {bridgeTransfers.map((transfer) => (
           <TableRow key={`bridge-${transfer.id}`}>
             <TableCell className="font-medium">Bridge</TableCell>
-            <TableCell>{transfer.transfer_kind.replace(/_/g, ' ')}</TableCell>
+            <TableCell>{(transfer.transfer_kind ?? '').replace(/_/g, ' ')}</TableCell>
             <TableCell>
               <Badge variant="secondary">{transfer.status}</Badge>
             </TableCell>
-            <TableCell>{formatMoney(transfer.amount, transfer.currency)}</TableCell>
+            <TableCell>{formatMoney(transfer.amount ?? 0, transfer.destination_currency ?? '')}</TableCell>
             <TableCell>{formatDateTime(transfer.created_at)}</TableCell>
           </TableRow>
         ))}

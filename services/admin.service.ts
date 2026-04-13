@@ -89,15 +89,11 @@ export const AdminService = {
   async updateFeeConfig(args: {
     actor: StaffActor
     record: FeeConfigRow
-    value: number
-    currency: string
+    data: Partial<FeeConfigRow>
     reason: string
   }) {
     assertPrivileged(args.actor)
-    return apiPatch<FeeConfigRow>(`/admin/fees/${args.record.id}`, {
-      value: args.value,
-      currency: args.currency,
-    })
+    return apiPatch<FeeConfigRow>(`/admin/fees/${args.record.id}`, args.data)
   },
 
   // ── APP SETTINGS (via NestJS /admin/settings) ───────────────────────────────

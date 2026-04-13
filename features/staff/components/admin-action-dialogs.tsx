@@ -38,17 +38,22 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { AdminService } from '@/services/admin.service'
+import { UsersAdminService, type FeeOverride } from '@/services/admin/users.admin.service'
 import {
   adminAppSettingSchema,
   adminCreateUserSchema,
   adminFeeConfigSchema,
   adminReasonSchema,
   adminPsavRecordSchema,
+  adminChangeRoleSchema,
+  adminFeeOverrideSchema,
   type AdminAppSettingValues,
   type AdminCreateUserValues,
   type AdminFeeConfigValues,
   type AdminReasonValues,
   type AdminPsavRecordValues,
+  type AdminChangeRoleValues,
+  type AdminFeeOverrideValues,
 } from '@/features/staff/schemas/admin-actions.schema'
 import type { AppSettingRow, FeeConfigRow, PsavConfigRow } from '@/types/payment-order'
 import type { Profile } from '@/types/profile'
@@ -187,6 +192,8 @@ export function UserDetailDialog({ actor, onUpdated, user }: { actor: StaffActor
 export function UserAdminActions({ actor, onUpdated, user }: { actor: StaffActor; onUpdated: (user: Profile | null, mode: 'replace' | 'remove' | 'noop') => Promise<void> | void; user: Profile }) {
   return (
     <div className="flex flex-wrap justify-end gap-2">
+      <ChangeRoleDialog actor={actor} onUpdated={onUpdated} user={user} />
+      <FeeOverridesDialog actor={actor} user={user} />
       <ResetPasswordDialog actor={actor} email={user.email} onUpdated={onUpdated} />
       {user.is_archived ? (
         <UnarchiveUserDialog actor={actor} onUpdated={onUpdated} user={user} />
@@ -197,6 +204,475 @@ export function UserAdminActions({ actor, onUpdated, user }: { actor: StaffActor
         <ArchiveDeleteUserDialog action="delete" actor={actor} onUpdated={onUpdated} user={user} />
       ) : null}
     </div>
+  )
+}
+
+function FeeOverridesDialog({ actor, user }: { actor: StaffActor; user: Profile }) {
+  const [open, setOpen] = useState(false)
+  const [overrides, setOverrides] = useState<FeeOverride[]>([])
+  const [loading, setLoading] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [showForm, setShowForm] = useState(false)
+
+  // Solo admin y super_admin pueden gestionar overrides
+  const canManage = actor.role === 'admin' || actor.role === 'super_admin'
+  const canDelete = actor.role === 'super_admin'
+
+  const form = useForm<AdminFeeOverrideValues>({
+    resolver: zodResolver(adminFeeOverrideSchema) as Resolver<AdminFeeOverrideValues>,
+    defaultValues: {
+      operation_type: 'ramp_off_bo',
+      payment_rail: 'psav',
+      currency: 'USD',
+      fee_type: 'percent',
+      fee_percent: undefined,
+      fee_fixed: undefined,
+      min_fee: undefined,
+      max_fee: undefined,
+      valid_until: '',
+      notes: '',
+    },
+  })
+
+  const watchFeeType = form.watch('fee_type')
+
+  const loadOverrides = async () => {
+    setLoading(true)
+    try {
+      const data = await UsersAdminService.getOverrides(user.id)
+      setOverrides(data)
+    } catch {
+      toast.error('Error al cargar overrides')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (open) loadOverrides()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  const handleToggle = async (override: FeeOverride) => {
+    try {
+      await UsersAdminService.updateOverride(override.id, { is_active: !override.is_active })
+      toast.success(override.is_active ? 'Override desactivado' : 'Override activado')
+      loadOverrides()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al actualizar'
+      toast.error(msg)
+    }
+  }
+
+  const handleDelete = async (override: FeeOverride) => {
+    if (!confirm(`¿Eliminar permanentemente el override ${override.operation_type}/${override.payment_rail}?`)) return
+    try {
+      await UsersAdminService.deleteOverride(override.id)
+      toast.success('Override eliminado')
+      loadOverrides()
+    } catch {
+      toast.error('Error al eliminar')
+    }
+  }
+
+  const onSubmit = async (values: AdminFeeOverrideValues) => {
+    setCreating(true)
+    try {
+      await UsersAdminService.createOverride({
+        user_id: user.id,
+        operation_type: values.operation_type,
+        payment_rail: values.payment_rail,
+        currency: values.currency,
+        fee_type: values.fee_type,
+        ...(values.fee_percent !== undefined ? { fee_percent: values.fee_percent } : {}),
+        ...(values.fee_fixed !== undefined ? { fee_fixed: values.fee_fixed } : {}),
+        ...(values.min_fee !== undefined ? { min_fee: values.min_fee } : {}),
+        ...(values.max_fee !== undefined ? { max_fee: values.max_fee } : {}),
+        ...(values.valid_until ? { valid_until: values.valid_until } : {}),
+        ...(values.notes ? { notes: values.notes } : {}),
+      })
+      toast.success('Override creado exitosamente')
+      form.reset()
+      setShowForm(false)
+      loadOverrides()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al crear override'
+      toast.error(msg)
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  if (!canManage) return null
+
+  const feeDisplay = (o: FeeOverride) => {
+    if (o.fee_type === 'percent') return `${o.fee_percent ?? 0}%`
+    if (o.fee_type === 'fixed') return `$${o.fee_fixed ?? 0}`
+    return `$${o.fee_fixed ?? 0} + ${o.fee_percent ?? 0}%`
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button size="sm" variant="outline" className="gap-1.5" />}>
+        <CircleDollarSign className="h-3.5 w-3.5" />
+        Tarifas VIP
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="mb-2">
+          <DialogTitle className="flex items-center gap-2">
+            <CircleDollarSign className="h-5 w-5 text-amber-500" />
+            Tarifas Personalizadas
+          </DialogTitle>
+          <DialogDescription>
+            Gestiona las tarifas especiales para <strong>{user.full_name || user.email}</strong>.
+            Los overrides tienen prioridad sobre la configuración global de fees.
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* ── Lista de overrides existentes ── */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold text-foreground">Overrides Activos</h4>
+            <Button size="sm" variant="outline" onClick={() => setShowForm(!showForm)} className="gap-1.5 text-xs">
+              {showForm ? 'Cancelar' : '+ Nuevo Override'}
+            </Button>
+          </div>
+
+          {loading ? (
+            <div className="text-sm text-muted-foreground text-center py-6">Cargando...</div>
+          ) : overrides.length === 0 ? (
+            <div className="text-sm text-muted-foreground text-center py-6 bg-muted/20 rounded-xl border border-dashed border-border/60">
+              Sin overrides configurados. Este usuario usa las tarifas globales.
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {overrides.map((o) => (
+                <div key={o.id} className={`flex items-center justify-between p-3 rounded-lg border text-sm transition-colors ${o.is_active ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-muted/20 border-border/40 opacity-60'}`}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant={o.is_active ? 'default' : 'secondary'} className="text-[10px] font-mono">
+                        {o.operation_type}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px] font-mono">{o.payment_rail}</Badge>
+                      <Badge variant="outline" className="text-[10px]">{o.currency}</Badge>
+                      <span className="font-semibold text-xs">{feeDisplay(o)}</span>
+                    </div>
+                    {o.notes && <div className="text-xs text-muted-foreground mt-1 truncate">{o.notes}</div>}
+                    {o.valid_until && <div className="text-[10px] text-muted-foreground mt-0.5">Vigente hasta: {o.valid_until}</div>}
+                  </div>
+                  <div className="flex items-center gap-2 ml-3 shrink-0">
+                    <div className="flex items-center gap-1.5">
+                      <Switch
+                        checked={o.is_active}
+                        onCheckedChange={() => handleToggle(o)}
+                        className="scale-75"
+                      />
+                      <span className="text-[10px] text-muted-foreground w-7">{o.is_active ? 'ON' : 'OFF'}</span>
+                    </div>
+                    {canDelete && (
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive/70 hover:text-destructive hover:bg-destructive/10" onClick={() => handleDelete(o)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── Formulario para crear nuevo override ── */}
+        {showForm && (
+          <div className="mt-4 pt-4 border-t border-border/50">
+            <h4 className="text-sm font-semibold text-foreground mb-3">Crear Nuevo Override</h4>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {/* Tipo de operación */}
+                  <FormField control={form.control} name="operation_type" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">Operación</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          <SelectItem value="interbank_bo_out">Bolivia → Exterior (1.1)</SelectItem>
+                          <SelectItem value="interbank_w2w">Wallet → Wallet (1.2)</SelectItem>
+                          <SelectItem value="interbank_bo_wallet">Bolivia → Wallet (1.3)</SelectItem>
+                          <SelectItem value="interbank_bo_in">Exterior → Bolivia (1.4)</SelectItem>
+                          <SelectItem value="ramp_on_fiat_us">Fiat US → Wallet (1.5/2.3)</SelectItem>
+                          <SelectItem value="ramp_on_bo">Fiat BO → Wallet (2.1)</SelectItem>
+                          <SelectItem value="ramp_on_crypto">Crypto → Wallet (2.2)</SelectItem>
+                          <SelectItem value="ramp_off_bo">Wallet → Fiat BO (2.4)</SelectItem>
+                          <SelectItem value="ramp_off_crypto">Wallet → Crypto (2.5)</SelectItem>
+                          <SelectItem value="ramp_off_fiat_us">Wallet → Fiat US (2.6)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  {/* Payment rail */}
+                  <FormField control={form.control} name="payment_rail" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">Payment Rail</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          <SelectItem value="psav">PSAV (Manual)</SelectItem>
+                          <SelectItem value="bridge">Bridge (API)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  {/* Moneda */}
+                  <FormField control={form.control} name="currency" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">Moneda</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          <SelectItem value="USD">USD</SelectItem>
+                          <SelectItem value="BOB">BOB</SelectItem>
+                          <SelectItem value="USDC">USDC</SelectItem>
+                          <SelectItem value="USDT">USDT</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  {/* Tipo de fee */}
+                  <FormField control={form.control} name="fee_type" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">Tipo de Fee</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          <SelectItem value="percent">Porcentaje</SelectItem>
+                          <SelectItem value="fixed">Monto Fijo</SelectItem>
+                          <SelectItem value="mixed">Mixto (Fijo + %)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  {/* Fee percent — visible si percent o mixed */}
+                  {(watchFeeType === 'percent' || watchFeeType === 'mixed') && (
+                    <FormField control={form.control} name="fee_percent" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Fee %</FormLabel>
+                        <FormControl><Input {...field} type="number" step="0.01" placeholder="0.5" className="h-9 text-xs" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  )}
+
+                  {/* Fee fixed — visible si fixed o mixed */}
+                  {(watchFeeType === 'fixed' || watchFeeType === 'mixed') && (
+                    <FormField control={form.control} name="fee_fixed" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Fee Fijo ($)</FormLabel>
+                        <FormControl><Input {...field} type="number" step="0.01" placeholder="2.00" className="h-9 text-xs" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  )}
+
+                  {/* Min fee */}
+                  <FormField control={form.control} name="min_fee" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">Fee Mínimo ($)</FormLabel>
+                      <FormControl><Input {...field} type="number" step="0.01" placeholder="0" className="h-9 text-xs" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  {/* Max fee */}
+                  <FormField control={form.control} name="max_fee" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">Fee Máximo ($)</FormLabel>
+                      <FormControl><Input {...field} type="number" step="0.01" placeholder="0" className="h-9 text-xs" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  {/* Valid until */}
+                  <FormField control={form.control} name="valid_until" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">Vigente Hasta</FormLabel>
+                      <FormControl><Input {...field} type="date" className="h-9 text-xs" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+
+                {/* Notes */}
+                <FormField control={form.control} name="notes" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs">Notas / Justificación</FormLabel>
+                    <FormControl><Textarea {...field} rows={2} placeholder="Ej: Cliente VIP — volumen mensual +$500K" className="text-xs resize-none" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                <div className="flex items-center gap-2 pt-1">
+                  <div className="flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-1.5 rounded-md flex-1">
+                    <AlertTriangle className="h-3 w-3 shrink-0" />
+                    Los overrides tienen efecto inmediato en el cálculo de fees.
+                  </div>
+                  <Button type="submit" size="sm" disabled={creating} className="gap-1.5 shrink-0">
+                    {creating ? 'Creando...' : 'Crear Override'}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function ChangeRoleDialog({ actor, onUpdated, user }: { actor: StaffActor; onUpdated: (user: Profile | null, mode: 'replace' | 'remove' | 'noop') => Promise<void> | void; user: Profile }) {
+  const [open, setOpen] = useState(false)
+
+  // Determinar roles asignables según el rol del actor
+  const availableRoles = actor.role === 'super_admin'
+    ? (['client', 'staff', 'admin', 'super_admin'] as const)
+    : (['client', 'staff'] as const)
+
+  // No mostrar si el actor intenta cambiar su propio rol
+  const isSelf = actor.userId === user.id
+  if (isSelf) return null
+
+  const roleLabels: Record<string, { label: string; color: string }> = {
+    client: { label: 'Cliente', color: 'text-blue-700 dark:text-blue-300' },
+    staff: { label: 'Staff', color: 'text-emerald-700 dark:text-emerald-300' },
+    admin: { label: 'Admin', color: 'text-amber-700 dark:text-amber-300' },
+    super_admin: { label: 'Super Admin', color: 'text-rose-700 dark:text-rose-300' },
+  }
+
+  const form = useForm<AdminChangeRoleValues>({
+    resolver: zodResolver(adminChangeRoleSchema),
+    defaultValues: {
+      role: user.role,
+      reason: '',
+    },
+  })
+
+  // Reset form when dialog opens with current user role
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen)
+    if (nextOpen) {
+      form.reset({ role: user.role, reason: '' })
+    }
+  }
+
+  async function submit(values: AdminChangeRoleValues) {
+    try {
+      const { UsersAdminService } = await import('@/services/admin/users.admin.service')
+      const updatedProfile = await UsersAdminService.updateRole(user.id, values.role, values.reason)
+      toast.success(`Rol actualizado a "${roleLabels[values.role]?.label ?? values.role}".`)
+      setOpen(false)
+      form.reset()
+      await onUpdated({ ...user, ...updatedProfile, role: values.role as Profile['role'] }, 'replace')
+    } catch (error: any) {
+      console.error('Failed to update role', error)
+      const message = error?.response?.data?.message || error?.message || 'No se pudo cambiar el rol.'
+      toast.error(message)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger render={
+        <Button size="sm" variant="ghost" className="h-8 px-2 border border-transparent bg-violet-500/8 text-violet-700 hover:bg-violet-500/14 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200 font-bold text-[10px] uppercase tracking-wider transition-all" />
+      }>
+        Cambiar rol
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[450px] w-[95vw] sm:w-full gap-0 p-0 max-h-[92vh] overflow-y-auto border-border/40 shadow-2xl">
+        <div className="bg-violet-500/5 border-b border-violet-500/10 p-6 flex items-center gap-4">
+          <div className="size-12 rounded-2xl bg-violet-500/10 flex items-center justify-center text-violet-700 shadow-sm dark:text-violet-300">
+            <ShieldCheck className="size-6" />
+          </div>
+          <div className="space-y-0.5">
+            <DialogTitle className="text-lg font-bold">Cambiar Rol</DialogTitle>
+            <DialogDescription className="text-xs text-violet-700/80 font-medium dark:text-violet-300/80">
+              {user.full_name || user.email}
+            </DialogDescription>
+          </div>
+        </div>
+
+        <div className="p-5 md:p-8">
+          <div className="mb-6 flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 p-4">
+            <div className="text-xs text-muted-foreground">Rol actual:</div>
+            <Badge variant="outline" className={`font-bold ${roleLabels[user.role]?.color ?? ''}`}>
+              {roleLabels[user.role]?.label ?? user.role}
+            </Badge>
+          </div>
+
+          <Form {...form}>
+            <form className="space-y-6" onSubmit={form.handleSubmit(submit)}>
+              <FormField control={form.control} name="role" render={({ field }) => (
+                <FormItem className="space-y-1.5">
+                  <FormLabel className="text-[13px] font-semibold text-foreground/80">Nuevo Rol</FormLabel>
+                  <FormControl>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger className="h-10 bg-muted/20 border-border/60 focus:bg-background transition-all">
+                        <SelectValue placeholder="Selecciona un rol..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableRoles.map((r) => (
+                          <SelectItem key={r} value={r} disabled={r === user.role}>
+                            <span className={roleLabels[r]?.color ?? ''}>
+                              {roleLabels[r]?.label ?? r}
+                            </span>
+                            {r === user.role ? <span className="ml-2 text-xs text-muted-foreground">(actual)</span> : null}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  {actor.role !== 'super_admin' ? (
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Solo un super_admin puede asignar roles admin o super_admin.
+                    </p>
+                  ) : null}
+                  <FormMessage className="text-[11px]" />
+                </FormItem>
+              )} />
+
+              <FormField control={form.control} name="reason" render={({ field }) => (
+                <FormItem className="space-y-1.5">
+                  <FormLabel className="text-[13px] font-semibold text-foreground/80">Justificación del Cambio</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} placeholder="Indica el motivo de este cambio de rol..." className="min-h-[100px] bg-muted/20 border-border/60 focus:bg-background transition-all resize-none" />
+                  </FormControl>
+                  <FormMessage className="text-[11px]" />
+                </FormItem>
+              )} />
+
+              <div className="flex flex-col gap-3">
+                <Button
+                  disabled={form.formState.isSubmitting || form.watch('role') === user.role}
+                  type="submit"
+                  className="w-full font-bold bg-violet-500 text-white hover:bg-violet-400 h-10 rounded-full shadow-lg shadow-violet-500/10 transition-all flex items-center justify-center gap-2"
+                >
+                  {form.formState.isSubmitting ? <><div className="size-3 border-2 border-white/30 border-t-white animate-spin rounded-full" /> Procesando...</> : 'Confirmar Cambio de Rol'}
+                </Button>
+                <div className="text-[10px] text-center text-muted-foreground italic flex items-center justify-center gap-1.5">
+                  <AlertTriangle className="size-3" />
+                  Esta acción se registra en auditoría y tiene efecto inmediato.
+                </div>
+              </div>
+            </form>
+          </Form>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -334,20 +810,52 @@ function ResetPasswordDialog({ actor, email, onUpdated }: { actor: StaffActor; e
   )
 }
 
+const OPERATION_LABELS: Record<string, string> = {
+  interbank_bo_out: 'Bolivia → Exterior (1.1)',
+  interbank_w2w: 'Wallet → Wallet (1.2)',
+  interbank_bo_wallet: 'Bolivia → Wallet (1.3)',
+  interbank_bo_in: 'Exterior → Bolivia (1.4)',
+  ramp_on_fiat_us: 'Fiat US → Wallet (1.5/2.3)',
+  ramp_on_bo: 'Fiat BO → Wallet (2.1)',
+  ramp_on_crypto: 'Crypto → Wallet (2.2)',
+  ramp_off_bo: 'Wallet → Fiat BO (2.4)',
+  ramp_off_crypto: 'Wallet → Crypto (2.5)',
+  ramp_off_fiat_us: 'Wallet → Fiat US (2.6)',
+}
+
 export function FeeConfigDialog({ actor, onUpdated, record }: { actor: StaffActor; onUpdated: (record: FeeConfigRow) => Promise<void> | void; record: FeeConfigRow }) {
   const [open, setOpen] = useState(false)
-  const initialValue =
-    typeof record.value === 'number'
-      ? record.value
-      : Number.parseFloat(String(record.value).replace(',', '.')) || 0
   const form = useForm<AdminFeeConfigValues>({
     resolver: zodResolver(adminFeeConfigSchema) as Resolver<AdminFeeConfigValues>,
-    defaultValues: { value: initialValue, currency: record.currency, reason: '' },
+    defaultValues: { 
+      fee_type: (record.fee_type === 'percent' || record.fee_type === 'mixed' || record.fee_type === 'fixed') ? record.fee_type : 'percent',
+      fee_percent: record.fee_percent ? Number(record.fee_percent) : 0,
+      fee_fixed: record.fee_fixed ? Number(record.fee_fixed) : 0,
+      min_fee: record.min_fee ? Number(record.min_fee) : 0,
+      max_fee: record.max_fee ? Number(record.max_fee) : 0,
+      is_active: record.is_active ?? true,
+      reason: '' 
+    },
   })
+
+  const watchFeeType = form.watch('fee_type')
+  const opLabel = record.operation_type ? (OPERATION_LABELS[record.operation_type] || record.operation_type) : 'Desconocida'
 
   async function submit(values: AdminFeeConfigValues) {
     try {
-      const updatedRecord = await AdminService.updateFeeConfig({ actor, record, value: values.value, currency: values.currency, reason: values.reason })
+      const updatedRecord = await AdminService.updateFeeConfig({ 
+        actor, 
+        record, 
+        reason: values.reason,
+        data: {
+          fee_type: values.fee_type,
+          fee_percent: values.fee_percent,
+          fee_fixed: values.fee_fixed,
+          min_fee: values.min_fee,
+          max_fee: values.max_fee,
+          is_active: values.is_active
+        }
+      })
       toast.success('Parámetro de comisión actualizado.')
       setOpen(false)
       await onUpdated(updatedRecord)
@@ -368,36 +876,88 @@ export function FeeConfigDialog({ actor, onUpdated, record }: { actor: StaffActo
             <CircleDollarSign className="size-6" />
           </div>
           <div className="space-y-0.5">
-            <DialogTitle className="text-lg font-bold">Ajustar Comisión</DialogTitle>
+            <DialogTitle className="text-lg font-bold">Ajustar Comisión Global</DialogTitle>
             <DialogDescription className="text-xs text-amber-700/80 font-medium dark:text-amber-300/80">
-              Modificando: <span className="text-amber-800 font-bold dark:text-amber-200">{record.type}</span>
+              Modificando ruta: <span className="text-amber-800 font-bold dark:text-amber-200">{opLabel}</span>
             </DialogDescription>
+          </div>
+          <div className="ml-auto">
+            <Badge variant="outline" className="font-mono text-[10px]">{record.payment_rail}</Badge>
           </div>
         </div>
 
         <div className="p-5 md:p-8">
           <Form {...form}>
-            <form className="space-y-6" onSubmit={form.handleSubmit(submit)}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField control={form.control} name="value" render={({ field }) => (
-                  <FormItem className="space-y-1.5">
-                    <FormLabel className="text-[13px] font-semibold text-foreground/80">Valor Numérico</FormLabel>
+            <form className="space-y-5" onSubmit={form.handleSubmit(submit)}>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField control={form.control} name="is_active" render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm col-span-2">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-[13px] font-semibold text-foreground/80">Estado de Ruta</FormLabel>
+                      <FormDescription className="text-[11px]">
+                        Habilita o deshabilita los cobros para este tipo de operación global.
+                      </FormDescription>
+                    </div>
                     <FormControl>
-                      <div className="relative">
-                        <Input {...field} min={0} step="0.01" type="number" className="h-10 bg-muted/20 border-border/60 focus:bg-background transition-all pr-8 font-bold" />
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground/60">
-                          {record.fee_type === 'percentage' ? '%' : record.currency}
-                        </div>
-                      </div>
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                  </FormItem>
+                )} />
+
+                <FormField control={form.control} name="fee_type" render={({ field }) => (
+                  <FormItem className="col-span-2 space-y-1.5">
+                    <FormLabel className="text-[13px] font-semibold text-foreground/80">Tipo de Comisión</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger className="h-10 bg-muted/20 border-border/60 font-bold"><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="percent">Porcentaje</SelectItem>
+                        <SelectItem value="fixed">Monto Fijo</SelectItem>
+                        <SelectItem value="mixed">Mixto (Fijo + %)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage className="text-[11px]" />
+                  </FormItem>
+                )} />
+
+                {(watchFeeType === 'percent' || watchFeeType === 'mixed') && (
+                  <FormField control={form.control} name="fee_percent" render={({ field }) => (
+                    <FormItem className="space-y-1.5">
+                      <FormLabel className="text-[13px] font-semibold text-foreground/80">Porcentaje (%)</FormLabel>
+                      <FormControl>
+                        <Input {...field} min={0} step="0.01" type="number" className="h-10 bg-muted/20 border-border/60 focus:bg-background transition-all" />
+                      </FormControl>
+                      <FormMessage className="text-[11px]" />
+                    </FormItem>
+                  )} />
+                )}
+
+                {(watchFeeType === 'fixed' || watchFeeType === 'mixed') && (
+                  <FormField control={form.control} name="fee_fixed" render={({ field }) => (
+                    <FormItem className="space-y-1.5">
+                      <FormLabel className="text-[13px] font-semibold text-foreground/80">Monto Fijo ($)</FormLabel>
+                      <FormControl>
+                        <Input {...field} min={0} step="0.01" type="number" className="h-10 bg-muted/20 border-border/60 focus:bg-background transition-all" />
+                      </FormControl>
+                      <FormMessage className="text-[11px]" />
+                    </FormItem>
+                  )} />
+                )}
+
+                <FormField control={form.control} name="min_fee" render={({ field }) => (
+                  <FormItem className="space-y-1.5">
+                    <FormLabel className="text-[13px] font-semibold text-foreground/80">Mínimo ($)</FormLabel>
+                    <FormControl>
+                      <Input {...field} min={0} step="0.01" type="number" className="h-10 bg-muted/20 border-border/60 focus:bg-background transition-all" />
                     </FormControl>
                     <FormMessage className="text-[11px]" />
                   </FormItem>
                 )} />
-                <FormField control={form.control} name="currency" render={({ field }) => (
+
+                <FormField control={form.control} name="max_fee" render={({ field }) => (
                   <FormItem className="space-y-1.5">
-                    <FormLabel className="text-[13px] font-semibold text-foreground/80">Divisa</FormLabel>
+                    <FormLabel className="text-[13px] font-semibold text-foreground/80">Máximo ($)</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="P. ej: BOB" className="h-10 bg-muted/20 border-border/60 focus:bg-background transition-all font-mono uppercase" />
+                      <Input {...field} min={0} step="0.01" type="number" className="h-10 bg-muted/20 border-border/60 focus:bg-background transition-all" />
                     </FormControl>
                     <FormMessage className="text-[11px]" />
                   </FormItem>
@@ -408,7 +968,7 @@ export function FeeConfigDialog({ actor, onUpdated, record }: { actor: StaffActo
                 <FormItem className="space-y-1.5">
                   <FormLabel className="text-[13px] font-semibold text-foreground/80">Justificación del Cambio</FormLabel>
                   <FormControl>
-                    <Textarea {...field} placeholder="Indica el motivo de este ajuste..." className="min-h-[100px] bg-muted/20 border-border/60 focus:bg-background transition-all resize-none" />
+                    <Textarea {...field} placeholder="Indica el motivo de este ajuste..." className="min-h-[80px] bg-muted/20 border-border/60 focus:bg-background transition-all resize-none" />
                   </FormControl>
                   <FormMessage className="text-[11px]" />
                 </FormItem>
@@ -416,10 +976,10 @@ export function FeeConfigDialog({ actor, onUpdated, record }: { actor: StaffActo
 
               <div className="flex flex-col gap-3">
                 <Button disabled={form.formState.isSubmitting} type="submit" className="w-full font-bold bg-amber-500 text-slate-950 hover:bg-amber-400 h-10 rounded-full shadow-lg shadow-amber-500/10 transition-all flex items-center justify-center gap-2">
-                  {form.formState.isSubmitting ? <><div className="size-3 border-2 border-white/30 border-t-white animate-spin rounded-full" /> Procesando...</> : 'Actualizar Parámetros'}
+                  {form.formState.isSubmitting ? <><div className="size-3 border-2 border-white/30 border-t-white animate-spin rounded-full" /> Procesando...</> : 'Guardar y Aplicar'}
                 </Button>
                 <div className="text-[10px] text-center text-muted-foreground italic">
-                  Este ajuste afecta los cálculos de todas las órdenes futuras.
+                  Este ajuste será registrado en la auditoría del sistema.
                 </div>
               </div>
             </form>

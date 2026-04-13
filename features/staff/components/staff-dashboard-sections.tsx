@@ -5,6 +5,14 @@ import { format } from 'date-fns'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { JsonSyntaxHighlight } from '@/components/ui/json-syntax-highlight'
+import {
   AlertTriangle,
   ArrowRightLeft,
   Bell,
@@ -34,6 +42,7 @@ import {
 } from '@/features/staff/components/admin-action-dialogs'
 import { AdminService } from '@/services/admin.service'
 import { interactiveCardClassName, cn } from '@/lib/utils'
+import { useProfileStore } from '@/stores/profile-store'
 import { useAuditTableStore } from '@/stores/audit-table-store'
 import type { StaffDashboardLoadedState } from '@/features/staff/components/staff-dashboard-page'
 import type { AppSettingRow, FeeConfigRow, PsavConfigRow } from '@/types/payment-order'
@@ -42,7 +51,9 @@ import type { StaffActor } from '@/types/staff'
 import type { BridgeTransfer } from '@/types/bridge-transfer'
 import type { AuditLog } from '@/types/activity-log'
 import { useAdminBridgePayouts } from '@/features/staff/hooks/use-admin-bridge-payouts'
+import { useAdminBridgeTransfers } from '@/features/staff/hooks/use-admin-bridge-transfers'
 import { BridgeAdminService, type AdminBridgePayout } from '@/services/admin/bridge.admin.service'
+import type { AdminBridgeTransfer } from '@/types/bridge-transfer'
 
 export function StaffOverviewPanel({
   snapshot,
@@ -542,22 +553,31 @@ export function StaffPayinsPanel({
 export function StaffTransfersPanel({
   showHeader = true,
 }: Pick<StaffDashboardLoadedState, 'snapshot'> & { showHeader?: boolean }) {
-  const { state, loading, error, reload } = useAdminBridgePayouts()
+  const { transfers, loading, error, reload } = useAdminBridgeTransfers()
+  const { profile } = useProfileStore()
+  const isSuperAdmin = profile?.role === 'super_admin'
 
   if (loading) {
-    return <div className="p-8 text-center text-sm text-muted-foreground">Cargando transferencias de liquidación...</div>
+    return <div className="p-8 text-center text-sm text-muted-foreground">Cargando transferencias Bridge...</div>
   }
 
-  if (error || !state) {
+  if (error) {
     return (
       <div className="p-8 text-center text-sm text-destructive">
-        {error || 'No se pudieron cargar los payouts.'}
+        {error}
         <Button variant="outline" size="sm" onClick={reload} className="mt-4 block mx-auto">Reintentar</Button>
       </div>
     )
   }
 
-  return <AdminBridgePayoutsTable payouts={state.payouts} showHeader={showHeader} reload={reload} />
+  return (
+    <AdminBridgeTransfersTable
+      transfers={transfers}
+      showHeader={showHeader}
+      reload={reload}
+      isSuperAdmin={isSuperAdmin}
+    />
+  )
 }
 
 export function StaffSupportTable({
@@ -1340,6 +1360,378 @@ function AuditTable({ logs }: { logs: AuditLog[] }) {
   )
 }
 
+function AdminBridgeTransfersTable({
+  transfers = [],
+  showHeader = true,
+  reload,
+  isSuperAdmin = false,
+}: {
+  transfers: AdminBridgeTransfer[]
+  showHeader?: boolean
+  reload: () => void
+  isSuperAdmin?: boolean
+}) {
+  const [query, setQuery] = useState('')
+  const deferredQuery = useDeferredValue(query)
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [clientFilter, setClientFilter] = useState('all')
+  const [railFilter, setRailFilter] = useState('all')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [rawModalData, setRawModalData] = useState<{ transferId: string; data: Record<string, unknown> } | null>(null)
+
+  const filteredTransfers = transfers.filter((t) => {
+    const matchesStatus = matchesFilterValue(t.status, statusFilter)
+    const matchesClient = matchesFilterValue(t.user_full_name || t.user_email || t.user_id, clientFilter)
+    const matchesRail = matchesFilterValue(t.destination_payment_rail, railFilter)
+    const matchesSearch = matchesQuery(deferredQuery, [
+      t.bridge_transfer_id,
+      t.id,
+      t.user_full_name,
+      t.user_email,
+      t.user_id,
+      t.source_payment_rail,
+      t.destination_payment_rail,
+      t.destination_currency,
+      t.status,
+      t.bridge_state,
+    ])
+
+    // Filtro de fecha
+    let matchesDate = true
+    if (dateFrom) {
+      matchesDate = matchesDate && t.created_at >= dateFrom
+    }
+    if (dateTo) {
+      // Añadir 1 día al dateTo para incluir el día completo
+      const toDate = new Date(dateTo)
+      toDate.setDate(toDate.getDate() + 1)
+      matchesDate = matchesDate && t.created_at < toDate.toISOString()
+    }
+
+    return matchesStatus && matchesClient && matchesRail && matchesSearch && matchesDate
+  })
+
+  const hasActiveFilters =
+    query.trim().length > 0 ||
+    statusFilter !== 'all' ||
+    clientFilter !== 'all' ||
+    railFilter !== 'all' ||
+    dateFrom !== '' ||
+    dateTo !== ''
+
+  const resetFilters = () => {
+    setQuery('')
+    setStatusFilter('all')
+    setClientFilter('all')
+    setRailFilter('all')
+    setDateFrom('')
+    setDateTo('')
+  }
+
+  const colSpan = isSuperAdmin ? 9 : 8
+
+  return (
+    <Card className="overflow-hidden">
+      {showHeader ? (
+        <CardHeader>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <CardTitle>Bridge Transfers</CardTitle>
+              <CardDescription>Registro operativo de todas las transferencias ejecutadas a través de Bridge API.</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={reload} className="h-8">
+              <RefreshCw className="size-3.5" />
+            </Button>
+          </div>
+        </CardHeader>
+      ) : null}
+      <CardContent className="space-y-4">
+        {/* Filtros */}
+        <div className="rounded-xl border border-border/70 bg-muted/15 p-4 overflow-hidden">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_repeat(auto-fit,minmax(120px,1fr))]">
+            <div className="space-y-2 min-w-0">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground truncate">
+                Buscar
+              </div>
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="ID, usuario, rail, moneda, estado..."
+                className="h-10 border-border/70 bg-background/80"
+              />
+            </div>
+
+            {[
+              {
+                label: 'Estado',
+                value: statusFilter,
+                onChange: setStatusFilter,
+                options: buildOptions(transfers, (t) => t.status),
+              },
+              {
+                label: 'Cliente',
+                value: clientFilter,
+                onChange: setClientFilter,
+                options: buildOptions(transfers, (t) => t.user_full_name || t.user_email || t.user_id),
+              },
+              {
+                label: 'Rail destino',
+                value: railFilter,
+                onChange: setRailFilter,
+                options: buildOptions(transfers, (t) => t.destination_payment_rail),
+              },
+            ].map((filter) => (
+              <div key={filter.label} className="space-y-2 min-w-0">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground truncate">
+                  {filter.label}
+                </div>
+                <Select value={filter.value} onValueChange={(value) => filter.onChange(value ?? 'all')}>
+                  <SelectTrigger className="h-10 w-full border-border/70 bg-background/80">
+                    <SelectValue placeholder={filter.label} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {filter.options.map((option) => (
+                      <SelectItem key={`${filter.label}-${option.value}`} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ))}
+          </div>
+
+          {/* Rango de fechas */}
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-2 min-w-0">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground truncate">
+                Desde
+              </div>
+              <Input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="h-10 border-border/70 bg-background/80"
+              />
+            </div>
+            <div className="space-y-2 min-w-0">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground truncate">
+                Hasta
+              </div>
+              <Input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="h-10 border-border/70 bg-background/80"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              {filteredTransfers.length} de {transfers.length} registros
+            </span>
+            {hasActiveFilters ? (
+              <Button type="button" variant="ghost" onClick={resetFilters} className="justify-center lg:justify-start">
+                Limpiar filtros
+              </Button>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Vista móvil */}
+        <div className="space-y-3 md:hidden">
+          {transfers.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-center text-sm text-muted-foreground">
+              No hay transferencias para mostrar.
+            </div>
+          ) : hasActiveFilters && filteredTransfers.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-center text-sm text-muted-foreground">
+              No hay resultados con los filtros actuales.
+            </div>
+          ) : (
+            filteredTransfers.map((t) => (
+              <Card key={t.id} className="border-border/70 bg-card/95 shadow-sm">
+                <CardContent className="space-y-4 p-4">
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-foreground font-mono text-xs">#{t.bridge_transfer_id?.slice(0, 8) ?? t.id.slice(0, 8)}</div>
+                        <div className="mt-1 text-xs text-muted-foreground">{t.user_full_name || t.user_email || t.user_id.slice(0, 8)}</div>
+                        <div className="mt-0.5 text-[10px] text-muted-foreground">{formatDate(t.created_at)}</div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <StatusBadge value={t.status ?? 'unknown'} />
+                        {t.bridge_state ? (
+                          <span className="text-[10px] text-muted-foreground font-mono">{t.bridge_state}</span>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 rounded-xl border border-border/60 bg-muted/15 p-3 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Origen</div>
+                        <div className="text-sm font-medium text-foreground">{t.source_payment_rail ?? '—'}</div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Destino</div>
+                        <div className="text-sm font-medium text-foreground">{t.destination_payment_rail ?? '—'} {t.destination_currency ? `(${t.destination_currency})` : ''}</div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Monto</div>
+                        <div className="text-sm font-medium text-foreground">{t.amount ?? '—'}</div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Exchange Fee</div>
+                        <div className="text-sm font-medium text-foreground">{t.receipt_exchange_fee ?? '—'}</div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Developer Fee</div>
+                        <div className="text-sm font-medium text-foreground">{t.receipt_developer_fee ?? '—'}</div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Final Amount</div>
+                        <div className="text-sm font-medium text-foreground">{t.receipt_final_amount ?? '—'}</div>
+                      </div>
+                    </div>
+
+                    {isSuperAdmin && t.bridge_raw_response ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setRawModalData({ transferId: t.bridge_transfer_id ?? t.id, data: t.bridge_raw_response! })}
+                        className="text-[10px] h-7 gap-1"
+                      >
+                        {'{}'} Ver Raw Response
+                      </Button>
+                    ) : null}
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+
+        {/* Vista desktop */}
+        <div className="hidden md:block overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Bridge ID / Usuario</TableHead>
+                <TableHead>Origen → Destino</TableHead>
+                <TableHead className="text-right">Monto</TableHead>
+                <TableHead className="text-right">Exchange Fee</TableHead>
+                <TableHead className="text-right">Dev Fee</TableHead>
+                <TableHead className="text-right">Final Amount</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Fecha</TableHead>
+                {isSuperAdmin ? <TableHead>Raw Response</TableHead> : null}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {transfers.length === 0 ? (
+                <EmptyRow colSpan={colSpan} message="No hay transferencias para mostrar." />
+              ) : hasActiveFilters && filteredTransfers.length === 0 ? (
+                <EmptyRow colSpan={colSpan} message="No hay resultados con los filtros actuales." />
+              ) : (
+                filteredTransfers.map((t) => (
+                  <TableRow key={t.id}>
+                    <TableCell>
+                      <div className="font-mono text-xs font-medium">#{t.bridge_transfer_id?.slice(0, 8) ?? t.id.slice(0, 8)}</div>
+                      <div className="text-xs text-muted-foreground">{t.user_full_name || t.user_email || t.user_id.slice(0, 8)}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-xs">
+                        <span className="font-medium">{t.source_payment_rail ?? '—'}</span>
+                        <span className="mx-1 text-muted-foreground">→</span>
+                        <span className="font-medium">{t.destination_payment_rail ?? '—'}</span>
+                      </div>
+                      {t.destination_currency ? (
+                        <div className="text-[10px] text-muted-foreground">{t.destination_currency}</div>
+                      ) : null}
+                    </TableCell>
+                    <TableCell className="font-mono text-sm text-right">{t.amount ?? '—'}</TableCell>
+                    <TableCell className="font-mono text-sm text-right text-muted-foreground">{t.receipt_exchange_fee ?? '—'}</TableCell>
+                    <TableCell className="font-mono text-sm text-right text-muted-foreground">{t.receipt_developer_fee ?? '—'}</TableCell>
+                    <TableCell className="font-mono text-sm text-right font-medium">{t.receipt_final_amount ?? '—'}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-0.5">
+                        <StatusBadge value={t.status ?? 'unknown'} />
+                        <span className="text-[10px] font-mono text-muted-foreground">{t.bridge_state ?? ''}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">{formatDate(t.created_at)}</TableCell>
+                    {isSuperAdmin ? (
+                      <TableCell>
+                        {t.bridge_raw_response ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setRawModalData({ transferId: t.bridge_transfer_id ?? t.id, data: t.bridge_raw_response! })}
+                            className="text-[10px] h-7 gap-1 font-mono text-muted-foreground hover:text-foreground"
+                          >
+                            {'{}'} Ver JSON
+                          </Button>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                    ) : null}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+
+      {/* Modal JSON Raw Response — solo super_admin */}
+      <Dialog open={rawModalData !== null} onOpenChange={(open) => { if (!open) setRawModalData(null) }}>
+        <DialogContent className="max-w-5xl w-[95vw] max-h-[90vh] overflow-hidden flex flex-col gap-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/30">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="flex items-center gap-2 text-base">
+                  <span className="inline-flex items-center justify-center size-7 rounded-lg bg-amber-500/10 text-amber-500 text-xs font-bold">{'{}'}</span>
+                  Bridge Raw Response
+                </DialogTitle>
+                <DialogDescription className="mt-1">
+                  Transfer: <code className="font-mono text-xs bg-muted/40 px-1.5 py-0.5 rounded">{rawModalData?.transferId}</code>
+                </DialogDescription>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 text-xs shrink-0"
+                onClick={() => {
+                  if (rawModalData) {
+                    navigator.clipboard.writeText(JSON.stringify(rawModalData.data, null, 2))
+                    toast.success('JSON copiado al portapapeles')
+                  }
+                }}
+              >
+                Copiar JSON
+              </Button>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto px-6 py-4" style={{ maxHeight: 'calc(90vh - 140px)' }}>
+            <div className="rounded-xl border border-border/40 bg-[#0d1117] p-5">
+              {rawModalData ? (
+                <JsonSyntaxHighlight data={rawModalData.data} />
+              ) : null}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  )
+}
+
 function AdminBridgePayoutsTable({
   payouts = [],
   showHeader = true,
@@ -1524,6 +1916,25 @@ function AdminBridgePayoutsTable({
   )
 }
 
+const OPERATION_LABELS: Record<string, string> = {
+  interbank_bo_out: 'Bolivia → Exterior (1.1)',
+  interbank_w2w: 'Wallet → Wallet (1.2)',
+  interbank_bo_wallet: 'Bolivia → Wallet (1.3)',
+  interbank_bo_in: 'Exterior → Bolivia (1.4)',
+  ramp_on_fiat_us: 'Fiat US → Wallet (1.5/2.3)',
+  ramp_on_bo: 'Fiat BO → Wallet (2.1)',
+  ramp_on_crypto: 'Crypto → Wallet (2.2)',
+  ramp_off_bo: 'Wallet → Fiat BO (2.4)',
+  ramp_off_crypto: 'Wallet → Crypto (2.5)',
+  ramp_off_fiat_us: 'Wallet → Fiat US (2.6)',
+}
+
+const feeDisplay = (r: FeeConfigRow) => {
+  if (r.fee_type === 'percent') return `${Number(r.fee_percent || 0)}%`
+  if (r.fee_type === 'fixed') return `$${Number(r.fee_fixed || 0)}`
+  return `$${Number(r.fee_fixed || 0)} + ${Number(r.fee_percent || 0)}%`
+}
+
 function ConfigPanel({
   actor,
   appSettings,
@@ -1596,15 +2007,30 @@ function ConfigPanel({
                   <CardContent className="space-y-4 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <div className="font-semibold text-foreground/90">{record.type}</div>
-                        <div className="mt-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                          {record.fee_type === 'percentage' ? 'Porcentual' : 'Monto Fijo'}
+                        <div className="font-semibold text-foreground/90">
+                          {record.operation_type ? (OPERATION_LABELS[record.operation_type] || record.operation_type) : record.type}
+                        </div>
+                        <div className="mt-1 flex items-center gap-2">
+                          <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-wider">{record.payment_rail || 'N/A'}</Badge>
+                          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                            {record.fee_type === 'percent' ? 'Porcentual' : record.fee_type === 'fixed' ? 'Monto Fijo' : 'Mixto'}
+                          </span>
+                          {!record.is_active && (
+                            <Badge variant="destructive" className="bg-destructive/20 text-destructive text-[9px] px-1 py-0">Descativado</Badge>
+                          )}
                         </div>
                       </div>
-                      <div className="shrink-0">
+                      <div className="shrink-0 flex flex-col items-end gap-1">
                         <span className="inline-flex items-center rounded-md border border-border/40 bg-muted/60 px-2.5 py-1 text-xs font-bold">
-                          {record.value}{record.fee_type === 'percentage' ? '%' : ` ${record.currency}`}
+                          {feeDisplay(record)}
                         </span>
+                        {(Number(record.min_fee) > 0 || Number(record.max_fee) > 0) && (
+                          <span className="text-[9px] text-muted-foreground mr-1">
+                            {Number(record.min_fee) > 0 ? `Min $${record.min_fee}` : ''}
+                            {Number(record.min_fee) > 0 && Number(record.max_fee) > 0 ? ' • ' : ''}
+                            {Number(record.max_fee) > 0 ? `Max $${record.max_fee}` : ''}
+                          </span>
+                        )}
                       </div>
                     </div>
                     {isPrivileged && (
@@ -1639,15 +2065,32 @@ function ConfigPanel({
                   feesConfig.map((record) => (
                     <TableRow key={record.id} className={cn('group', interactiveCardClassName, 'hover:bg-muted/30')}>
                       <TableCell className="py-4 pl-6">
-                        <div className="text-sm font-semibold text-foreground/90">{record.type}</div>
-                        <div className="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                          {record.fee_type === 'percentage' ? 'Porcentual' : 'Monto Fijo'}
+                        <div className="text-sm font-semibold text-foreground/90 flex items-center gap-2">
+                          {record.operation_type ? (OPERATION_LABELS[record.operation_type] || record.operation_type) : record.type}
+                          {!record.is_active && (
+                            <Badge variant="destructive" className="bg-destructive/20 text-destructive text-[9px] px-1 py-0">Inactivo</Badge>
+                          )}
+                        </div>
+                        <div className="mt-1 flex items-center gap-2">
+                          <Badge variant="outline" className="text-[9px] uppercase font-bold tracking-wider py-0 rounded-sm">{record.payment_rail || 'N/A'}</Badge>
+                          <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+                            {record.fee_type === 'percent' ? 'Porcentual' : record.fee_type === 'fixed' ? 'Monto Fijo' : 'Mixto'}
+                          </span>
                         </div>
                       </TableCell>
                       <TableCell className="py-4 text-center">
-                        <span className="inline-flex items-center rounded-md border border-border/40 bg-muted/60 px-2.5 py-1 text-xs font-bold">
-                          {record.value}{record.fee_type === 'percentage' ? '%' : ` ${record.currency}`}
-                        </span>
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="inline-flex items-center rounded-md border border-border/40 bg-muted/60 px-2.5 py-1 text-xs font-bold">
+                            {feeDisplay(record)}
+                          </span>
+                          {(Number(record.min_fee) > 0 || Number(record.max_fee) > 0) && (
+                            <span className="text-[9px] text-muted-foreground">
+                              {Number(record.min_fee) > 0 ? `Min $${record.min_fee}` : ''}
+                              {Number(record.min_fee) > 0 && Number(record.max_fee) > 0 ? ' • ' : ''}
+                              {Number(record.max_fee) > 0 ? `Max $${record.max_fee}` : ''}
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="py-4 pr-6 text-right">
                         <div className={tableActionClassName}>

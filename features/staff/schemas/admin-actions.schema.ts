@@ -13,8 +13,12 @@ export const adminReasonSchema = z.object({
 })
 
 export const adminFeeConfigSchema = z.object({
-  value: z.coerce.number().nonnegative('Ingresa un valor valido.'),
-  currency: z.string().trim().min(1, 'Ingresa la moneda.'),
+  fee_type: z.enum(['percent', 'fixed', 'mixed']),
+  fee_percent: z.coerce.number().min(0, 'Debe ser >= 0').optional(),
+  fee_fixed: z.coerce.number().min(0, 'Debe ser >= 0').optional(),
+  min_fee: z.coerce.number().min(0, 'Debe ser >= 0').optional(),
+  max_fee: z.coerce.number().min(0, 'Debe ser >= 0').optional(),
+  is_active: z.boolean(),
   reason: z.string().trim().min(5, 'Ingresa un motivo descriptivo.'),
 })
 
@@ -42,9 +46,35 @@ export const adminPsavRecordSchema = z.object({
   reason: z.string().trim().min(5, 'Ingresa un motivo descriptivo.'),
 })
 
+export const adminChangeRoleSchema = z.object({
+  role: z.enum(['client', 'staff', 'admin', 'super_admin']),
+  reason: z.string().trim().min(5, 'Ingresa un motivo descriptivo.').max(500),
+})
+
+export const adminFeeOverrideSchema = z.object({
+  operation_type: z.enum([
+    'interbank_bo_out', 'interbank_w2w', 'interbank_bo_wallet', 'interbank_bo_in',
+    'ramp_on_fiat_us', 'ramp_on_bo', 'ramp_on_crypto',
+    'ramp_off_bo', 'ramp_off_crypto', 'ramp_off_fiat_us',
+  ]),
+  payment_rail: z.enum(['psav', 'bridge']),
+  currency: z.enum(['USD', 'BOB', 'USDC', 'USDT']),
+  fee_type: z.enum(['percent', 'fixed', 'mixed']),
+  fee_percent: z.coerce.number().min(0, 'Debe ser >= 0').optional(),
+  fee_fixed: z.coerce.number().min(0, 'Debe ser >= 0').optional(),
+  min_fee: z.coerce.number().min(0, 'Debe ser >= 0').optional(),
+  max_fee: z.coerce.number().min(0, 'Debe ser >= 0').optional(),
+  valid_until: z.string().optional().or(z.literal('')),
+  notes: z.string().max(500).optional(),
+})
+
 export type AdminCreateUserValues = z.infer<typeof adminCreateUserSchema>
 export type AdminReasonValues = z.infer<typeof adminReasonSchema>
 export type AdminFeeConfigValues = z.infer<typeof adminFeeConfigSchema>
 export type AdminAppSettingValues = z.infer<typeof adminAppSettingSchema>
 export type AdminJsonRecordValues = z.infer<typeof adminJsonRecordSchema>
 export type AdminPsavRecordValues = z.infer<typeof adminPsavRecordSchema>
+export type AdminChangeRoleValues = z.infer<typeof adminChangeRoleSchema>
+export type AdminFeeOverrideValues = z.infer<typeof adminFeeOverrideSchema>
+
+

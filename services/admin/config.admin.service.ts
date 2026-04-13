@@ -74,9 +74,7 @@ export const ConfigAdminService = {
     return apiPatch<FeeConfig>(`/admin/fees/${feeId}`, updates)
   },
 
-  async setCustomerFee(userId: string, feeType: string, percentage: number): Promise<void> {
-    return apiPost<void>('/admin/fees/overrides', { user_id: userId, fee_type: feeType, percentage })
-  },
+  // NOTA: La gestión de fee overrides por cliente se movió a UsersAdminService
 
   // ── Exchange Rates ─────────────────────────────────────────────
 
