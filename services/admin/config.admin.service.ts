@@ -23,6 +23,7 @@ export interface ExchangeRatePair {
   from_currency: string
   to_currency: string
   rate: number
+  spread_percent?: number
   provider: string
   updated_at: string
 }
@@ -86,8 +87,8 @@ export const ConfigAdminService = {
     return apiPost<void>('/admin/payment-orders/exchange-rates/sync')
   },
 
-  async updateExchangeRate(pair: string, rate: number): Promise<ExchangeRatePair> {
-    return apiPost<ExchangeRatePair>(`/admin/payment-orders/exchange-rates/${pair}`, { rate })
+  async updateExchangeRate(pair: string, rate: number, spread_percent?: number): Promise<ExchangeRatePair> {
+    return apiPost<ExchangeRatePair>(`/admin/payment-orders/exchange-rates/${pair}`, { rate, spread_percent })
   },
 
   // ── PSAV ──────────────────────────────────────────────────────

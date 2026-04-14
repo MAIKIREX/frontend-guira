@@ -77,10 +77,10 @@ export function WalletRampDetailStep({
     let exchangeRateApplied = 1
 
     if (method === 'fiat_bo') {
-      const rateRecord = exchangeRates.find((r) => r.pair?.toUpperCase() === 'BOB_USDC') ?? exchangeRates.find((r) => r.pair?.toUpperCase() === 'BOB_USD')
+      const rateRecord = exchangeRates.find((r) => r.pair?.toUpperCase() === 'BOB_USD')
       if (rateRecord) {
         const spread = rateRecord.spread_percent ?? 0
-        // BOB_USDC: dividimos → spread SUBE la tasa para penalizar al usuario
+        // BOB_USD: dividimos → spread SUBE la tasa para penalizar al usuario
         exchangeRateApplied = rateRecord.rate * (1 + spread / 100)
       } else {
         exchangeRateApplied = 6.96

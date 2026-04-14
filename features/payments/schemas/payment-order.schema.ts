@@ -93,15 +93,9 @@ export const paymentOrderSchema = z
       }
 
       if (value.wallet_ramp_withdraw_method === 'fiat_bo') {
-        if (!value.withdraw_bank_name || value.withdraw_bank_name.length < 2) {
-          ctx.addIssue({ code: 'custom', message: 'El nombre del banco es obligatorio.', path: ['withdraw_bank_name'] })
-        }
-        if (!value.withdraw_account_number || value.withdraw_account_number.length < 4) {
-          ctx.addIssue({ code: 'custom', message: 'El número de cuenta es obligatorio.', path: ['withdraw_account_number'] })
-        }
-        if (!value.withdraw_account_holder || value.withdraw_account_holder.length < 3) {
-          ctx.addIssue({ code: 'custom', message: 'El nombre del titular es obligatorio.', path: ['withdraw_account_holder'] })
-        }
+        // La validación de cuenta bancaria se realiza en el backend.
+        // El backend verifica que exista en client_bank_accounts y que esté aprobada.
+        // No se requieren campos manuales de banco desde el formulario.
       } else if (value.wallet_ramp_withdraw_method === 'crypto') {
         if (!value.crypto_address) {
           ctx.addIssue({ code: 'custom', message: 'La direccion cripto es obligatoria.', path: ['crypto_address'] })

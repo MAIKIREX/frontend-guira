@@ -110,9 +110,55 @@ export const UsersAdminService = {
   async deleteOverride(overrideId: string): Promise<void> {
     return apiDelete<void>(`/admin/fees/overrides/${overrideId}`)
   },
+
+  // ── VA Fee Override (Bridge developer_fee_percent) ─────────
+
+  /**
+   * Obtiene el fee resuelto para un usuario (override → global).
+   */
+  async getResolvedVaFee(userId: string): Promise<ResolvedVaFee> {
+    return apiGet<ResolvedVaFee>(`/admin/bridge/users/${userId}/va-fee`)
+  },
+
+  /**
+   * Establece o limpia el override de developer_fee_percent de Bridge VA.
+   * fee_percent=null → limpiar override (volver a fee global).
+   */
+  async setVaFeeOverride(userId: string, fee_percent: number | null, reason: string): Promise<{ user_id: string; va_developer_fee_percent: number | null }> {
+    return apiPatch<{ user_id: string; va_developer_fee_percent: number | null }>(`/admin/bridge/users/${userId}/va-fee`, { fee_percent, reason })
+  },
+
+  /**
+   * Actualiza el developer_fee_percent de una VA existente directamente en Bridge.
+   */
+  async updateVaFee(vaId: string, fee_percent: number, reason: string): Promise<unknown> {
+    return apiPatch<unknown>(`/admin/bridge/virtual-accounts/${vaId}/fee`, { fee_percent, reason })
+  },
+
+  /**
+   * Lista las VAs activas de un usuario (admin).
+   */
+  async listUserVirtualAccounts(userId: string): Promise<AdminVirtualAccount[]> {
+    return apiGet<AdminVirtualAccount[]>(`/admin/bridge/users/${userId}/virtual-accounts`)
+  },
 }
 
 // ── Tipos ────────────────────────────────────────────────────────
+
+export interface ResolvedVaFee {
+  resolved_fee: number | null
+  source: 'client_override' | 'global'
+}
+
+export interface AdminVirtualAccount {
+  id: string
+  bridge_virtual_account_id: string
+  source_currency: string
+  destination_currency: string
+  developer_fee_percent: number | null
+  status: string
+  created_at: string
+}
 
 export interface FeeOverride {
   id: string
@@ -154,4 +200,5 @@ export interface CreateFeeOverridePayload {
   valid_until?: string
   notes?: string
 }
+
 

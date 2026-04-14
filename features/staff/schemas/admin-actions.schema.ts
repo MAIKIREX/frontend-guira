@@ -22,6 +22,11 @@ export const adminFeeConfigSchema = z.object({
   reason: z.string().trim().min(5, 'Ingresa un motivo descriptivo.'),
 })
 
+export const adminRateConfigSchema = z.object({
+  rate: z.coerce.number().min(0.0001, 'La tasa debe ser mayor a 0'),
+  spread_percent: z.coerce.number().min(0, 'El spread debe ser >= 0').optional(),
+})
+
 export const adminAppSettingSchema = z.object({
   value: z.string().trim().min(1, 'Ingresa un valor valido.'),
   reason: z.string().trim().min(5, 'Ingresa un motivo descriptivo.'),
@@ -68,6 +73,11 @@ export const adminFeeOverrideSchema = z.object({
   notes: z.string().max(500).optional(),
 })
 
+export const adminVaFeeOverrideSchema = z.object({
+  fee_percent: z.coerce.number().min(0, 'Debe ser >= 0').max(100, 'Máximo 100%'),
+  reason: z.string().trim().min(5, 'Ingresa un motivo descriptivo.').max(500),
+})
+
 export type AdminCreateUserValues = z.infer<typeof adminCreateUserSchema>
 export type AdminReasonValues = z.infer<typeof adminReasonSchema>
 export type AdminFeeConfigValues = z.infer<typeof adminFeeConfigSchema>
@@ -76,5 +86,5 @@ export type AdminJsonRecordValues = z.infer<typeof adminJsonRecordSchema>
 export type AdminPsavRecordValues = z.infer<typeof adminPsavRecordSchema>
 export type AdminChangeRoleValues = z.infer<typeof adminChangeRoleSchema>
 export type AdminFeeOverrideValues = z.infer<typeof adminFeeOverrideSchema>
-
-
+export type AdminRateConfigValues = z.infer<typeof adminRateConfigSchema>
+export type AdminVaFeeOverrideValues = z.infer<typeof adminVaFeeOverrideSchema>

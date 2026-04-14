@@ -10,6 +10,7 @@ import { cn, interactiveRowClassName } from '@/lib/utils'
 import { useProfileStore } from '@/stores/profile-store'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ProfileService } from '@/services/profile.service'
+import { ClientBankAccountSection } from './client-bank-account-section'
 
 interface ClientPreferences {
   compact_amounts: boolean
@@ -63,6 +64,9 @@ export function ClientSettingsPanel() {
         </div>
 
         <AvatarUploadCard profile={profile} />
+
+        {/* Sección de cuenta bancaria para retiros Bolivia */}
+        <ClientBankAccountSection />
 
         <Card className="border-border/80 bg-muted/10">
         <CardHeader>

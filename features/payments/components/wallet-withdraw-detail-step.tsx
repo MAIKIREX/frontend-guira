@@ -1,4 +1,5 @@
-import React, { useRef } from 'react'
+import React, { useRef, useEffect, useState } from 'react'
+import Link from 'next/link'
 import {
   FormControl,
   FormField,
@@ -18,6 +19,8 @@ import { cn } from '@/lib/utils'
 import { resolveFeeTotal, type ExchangeRateRecord } from '@/features/payments/lib/deposit-instructions'
 import type { WalletBalance } from '@/services/wallet.service'
 import type { FeeConfigRow } from '@/types/payment-order'
+import { ClientBankAccountsService, type ClientBankAccount } from '@/services/client-bank-accounts.service'
+import { AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
 
 const LABEL_CLASS = 'text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground'
 const FORM_TEXT_CLASS = 'tracking-[0.01em]'
@@ -43,6 +46,27 @@ export function WalletWithdrawDetailStep({
 }: WalletWithdrawDetailStepProps) {
   const prevEstimateRef = useRef<{ feeTotal: number; exchangeRateApplied: number; amountConverted: number } | null>(null)
 
+  // ── Bank account state (for fiat_bo) ──
+  const [bankAccount, setBankAccount] = useState<ClientBankAccount | null>(null)
+  const [bankLoading, setBankLoading] = useState(method === 'fiat_bo')
+
+  useEffect(() => {
+    if (method !== 'fiat_bo') return
+    setBankLoading(true)
+    ClientBankAccountsService.getPrimary()
+      .then((data) => setBankAccount(data))
+      .catch(() => setBankAccount(null))
+      .finally(() => setBankLoading(false))
+  }, [method])
+
+  useEffect(() => {
+    if (method === 'fiat_bo' && bankAccount) {
+      form.setValue('withdraw_bank_name', bankAccount.bank_name, { shouldValidate: false, shouldDirty: false, shouldTouch: false })
+      form.setValue('withdraw_account_number', bankAccount.account_number, { shouldValidate: false, shouldDirty: false, shouldTouch: false })
+      form.setValue('withdraw_account_holder', bankAccount.account_holder, { shouldValidate: false, shouldDirty: false, shouldTouch: false })
+    }
+  }, [bankAccount, form, method])
+
   const amount = form.watch('amount_origin')
 
   const estimate = React.useMemo(() => {
@@ -53,7 +77,6 @@ export function WalletWithdrawDetailStep({
     if (method === 'fiat_bo') {
       feeTotal = resolveFeeTotal(feesConfig, Number(amount) || 0, 'bridge_wallet_to_fiat_bo' as any)
       const rateRecord =
-        exchangeRates.find((r) => r.pair?.toUpperCase() === 'USDC_BOB') ??
         exchangeRates.find((r) => r.pair?.toUpperCase() === 'USD_BOB')
       exchangeRateApplied = 6.96 // fallback
       if (rateRecord) {
@@ -88,6 +111,9 @@ export function WalletWithdrawDetailStep({
     form.setValue('exchange_rate_applied', estimate.exchangeRateApplied, { shouldValidate: false, shouldDirty: false, shouldTouch: false })
     form.setValue('amount_converted', estimate.amountConverted, { shouldValidate: false, shouldDirty: false, shouldTouch: false })
   }, [estimate, form])
+
+  // Determine if the submit should be blocked for fiat_bo without bank account
+  const isFiatBoBlocked = method === 'fiat_bo' && !bankLoading && !bankAccount
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -139,7 +165,7 @@ export function WalletWithdrawDetailStep({
                   min={0}
                   step="any"
                   placeholder="0.00"
-                  disabled={disabled}
+                  disabled={disabled || isFiatBoBlocked}
                   className={cn(FORM_UNDERLINE_INPUT_CLASS, 'text-lg font-medium tracking-[-0.02em] pr-16')}
                 />
                 <span className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
@@ -154,71 +180,64 @@ export function WalletWithdrawDetailStep({
 
       {method === 'fiat_bo' ? (
         <>
-          <div className="space-y-1.5 pt-2">
-            <p className={cn(LABEL_CLASS, 'text-foreground')}>Cuenta bancaria destino (Bolivia)</p>
-            <p className="text-xs text-muted-foreground">
-              Los fondos convertidos a bolivianos serán depositados en esta cuenta a través de nuestro PSAV.
-            </p>
-          </div>
-
-          <FormField
-            control={form.control}
-            name="withdraw_bank_name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className={LABEL_CLASS}>Banco</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    placeholder="Ej: Banco Mercantil Santa Cruz"
-                    disabled={disabled}
-                    className={cn(FORM_UNDERLINE_INPUT_CLASS, FORM_TEXT_CLASS)}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="withdraw_account_number"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className={LABEL_CLASS}>Número de cuenta</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      placeholder="Ej: 4010-123456-001"
-                      disabled={disabled}
-                      className={cn(FORM_UNDERLINE_INPUT_CLASS, FORM_TEXT_CLASS, 'font-mono')}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="withdraw_account_holder"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className={LABEL_CLASS}>Titular de la cuenta</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      placeholder="Nombre completo del beneficiario"
-                      disabled={disabled}
-                      className={cn(FORM_UNDERLINE_INPUT_CLASS, FORM_TEXT_CLASS)}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+          {bankLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="size-5 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">Cargando cuenta bancaria...</span>
+            </div>
+          ) : bankAccount ? (
+            /* ── Datos bancarios del perfil (solo lectura) ── */
+            <div className="rounded-xl border border-border/40 bg-muted/10 p-5 space-y-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="size-4 text-emerald-500" />
+                <p className={cn(LABEL_CLASS, 'text-foreground !text-xs')}>
+                  Tu cuenta bancaria destino
+                </p>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Los fondos convertidos a bolivianos serán depositados automáticamente en esta cuenta.
+                Si necesitas cambiarla, ve a{' '}
+                <Link href="/perfil" className="text-primary underline underline-offset-2 hover:text-primary/80">
+                  Perfil → Cuenta bancaria
+                </Link>.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-3 pt-1">
+                <div className="rounded-lg border border-border/50 bg-background/60 p-3">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Banco</span>
+                  <p className="mt-0.5 text-sm font-medium">{bankAccount.bank_name}</p>
+                </div>
+                <div className="rounded-lg border border-border/50 bg-background/60 p-3">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Cuenta</span>
+                  <p className="mt-0.5 text-sm font-medium font-mono tracking-wide">{bankAccount.account_number}</p>
+                </div>
+                <div className="rounded-lg border border-border/50 bg-background/60 p-3">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Titular</span>
+                  <p className="mt-0.5 text-sm font-medium">{bankAccount.account_holder}</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* ── CTA: Cuenta bancaria no registrada ── */
+            <div className="rounded-xl border-l-4 border-amber-500/60 bg-amber-500/5 p-5 space-y-2">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="size-4 text-amber-600" />
+                <p className="font-semibold text-sm text-amber-700 dark:text-amber-400">
+                  Cuenta bancaria no registrada
+                </p>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Para retirar fondos a Bolivia, primero debes registrar tu cuenta bancaria personal en tu perfil.
+                Esta medida es parte del control de seguridad de la plataforma y asegura que los fondos solo se
+                depositen en tu propia cuenta.
+              </p>
+              <Link
+                href="/perfil"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline mt-1"
+              >
+                Ir a mi Perfil →
+              </Link>
+            </div>
+          )}
         </>
       ) : method === 'crypto' ? (
         <>
@@ -318,3 +337,4 @@ export function WalletWithdrawDetailStep({
     </div>
   )
 }
+

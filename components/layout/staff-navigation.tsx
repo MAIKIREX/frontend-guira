@@ -36,7 +36,7 @@ const staffNavGroups: StaffNavGroup[] = [
     label: 'Operaciones',
     icon: LayoutDashboard,
     items: [
-      { href: '/admin/onboarding', label: 'Onboarding', icon: ShieldCheck },
+      { href: '/admin/onboarding', label: 'Onboarding & Compliance', icon: ShieldCheck },
       { href: '/admin/orders', label: 'Orders', icon: ReceiptText },
     ],
   },

@@ -198,7 +198,19 @@ export function ClientDashboard() {
                 value={formatMoney(amountToConvert, config.originCurrency)}
               />
               <SummaryRow
-                label="Tipo de cambio aplicado"
+                label="Tipo de cambio base (Mercado)"
+                value={formatExchangeRate(
+                  action === 'depositar' ? (rates.sellBaseRate ?? 0) : (rates.buyBaseRate ?? 0),
+                  config.originCurrency,
+                  config.destinationCurrency
+                )}
+              />
+              <SummaryRow
+                label="Spread aplicado"
+                value={`${formatNumber(action === 'depositar' ? rates.sellSpread : rates.buySpread)} %`}
+              />
+              <SummaryRow
+                label="Tipo de cambio final"
                 value={formatExchangeRate(
                   estimate.exchangeRateApplied,
                   config.originCurrency,

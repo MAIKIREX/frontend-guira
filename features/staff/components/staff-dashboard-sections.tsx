@@ -17,7 +17,9 @@ import {
   ArrowRightLeft,
   Bell,
   CircleDollarSign,
+  FileCheck,
   RefreshCw,
+  ShieldAlert,
   ShieldCheck,
   Users,
 } from 'lucide-react'
@@ -39,6 +41,7 @@ import {
   PsavConfigDialogs,
   PsavCreateDialog,
   UserAdminActions,
+  RateConfigDialog,
 } from '@/features/staff/components/admin-action-dialogs'
 import { AdminService } from '@/services/admin.service'
 import { interactiveCardClassName, cn } from '@/lib/utils'
@@ -81,7 +84,7 @@ export function StaffOverviewPanel({
           </CardHeader>
           <CardContent className="space-y-5 p-4 sm:p-6">
             <div className="grid gap-3 md:grid-cols-4">
-              <MetricCard icon={ShieldCheck} label="Onboarding" value={String(snapshot.onboarding.length)} />
+              <MetricCard icon={ShieldCheck} label="Compliance" value={String(snapshot.onboarding.length)} />
               <MetricCard icon={ArrowRightLeft} label="Orders" value={String(snapshot.orders.length)} />
               <MetricCard icon={CircleDollarSign} label="Support" value={String(snapshot.support.length)} />
               <MetricCard icon={Users} label="Users" value={String(snapshot.users.length)} />
@@ -111,6 +114,12 @@ export function StaffOnboardingTable({
   const [statusFilter, setStatusFilter] = useState('all')
   const [typeFilter, setTypeFilter] = useState('all')
   const deferredQuery = useDeferredValue(query)
+
+  // — Compliance stats —
+  const pendingKycs = records.filter((r) => r.type === 'personal' && (r.status === 'under_review' || r.status === 'open')).length
+  const pendingKybs = records.filter((r) => r.type === 'company' && (r.status === 'under_review' || r.status === 'open')).length
+  const pendingPayouts = records.filter((r) => (r as any).subject_type === 'payout_request' && (r.status === 'open' || r.status === 'pending')).length
+
   const filteredRecords = records.filter((record) => {
     const matchesStatus = matchesFilterValue(record.status, statusFilter)
     const matchesType = matchesFilterValue(record.type, typeFilter)
@@ -131,10 +140,46 @@ export function StaffOnboardingTable({
   return (
     <Card className="overflow-hidden border-0 bg-background shadow-none ring-0">
       <CardHeader className="px-0 pt-0">
-        <CardTitle className="text-3xl tracking-tight">Onboarding</CardTitle>
-        <CardDescription>Revision y acciones KYC/KYB con join a `profiles`.</CardDescription>
+        <CardTitle className="text-3xl tracking-tight">Onboarding & Compliance</CardTitle>
+        <CardDescription>Revisión y acciones KYC/KYB con seguimiento de compliance integrado.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 px-0 pb-0">
+        {/* Compliance summary stats */}
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Card className={cn('border-border/70 transition-colors', pendingKycs > 0 && 'border-amber-500/40 bg-amber-500/5')}>
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className={cn('flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted/50', pendingKycs > 0 && 'bg-amber-500/15')}>
+                <ShieldCheck className={cn('size-5 text-muted-foreground', pendingKycs > 0 && 'text-amber-600')} />
+              </div>
+              <div>
+                <div className="text-2xl font-bold tabular-nums">{pendingKycs}</div>
+                <div className="text-xs font-medium text-muted-foreground">KYC Pendientes</div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className={cn('border-border/70 transition-colors', pendingKybs > 0 && 'border-blue-500/40 bg-blue-500/5')}>
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className={cn('flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted/50', pendingKybs > 0 && 'bg-blue-500/15')}>
+                <FileCheck className={cn('size-5 text-muted-foreground', pendingKybs > 0 && 'text-blue-600')} />
+              </div>
+              <div>
+                <div className="text-2xl font-bold tabular-nums">{pendingKybs}</div>
+                <div className="text-xs font-medium text-muted-foreground">KYB Pendientes</div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className={cn('border-border/70 transition-colors', pendingPayouts > 0 && 'border-red-500/40 bg-red-500/5')}>
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className={cn('flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted/50', pendingPayouts > 0 && 'bg-red-500/15')}>
+                <ShieldAlert className={cn('size-5 text-muted-foreground', pendingPayouts > 0 && 'text-red-600')} />
+              </div>
+              <div>
+                <div className="text-2xl font-bold tabular-nums">{pendingPayouts}</div>
+                <div className="text-xs font-medium text-muted-foreground">Payouts en Revisión</div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
         <TableFilters
           query={query}
           onQueryChange={setQuery}
@@ -2124,20 +2169,29 @@ function ConfigPanel({
           <CardContent className="space-y-4 p-6">
             {!isPrivileged ? <AdminOnlyNotice /> : null}
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Compra</div>
-                <div className="mt-2 text-2xl font-bold tracking-tight">
-                  {formatRateValue(buyRate)}
+              {rates.rawRates.map((record: any) => (
+                <div key={record.id || record.pair} className="rounded-xl border border-border/70 bg-muted/20 p-4 relative group">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                      {record.pair === 'BOB_USD' ? 'Compra' : record.pair === 'USD_BOB' ? 'Venta' : record.pair}
+                    </div>
+                    {isPrivileged && (
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <RateConfigDialog actor={actor} record={record} onUpdated={() => reloadRates()} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-2xl font-bold tracking-tight">
+                    {formatRateValue(record.rate)}
+                  </div>
+                  <div className="mt-2 flex items-center justify-between">
+                    <div className="text-xs text-muted-foreground">Par: `{record.pair || `${record.from_currency}_${record.to_currency}`}`</div>
+                    <div className="inline-flex items-center rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                      Spread: {record.spread_percent ?? 0}%
+                    </div>
+                  </div>
                 </div>
-                <div className="mt-1 text-xs text-muted-foreground">Par: `BOB_USD`</div>
-              </div>
-              <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Venta</div>
-                <div className="mt-2 text-2xl font-bold tracking-tight">
-                  {formatRateValue(sellRate)}
-                </div>
-                <div className="mt-1 text-xs text-muted-foreground">Par: `USD_BOB`</div>
-              </div>
+              ))}
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">

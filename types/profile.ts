@@ -8,6 +8,7 @@ export interface Profile {
   onboarding_status: string
   bridge_customer_id?: string
   avatar_url?: string
+  va_developer_fee_percent?: number | null
   created_at: string
   is_archived: boolean
   metadata?: Record<string, unknown>

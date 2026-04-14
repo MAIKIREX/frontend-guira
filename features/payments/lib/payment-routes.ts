@@ -160,9 +160,9 @@ export function buildPaymentOrderPayload(
       break
     case 'bridge_wallet_to_fiat_bo':
       payload.wallet_id = values.wallet_ramp_wallet_id
-      payload.destination_bank_name = values.withdraw_bank_name
-      payload.destination_account_number = values.withdraw_account_number
-      payload.destination_account_holder = values.withdraw_account_holder
+      // Los datos bancarios (bank_name, account_number, account_holder)
+      // ahora se leen del perfil del usuario en el backend (client_bank_accounts).
+      // No se envían desde el formulario.
       break
     case 'bridge_wallet_to_crypto':
       payload.wallet_id = values.wallet_ramp_wallet_id

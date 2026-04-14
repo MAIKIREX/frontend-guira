@@ -5,7 +5,7 @@ import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
 import { Textarea } from '@/components/ui/textarea'
@@ -20,6 +20,13 @@ import {
   AlertTriangle,
   Bell,
   Trash2,
+  Landmark,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Loader2,
+  Percent,
+  Globe,
 } from 'lucide-react'
 import {
   Dialog,
@@ -38,7 +45,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { AdminService } from '@/services/admin.service'
-import { UsersAdminService, type FeeOverride } from '@/services/admin/users.admin.service'
+import { UsersAdminService, type FeeOverride, type ResolvedVaFee, type AdminVirtualAccount } from '@/services/admin/users.admin.service'
 import {
   adminAppSettingSchema,
   adminCreateUserSchema,
@@ -47,6 +54,7 @@ import {
   adminPsavRecordSchema,
   adminChangeRoleSchema,
   adminFeeOverrideSchema,
+  adminVaFeeOverrideSchema,
   type AdminAppSettingValues,
   type AdminCreateUserValues,
   type AdminFeeConfigValues,
@@ -54,7 +62,12 @@ import {
   type AdminPsavRecordValues,
   type AdminChangeRoleValues,
   type AdminFeeOverrideValues,
+  type AdminVaFeeOverrideValues,
+  adminRateConfigSchema,
+  type AdminRateConfigValues,
 } from '@/features/staff/schemas/admin-actions.schema'
+import { ConfigAdminService, type ExchangeRatePair } from '@/services/admin/config.admin.service'
+import { BankAccountsAdminService, type PendingBankAccount } from '@/services/admin/bank-accounts.admin.service'
 import type { AppSettingRow, FeeConfigRow, PsavConfigRow } from '@/types/payment-order'
 import type { Profile } from '@/types/profile'
 import type { StaffActor } from '@/types/staff'
@@ -194,6 +207,8 @@ export function UserAdminActions({ actor, onUpdated, user }: { actor: StaffActor
     <div className="flex flex-wrap justify-end gap-2">
       <ChangeRoleDialog actor={actor} onUpdated={onUpdated} user={user} />
       <FeeOverridesDialog actor={actor} user={user} />
+      <VaFeeOverrideDialog actor={actor} user={user} />
+      <BankAccountReviewDialog actor={actor} user={user} />
       <ResetPasswordDialog actor={actor} email={user.email} onUpdated={onUpdated} />
       {user.is_archived ? (
         <UnarchiveUserDialog actor={actor} onUpdated={onUpdated} user={user} />
@@ -529,6 +544,242 @@ function FeeOverridesDialog({ actor, user }: { actor: StaffActor; user: Profile 
                 </div>
               </form>
             </Form>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function VaFeeOverrideDialog({ actor, user }: { actor: StaffActor; user: Profile }) {
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [resolvedFee, setResolvedFee] = useState<ResolvedVaFee | null>(null)
+  const [userVAs, setUserVAs] = useState<AdminVirtualAccount[]>([])
+  const [updatingVaId, setUpdatingVaId] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [clearingOverride, setClearingOverride] = useState(false)
+
+  const canManage = actor.role === 'admin' || actor.role === 'super_admin'
+
+  const form = useForm<AdminVaFeeOverrideValues>({
+    resolver: zodResolver(adminVaFeeOverrideSchema) as Resolver<AdminVaFeeOverrideValues>,
+    defaultValues: { fee_percent: 0, reason: '' },
+  })
+
+  const loadData = async () => {
+    setLoading(true)
+    try {
+      const [fee, vas] = await Promise.all([
+        UsersAdminService.getResolvedVaFee(user.id),
+        UsersAdminService.listUserVirtualAccounts(user.id),
+      ])
+      setResolvedFee(fee)
+      setUserVAs(vas)
+      if (fee.source === 'client_override' && fee.resolved_fee != null) {
+        form.setValue('fee_percent', fee.resolved_fee)
+      }
+    } catch {
+      toast.error('Error al cargar datos de fee')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (open) loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  const handleSetOverride = async (values: AdminVaFeeOverrideValues) => {
+    setSaving(true)
+    try {
+      await UsersAdminService.setVaFeeOverride(user.id, values.fee_percent, values.reason)
+      toast.success(`Override establecido: ${values.fee_percent}%`)
+      form.reset({ fee_percent: values.fee_percent, reason: '' })
+      loadData()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al establecer override'
+      toast.error(msg)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleClearOverride = async () => {
+    if (!confirm('¿Eliminar el override? El usuario volverá a usar el fee global.')) return
+    setClearingOverride(true)
+    try {
+      await UsersAdminService.setVaFeeOverride(user.id, null, 'Limpieza de override de fee VA')
+      toast.success('Override eliminado. Se usará el fee global.')
+      form.reset({ fee_percent: 0, reason: '' })
+      loadData()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al limpiar override'
+      toast.error(msg)
+    } finally {
+      setClearingOverride(false)
+    }
+  }
+
+  const handleUpdateVaFee = async (va: AdminVirtualAccount) => {
+    const newFee = prompt(
+      `Actualizar fee de VA ${va.source_currency.toUpperCase()} → ${va.destination_currency.toUpperCase()}\n\nFee actual: ${va.developer_fee_percent ?? 'No configurado'}%\n\nIngresa el nuevo fee (%):`,
+      String(va.developer_fee_percent ?? 0),
+    )
+    if (newFee === null) return
+    const parsed = parseFloat(newFee)
+    if (isNaN(parsed) || parsed < 0 || parsed > 100) {
+      toast.error('Fee inválido. Debe ser un número entre 0 y 100.')
+      return
+    }
+    const reason = prompt('Motivo del cambio:')
+    if (!reason || reason.trim().length < 5) {
+      toast.error('Ingresa un motivo descriptivo (mín. 5 caracteres).')
+      return
+    }
+    setUpdatingVaId(va.id)
+    try {
+      await UsersAdminService.updateVaFee(va.id, parsed, reason)
+      toast.success(`Fee de VA actualizado en Bridge: ${parsed}%`)
+      loadData()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al actualizar fee en Bridge'
+      toast.error(msg)
+    } finally {
+      setUpdatingVaId(null)
+    }
+  }
+
+  if (!canManage) return null
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button size="sm" variant="outline" className="gap-1.5" />}>
+        <Percent className="h-3.5 w-3.5" />
+        Fee Bridge VA
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="mb-2">
+          <DialogTitle className="flex items-center gap-2">
+            <Percent className="h-5 w-5 text-blue-500" />
+            Developer Fee — Virtual Accounts
+          </DialogTitle>
+          <DialogDescription>
+            Gestiona el <code>developer_fee_percent</code> de Bridge para <strong>{user.full_name || user.email}</strong>.
+          </DialogDescription>
+        </DialogHeader>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-8 gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Cargando...
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {/* ── Fee Resuelto Actual ── */}
+            {resolvedFee && (
+              <div className={`flex items-center justify-between p-4 rounded-xl border ${resolvedFee.source === 'client_override' ? 'bg-blue-500/5 border-blue-500/20' : 'bg-muted/20 border-border/60'}`}>
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Fee actual aplicado:</div>
+                  <div className="text-2xl font-bold tabular-nums">
+                    {resolvedFee.resolved_fee != null ? `${resolvedFee.resolved_fee}%` : 'No configurado'}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {resolvedFee.source === 'client_override' ? (
+                    <Badge variant="default" className="gap-1 text-[10px]">
+                      <CircleDollarSign className="h-3 w-3" />
+                      Override activo
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="gap-1 text-[10px]">
+                      <Globe className="h-3 w-3" />
+                      Fee Global
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── Formulario de Override ── */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-foreground">Configurar Override</h4>
+                {resolvedFee?.source === 'client_override' && (
+                  <Button size="sm" variant="ghost" onClick={handleClearOverride} disabled={clearingOverride} className="text-xs text-destructive/70 hover:text-destructive gap-1">
+                    {clearingOverride ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
+                    Usar fee global
+                  </Button>
+                )}
+              </div>
+
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(handleSetOverride)} className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField control={form.control} name="fee_percent" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Fee (%)</FormLabel>
+                        <FormControl><Input {...field} type="number" step="0.01" min="0" max="100" placeholder="1.0" className="h-9 text-xs font-mono" /></FormControl>
+                        <FormDescription className="text-[10px]">0% = sin cobro (VIP)</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="reason" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Justificación</FormLabel>
+                        <FormControl><Input {...field} placeholder="Ej: Cliente VIP volumen alto" className="h-9 text-xs" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-1.5 rounded-md flex-1">
+                      <AlertTriangle className="h-3 w-3 shrink-0" />
+                      El override aplica solo a <strong>futuras</strong> VAs. Para VAs existentes, actualiza cada una abajo.
+                    </div>
+                    <Button type="submit" size="sm" disabled={saving} className="gap-1.5 shrink-0">
+                      {saving ? <><Loader2 className="h-3 w-3 animate-spin" /> Guardando...</> : 'Guardar Override'}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </div>
+
+            {/* ── VAs activas del usuario ── */}
+            {userVAs.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-border/50">
+                <h4 className="text-sm font-semibold text-foreground">
+                  Virtual Accounts Activas ({userVAs.length})
+                </h4>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  {userVAs.map((va) => (
+                    <div key={va.id} className="flex items-center justify-between p-2.5 rounded-lg border border-border/40 bg-muted/10 text-sm">
+                      <div className="flex items-center gap-2 flex-wrap min-w-0">
+                        <Badge variant="outline" className="text-[10px] font-mono">
+                          {va.source_currency.toUpperCase()} → {va.destination_currency.toUpperCase()}
+                        </Badge>
+                        <span className="text-xs font-semibold tabular-nums">
+                          Fee: {va.developer_fee_percent != null ? `${va.developer_fee_percent}%` : '—'}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {new Date(va.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleUpdateVaFee(va)}
+                        disabled={updatingVaId === va.id}
+                        className="text-xs gap-1 h-7 px-2 text-blue-700 hover:text-blue-800 hover:bg-blue-500/10 dark:text-blue-300"
+                      >
+                        {updatingVaId === va.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Percent className="h-3 w-3" />}
+                        Actualizar
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </DialogContent>
@@ -1537,4 +1788,386 @@ function parseAppSettingValue(rawValue: string, previousValue: unknown) {
     default:
       return rawValue
   }
+}
+
+export function RateConfigDialog({
+  actor,
+  onUpdated,
+  record,
+}: {
+  actor: StaffActor
+  onUpdated: (record: ExchangeRatePair) => Promise<void> | void
+  record: ExchangeRatePair
+}) {
+  const [open, setOpen] = useState(false)
+  const form = useForm<AdminRateConfigValues>({
+    resolver: zodResolver(adminRateConfigSchema) as any,
+    defaultValues: {
+      rate: record.rate,
+      spread_percent: record.spread_percent ?? 0,
+    },
+  })
+
+  async function submit(values: AdminRateConfigValues) {
+    try {
+      const pairId = (record as any).pair || `${record.from_currency}_${record.to_currency}`
+      const updatedRecord = await ConfigAdminService.updateExchangeRate(
+        pairId,
+        values.rate,
+        values.spread_percent
+      )
+      toast.success('Tipo de cambio actualizado.')
+      setOpen(false)
+      await onUpdated(updatedRecord)
+    } catch (error) {
+      console.error('Failed to update exchange rate', error)
+      toast.error('Error al actualizar el tipo de cambio.')
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger
+        render={
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 px-2 border border-transparent bg-amber-500/8 text-amber-700 hover:bg-amber-500/14 hover:text-amber-800 dark:text-amber-300 dark:hover:text-amber-200 font-bold text-[10px] uppercase tracking-wider transition-all"
+          />
+        }
+      >
+        Editar
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[400px] w-[95vw] sm:w-full gap-0 p-0 max-h-[92vh] overflow-y-auto border-border/40 shadow-2xl">
+        <div className="bg-amber-500/5 border-b border-amber-500/10 p-6 flex items-center gap-4">
+          <div className="size-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-700 shadow-sm dark:text-amber-300">
+            <CircleDollarSign className="size-6" />
+          </div>
+          <div className="space-y-0.5">
+            <DialogTitle className="text-lg font-bold">Ajustar Tasa: {(record as any).pair || `${record.from_currency}_${record.to_currency}`}</DialogTitle>
+            <DialogDescription className="text-xs text-amber-700/80 font-medium dark:text-amber-300/80">
+              Modificando la base y el spread porcentual.
+            </DialogDescription>
+          </div>
+        </div>
+        <div className="p-6 md:p-8 pt-6">
+          <Form {...form}>
+            <form className="space-y-5" onSubmit={form.handleSubmit(submit)}>
+              <FormField
+                control={form.control}
+                name="rate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-semibold">Tasa Base Comercial</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="number" step="0.0001" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="spread_percent"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-semibold">Margen (Spread) %</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="number" step="0.01" />
+                    </FormControl>
+                    <p className="text-[10px] text-muted-foreground mt-1">Margen comercial de conversión.</p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter className="pt-4 border-t border-border/40 sm:justify-between items-center w-full">
+                <Button
+                  variant="ghost"
+                  className="font-bold hidden sm:flex"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    setOpen(false)
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  disabled={form.formState.isSubmitting}
+                  type="submit"
+                  className="font-bold flex-1 sm:flex-none shadow-lg shadow-primary/20 transition-all hover:bg-primary/90"
+                >
+                  {form.formState.isSubmitting ? (
+                    <span className="flex items-center gap-2">
+                      <span className="size-3 border-2 border-primary-foreground/30 border-t-primary-foreground animate-spin rounded-full" />
+                      Guardando...
+                    </span>
+                  ) : (
+                    'Guardar Cambios'
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function BankAccountReviewDialog({ actor, user }: { actor: StaffActor; user: Profile }) {
+  const [open, setOpen] = useState(false)
+  const [accounts, setAccounts] = useState<PendingBankAccount[]>([])
+  const [loading, setLoading] = useState(false)
+  const [actionLoading, setActionLoading] = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
+  const [showRejectForm, setShowRejectForm] = useState<string | null>(null)
+
+  const canManage = actor.role === 'admin' || actor.role === 'super_admin' || actor.role === 'staff'
+
+  const loadAccounts = async () => {
+    setLoading(true)
+    try {
+      const data = await BankAccountsAdminService.getByUser(user.id)
+      setAccounts(data as PendingBankAccount[])
+    } catch {
+      toast.error('Error al cargar cuentas bancarias')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (open) {
+      loadAccounts()
+      setShowRejectForm(null)
+      setRejectReason('')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  const handleApprove = async (accountId: string) => {
+    setActionLoading(true)
+    try {
+      await BankAccountsAdminService.approve(accountId)
+      toast.success('Cambio de cuenta bancaria aprobado.')
+      loadAccounts()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al aprobar'
+      toast.error(msg)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleReject = async (accountId: string) => {
+    if (!rejectReason.trim()) {
+      toast.error('Debes indicar una razón para el rechazo.')
+      return
+    }
+    setActionLoading(true)
+    try {
+      await BankAccountsAdminService.reject(accountId, rejectReason.trim())
+      toast.success('Solicitud de cambio rechazada.')
+      setShowRejectForm(null)
+      setRejectReason('')
+      loadAccounts()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al rechazar'
+      toast.error(msg)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  if (!canManage) return null
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="gap-1.5">
+          <Landmark className="h-3.5 w-3.5" />
+          Cuenta bancaria
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="mb-2">
+          <DialogTitle className="flex items-center gap-2">
+            <Landmark className="h-5 w-5 text-primary" />
+            Cuenta Bancaria — {user.full_name || user.email}
+          </DialogTitle>
+          <DialogDescription>
+            Gestiona la cuenta bancaria de este usuario. Revisa y aprueba o rechaza solicitudes de cambio.
+          </DialogDescription>
+        </DialogHeader>
+
+        {loading ? (
+          <div className="text-sm text-muted-foreground text-center py-8 flex items-center justify-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Cargando...
+          </div>
+        ) : accounts.length === 0 ? (
+          <div className="text-sm text-muted-foreground text-center py-8 bg-muted/20 rounded-xl border border-dashed border-border/60">
+            Este usuario no tiene cuenta bancaria registrada.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {accounts.map((acct) => {
+              const isPending = acct.status === 'pending_approval'
+              return (
+                <div
+                  key={acct.id}
+                  className={`rounded-xl border p-4 space-y-4 transition-colors ${
+                    isPending
+                      ? 'bg-amber-500/5 border-amber-500/20'
+                      : 'bg-muted/10 border-border/60'
+                  }`}
+                >
+                  {/* Status header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {isPending ? (
+                        <Badge variant="secondary" className="gap-1 text-amber-700 bg-amber-500/10 border-amber-500/20 dark:text-amber-400">
+                          <Clock className="h-3 w-3" />
+                          Cambio pendiente
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="gap-1 text-emerald-700 bg-emerald-500/10 border-emerald-500/20 dark:text-emerald-400">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Activa
+                        </Badge>
+                      )}
+                      <Badge variant="outline" className="text-[10px] uppercase tracking-widest">{acct.currency}</Badge>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground font-mono">{acct.id.slice(0, 8)}</span>
+                  </div>
+
+                  {/* Current data */}
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground mb-2">Datos actuales</div>
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      <div className="text-sm"><span className="text-xs text-muted-foreground block mb-0.5">Banco:</span> <span className="font-medium">{acct.bank_name}</span></div>
+                      <div className="text-sm"><span className="text-xs text-muted-foreground block mb-0.5">Cuenta:</span> <span className="font-medium font-mono">{acct.account_number}</span></div>
+                      <div className="text-sm"><span className="text-xs text-muted-foreground block mb-0.5">Titular:</span> <span className="font-medium">{acct.account_holder}</span></div>
+                    </div>
+                  </div>
+
+                  {/* Pending changes comparison */}
+                  {isPending && acct.pending_changes && (
+                    <div className="border-t border-amber-500/10 pt-3">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-400 mb-2">Cambios solicitados</div>
+                      <div className="grid gap-2 sm:grid-cols-3">
+                        {acct.pending_changes.bank_name && (
+                          <div className="text-sm">
+                            <span className="text-xs text-muted-foreground block mb-0.5">Banco:</span>
+                            <span className="font-medium text-amber-700 dark:text-amber-400">{acct.pending_changes.bank_name}</span>
+                          </div>
+                        )}
+                        {acct.pending_changes.account_number && (
+                          <div className="text-sm">
+                            <span className="text-xs text-muted-foreground block mb-0.5">Cuenta:</span>
+                            <span className="font-medium font-mono text-amber-700 dark:text-amber-400">{acct.pending_changes.account_number}</span>
+                          </div>
+                        )}
+                        {acct.pending_changes.account_holder && (
+                          <div className="text-sm">
+                            <span className="text-xs text-muted-foreground block mb-0.5">Titular:</span>
+                            <span className="font-medium text-amber-700 dark:text-amber-400">{acct.pending_changes.account_holder}</span>
+                          </div>
+                        )}
+                        {acct.pending_changes.account_type && (
+                          <div className="text-sm">
+                            <span className="text-xs text-muted-foreground block mb-0.5">Tipo:</span>
+                            <span className="font-medium text-amber-700 dark:text-amber-400">
+                              {acct.pending_changes.account_type === 'savings' ? 'Caja de ahorro' : 'Cuenta corriente'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Motivo del cambio */}
+                      {acct.change_reason && (
+                        <div className="mt-3 rounded-lg border border-blue-500/20 bg-blue-500/5 p-3">
+                          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-blue-700 dark:text-blue-400 mb-1">Motivo del cliente</div>
+                          <p className="text-sm text-foreground leading-relaxed">{acct.change_reason}</p>
+                        </div>
+                      )}
+
+                      {/* Action buttons */}
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          disabled={actionLoading}
+                          onClick={() => handleApprove(acct.id)}
+                          className="gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Aprobar cambio
+                        </Button>
+                        {showRejectForm === acct.id ? (
+                          <div className="w-full mt-2 space-y-2">
+                            <Textarea
+                              placeholder="Razón del rechazo (obligatorio)..."
+                              value={rejectReason}
+                              onChange={(e) => setRejectReason(e.target.value)}
+                              rows={2}
+                              className="text-sm resize-none"
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                disabled={actionLoading || !rejectReason.trim()}
+                                onClick={() => handleReject(acct.id)}
+                                className="gap-1.5"
+                              >
+                                <XCircle className="h-3.5 w-3.5" />
+                                Confirmar rechazo
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setShowRejectForm(null)
+                                  setRejectReason('')
+                                }}
+                              >
+                                Cancelar
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={actionLoading}
+                            onClick={() => setShowRejectForm(acct.id)}
+                            className="gap-1.5 text-destructive border-destructive/20 hover:bg-destructive/10"
+                          >
+                            <XCircle className="h-3.5 w-3.5" />
+                            Rechazar
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* No pending — info only */}
+                  {!isPending && (
+                    <div className="text-xs text-muted-foreground flex items-center gap-1.5 pt-1">
+                      <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                      Sin solicitudes de cambio pendientes.
+                      {acct.last_change_requested_at && (
+                        <span> · Último cambio solicitado: {new Date(acct.last_change_requested_at).toLocaleDateString('es-BO')}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
 }
