@@ -23,6 +23,7 @@ import type { PaymentOrder } from '@/types/payment-order'
 import type { Profile } from '@/types/profile'
 import type { AdminComplianceReview } from '@/services/admin/compliance.admin.service'
 import type { AdminBridgePayout } from '@/services/admin/bridge.admin.service'
+import type { StaffOnboardingRecord } from '@/types/staff'
 
 export interface StaffDashboardState {
   orders: PaymentOrder[]
@@ -58,7 +59,7 @@ export function useStaffDashboard() {
       ] = await Promise.all([
         apiGet<PaymentOrder[]>('/admin/payment-orders', { params: { limit: 100 } }),
         UsersAdminService.getUsers({ limit: 100 }),
-        ComplianceAdminService.getReviews({ status: 'under_review' }),
+        ComplianceAdminService.getReviews(), // C6 FIX: No enviamos filtro muerto
         SupportAdminService.getAllTickets({ status: 'open', limit: 50 }),
         ConfigAdminService.getFeesConfig(),
         ConfigAdminService.getPsavConfigs(),
@@ -148,7 +149,7 @@ export function useStaffDashboard() {
   return {
     /** @deprecated Usar state directamente. snapshot se mantiene para compatibilidad temporal. */
     snapshot: state ? {
-      onboarding: state.complianceReviews as any, // Mapeo temporal
+      onboarding: mapReviewsToOnboardingRecords(state.complianceReviews), // C7 FIX: mapper explícito
       orders: state.orders,
       support: state.supportTickets as any,
       users: state.users,
@@ -174,4 +175,28 @@ export function useStaffDashboard() {
     replacePsavConfig,
     removePsavConfig,
   }
+}
+
+// ── C7 FIX: Mapper explícito AdminComplianceReview → StaffOnboardingRecord ──
+
+function mapReviewsToOnboardingRecords(
+  reviews: AdminComplianceReview[],
+): StaffOnboardingRecord[] {
+  return reviews.map((rev) => ({
+    id: rev.id,
+    user_id: rev.user_id ?? 'unknown-user',
+    type: rev.type ?? (rev.subject_type === 'kyb_applications' ? 'company' : 'personal'),
+    status: (rev.application_status ?? rev.status ?? 'in_review') as StaffOnboardingRecord['status'],
+    data: {},
+    observations: undefined,
+    created_at: rev.opened_at ?? new Date().toISOString(),
+    updated_at: rev.updated_at ?? rev.opened_at ?? new Date().toISOString(),
+    profiles: rev.profiles
+      ? {
+          full_name: rev.profiles.full_name || rev.profiles.business_name,
+          email: rev.profiles.email,
+          onboarding_status: undefined,
+        }
+      : null,
+  }))
 }

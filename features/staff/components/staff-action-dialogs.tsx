@@ -49,6 +49,7 @@ import {
   type StaffReasonValues,
 } from '@/features/staff/schemas/staff-actions.schema'
 import { StaffService } from '@/services/staff.service'
+import { ComplianceAdminService } from '@/services/admin/compliance.admin.service'
 import { ACCEPTED_UPLOADS } from '@/lib/file-validation'
 import type { StaffActor, StaffOnboardingRecord, StaffSupportTicket } from '@/types/staff'
 import type { PaymentOrder } from '@/types/payment-order'
@@ -124,7 +125,7 @@ function OnboardingActionDialog({ actor, defaultStatus, onUpdated, record }: { a
 
   async function submit(values: StaffOnboardingActionValues) {
     try {
-      const updatedRecord = await StaffService.updateOnboardingStatus({ actor, record, status: values.status, reason: values.reason })
+      const updatedRecord = await ComplianceAdminService.updateOnboardingStatus({ actor, record, status: values.status, reason: values.reason })
       toast.success('Onboarding actualizado.')
       setOpen(false)
       form.reset({ status: defaultStatus, reason: '' })

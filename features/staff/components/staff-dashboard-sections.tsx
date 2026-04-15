@@ -115,10 +115,11 @@ export function StaffOnboardingTable({
   const [typeFilter, setTypeFilter] = useState('all')
   const deferredQuery = useDeferredValue(query)
 
-  // — Compliance stats —
-  const pendingKycs = records.filter((r) => r.type === 'personal' && (r.status === 'under_review' || r.status === 'open')).length
-  const pendingKybs = records.filter((r) => r.type === 'company' && (r.status === 'under_review' || r.status === 'open')).length
-  const pendingPayouts = records.filter((r) => (r as any).subject_type === 'payout_request' && (r.status === 'open' || r.status === 'pending')).length
+  // Compliance stats — cast status to string because runtime values from the mapper
+  // can include 'open'/'closed' (compliance_review.status fallback) beyond OnboardingStatus.
+  const pendingKycs = records.filter((r) => r.type === 'personal' && ((r.status as string) === 'in_review' || (r.status as string) === 'kyc_submitted' || (r.status as string) === 'submitted' || (r.status as string) === 'open')).length
+  const pendingKybs = records.filter((r) => r.type === 'company' && ((r.status as string) === 'in_review' || (r.status as string) === 'kyb_submitted' || (r.status as string) === 'submitted' || (r.status as string) === 'open')).length
+  const pendingPayouts = records.filter((r) => (r as any).subject_type === 'payout_request' && ((r.status as string) === 'open' || (r.status as string) === 'pending')).length
 
   const filteredRecords = records.filter((record) => {
     const matchesStatus = matchesFilterValue(record.status, statusFilter)
