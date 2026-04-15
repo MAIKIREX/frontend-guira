@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { LogOut, User } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
@@ -27,6 +27,8 @@ export function UserMenu() {
     return name.slice(0, 2).toUpperCase()
   }
 
+  const avatarUrl = profile.avatar_url?.trim() || ''
+
   const handleLogout = async () => {
     try {
       await AuthService.logout()
@@ -38,10 +40,15 @@ export function UserMenu() {
     }
   }
 
+  const handleGoToSettings = () => {
+    router.push('/configuracion')
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="relative inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
         <Avatar className="h-8 w-8">
+          <AvatarImage src={avatarUrl} alt={profile.full_name || 'Avatar del usuario'} />
           <AvatarFallback>{getInitials(profile.full_name)}</AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
@@ -56,7 +63,7 @@ export function UserMenu() {
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem disabled>
+          <DropdownMenuItem onClick={handleGoToSettings}>
             <User className="mr-2 h-4 w-4" />
             <span>Perfil</span>
           </DropdownMenuItem>

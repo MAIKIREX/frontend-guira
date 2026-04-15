@@ -1,6 +1,6 @@
 'use client'
 
-import { useDeferredValue, useState } from 'react'
+import { useDeferredValue, useState, useEffect } from 'react'
 import { format } from 'date-fns'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -16,12 +16,16 @@ import {
   AlertTriangle,
   ArrowRightLeft,
   Bell,
+  CheckCircle2,
   CircleDollarSign,
   FileCheck,
+  Loader2,
+  Percent,
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
   Users,
+  XCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -56,6 +60,7 @@ import type { AuditLog } from '@/types/activity-log'
 import { useAdminBridgePayouts } from '@/features/staff/hooks/use-admin-bridge-payouts'
 import { useAdminBridgeTransfers } from '@/features/staff/hooks/use-admin-bridge-transfers'
 import { BridgeAdminService, type AdminBridgePayout } from '@/services/admin/bridge.admin.service'
+import { UsersAdminService, type VaFeeDefault } from '@/services/admin/users.admin.service'
 import type { AdminBridgeTransfer } from '@/types/bridge-transfer'
 
 export function StaffOverviewPanel({
@@ -2301,6 +2306,8 @@ function ConfigPanel({
             </div>
           </CardContent>
         </Card>
+
+        <VaFeeDefaultsCard isPrivileged={isPrivileged} />
       </div>
     </div>
   )
@@ -2790,3 +2797,183 @@ function normalizeText(value: unknown) {
 
   return ''
 }
+
+function VaFeeDefaultsCard({ isPrivileged }: { isPrivileged: boolean }) {
+  const [data, setData] = useState<VaFeeDefault[]>([])
+  const [loading, setLoading] = useState(true)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState<string>('')
+  const [saving, setSaving] = useState(false)
+
+  const loadData = async () => {
+    try {
+      setLoading(true)
+      const res = await UsersAdminService.listVaFeeDefaults()
+      setData(res)
+    } catch (err) {
+      console.error(err)
+      toast.error('Error al cargar VA Fee Defaults')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (isPrivileged) {
+      loadData()
+    } else {
+      setLoading(false)
+    }
+  }, [isPrivileged])
+
+  const handleSave = async (record: VaFeeDefault) => {
+    try {
+      setSaving(true)
+      const newValue = parseFloat(editValue)
+      if (isNaN(newValue) || newValue < 0 || newValue > 100) {
+        toast.error('El fee debe ser un número válido entre 0 y 100.')
+        return
+      }
+
+      await UsersAdminService.updateVaFeeDefault({
+        source_currency: record.source_currency,
+        destination_type: record.destination_type,
+        fee_percent: newValue,
+      })
+
+      toast.success('Fee global actualizado exitosamente.')
+      setEditingId(null)
+      loadData()
+    } catch (error) {
+      console.error(error)
+      toast.error(error instanceof Error ? error.message : 'Error al actualizar el fee global.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Card className="overflow-hidden border-border/60 bg-background/95 shadow-sm">
+      <CardHeader className="border-b border-border/40 pb-6">
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-700 dark:text-indigo-400">
+            <Percent className="size-5" />
+          </div>
+          <div className="space-y-1">
+            <CardTitle className="text-lg font-bold tracking-tight">Fees Cuentas Virtuales (Global)</CardTitle>
+            <CardDescription className="text-[13px]">
+              Tarifa por defecto si el usuario no tiene un Override configurado.
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        {!isPrivileged ? <div className="p-6"><AdminOnlyNotice /></div> : null}
+        
+        {loading ? (
+          <div className="p-8 text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
+            <Loader2 className="size-5 animate-spin" />
+            Cargando configuración...
+          </div>
+        ) : data.length === 0 && isPrivileged ? (
+          <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 m-4 py-8 text-center text-sm text-muted-foreground">
+            No hay fees configurados para las cuentas virtuales.
+          </div>
+        ) : isPrivileged ? (
+          <div className="p-4 md:p-6">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {data.map((record) => (
+                <div key={record.id} className="rounded-xl border border-border/70 bg-card p-4 transition-colors hover:bg-muted/20">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="space-y-1">
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <span className="text-foreground">{record.source_currency}</span>
+                        <ArrowRightLeft className="size-3 text-muted-foreground/60" />
+                        <span className="text-foreground">
+                           {record.destination_type === 'wallet_bridge' ? 'Bridge' : 'Externa'}
+                        </span>
+                      </div>
+                      <div className="text-[9px] text-muted-foreground font-mono">
+                        {record.destination_type}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-3">
+                    {editingId === record.id ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          className="h-8 max-w-24 text-sm font-semibold"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSave(record)
+                            if (e.key === 'Escape') setEditingId(null)
+                          }}
+                          disabled={saving}
+                        />
+                        <span className="text-sm font-bold text-muted-foreground">%</span>
+                        <div className="flex ml-auto gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10"
+                            onClick={() => handleSave(record)}
+                            disabled={saving}
+                            title="Guardar"
+                          >
+                            {saving ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => setEditingId(null)}
+                            disabled={saving}
+                            title="Cancelar"
+                          >
+                            <XCircle className="size-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div className="text-2xl font-black tracking-tight text-indigo-950 dark:text-indigo-100">
+                          {record.fee_percent}%
+                        </div>
+                        {isPrivileged && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="text-[11px] h-7 px-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950/50"
+                            onClick={() => {
+                              setEditValue(record.fee_percent.toString())
+                              setEditingId(record.id)
+                            }}
+                          >
+                            Editar
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 flex items-start gap-2 rounded-lg bg-indigo-500/5 p-3 text-xs text-indigo-800 dark:text-indigo-300">
+               <ShieldCheck className="mt-0.5 size-4 shrink-0 opacity-80" />
+               <p leading-relaxed>
+                 Estos porcentajes se aplican automáticamente a todas las cuentas virtuales. 
+                 Si un usuario tiene un override configurado (botón "Fee Bridge VA" en usuarios), prevalecerá el override.
+               </p>
+            </div>
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  )
+}
+

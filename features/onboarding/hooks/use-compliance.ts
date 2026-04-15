@@ -62,7 +62,7 @@ export function useCompliance() {
 
   /** True si hay una revisión en curso */
   const isPending =
-    state.kyc?.status === 'submitted' || state.kyc?.status === 'under_review'
+    state.kyc?.status === 'submitted' || state.kyc?.status === 'in_progress'
 
   return { state, loading, error, reload: load, isApproved, isPending }
 }

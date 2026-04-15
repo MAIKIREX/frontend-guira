@@ -50,7 +50,7 @@ export function CompanyForm({
   const [tosLoading, setTosLoading] = useState(false)
   const [tosModalOpen, setTosModalOpen] = useState(false)
   const [tosContractId, setTosContractId] = useState<string | null>(null)
-  const [uploadedDocs, setUploadedDocs] = useState<Record<string, boolean>>({})
+  const [pendingFiles, setPendingFiles] = useState<Record<string, File>>({})
 
   const form = useForm<CompanyOnboardingValues>({
     resolver: zodResolver(companyOnboardingSchema) as any,
@@ -139,38 +139,16 @@ export function CompanyForm({
     }
   }
 
-  // ── Upload documentos empresa ──────────────────────────────────
-  const handleDocUpload = async (
-    docType: string,
-    file: File,
-  ) => {
-    if (!file) return
-    setIsUploading(true)
-    try {
-      await OnboardingService.uploadDocument(file, docType, 'business')
-      setUploadedDocs(prev => ({ ...prev, [docType]: true }))
-      toast.success('Documento de empresa subido correctamente')
-    } catch (err) {
-      console.error(err)
-      toast.error('Error subiendo documento')
-    } finally {
-      setIsUploading(false)
-    }
-  }
-
-  // ── Upload documentos UBO ──────────────────────────────────────
-  const handleUboDocUpload = async (index: number, docId: string, file: File) => {
-    if (!file) return
-    setIsUploading(true)
-    try {
-      await OnboardingService.uploadDocument(file, docId, 'ubo')
-      setUploadedDocs(prev => ({ ...prev, [`ubo_${index}_${docId}`]: true }))
-      toast.success(`Documento UBO #${index + 1} subido`)
-    } catch (err) {
-      console.error(err)
-      toast.error('Error subiendo documento de UBO')
-    } finally {
-      setIsUploading(false)
+  // ── Upload documentos (selección local) ──────────────────────────
+  const handleDocSelect = (docKey: string, file: File | null) => {
+    if (file) {
+      setPendingFiles(prev => ({ ...prev, [docKey]: file }))
+    } else {
+      setPendingFiles(prev => {
+        const next = { ...prev }
+        delete next[docKey]
+        return next
+      })
     }
   }
 
@@ -203,11 +181,11 @@ export function CompanyForm({
 
   // ── Submit final KYB ───────────────────────────────────────────
   async function onFinalSubmit(data: CompanyOnboardingValues) {
-    if (!uploadedDocs['incorporation_certificate']) {
+    if (!pendingFiles['incorporation_certificate']) {
       toast.error('Debes subir el documento de constitución / registro de empresa')
       return
     }
-    const missingLegalDocs = legalRepDocs.filter(d => !uploadedDocs[`replegal_${d.id}`])
+    const missingLegalDocs = legalRepDocs.filter(d => !pendingFiles[`replegal_${d.id}`])
     if (missingLegalDocs.length > 0) {
       toast.error(`Faltan documentos del Representante Legal: ${missingLegalDocs.map(d => d.title).join(', ')}`)
       return
@@ -217,7 +195,7 @@ export function CompanyForm({
     let missingUbo = false
     data.ubos?.forEach((ubo, index) => {
       const docs = getRequiredDocumentsForId(ubo.id_type)
-      const missing = docs.filter(d => !uploadedDocs[`ubo_${index}_${d.id}`])
+      const missing = docs.filter(d => !pendingFiles[`ubo_${index}_${d.id}`])
       if (missing.length > 0) {
         missingUbo = true
         toast.error(`Socio #${index + 1}: Faltan documentos (${missing.map(d => d.title).join(', ')})`)
@@ -231,7 +209,26 @@ export function CompanyForm({
       return
     }
 
+    setIsUploading(true)
+
     try {
+      // Paso 0: Subir documentos acumulados en memoria
+      for (const [docKey, file] of Object.entries(pendingFiles)) {
+        let subjectType: 'business' | 'person' | 'ubo' = 'business'
+        let docType = docKey
+        
+        if (docKey.startsWith('replegal_')) {
+          subjectType = 'person'
+          docType = docKey.replace('replegal_', '')
+        } else if (docKey.startsWith('ubo_')) {
+          subjectType = 'ubo'
+          // Extraer el docType real: ubo_0_passport → passport
+          docType = docKey.replace(/^ubo_\d+_/, '')
+        }
+        
+        await OnboardingService.uploadDocument(file, docType, subjectType)
+      }
+
       // Paso 1: Guardar datos empresa
       await OnboardingService.saveBusinessInfo({
         legal_name:                     data.legal_name,
@@ -328,6 +325,8 @@ export function CompanyForm({
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Ocurrió un error al enviar la solicitud'
       toast.error(message)
+    } finally {
+      setIsUploading(false)
     }
   }
 
@@ -847,11 +846,14 @@ export function CompanyForm({
             <div className="border p-4 rounded bg-muted/20">
               <label className="block text-sm font-medium mb-2">
                 Acta de Constitución / Registro Mercantil
-                {uploadedDocs['incorporation_certificate'] && <span className="ml-2 text-emerald-500 text-xs">✓ Subido</span>}
+                {pendingFiles['incorporation_certificate'] && <span className="ml-2 text-emerald-500 text-xs">✓ Adjuntado</span>}
               </label>
-              <FileDropzone accept="image/*,.pdf" helperText="Documento de constitución legal de la empresa" onFileSelect={(file) => {
-                if (file) handleDocUpload('incorporation_certificate', file)
-              }} />
+              <FileDropzone 
+                accept="image/*,.pdf" 
+                file={pendingFiles['incorporation_certificate'] || null}
+                helperText="Documento de constitución legal de la empresa" 
+                onFileSelect={(file) => handleDocSelect('incorporation_certificate', file)} 
+              />
             </div>
 
             {legalRepDocs.map((docSpec) => {
@@ -860,14 +862,13 @@ export function CompanyForm({
                 <div key={docSpec.id} className="border p-4 rounded bg-muted/20">
                   <label className="block text-sm font-medium mb-2">
                     Representante Legal: {docSpec.title}
-                    {uploadedDocs[uploadKey] && <span className="ml-2 text-emerald-500 text-xs">✓ Subido</span>}
+                    {pendingFiles[uploadKey] && <span className="ml-2 text-emerald-500 text-xs">✓ Adjuntado</span>}
                   </label>
                   <FileDropzone 
                     accept={docSpec.accept || 'image/*,.pdf'} 
+                    file={pendingFiles[uploadKey] || null}
                     helperText={docSpec.helperText || 'ID o pasaporte del representante legal'} 
-                    onFileSelect={(file) => {
-                      if (file) handleDocUpload(uploadKey, file)
-                    }} 
+                    onFileSelect={(file) => handleDocSelect(uploadKey, file)} 
                   />
                 </div>
               )
@@ -876,11 +877,14 @@ export function CompanyForm({
             <div className="border p-4 rounded bg-muted/20">
               <label className="block text-sm font-medium mb-2">
                 Comprobante Domicilio Fiscal
-                {uploadedDocs['proof_of_address'] && <span className="ml-2 text-emerald-500 text-xs">✓ Subido</span>}
+                {pendingFiles['proof_of_address'] && <span className="ml-2 text-emerald-500 text-xs">✓ Adjuntado</span>}
               </label>
-              <FileDropzone accept="image/*,.pdf" helperText="Factura o estado de cuenta reciente" onFileSelect={(file) => {
-                if (file) handleDocUpload('proof_of_address', file)
-              }} />
+              <FileDropzone 
+                accept="image/*,.pdf" 
+                file={pendingFiles['proof_of_address'] || null}
+                helperText="Factura o estado de cuenta reciente" 
+                onFileSelect={(file) => handleDocSelect('proof_of_address', file)} 
+              />
             </div>
 
             <div className="flex justify-between pt-4">
@@ -1066,7 +1070,6 @@ export function CompanyForm({
                     </FormItem>
                   )} />
                 </div>
-                {/* Documentos del UBO */}
                 <div className="pt-2 space-y-4">
                   <h5 className="text-sm font-medium text-muted-foreground border-b pb-1 mb-2">Documentos del Socio</h5>
                   {(() => {
@@ -1079,12 +1082,13 @@ export function CompanyForm({
                         <div key={docSpec.id}>
                           <label className="block text-sm font-medium mb-2">
                             {docSpec.title}
-                            {uploadedDocs[upKey] && <span className="ml-2 text-emerald-500 text-xs">✓ Subido</span>}
+                            {pendingFiles[upKey] && <span className="ml-2 text-emerald-500 text-xs">✓ Adjuntado</span>}
                           </label>
                           <FileDropzone
                             accept={docSpec.accept || 'image/*,.pdf'}
+                            file={pendingFiles[upKey] || null}
                             helperText={docSpec.helperText || 'Documento del socio'}
-                            onFileSelect={(file) => { if (file) handleUboDocUpload(index, docSpec.id, file) }}
+                            onFileSelect={(file) => handleDocSelect(upKey, file)}
                           />
                         </div>
                       )

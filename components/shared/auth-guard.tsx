@@ -184,7 +184,11 @@ async function getProfileWithRetry(userId: string) {
       }
       console.log(`AuthGuard: profile not found on attempt ${i}`)
     } catch (error) {
-      console.error(`AuthGuard: error on attempt ${i}`, error)
+      if (i < PROFILE_RETRY_DELAYS_MS.length - 1) {
+        console.warn(`AuthGuard: error on attempt ${i}`, error instanceof Error ? error.message : String(error))
+      } else {
+        console.error(`AuthGuard: error on attempt ${i}`, error)
+      }
       lastError = error
     }
   }

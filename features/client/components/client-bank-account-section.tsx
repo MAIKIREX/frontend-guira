@@ -208,7 +208,7 @@ function BankAccountDisplay({
       )}
 
       {/* Account data */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="overflow-hidden rounded-2xl border border-border/70 bg-background/85">
         <InfoField label="Banco" value={account.bank_name} />
         <InfoField
           label="Número de cuenta"
@@ -216,9 +216,6 @@ function BankAccountDisplay({
           mono
         />
         <InfoField label="Titular" value={account.account_holder} />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-3">
         <InfoField
           label="Tipo de cuenta"
           value={
@@ -233,6 +230,7 @@ function BankAccountDisplay({
           value={isPending ? 'Cambio pendiente' : 'Activa'}
           statusColor={isPending ? 'text-amber-600' : 'text-emerald-600'}
           icon={isPending ? Clock : CheckCircle2}
+          isLast
         />
       </div>
 
@@ -315,21 +313,28 @@ function InfoField({
   mono,
   statusColor,
   icon: Icon,
+  isLast,
 }: {
   label: string
   value: string
   mono?: boolean
   statusColor?: string
   icon?: typeof CheckCircle2
+  isLast?: boolean
 }) {
   return (
-    <div className="rounded-xl border border-border/70 bg-background/85 p-3.5">
-      <div className="mb-1.5 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+    <div
+      className={cn(
+        'flex flex-col gap-2 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6',
+        !isLast && 'border-b border-border/60',
+      )}
+    >
+      <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground sm:min-w-44">
         {label}
       </div>
       <div
         className={cn(
-          'text-sm font-medium text-foreground',
+          'text-sm font-medium text-foreground sm:text-right',
           mono && 'font-mono tracking-wide',
           statusColor,
         )}

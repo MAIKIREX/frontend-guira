@@ -70,6 +70,7 @@ export function useApi<T>(
         const apiError: ApiError = isApiError(err)
           ? err
           : {
+              name: 'ApiError',
               status: 0,
               code: 'UNKNOWN',
               message: err instanceof Error ? err.message : 'Error desconocido',

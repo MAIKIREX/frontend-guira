@@ -451,17 +451,60 @@ export const OnboardingService = {
   /**
    * Obtiene la solicitud de onboarding más reciente.
    * Compatible con el onboarding-wizard.tsx.
+   *
+   * H2 FIX: Ahora extrae los datos del formulario desde el backend
+   * (people join para KYC, business endpoint para KYB) para que
+   * el wizard pueda restaurar progreso sin depender de localStorage.
    */
-  async getLatestOnboarding(userId: string) {
+  async getLatestOnboarding(_userId: string): Promise<{
+    id: string
+    type: 'personal' | 'company'
+    status: KycStatus
+    observations: string | null
+    data: Record<string, unknown> | null
+  } | null> {
     try {
       const kyc = await OnboardingService.getKycStatus()
       if (kyc && kyc.status && kyc.status !== 'pending') {
+        // El backend devuelve `*, people(*)` — extraemos los datos del formulario
+        let formData: Record<string, unknown> | null = null
+        const people = (kyc as unknown as Record<string, unknown>).people as Record<string, unknown> | undefined
+        if (people) {
+          formData = {
+            first_name: people.first_name,
+            middle_name: people.middle_name,
+            last_name: people.last_name,
+            date_of_birth: people.date_of_birth,
+            nationality: people.nationality,
+            country_of_residence: people.country_of_residence,
+            id_type: people.id_type,
+            id_number: people.id_number,
+            id_expiry_date: people.id_expiry_date,
+            email: people.email,
+            phone: people.phone,
+            address1: people.address1,
+            address2: people.address2,
+            city: people.city,
+            state: people.state,
+            postal_code: people.postal_code,
+            country: people.country,
+            tax_id: people.tax_id,
+            source_of_funds: people.source_of_funds,
+            account_purpose: people.account_purpose,
+            account_purpose_other: people.account_purpose_other,
+            expected_monthly_payments_usd: people.expected_monthly_payments_usd,
+            employment_status: people.employment_status,
+            most_recent_occupation: people.most_recent_occupation,
+            is_pep: people.is_pep,
+          }
+        }
+
         return {
           id: kyc.id,
           type: 'personal' as const,
           status: kyc.status,
-          observations: (kyc as any).observations ?? null,
-          data: null,
+          observations: kyc.observations ?? null,
+          data: formData,
         }
       }
     } catch (_e) {
@@ -471,12 +514,23 @@ export const OnboardingService = {
     try {
       const kyb = await OnboardingService.getKybStatus()
       if (kyb && kyb.status && kyb.status !== 'pending') {
+        // Intentar cargar datos del negocio asociado
+        let formData: Record<string, unknown> | null = null
+        try {
+          const business = await OnboardingService.getBusiness()
+          if (business) {
+            formData = business as Record<string, unknown>
+          }
+        } catch (_bizErr) {
+          // Sin datos de negocio aún
+        }
+
         return {
           id: kyb.id,
           type: 'company' as const,
           status: kyb.status,
           observations: null,
-          data: null,
+          data: formData,
         }
       }
     } catch (_e) {

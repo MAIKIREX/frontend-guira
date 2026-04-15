@@ -38,15 +38,15 @@ export function OnboardingWizard() {
     async function init() {
       if (!user) return
       try {
-        const latest = await (OnboardingService as any).getLatestOnboarding(user.id)
+        const latest = await OnboardingService.getLatestOnboarding(user.id)
         if (!mounted) return
 
         if (latest) {
           setStatus(latest.status)
           if (latest.observations) setObservations(latest.observations)
 
-          // 'pending' y 'draft' se tratan igual: el wizard puede continuar editando
-          if (latest.status === 'pending' || latest.status === 'draft' || latest.status === 'needs_changes') {
+          // 'pending' y 'needs_review' permiten al wizard continuar editando
+          if (latest.status === 'pending' || latest.status === 'needs_review') {
             setId(latest.id)
             setType(latest.type)
             if (latest.data) {
@@ -75,7 +75,7 @@ export function OnboardingWizard() {
   }, [user, setId, setType, updateFormData, setStep])
 
   useEffect(() => {
-    if (user && !loading && (status === 'pending' || status === 'draft' || status === 'needs_changes' || status === null)) {
+    if (user && !loading && (status === 'pending' || status === 'needs_review' || status === null)) {
       if (type) localStorage.setItem(`guira_onboarding_type_${user.id}`, type)
       localStorage.setItem(`guira_onboarding_step_${user.id}`, step.toString())
       localStorage.setItem(`guira_onboarding_data_${user.id}`, JSON.stringify(formData))
@@ -108,8 +108,8 @@ export function OnboardingWizard() {
     return <div className="p-8 text-center text-muted-foreground">Redirigiendo al panel...</div>
   }
 
-  // 'in_review' es el estado real del backend; 'under_review' existía solo en el frontend
-  if (status === 'submitted' || status === 'in_review' || status === 'under_review' || status === 'manual_review') {
+  // 'in_review' y 'submitted' son los estados reales del backend
+  if (status === 'submitted' || status === 'in_review') {
     return (
       <div className="max-w-xl mx-auto mt-12 px-4">
         <Card>
@@ -188,7 +188,7 @@ export function OnboardingWizard() {
 
       <StepProgressRail currentStep={getOnboardingStepKey(step)} getStepLabel={getOnboardingStepLabel} steps={getOnboardingSteps(type)} />
 
-      {status === 'needs_changes' && (
+      {status === 'needs_review' && (
         <div className="bg-destructive/10 border-l-4 border-destructive p-4 mb-6 rounded flex items-start">
           <AlertCircle className="w-5 h-5 text-destructive mr-3 mt-0.5" />
           <div>

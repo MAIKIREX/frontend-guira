@@ -43,7 +43,7 @@ export function PersonalForm({
   const [tosLoading, setTosLoading] = useState(false)
   const [tosModalOpen, setTosModalOpen] = useState(false)
   const [tosContractId, setTosContractId] = useState<string | null>(null)
-  const [uploadedDocs, setUploadedDocs] = useState<Record<string, boolean>>({})
+  const [pendingFiles, setPendingFiles] = useState<Record<string, File>>({})
 
   const form = useForm<PersonalOnboardingValues>({
     resolver: zodResolver(personalOnboardingSchema),
@@ -107,25 +107,17 @@ export function PersonalForm({
       setStep(step + 1)
     }
   }
-
-  const handleDocUpload = async (
-    docType: string,
-    file: File,
-  ) => {
-    if (!file) return
-    setIsUploading(true)
-    try {
-      await OnboardingService.uploadDocument(file, docType, 'person')
-      setUploadedDocs(prev => ({ ...prev, [docType]: true }))
-      toast.success(`Documento (${docType}) subido correctamente`)
-    } catch (err: unknown) {
-      console.error(err)
-      toast.error('Error subiendo documento')
-    } finally {
-      setIsUploading(false)
+  const handleDocSelect = (docType: string, file: File | null) => {
+    if (file) {
+      setPendingFiles(prev => ({ ...prev, [docType]: file }))
+    } else {
+      setPendingFiles(prev => {
+        const next = { ...prev }
+        delete next[docType]
+        return next
+      })
     }
   }
-
   // ── Obtener ToS link de Bridge y abrir modal ─────────────────────
   const handleOpenTosModal = async () => {
     // Si ya tenemos la URL cacheada, abrir directo
@@ -156,12 +148,12 @@ export function PersonalForm({
 
   // ── Submit final: flujo completo al backend ───────────────────────
   async function onSubmit(data: PersonalOnboardingValues) {
-    const missingDocs = requiredDocuments.filter(doc => !uploadedDocs[doc.id])
+    const missingDocs = requiredDocuments.filter(doc => !pendingFiles[doc.id])
     if (missingDocs.length > 0) {
       toast.error(`Faltan documentos por subir: ${missingDocs.map(d => d.title).join(', ')}`)
       return
     }
-    if (!uploadedDocs['proof_of_address']) {
+    if (!pendingFiles['proof_of_address']) {
       toast.error('Debes subir el comprobante de domicilio')
       return
     }
@@ -170,7 +162,13 @@ export function PersonalForm({
       return
     }
 
+    setIsUploading(true)
     try {
+      // Paso 0: Subir todos los archivos pendientes
+      for (const [docType, file] of Object.entries(pendingFiles)) {
+        await OnboardingService.uploadDocument(file, docType, 'person')
+      }
+
       // Paso 1: Guardar datos biográficos
       await OnboardingService.savePersonalInfo({
         first_name:                    data.first_name,
@@ -218,6 +216,8 @@ export function PersonalForm({
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Ocurrió un error al enviar la solicitud'
       toast.error(message)
+    } finally {
+      setIsUploading(false)
     }
   }
 
@@ -594,14 +594,13 @@ export function PersonalForm({
                 <div key={id} className="border p-4 rounded bg-muted/20">
                   <label className="block text-sm font-medium mb-2">
                     {title}
-                    {uploadedDocs[id] && <span className="ml-2 text-emerald-500 text-xs">✓ Subido</span>}
+                    {pendingFiles[id] && <span className="ml-2 text-emerald-500 text-xs">✓ Adjuntado</span>}
                   </label>
                   <FileDropzone
                     accept={accept || 'image/*,.pdf'}
+                    file={pendingFiles[id] || null}
                     helperText={helperText || 'Máximo 10MB'}
-                    onFileSelect={(file) => {
-                      if (file) handleDocUpload(id, file)
-                    }}
+                    onFileSelect={(file) => handleDocSelect(id, file)}
                   />
                 </div>
               ))}
@@ -610,14 +609,13 @@ export function PersonalForm({
               <div className="border p-4 rounded bg-muted/20">
                 <label className="block text-sm font-medium mb-2">
                   Comprobante de Domicilio
-                  {uploadedDocs['proof_of_address'] && <span className="ml-2 text-emerald-500 text-xs">✓ Subido</span>}
+                  {pendingFiles['proof_of_address'] && <span className="ml-2 text-emerald-500 text-xs">✓ Adjuntado</span>}
                 </label>
                 <FileDropzone
                   accept="image/*,.pdf"
+                  file={pendingFiles['proof_of_address'] || null}
                   helperText="Factura de servicios, extracto bancario (max 3 meses)"
-                  onFileSelect={(file) => {
-                    if (file) handleDocUpload('proof_of_address', file)
-                  }}
+                  onFileSelect={(file) => handleDocSelect('proof_of_address', file)}
                 />
               </div>
             </div>

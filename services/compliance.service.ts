@@ -16,14 +16,18 @@ import { apiGet, apiPost } from '@/lib/api/client'
 
 // ── Tipos ─────────────────────────────────────────────────────────
 
+/**
+ * ComplianceStatus coincide con el CHECK constraint de la BD:
+ * kyc_applications.status / kyb_applications.status:
+ *   'pending', 'in_progress', 'submitted', 'approved', 'rejected', 'needs_review'
+ */
 export type ComplianceStatus =
-  | 'not_started'
-  | 'draft'
+  | 'pending'
+  | 'in_progress'
   | 'submitted'
-  | 'under_review'
   | 'approved'
   | 'rejected'
-  | 'more_info_required'
+  | 'needs_review'
 
 export interface ComplianceKycState {
   status: ComplianceStatus

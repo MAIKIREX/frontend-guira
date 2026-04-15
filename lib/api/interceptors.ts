@@ -1,6 +1,6 @@
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import { createClient } from '@/lib/supabase/browser'
-import type { ApiError } from './types'
+import { ApiError } from './types'
 
 // ── Flag para evitar loops infinitos de refresh ──────
 let isRefreshing = false
@@ -73,12 +73,13 @@ export async function handleResponseError(error: unknown): Promise<never> {
 
   if (!axios.isAxiosError(error) || !error.response) {
     // Error de red o timeout
-    const apiError: ApiError = {
-      status: 0,
-      code: 'NETWORK_ERROR',
-      message: 'No se pudo conectar con el servidor. Verifica tu conexión a internet.',
-      timestamp: new Date().toISOString(),
-    }
+    const apiError = new ApiError(
+      0,
+      'NETWORK_ERROR',
+      'No se pudo conectar con el servidor. Verifica tu conexión a internet.',
+      undefined,
+      new Date().toISOString()
+    )
     throw apiError
   }
 
@@ -129,13 +130,13 @@ export async function handleResponseError(error: unknown): Promise<never> {
 
   // ── Construir error tipado para el resto de códigos ──
   const backendError = response.data as Record<string, unknown> | undefined
-  const apiError: ApiError = {
+  const apiError = new ApiError(
     status,
-    code: getErrorCode(status, backendError),
-    message: getErrorMessage(status, backendError),
-    details: backendError?.details as Record<string, string[]> | undefined,
-    timestamp: new Date().toISOString(),
-  }
+    getErrorCode(status, backendError),
+    getErrorMessage(status, backendError),
+    backendError?.details as Record<string, string[]> | undefined,
+    new Date().toISOString()
+  )
 
   throw apiError
 }

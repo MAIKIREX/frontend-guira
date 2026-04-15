@@ -45,7 +45,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { AdminService } from '@/services/admin.service'
-import { UsersAdminService, type FeeOverride, type ResolvedVaFee, type AdminVirtualAccount } from '@/services/admin/users.admin.service'
+import { UsersAdminService, type FeeOverride, type VaFeeMatrixEntry, type AdminVirtualAccount, type UpdateVirtualAccountPayload } from '@/services/admin/users.admin.service'
 import {
   adminAppSettingSchema,
   adminCreateUserSchema,
@@ -54,7 +54,7 @@ import {
   adminPsavRecordSchema,
   adminChangeRoleSchema,
   adminFeeOverrideSchema,
-  adminVaFeeOverrideSchema,
+
   type AdminAppSettingValues,
   type AdminCreateUserValues,
   type AdminFeeConfigValues,
@@ -62,7 +62,7 @@ import {
   type AdminPsavRecordValues,
   type AdminChangeRoleValues,
   type AdminFeeOverrideValues,
-  type AdminVaFeeOverrideValues,
+
   adminRateConfigSchema,
   type AdminRateConfigValues,
 } from '@/features/staff/schemas/admin-actions.schema'
@@ -554,31 +554,36 @@ function FeeOverridesDialog({ actor, user }: { actor: StaffActor; user: Profile 
 function VaFeeOverrideDialog({ actor, user }: { actor: StaffActor; user: Profile }) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [resolvedFee, setResolvedFee] = useState<ResolvedVaFee | null>(null)
+  const [feeMatrix, setFeeMatrix] = useState<VaFeeMatrixEntry[]>([])
   const [userVAs, setUserVAs] = useState<AdminVirtualAccount[]>([])
-  const [updatingVaId, setUpdatingVaId] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [clearingOverride, setClearingOverride] = useState(false)
+
+  // Estado para edición de override en la matriz
+  const [editingCell, setEditingCell] = useState<string | null>(null)
+  const [editCellFee, setEditCellFee] = useState('')
+  const [editCellReason, setEditCellReason] = useState('')
+  const [savingCell, setSavingCell] = useState(false)
+
+  // Estado para edición inline de VA
+  const [editingVaId, setEditingVaId] = useState<string | null>(null)
+  const [editVaForm, setEditVaForm] = useState<{ fee: string; address: string; currency: string; reason: string }>({ fee: '', address: '', currency: '', reason: '' })
+  const [savingVa, setSavingVa] = useState(false)
 
   const canManage = actor.role === 'admin' || actor.role === 'super_admin'
 
-  const form = useForm<AdminVaFeeOverrideValues>({
-    resolver: zodResolver(adminVaFeeOverrideSchema) as Resolver<AdminVaFeeOverrideValues>,
-    defaultValues: { fee_percent: 0, reason: '' },
-  })
+  const CURRENCIES = ['usd', 'eur', 'mxn', 'brl', 'gbp', 'cop'] as const
+  const DEST_TYPES = ['wallet_bridge', 'wallet_external'] as const
+  const DEST_TYPE_LABELS: Record<string, string> = { wallet_bridge: 'Wallet Bridge', wallet_external: 'Wallet Externa' }
+  const DESTINATION_CURRENCIES = ['usdc', 'usdt', 'usdb', 'dai', 'pyusd', 'eurc'] as const
 
   const loadData = async () => {
     setLoading(true)
     try {
-      const [fee, vas] = await Promise.all([
-        UsersAdminService.getResolvedVaFee(user.id),
+      const [matrix, vas] = await Promise.all([
+        UsersAdminService.getVaFeeMatrix(user.id),
         UsersAdminService.listUserVirtualAccounts(user.id),
       ])
-      setResolvedFee(fee)
+      setFeeMatrix(matrix)
       setUserVAs(vas)
-      if (fee.source === 'client_override' && fee.resolved_fee != null) {
-        form.setValue('fee_percent', fee.resolved_fee)
-      }
     } catch {
       toast.error('Error al cargar datos de fee')
     } finally {
@@ -591,64 +596,83 @@ function VaFeeOverrideDialog({ actor, user }: { actor: StaffActor; user: Profile
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  const handleSetOverride = async (values: AdminVaFeeOverrideValues) => {
-    setSaving(true)
+  const getFeeEntry = (currency: string, destType: string) =>
+    feeMatrix.find((e) => e.source_currency === currency && e.destination_type === destType)
+
+  const startEditCell = (currency: string, destType: string) => {
+    const entry = getFeeEntry(currency, destType)
+    setEditingCell(`${currency}:${destType}`)
+    setEditCellFee(entry?.resolved_fee != null ? String(entry.resolved_fee) : '')
+    setEditCellReason('')
+  }
+
+  const cancelEditCell = () => { setEditingCell(null); setEditCellFee(''); setEditCellReason('') }
+
+  const handleSetCellOverride = async () => {
+    if (!editingCell) return
+    const [currency, destType] = editingCell.split(':')
+    const fee = parseFloat(editCellFee)
+    if (isNaN(fee) || fee < 0 || fee > 100) { toast.error('Fee debe ser entre 0 y 100.'); return }
+    if (editCellReason.trim().length < 5) { toast.error('Motivo mín. 5 caracteres.'); return }
+    setSavingCell(true)
     try {
-      await UsersAdminService.setVaFeeOverride(user.id, values.fee_percent, values.reason)
-      toast.success(`Override establecido: ${values.fee_percent}%`)
-      form.reset({ fee_percent: values.fee_percent, reason: '' })
+      await UsersAdminService.setVaFeeOverride(user.id, {
+        source_currency: currency,
+        destination_type: destType,
+        fee_percent: fee,
+        reason: editCellReason.trim(),
+      })
+      toast.success(`Override: ${currency.toUpperCase()} / ${DEST_TYPE_LABELS[destType]} → ${fee}%`)
+      cancelEditCell()
       loadData()
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error al establecer override'
-      toast.error(msg)
-    } finally {
-      setSaving(false)
+      toast.error(err instanceof Error ? err.message : 'Error al guardar override')
+    } finally { setSavingCell(false) }
+  }
+
+  const handleClearCellOverride = async (currency: string, destType: string) => {
+    if (!confirm(`¿Eliminar override para ${currency.toUpperCase()} / ${DEST_TYPE_LABELS[destType]}?`)) return
+    try {
+      await UsersAdminService.clearVaFeeOverride(user.id, currency, destType)
+      toast.success('Override eliminado')
+      loadData()
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Error al eliminar override')
     }
   }
 
-  const handleClearOverride = async () => {
-    if (!confirm('¿Eliminar el override? El usuario volverá a usar el fee global.')) return
-    setClearingOverride(true)
-    try {
-      await UsersAdminService.setVaFeeOverride(user.id, null, 'Limpieza de override de fee VA')
-      toast.success('Override eliminado. Se usará el fee global.')
-      form.reset({ fee_percent: 0, reason: '' })
-      loadData()
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error al limpiar override'
-      toast.error(msg)
-    } finally {
-      setClearingOverride(false)
-    }
+  const startEditVa = (va: AdminVirtualAccount) => {
+    setEditingVaId(va.id)
+    setEditVaForm({
+      fee: va.developer_fee_percent != null ? String(va.developer_fee_percent) : '',
+      address: va.destination_address ?? '',
+      currency: va.destination_currency ?? '',
+      reason: '',
+    })
   }
 
-  const handleUpdateVaFee = async (va: AdminVirtualAccount) => {
-    const newFee = prompt(
-      `Actualizar fee de VA ${va.source_currency.toUpperCase()} → ${va.destination_currency.toUpperCase()}\n\nFee actual: ${va.developer_fee_percent ?? 'No configurado'}%\n\nIngresa el nuevo fee (%):`,
-      String(va.developer_fee_percent ?? 0),
-    )
-    if (newFee === null) return
-    const parsed = parseFloat(newFee)
-    if (isNaN(parsed) || parsed < 0 || parsed > 100) {
-      toast.error('Fee inválido. Debe ser un número entre 0 y 100.')
-      return
+  const cancelEditVa = () => { setEditingVaId(null); setEditVaForm({ fee: '', address: '', currency: '', reason: '' }) }
+
+  const handleSaveVa = async (va: AdminVirtualAccount) => {
+    if (!editVaForm.reason || editVaForm.reason.trim().length < 5) { toast.error('Motivo mín. 5 caracteres.'); return }
+    const payload: UpdateVirtualAccountPayload = { reason: editVaForm.reason.trim() }
+    let hasChanges = false
+    const newFee = editVaForm.fee ? parseFloat(editVaForm.fee) : undefined
+    if (newFee !== undefined && !isNaN(newFee) && newFee !== va.developer_fee_percent) {
+      if (newFee < 0 || newFee > 100) { toast.error('Fee debe estar entre 0 y 100.'); return }
+      payload.developer_fee_percent = newFee; hasChanges = true
     }
-    const reason = prompt('Motivo del cambio:')
-    if (!reason || reason.trim().length < 5) {
-      toast.error('Ingresa un motivo descriptivo (mín. 5 caracteres).')
-      return
-    }
-    setUpdatingVaId(va.id)
+    if (editVaForm.address.trim() && editVaForm.address.trim() !== (va.destination_address ?? '')) { payload.destination_address = editVaForm.address.trim(); hasChanges = true }
+    if (editVaForm.currency && editVaForm.currency !== va.destination_currency) { payload.destination_currency = editVaForm.currency; hasChanges = true }
+    if (!hasChanges) { toast.warning('No hay cambios para guardar.'); return }
+    setSavingVa(true)
     try {
-      await UsersAdminService.updateVaFee(va.id, parsed, reason)
-      toast.success(`Fee de VA actualizado en Bridge: ${parsed}%`)
-      loadData()
+      await UsersAdminService.updateVirtualAccount(va.id, payload)
+      toast.success('VA actualizada correctamente en Bridge y DB.')
+      cancelEditVa(); loadData()
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error al actualizar fee en Bridge'
-      toast.error(msg)
-    } finally {
-      setUpdatingVaId(null)
-    }
+      toast.error(err instanceof Error ? err.message : 'Error al actualizar VA')
+    } finally { setSavingVa(false) }
   }
 
   if (!canManage) return null
@@ -659,7 +683,7 @@ function VaFeeOverrideDialog({ actor, user }: { actor: StaffActor; user: Profile
         <Percent className="h-3.5 w-3.5" />
         Fee Bridge VA
       </DialogTrigger>
-      <DialogContent className="max-w-2xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
         <DialogHeader className="mb-2">
           <DialogTitle className="flex items-center gap-2">
             <Percent className="h-5 w-5 text-blue-500" />
@@ -667,6 +691,8 @@ function VaFeeOverrideDialog({ actor, user }: { actor: StaffActor; user: Profile
           </DialogTitle>
           <DialogDescription>
             Gestiona el <code>developer_fee_percent</code> de Bridge para <strong>{user.full_name || user.email}</strong>.
+            <br />
+            <span className="text-[10px]">2 niveles: Override por usuario → Fee global por defecto.</span>
           </DialogDescription>
         </DialogHeader>
 
@@ -676,105 +702,132 @@ function VaFeeOverrideDialog({ actor, user }: { actor: StaffActor; user: Profile
           </div>
         ) : (
           <div className="space-y-5">
-            {/* ── Fee Resuelto Actual ── */}
-            {resolvedFee && (
-              <div className={`flex items-center justify-between p-4 rounded-xl border ${resolvedFee.source === 'client_override' ? 'bg-blue-500/5 border-blue-500/20' : 'bg-muted/20 border-border/60'}`}>
-                <div>
-                  <div className="text-xs text-muted-foreground mb-1">Fee actual aplicado:</div>
-                  <div className="text-2xl font-bold tabular-nums">
-                    {resolvedFee.resolved_fee != null ? `${resolvedFee.resolved_fee}%` : 'No configurado'}
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  {resolvedFee.source === 'client_override' ? (
-                    <Badge variant="default" className="gap-1 text-[10px]">
-                      <CircleDollarSign className="h-3 w-3" />
-                      Override activo
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="gap-1 text-[10px]">
-                      <Globe className="h-3 w-3" />
-                      Fee Global
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            )}
+            {/* ── Matriz de Fees (6 monedas × 2 destinos) ── */}
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold text-foreground">Matriz de Fees Resueltos</h4>
+              <div className="rounded-lg border border-border/40 overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-muted/30 border-b border-border/40">
+                      <th className="text-left px-3 py-2 font-medium text-muted-foreground">Moneda</th>
+                      {DEST_TYPES.map((dt) => (
+                        <th key={dt} className="text-center px-3 py-2 font-medium text-muted-foreground">{DEST_TYPE_LABELS[dt]}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {CURRENCIES.map((currency) => (
+                      <tr key={currency} className="border-b border-border/20 last:border-b-0 hover:bg-muted/10">
+                        <td className="px-3 py-2 font-mono font-semibold">{currency.toUpperCase()}</td>
+                        {DEST_TYPES.map((dt) => {
+                          const entry = getFeeEntry(currency, dt)
+                          const cellKey = `${currency}:${dt}`
+                          const isEditing = editingCell === cellKey
 
-            {/* ── Formulario de Override ── */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-semibold text-foreground">Configurar Override</h4>
-                {resolvedFee?.source === 'client_override' && (
-                  <Button size="sm" variant="ghost" onClick={handleClearOverride} disabled={clearingOverride} className="text-xs text-destructive/70 hover:text-destructive gap-1">
-                    {clearingOverride ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
-                    Usar fee global
-                  </Button>
-                )}
-              </div>
+                          if (isEditing) {
+                            return (
+                              <td key={dt} className="px-2 py-1.5">
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-1">
+                                    <Input type="number" step="0.01" min="0" max="100" value={editCellFee} onChange={(e) => setEditCellFee(e.target.value)} className="h-7 text-xs font-mono w-20" placeholder="0.00" />
+                                    <span className="text-[10px]">%</span>
+                                  </div>
+                                  <Input value={editCellReason} onChange={(e) => setEditCellReason(e.target.value)} className="h-7 text-[10px]" placeholder="Motivo (mín 5 chars)" />
+                                  <div className="flex gap-1">
+                                    <Button size="sm" onClick={handleSetCellOverride} disabled={savingCell} className="h-6 text-[10px] px-2 gap-1">
+                                      {savingCell ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <CheckCircle2 className="h-2.5 w-2.5" />} OK
+                                    </Button>
+                                    <Button size="sm" variant="ghost" onClick={cancelEditCell} className="h-6 text-[10px] px-2"><XCircle className="h-2.5 w-2.5" /></Button>
+                                  </div>
+                                </div>
+                              </td>
+                            )
+                          }
 
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(handleSetOverride)} className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <FormField control={form.control} name="fee_percent" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs">Fee (%)</FormLabel>
-                        <FormControl><Input {...field} type="number" step="0.01" min="0" max="100" placeholder="1.0" className="h-9 text-xs font-mono" /></FormControl>
-                        <FormDescription className="text-[10px]">0% = sin cobro (VIP)</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                    <FormField control={form.control} name="reason" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs">Justificación</FormLabel>
-                        <FormControl><Input {...field} placeholder="Ej: Cliente VIP volumen alto" className="h-9 text-xs" /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-1.5 rounded-md flex-1">
-                      <AlertTriangle className="h-3 w-3 shrink-0" />
-                      El override aplica solo a <strong>futuras</strong> VAs. Para VAs existentes, actualiza cada una abajo.
-                    </div>
-                    <Button type="submit" size="sm" disabled={saving} className="gap-1.5 shrink-0">
-                      {saving ? <><Loader2 className="h-3 w-3 animate-spin" /> Guardando...</> : 'Guardar Override'}
-                    </Button>
-                  </div>
-                </form>
-              </Form>
+                          return (
+                            <td key={dt} className="px-3 py-2 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <span className="font-mono font-semibold tabular-nums">{entry?.resolved_fee != null ? `${entry.resolved_fee}%` : '—'}</span>
+                                {entry?.source === 'override' ? (
+                                  <Badge variant="default" className="text-[8px] px-1 py-0 h-4">OVR</Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[8px] px-1 py-0 h-4">DEF</Badge>
+                                )}
+                              </div>
+                              <div className="flex justify-center gap-0.5 mt-1">
+                                <Button size="sm" variant="ghost" onClick={() => startEditCell(currency, dt)} className="h-5 text-[9px] px-1.5 text-blue-600 hover:text-blue-800">Editar</Button>
+                                {entry?.source === 'override' && (
+                                  <Button size="sm" variant="ghost" onClick={() => handleClearCellOverride(currency, dt)} className="h-5 text-[9px] px-1.5 text-destructive/60 hover:text-destructive">Quitar</Button>
+                                )}
+                              </div>
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-1.5 rounded-md">
+                <AlertTriangle className="h-3 w-3 shrink-0" />
+                <strong>OVR</strong> = Override del usuario. <strong>DEF</strong> = Fee global por defecto. Los overrides aplican solo a <strong>futuras</strong> VAs.
+              </div>
             </div>
 
             {/* ── VAs activas del usuario ── */}
             {userVAs.length > 0 && (
               <div className="space-y-2 pt-2 border-t border-border/50">
-                <h4 className="text-sm font-semibold text-foreground">
-                  Virtual Accounts Activas ({userVAs.length})
-                </h4>
-                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                <h4 className="text-sm font-semibold text-foreground">Virtual Accounts Activas ({userVAs.length})</h4>
+                <div className="space-y-1.5 max-h-72 overflow-y-auto">
                   {userVAs.map((va) => (
-                    <div key={va.id} className="flex items-center justify-between p-2.5 rounded-lg border border-border/40 bg-muted/10 text-sm">
-                      <div className="flex items-center gap-2 flex-wrap min-w-0">
-                        <Badge variant="outline" className="text-[10px] font-mono">
-                          {va.source_currency.toUpperCase()} → {va.destination_currency.toUpperCase()}
-                        </Badge>
-                        <span className="text-xs font-semibold tabular-nums">
-                          Fee: {va.developer_fee_percent != null ? `${va.developer_fee_percent}%` : '—'}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground">
-                          {new Date(va.created_at).toLocaleDateString()}
-                        </span>
+                    <div key={va.id} className="rounded-lg border border-border/40 bg-muted/10 text-sm">
+                      <div className="flex items-center justify-between p-2.5">
+                        <div className="flex items-center gap-2 flex-wrap min-w-0">
+                          <Badge variant="outline" className="text-[10px] font-mono">{va.source_currency.toUpperCase()} → {va.destination_currency.toUpperCase()}</Badge>
+                          <span className="text-xs font-semibold tabular-nums">Fee: {va.developer_fee_percent != null ? `${va.developer_fee_percent}%` : '—'}</span>
+                          <Badge variant={va.is_external_sweep ? 'secondary' : 'outline'} className="text-[8px]">{va.is_external_sweep ? 'Externa' : 'Bridge'}</Badge>
+                          {va.destination_address && (
+                            <span className="text-[10px] text-muted-foreground font-mono truncate max-w-[120px]" title={va.destination_address}>{va.destination_address.slice(0, 8)}…{va.destination_address.slice(-6)}</span>
+                          )}
+                          <span className="text-[10px] text-muted-foreground">{new Date(va.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <Button size="sm" variant={editingVaId === va.id ? 'secondary' : 'ghost'} onClick={() => editingVaId === va.id ? cancelEditVa() : startEditVa(va)} className="text-xs gap-1 h-7 px-2 text-blue-700 hover:text-blue-800 hover:bg-blue-500/10 dark:text-blue-300">
+                          {editingVaId === va.id ? 'Cancelar' : 'Editar'}
+                        </Button>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleUpdateVaFee(va)}
-                        disabled={updatingVaId === va.id}
-                        className="text-xs gap-1 h-7 px-2 text-blue-700 hover:text-blue-800 hover:bg-blue-500/10 dark:text-blue-300"
-                      >
-                        {updatingVaId === va.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Percent className="h-3 w-3" />}
-                        Actualizar
-                      </Button>
+                      {editingVaId === va.id && (
+                        <div className="px-2.5 pb-2.5 pt-1 border-t border-border/30 space-y-2">
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <Label className="text-[10px] text-muted-foreground">Fee (%)</Label>
+                              <Input type="number" step="0.01" min="0" max="100" value={editVaForm.fee} onChange={(e) => setEditVaForm(prev => ({ ...prev, fee: e.target.value }))} placeholder={va.developer_fee_percent != null ? String(va.developer_fee_percent) : '0'} className="h-8 text-xs font-mono" />
+                            </div>
+                            <div>
+                              <Label className="text-[10px] text-muted-foreground">Moneda Destino</Label>
+                              <Select value={editVaForm.currency} onValueChange={(v) => setEditVaForm(prev => ({ ...prev, currency: v ?? '' }))}>
+                                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={va.destination_currency.toUpperCase()} /></SelectTrigger>
+                                <SelectContent>
+                                  {DESTINATION_CURRENCIES.map((c) => (<SelectItem key={c} value={c} className="text-xs">{c.toUpperCase()}</SelectItem>))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label className="text-[10px] text-muted-foreground">Dirección Destino</Label>
+                              <Input value={editVaForm.address} onChange={(e) => setEditVaForm(prev => ({ ...prev, address: e.target.value }))} placeholder={va.destination_address ?? '0x…'} className="h-8 text-xs font-mono" />
+                            </div>
+                          </div>
+                          <div className="flex items-end gap-2">
+                            <div className="flex-1">
+                              <Label className="text-[10px] text-muted-foreground">Motivo del cambio *</Label>
+                              <Input value={editVaForm.reason} onChange={(e) => setEditVaForm(prev => ({ ...prev, reason: e.target.value }))} placeholder="Ej: Cliente cambió wallet destino" className="h-8 text-xs" />
+                            </div>
+                            <Button size="sm" onClick={() => handleSaveVa(va)} disabled={savingVa} className="h-8 text-xs gap-1">
+                              {savingVa ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                              Guardar en Bridge
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -786,6 +839,8 @@ function VaFeeOverrideDialog({ actor, user }: { actor: StaffActor; user: Profile
     </Dialog>
   )
 }
+
+
 
 function ChangeRoleDialog({ actor, onUpdated, user }: { actor: StaffActor; onUpdated: (user: Profile | null, mode: 'replace' | 'remove' | 'noop') => Promise<void> | void; user: Profile }) {
   const [open, setOpen] = useState(false)
@@ -1984,11 +2039,9 @@ function BankAccountReviewDialog({ actor, user }: { actor: StaffActor; user: Pro
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="gap-1.5">
-          <Landmark className="h-3.5 w-3.5" />
-          Cuenta bancaria
-        </Button>
+      <DialogTrigger render={<Button size="sm" variant="outline" className="gap-1.5" />}>
+        <Landmark className="h-3.5 w-3.5" />
+        Cuenta bancaria
       </DialogTrigger>
       <DialogContent className="max-w-2xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
         <DialogHeader className="mb-2">

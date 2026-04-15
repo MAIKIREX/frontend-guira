@@ -111,28 +111,62 @@ export const UsersAdminService = {
     return apiDelete<void>(`/admin/fees/overrides/${overrideId}`)
   },
 
-  // ── VA Fee Override (Bridge developer_fee_percent) ─────────
+  // ── VA Fee Defaults (globales) ─────────────────────
 
   /**
-   * Obtiene el fee resuelto para un usuario (override → global).
+   * Lista todos los fees globales por defecto (6 monedas × 2 destinos).
    */
-  async getResolvedVaFee(userId: string): Promise<ResolvedVaFee> {
-    return apiGet<ResolvedVaFee>(`/admin/bridge/users/${userId}/va-fee`)
+  async listVaFeeDefaults(): Promise<VaFeeDefault[]> {
+    return apiGet<VaFeeDefault[]>('/admin/bridge/va-fee-defaults')
   },
 
   /**
-   * Establece o limpia el override de developer_fee_percent de Bridge VA.
-   * fee_percent=null → limpiar override (volver a fee global).
+   * Actualiza un fee global por defecto.
    */
-  async setVaFeeOverride(userId: string, fee_percent: number | null, reason: string): Promise<{ user_id: string; va_developer_fee_percent: number | null }> {
-    return apiPatch<{ user_id: string; va_developer_fee_percent: number | null }>(`/admin/bridge/users/${userId}/va-fee`, { fee_percent, reason })
+  async updateVaFeeDefault(data: { source_currency: string; destination_type: string; fee_percent: number }): Promise<VaFeeDefault> {
+    return apiPatch<VaFeeDefault>('/admin/bridge/va-fee-defaults', data)
+  },
+
+  // ── VA Fee Overrides (por usuario) ─────────────────
+
+  /**
+   * Lista los fee overrides configurados para un usuario.
+   */
+  async listVaFeeOverrides(userId: string): Promise<VaFeeOverride[]> {
+    return apiGet<VaFeeOverride[]>(`/admin/bridge/users/${userId}/va-fee-overrides`)
   },
 
   /**
-   * Actualiza el developer_fee_percent de una VA existente directamente en Bridge.
+   * Establece o actualiza un fee override para un usuario.
    */
-  async updateVaFee(vaId: string, fee_percent: number, reason: string): Promise<unknown> {
-    return apiPatch<unknown>(`/admin/bridge/virtual-accounts/${vaId}/fee`, { fee_percent, reason })
+  async setVaFeeOverride(userId: string, data: SetVaFeeOverridePayload): Promise<VaFeeOverride> {
+    return apiPatch<VaFeeOverride>(`/admin/bridge/users/${userId}/va-fee-overrides`, data)
+  },
+
+  /**
+   * Elimina un fee override de un usuario.
+   */
+  async clearVaFeeOverride(userId: string, source_currency: string, destination_type: string): Promise<void> {
+    return apiDelete<void>(`/admin/bridge/users/${userId}/va-fee-overrides`, {
+      data: { source_currency, destination_type },
+    })
+  },
+
+  // ── VA Fee Matrix (resuelto) ─────────────────────
+
+  /**
+   * Obtiene la matriz completa de fees resueltos (12 combinaciones) con fuente.
+   */
+  async getVaFeeMatrix(userId: string): Promise<VaFeeMatrixEntry[]> {
+    return apiGet<VaFeeMatrixEntry[]>(`/admin/bridge/users/${userId}/va-fee-matrix`)
+  },
+
+  /**
+   * Actualiza una VA existente (fee, destination_address, destination_currency).
+   * Usa el endpoint genérico PATCH /admin/bridge/virtual-accounts/:id
+   */
+  async updateVirtualAccount(vaId: string, data: UpdateVirtualAccountPayload): Promise<unknown> {
+    return apiPatch<unknown>(`/admin/bridge/virtual-accounts/${vaId}`, data)
   },
 
   /**
@@ -145,9 +179,39 @@ export const UsersAdminService = {
 
 // ── Tipos ────────────────────────────────────────────────────────
 
-export interface ResolvedVaFee {
+export interface VaFeeDefault {
+  id: string
+  source_currency: string
+  destination_type: string
+  fee_percent: number
+  updated_by: string | null
+  updated_at: string
+}
+
+export interface VaFeeOverride {
+  id: string
+  user_id: string
+  source_currency: string
+  destination_type: string
+  fee_percent: number
+  reason: string | null
+  set_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface VaFeeMatrixEntry {
+  source_currency: string
+  destination_type: string
   resolved_fee: number | null
-  source: 'client_override' | 'global'
+  source: 'override' | 'default'
+}
+
+export interface SetVaFeeOverridePayload {
+  source_currency: string
+  destination_type: string
+  fee_percent: number
+  reason: string
 }
 
 export interface AdminVirtualAccount {
@@ -155,9 +219,19 @@ export interface AdminVirtualAccount {
   bridge_virtual_account_id: string
   source_currency: string
   destination_currency: string
+  destination_address: string | null
+  destination_payment_rail: string
   developer_fee_percent: number | null
+  is_external_sweep: boolean
   status: string
   created_at: string
+}
+
+export interface UpdateVirtualAccountPayload {
+  developer_fee_percent?: number
+  destination_address?: string
+  destination_currency?: string
+  reason: string
 }
 
 export interface FeeOverride {
@@ -200,5 +274,3 @@ export interface CreateFeeOverridePayload {
   valid_until?: string
   notes?: string
 }
-
-
