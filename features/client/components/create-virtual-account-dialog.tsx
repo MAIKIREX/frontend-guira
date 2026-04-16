@@ -235,13 +235,11 @@ export function CreateVirtualAccountDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger
-        render={
-          <Button size="sm" className="shrink-0" />
-        }
-      >
-        <Plus className="mr-1.5 size-3.5" />
-        Crear cuenta virtual
+      <DialogTrigger asChild>
+        <button className="group flex shrink-0 cursor-pointer items-center justify-between gap-3 rounded-xl bg-primary px-5 py-3 text-sm font-semibold tracking-wide text-primary-foreground shadow-sm transition-all duration-200 ease-in-out hover:bg-primary/90 hover:shadow-md">
+          <Plus className="size-4" />
+          <span>Crear cuenta virtual</span>
+        </button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-lg">

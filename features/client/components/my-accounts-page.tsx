@@ -45,6 +45,16 @@ const NETWORK_COLORS: Record<string, string> = {
   base:      'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
 }
 
+const NETWORK_GRADIENTS: Record<string, string> = {
+  ethereum:  'from-blue-500/15 via-background to-background',
+  polygon:   'from-purple-500/15 via-background to-background',
+  stellar:   'from-sky-500/15 via-background to-background',
+  solana:    'from-emerald-500/15 via-background to-background',
+  tron:      'from-red-500/15 via-background to-background',
+  avalanche: 'from-rose-500/15 via-background to-background',
+  base:      'from-indigo-500/15 via-background to-background',
+}
+
 function truncateAddress(address: string, chars = 8): string {
   if (!address || address.length <= chars * 2) return address
   return `${address.slice(0, chars)}...${address.slice(-chars)}`
@@ -92,96 +102,84 @@ function WalletCard({ wallet }: { wallet: WalletBalance }) {
 
   const networkLabel = NETWORK_LABELS[wallet.network ?? ''] ?? wallet.network ?? 'Interna'
   const networkColor = NETWORK_COLORS[wallet.network ?? ''] ?? 'bg-muted text-muted-foreground border-border/50'
+  const networkGradient = NETWORK_GRADIENTS[wallet.network ?? ''] ?? 'from-muted/20 via-background to-background'
 
   return (
-    <Card className="relative overflow-hidden border-border/60 bg-card transition-shadow hover:shadow-md">
+    <Card className={`group relative overflow-hidden transition-all hover:shadow-lg bg-gradient-to-br ${networkGradient} border-border/40`}>
+      {/* Fondo decorativo de cristal */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
 
-      {/* Fondo decorativo */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.03]"
-        style={{
-          background:
-            'radial-gradient(ellipse at top right, currentColor 0%, transparent 70%)',
-        }}
-      />
-
-      <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
+      <CardHeader className="relative z-10 flex flex-row items-start justify-between gap-3 pb-2">
         <div className="flex items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-muted/40">
-            <Wallet className="size-4 text-muted-foreground" />
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl border border-border/50 bg-background/50 shadow-sm backdrop-blur-md">
+            <Wallet className="size-4 text-foreground/80" />
           </div>
           <div>
-            <CardTitle className="text-base font-semibold">
-              {wallet.label ?? `${wallet.currency.toUpperCase()} Wallet`}
+            <CardTitle className="text-base font-bold tracking-tight">
+              {wallet.label ?? `${wallet.currency.toUpperCase()}`}
             </CardTitle>
-            <CardDescription className="text-xs">
-              Proveedor: <span className="font-medium capitalize">{wallet.provider}</span>
+            <CardDescription className="text-xs font-medium">
+              <span className="capitalize">{wallet.provider}</span>
             </CardDescription>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col items-end gap-1.5">
           <Badge
             variant="outline"
-            className={`text-[11px] font-medium ${networkColor}`}
+            className={`text-[10px] font-medium uppercase tracking-wider ${networkColor}`}
           >
             {networkLabel}
           </Badge>
-          {wallet.is_active ? (
-            <Badge variant="outline" className="border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-[11px]">
-              Activa
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="border-destructive/30 bg-destructive/10 text-destructive text-[11px]">
-              Inactiva
-            </Badge>
+          {wallet.is_active && (
+            <div className="flex items-center gap-1.5 px-1 pr-0">
+              <span className="relative flex size-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex size-1.5 rounded-full bg-emerald-500"></span>
+              </span>
+              <span className="text-[10px] font-semibold text-emerald-500 uppercase tracking-widest">Activa</span>
+            </div>
           )}
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="relative z-10 pt-2 space-y-5">
         {/* Balances */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-lg border border-border/50 bg-muted/30 p-3 text-center">
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Balance</p>
-            <p className="mt-1 text-lg font-bold tabular-nums">
-              {(wallet.balance ?? 0).toFixed(2)}
-              <span className="ml-1 text-xs font-normal text-muted-foreground">{wallet.currency?.toUpperCase()}</span>
-            </p>
+        <div className="flex flex-col gap-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">Balance Disponible</p>
+          <div className="flex items-baseline gap-2">
+            <span className="text-4xl font-black tracking-tighter text-foreground">
+              {(wallet.available_balance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+            <span className="text-lg font-bold text-muted-foreground">
+              {wallet.currency?.toUpperCase()}
+            </span>
           </div>
-          <div className="rounded-lg border border-border/50 bg-muted/30 p-3 text-center">
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Disponible</p>
-            <p className="mt-1 text-lg font-bold tabular-nums text-emerald-400">
-              {(wallet.available_balance ?? 0).toFixed(2)}
-              <span className="ml-1 text-xs font-normal text-muted-foreground">{wallet.currency?.toUpperCase()}</span>
-            </p>
-          </div>
-          <div className="rounded-lg border border-border/50 bg-muted/30 p-3 text-center">
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Reservado</p>
-            <p className="mt-1 text-lg font-bold tabular-nums text-amber-400">
-              {(wallet.reserved_balance ?? 0).toFixed(2)}
-              <span className="ml-1 text-xs font-normal text-muted-foreground">{wallet.currency?.toUpperCase()}</span>
-            </p>
-          </div>
+          {(wallet.reserved_balance ?? 0) > 0 && (
+             <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-amber-500/90">
+               Total en cuenta: {(wallet.balance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} {wallet.currency?.toUpperCase()} 
+               <span className="text-muted-foreground/50">|</span> 
+               Retenido: {(wallet.reserved_balance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+             </p>
+          )}
         </div>
 
         {/* Dirección blockchain */}
         {wallet.address && (
-          <div className="flex items-center justify-between gap-2 rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5">
+          <div className="group/address -mx-6 -mb-6 mt-4 flex items-center justify-between gap-3 border-t border-border/20 bg-background/40 px-6 py-3 backdrop-blur-sm transition-colors hover:bg-background/60">
             <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors group-hover/address:text-foreground/70">
                 Dirección {networkLabel}
               </p>
-              <p className="mt-0.5 truncate font-mono text-xs text-foreground/80">
-                {truncateAddress(wallet.address, 10)}
+              <p className="mt-0.5 truncate font-mono text-xs font-medium text-foreground/50 transition-colors group-hover/address:text-foreground/90">
+                {truncateAddress(wallet.address, 12)}
               </p>
             </div>
-            <div className="flex shrink-0 gap-1">
+            <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover/address:opacity-100">
               <Button
                 variant="ghost"
                 size="icon-sm"
-                className="size-7 text-muted-foreground hover:text-foreground"
+                className="size-7 bg-background/50 border border-border/30 text-foreground/70 shadow-sm hover:bg-background hover:text-foreground"
                 onClick={handleCopy}
                 title="Copiar dirección"
               >
@@ -196,7 +194,7 @@ function WalletCard({ wallet }: { wallet: WalletBalance }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 title={`Ver en ${EXPLORER_NAMES[wallet.network ?? ''] ?? 'explorador'}`}
-                className="inline-flex size-7 items-center justify-center rounded-[min(var(--radius-md),12px)] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="inline-flex size-7 items-center justify-center rounded-lg border border-border/30 bg-background/50 text-foreground/70 shadow-sm transition-colors hover:bg-background hover:text-foreground"
               >
                 <ExternalLink className="size-3.5" />
               </a>
@@ -282,17 +280,17 @@ function WalletsSection({ isApproved }: { isApproved: boolean }) {
 
       {/* Empty */}
       {!loading && !error && wallets.length === 0 && (
-        <Card className="border-dashed border-border/60">
-          <CardContent className="flex min-h-[16vh] flex-col items-center justify-center gap-3 text-center">
-            <div className="flex size-12 items-center justify-center rounded-full border border-border/60 bg-muted/40">
-              <Wallet className="size-5 text-muted-foreground" />
+        <Card className="border-dashed border-border/40 bg-muted/10 mx-auto max-w-2xl mt-8">
+          <CardContent className="flex min-h-[28vh] flex-col items-center justify-center gap-5 text-center px-4 py-12">
+            <div className="relative flex size-16 items-center justify-center rounded-full border border-border bg-background shadow-sm ring-4 ring-muted/50">
+              <Wallet className="size-6 text-muted-foreground/50" />
             </div>
-            <div>
-              <p className="font-medium">No hay wallets aún</p>
-              <p className="mt-1 text-sm text-muted-foreground">
+            <div className="max-w-sm">
+              <p className="text-lg font-semibold tracking-tight text-foreground">No hay wallets activas</p>
+              <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
                 {isApproved
-                  ? 'Tus wallets se están aprovisionando. Vuelve en unos momentos.'
-                  : 'Completa la verificación KYC/KYB para activar tus wallets.'}
+                  ? 'Tus wallets se están aprovisionando en nuestra infraestructura blockchain de alta seguridad. Aparecerán aquí en unos instantes.'
+                  : 'Para mantener la seguridad de nuestra plataforma, completa tu verificación KYC/KYB para habilitar tus bóvedas y billeteras.'}
               </p>
             </div>
           </CardContent>
@@ -326,7 +324,7 @@ export function MyAccountsPage() {
   const isApproved = profile?.onboarding_status === 'approved'
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-6">
       {/* Header */}
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
@@ -354,13 +352,19 @@ export function MyAccountsPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="wallets">
-        <TabsList>
-          <TabsTrigger value="wallets">
-            <Wallet className="size-3.5" />
+        <TabsList className="mb-4 h-14 rounded-full bg-muted/50 p-1">
+          <TabsTrigger 
+            value="wallets" 
+            className="h-full rounded-full px-8 text-base font-semibold transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground"
+          >
+            <Wallet className="mr-2.5 size-5" />
             Wallets
           </TabsTrigger>
-          <TabsTrigger value="virtual-accounts">
-            <Landmark className="size-3.5" />
+          <TabsTrigger 
+            value="virtual-accounts"
+            className="h-full rounded-full px-8 text-base font-semibold transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground"
+          >
+            <Landmark className="mr-2.5 size-5" />
             Cuentas Virtuales
           </TabsTrigger>
         </TabsList>

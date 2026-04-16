@@ -112,15 +112,15 @@ export function VirtualAccountsSection({ isApproved }: VirtualAccountsSectionPro
 
       {/* No KYC */}
       {!isApproved && (
-        <Card className="border-dashed border-border/60">
-          <CardContent className="flex min-h-[16vh] flex-col items-center justify-center gap-3 text-center">
-            <div className="flex size-10 items-center justify-center rounded-full border border-border/60 bg-muted/40">
-              <Landmark className="size-4 text-muted-foreground" />
+        <Card className="border-dashed border-border/40 bg-muted/10 mx-auto max-w-2xl mt-8">
+          <CardContent className="flex min-h-[28vh] flex-col items-center justify-center gap-5 text-center px-4 py-12">
+            <div className="relative flex size-16 items-center justify-center rounded-full border border-border bg-background shadow-sm ring-4 ring-muted/50">
+              <Landmark className="size-6 text-muted-foreground/50" />
             </div>
-            <div>
-              <p className="text-sm font-medium">Verificación requerida</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Completa tu verificación KYC/KYB para poder crear cuentas virtuales y recibir depósitos bancarios.
+            <div className="max-w-sm">
+              <p className="text-lg font-semibold tracking-tight text-foreground">Verificación requerida</p>
+              <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                Completa tu proceso de verificación KYC/KYB corporativo para habilitar la creación de Cuentas Virtuales y empezar a recibir depósitos bancarios.
               </p>
             </div>
           </CardContent>
@@ -149,20 +149,20 @@ export function VirtualAccountsSection({ isApproved }: VirtualAccountsSectionPro
 
       {/* Empty */}
       {isApproved && !loading && !error && accounts.length === 0 && (
-        <Card className="border-dashed border-border/60">
-          <CardContent className="flex min-h-[20vh] flex-col items-center justify-center gap-3 text-center">
-            <div className="flex size-12 items-center justify-center rounded-full border border-border/60 bg-muted/40">
-              <ArrowDownToLine className="size-5 text-muted-foreground" />
+        <Card className="border-dashed border-border/40 bg-muted/10 mx-auto max-w-2xl mt-8">
+          <CardContent className="flex min-h-[28vh] flex-col items-center justify-center gap-5 text-center px-4 py-12">
+            <div className="relative flex size-16 items-center justify-center rounded-full border border-border bg-background shadow-sm ring-4 ring-muted/50">
+              <ArrowDownToLine className="size-6 text-muted-foreground/50" />
             </div>
-            <div>
-              <p className="text-sm font-medium">No tienes cuentas virtuales aún</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Crea una cuenta virtual para recibir depósitos bancarios que se convertirán automáticamente a criptomonedas.
+            <div className="max-w-sm">
+              <p className="text-lg font-semibold tracking-tight text-foreground">No tienes cuentas virtuales aún</p>
+              <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                Crea tu primera cuenta virtual local o internacional. Los depósitos recibidos aquí se convertirán automáticamente a cripto en tus Wallets correspondientes.
               </p>
             </div>
             <Button
               size="sm"
-              className="mt-2"
+              className="mt-4 rounded-full px-6 font-semibold shadow-sm"
               onClick={() => setDialogOpen(true)}
             >
               Crear primera cuenta

@@ -557,13 +557,3 @@ function toEstimate(values: RouteEstimate) {
 function roundTwo(value: number) {
   return Math.round(value * 100) / 100
 }
-
-function resolveExchangeRate(args: {
-  baseRate: number
-  originCurrency: string
-  destinationCurrency: string
-}) {
-  return args.baseRate
-}
-
-

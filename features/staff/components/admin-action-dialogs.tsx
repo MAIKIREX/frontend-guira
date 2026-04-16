@@ -249,6 +249,7 @@ export function FeeOverridesPanel({ actor, user }: { actor: StaffActor; user: Pr
       fee_fixed: undefined,
       min_fee: undefined,
       max_fee: undefined,
+      valid_from: new Date().toISOString().split('T')[0],
       valid_until: '',
       notes: '',
     },
@@ -315,6 +316,7 @@ export function FeeOverridesPanel({ actor, user }: { actor: StaffActor; user: Pr
         ...(values.fee_fixed !== undefined ? { fee_fixed: values.fee_fixed } : {}),
         ...(values.min_fee !== undefined ? { min_fee: values.min_fee } : {}),
         ...(values.max_fee !== undefined ? { max_fee: values.max_fee } : {}),
+        valid_from: values.valid_from || new Date().toISOString().split('T')[0],
         ...(values.valid_until ? { valid_until: values.valid_until } : {}),
         ...(values.notes ? { notes: values.notes } : {}),
       })
@@ -506,6 +508,15 @@ export function FeeOverridesPanel({ actor, user }: { actor: StaffActor; user: Pr
                     <FormItem>
                       <FormLabel className="text-xs">Fee Máximo ($)</FormLabel>
                       <FormControl><Input {...field} type="number" step="0.01" placeholder="0" className="h-9 text-xs" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  {/* Valid from */}
+                  <FormField control={form.control} name="valid_from" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">Vigente Desde</FormLabel>
+                      <FormControl><Input {...field} type="date" className="h-9 text-xs" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />

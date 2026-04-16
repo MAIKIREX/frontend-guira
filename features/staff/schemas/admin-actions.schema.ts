@@ -69,6 +69,7 @@ export const adminFeeOverrideSchema = z.object({
   fee_fixed: z.coerce.number().min(0, 'Debe ser >= 0').optional(),
   min_fee: z.coerce.number().min(0, 'Debe ser >= 0').optional(),
   max_fee: z.coerce.number().min(0, 'Debe ser >= 0').optional(),
+  valid_from: z.string().optional().or(z.literal('')),
   valid_until: z.string().optional().or(z.literal('')),
   notes: z.string().max(500).optional(),
 })

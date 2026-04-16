@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import {
   Copy,
   CheckCheck,
@@ -10,7 +10,10 @@ import {
   ArrowDownToLine,
   Info,
   AlertTriangle,
+  Eye,
+  Share2,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -33,13 +36,41 @@ import {
   AlertDialogMedia,
 } from '@/components/ui/alert-dialog'
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import Flag from 'react-world-flags'
+import {
   type VirtualAccount,
   SOURCE_CURRENCY_OPTIONS,
   DESTINATION_CURRENCY_OPTIONS,
   DESTINATION_RAIL_OPTIONS,
 } from '@/services/bridge.service'
 
-// ── Helpers ──────────────────────────────────────────────────────
+// ── Flag mapping ─────────────────────────────────────────────────
+
+const CURRENCY_TO_ISO: Record<string, string> = {
+  usd: 'US',
+  eur: 'EU',
+  gbp: 'GB',
+  mxn: 'MX',
+  cop: 'CO',
+  brl: 'BR',
+  clp: 'CL',
+  pen: 'PE',
+  ars: 'AR',
+  cad: 'CA',
+}
+
+function getFlagCode(currency: string) {
+  return CURRENCY_TO_ISO[currency.toLowerCase()] ?? 'UN'
+}
+
+// ── Label maps ───────────────────────────────────────────────────
 
 const CURRENCY_FLAGS: Record<string, string> = Object.fromEntries(
   SOURCE_CURRENCY_OPTIONS.map((o) => [o.value, o.flag])
@@ -56,6 +87,144 @@ const DEST_CURRENCY_LABELS: Record<string, string> = Object.fromEntries(
 const RAIL_LABELS: Record<string, string> = Object.fromEntries(
   DESTINATION_RAIL_OPTIONS.map((o) => [o.value, o.label])
 )
+
+// ── Currency-specific deposit rail labels ────────────────────────
+
+const DEPOSIT_RAIL_LABELS: Record<string, string> = {
+  usd: 'ACH / Wire',
+  eur: 'SEPA',
+  mxn: 'SPEI',
+  brl: 'PIX',
+  gbp: 'Faster Payments',
+  cop: 'Bre-B',
+}
+
+// ── Currency-specific helpers ────────────────────────────────────
+
+/**
+ * Returns the PRIMARY account identifier for a given currency.
+ * Each currency stores its key banking identifier in a different column.
+ */
+function getPrimaryAccountId(va: VirtualAccount): { label: string; value: string | null } {
+  switch (va.source_currency) {
+    case 'usd':
+      return { label: 'Account Number', value: va.account_number }
+    case 'eur':
+      return { label: 'IBAN', value: va.iban }
+    case 'mxn':
+      return { label: 'CLABE', value: va.clabe }
+    case 'brl':
+      return { label: 'Código PIX', value: va.br_code }
+    case 'gbp':
+      return { label: 'Account Number', value: va.account_number }
+    case 'cop':
+      return { label: 'Núm. Cuenta', value: va.account_number }
+    default:
+      return { label: 'Cuenta', value: va.account_number ?? va.iban ?? va.clabe ?? va.br_code }
+  }
+}
+
+/**
+ * Resolves the best available "holder name" for display.
+ * USD does NOT return `account_holder_name` from Bridge, so we fall back to `beneficiary_name`.
+ */
+function getHolderName(va: VirtualAccount): string {
+  return va.account_holder_name ?? va.beneficiary_name ?? 'N/A'
+}
+
+/**
+ * Returns an ordered list of deposit instruction fields relevant to a specific currency.
+ * This prevents showing irrelevant fields (e.g., IBAN for a USD account).
+ */
+function getDepositInstructions(va: VirtualAccount): { label: string; value: string | null | undefined }[] {
+  const common = [
+    { label: 'Titular / Beneficiario', value: va.account_holder_name ?? va.beneficiary_name },
+  ]
+
+  switch (va.source_currency) {
+    case 'usd':
+      return [
+        ...common,
+        { label: 'Banco', value: va.bank_name },
+        { label: 'Dirección del Banco', value: va.bank_address },
+        { label: 'Beneficiario', value: va.beneficiary_name },
+        { label: 'Dirección del Beneficiario', value: va.beneficiary_address },
+        { label: 'Routing Number', value: va.routing_number },
+        { label: 'Núm. Cuenta', value: va.account_number },
+      ]
+    case 'eur':
+      return [
+        ...common,
+        { label: 'Banco', value: va.bank_name },
+        { label: 'Dirección del Banco', value: va.bank_address },
+        { label: 'IBAN', value: va.iban },
+      ]
+    case 'mxn':
+      return [
+        ...common,
+        { label: 'CLABE', value: va.clabe },
+      ]
+    case 'brl':
+      return [
+        ...common,
+        { label: 'Código PIX', value: va.br_code },
+      ]
+    case 'gbp':
+      return [
+        ...common,
+        { label: 'Banco', value: va.bank_name },
+        { label: 'Núm. Cuenta', value: va.account_number },
+        { label: 'Sort Code', value: va.sort_code },
+      ]
+    case 'cop':
+      return [
+        ...common,
+        { label: 'Banco', value: va.bank_name },
+        { label: 'Núm. Cuenta', value: va.account_number },
+      ]
+    default:
+      // Fallback: show everything (legacy behavior)
+      return [
+        ...common,
+        { label: 'Banco', value: va.bank_name },
+        { label: 'Dirección del Banco', value: va.bank_address },
+        { label: 'Beneficiario', value: va.beneficiary_name },
+        { label: 'Dirección del Beneficiario', value: va.beneficiary_address },
+        { label: 'Routing Number', value: va.routing_number },
+        { label: 'Núm. Cuenta', value: va.account_number },
+        { label: 'IBAN', value: va.iban },
+        { label: 'CLABE', value: va.clabe },
+        { label: 'Código PIX', value: va.br_code },
+        { label: 'Sort Code', value: va.sort_code },
+      ]
+  }
+}
+
+function generateShareText(va: VirtualAccount, depositInstructions: {label: string, value: string | null | undefined}[]): string {
+  const instructions = depositInstructions
+    .filter(i => Boolean(i.value))
+    .map(i => `${i.label}: ${i.value}`)
+    .join('\n')
+
+  let text = `Datos para transferencia bancaria (${va.source_currency.toUpperCase()}):\n\n${instructions}`
+
+  if (va.deposit_message) {
+    text += `\n\n🚨 IMPORTANTE: Referencia Obligatoria\nDebes incluir el siguiente código como 'Referencia' o 'Mensaje' en tu transferencia. Sin él, los fondos podrían retrasarse:\n\n${va.deposit_message}`
+  }
+
+  return text
+}
+
+// ── Gradient accents per currency ────────────────────────────────
+
+const CURRENCY_ACCENT: Record<string, { from: string; to: string; text: string }> = {
+  usd: { from: 'from-blue-500/10', to: 'to-emerald-500/5', text: 'text-blue-500' },
+  eur: { from: 'from-indigo-500/10', to: 'to-blue-500/5', text: 'text-indigo-500' },
+  mxn: { from: 'from-emerald-500/10', to: 'to-red-500/5', text: 'text-emerald-600' },
+  brl: { from: 'from-yellow-500/10', to: 'to-green-500/5', text: 'text-yellow-600' },
+  gbp: { from: 'from-purple-500/10', to: 'to-pink-500/5', text: 'text-purple-500' },
+  cop: { from: 'from-amber-500/10', to: 'to-blue-500/5', text: 'text-amber-600' },
+}
 
 // ── CopyButton ───────────────────────────────────────────────────
 
@@ -91,13 +260,13 @@ function CopyButton({ value, label }: { value: string; label?: string }) {
 
 // ── InstructionRow ───────────────────────────────────────────────
 
-function InstructionRow({ label, value }: { label: string; value: string | null | undefined }) {
+function InstructionRow({ label, value, isLast }: { label: string; value: string | null | undefined; isLast?: boolean }) {
   if (!value) return null
   return (
-    <div className="flex items-center justify-between gap-2 rounded-lg border border-border/40 bg-muted/20 px-3 py-2">
+    <div className={`flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted/10 ${!isLast ? 'border-b border-border/30' : ''}`}>
       <div className="min-w-0">
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
-        <p className="mt-0.5 truncate font-mono text-xs text-foreground/90">{value}</p>
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">{label}</p>
+        <p className="mt-0.5 truncate font-mono text-xs font-semibold text-foreground/90">{value}</p>
       </div>
       <CopyButton value={value} label={label} />
     </div>
@@ -119,6 +288,37 @@ export function VirtualAccountCard({ va, onDeactivate }: VirtualAccountCardProps
   const currencyLabel = CURRENCY_LABELS[va.source_currency] ?? va.source_currency.toUpperCase()
   const destCurrencyLabel = DEST_CURRENCY_LABELS[va.destination_currency] ?? va.destination_currency.toUpperCase()
   const railLabel = RAIL_LABELS[va.destination_payment_rail] ?? va.destination_payment_rail
+  const depositRailLabel = DEPOSIT_RAIL_LABELS[va.source_currency] ?? va.source_currency.toUpperCase()
+  const accent = CURRENCY_ACCENT[va.source_currency] ?? CURRENCY_ACCENT.usd
+
+  // Currency-aware computed values
+  const primaryId = useMemo(() => getPrimaryAccountId(va), [va])
+  const holderName = useMemo(() => getHolderName(va), [va])
+  const depositInstructions = useMemo(() => getDepositInstructions(va), [va])
+
+  const handleShareAll = useCallback(async () => {
+    const text = generateShareText(va, depositInstructions)
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Datos de depósito ${va.source_currency.toUpperCase()}`,
+          text,
+        })
+        return
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return
+        // proceed to clipboard fallback
+      }
+    }
+    
+    try {
+      await navigator.clipboard.writeText(text)
+      toast.success('Todos los datos copiados al portapapeles')
+    } catch {
+      toast.error('No se pudo copiar al portapapeles')
+    }
+  }, [va, depositInstructions])
 
   const handleDeactivate = useCallback(async () => {
     setDeactivating(true)
@@ -133,44 +333,43 @@ export function VirtualAccountCard({ va, onDeactivate }: VirtualAccountCardProps
   }, [va.id, onDeactivate])
 
   return (
-    <Card className="relative overflow-hidden border-border/60 bg-card transition-shadow hover:shadow-md">
-      {/* Fondo decorativo */}
+    <Card className="relative overflow-hidden border-border/60 bg-card transition-all duration-300 hover:shadow-lg hover:border-border">
+      {/* Gradient accent background per currency */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.03]"
-        style={{
-          background:
-            'radial-gradient(ellipse at top right, currentColor 0%, transparent 70%)',
-        }}
+        className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${accent.from} ${accent.to}`}
       />
 
       {/* Header */}
-      <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
+      <CardHeader className="relative z-10 flex flex-row items-center justify-between gap-3 pb-3">
         <div className="flex items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-muted/40 text-lg">
-            {currencyFlag}
+          <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-border/40 bg-background shadow-md">
+            <Flag code={getFlagCode(va.source_currency)} className="h-full w-full object-cover" fallback={<span className="text-xl">{currencyFlag}</span>} />
           </div>
           <div>
-            <CardTitle className="text-base font-semibold">
-              Cuenta Virtual {va.source_currency.toUpperCase()}
+            <CardTitle className="text-base font-bold tracking-tight">
+              Cuenta {va.source_currency.toUpperCase()}
             </CardTitle>
-            <CardDescription className="text-xs">
+            <CardDescription className="flex items-center gap-1.5 text-xs font-medium">
               {currencyLabel}
+              <span className="text-border">·</span>
+              <span className={`font-semibold ${accent.text}`}>{depositRailLabel}</span>
             </CardDescription>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Badge
-            variant="outline"
-            className="border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-[11px]"
-          >
-            Activa
-          </Badge>
+        <div className="flex flex-col items-end gap-1.5">
+          <div className="flex items-center gap-1.5 px-1 pr-0">
+            <span className="relative flex size-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex size-1.5 rounded-full bg-emerald-500"></span>
+            </span>
+            <span className="text-[10px] font-semibold text-emerald-500 uppercase tracking-widest">Activa</span>
+          </div>
           {va.is_external_sweep && (
             <Badge
               variant="outline"
-              className="border-amber-500/20 bg-amber-500/10 text-amber-400 text-[11px]"
+              className="border-amber-500/20 bg-amber-500/10 text-[10px] font-medium uppercase tracking-wider text-amber-500"
             >
               <Globe className="mr-1 size-3" />
               Externa
@@ -179,149 +378,201 @@ export function VirtualAccountCard({ va, onDeactivate }: VirtualAccountCardProps
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
-        {/* Instrucciones de depósito */}
-        <div>
-          <div className="mb-2 flex items-center gap-1.5">
-            <Landmark className="size-3.5 text-muted-foreground" />
-            <p className="text-xs font-medium text-muted-foreground">Instrucciones de Depósito</p>
-          </div>
-          <div className="space-y-1.5">
-            <InstructionRow label="Titular de la Cuenta" value={va.account_holder_name} />
-            <InstructionRow label="Banco" value={va.bank_name} />
-            <InstructionRow label="Dirección del Banco" value={va.bank_address} />
-            <InstructionRow label="Beneficiario" value={va.beneficiary_name} />
-            <InstructionRow label="Dirección del Beneficiario" value={va.beneficiary_address} />
-            <InstructionRow label="Núm. Cuenta" value={va.account_number} />
-            <InstructionRow label="Routing Number" value={va.routing_number} />
-            <InstructionRow label="IBAN" value={va.iban} />
-            <InstructionRow label="CLABE" value={va.clabe} />
-            <InstructionRow label="Código PIX (br_code)" value={va.br_code} />
-            <InstructionRow label="Sort Code" value={va.sort_code} />
-          </div>
+      <CardContent className="relative z-10 space-y-4 pt-1">
+        
+        {/* Mini summary — currency-aware fields */}
+        <div className="space-y-2.5 rounded-xl bg-muted/30 px-4 py-3">
+            {/* Holder name — resolved dynamically */}
+            <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider">Titular</span>
+                <span className="font-semibold text-foreground truncate max-w-[180px] text-sm">{holderName}</span>
+            </div>
 
-          {/* Mensaje de depósito (COP/Bre-B) — campo crítico */}
-          {va.deposit_message && (
-            <div className="mt-2 flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
-              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-400" />
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-amber-300">Mensaje de Depósito Obligatorio</p>
-                <p className="mt-0.5 text-[11px] text-amber-200/80">
-                  Incluye exactamente este mensaje en la descripción de tu transferencia COP. Sin él, el depósito no puede ser identificado.
-                </p>
-                <div className="mt-1.5 flex items-center justify-between gap-2">
-                  <code className="truncate font-mono text-xs font-bold text-amber-200">{va.deposit_message}</code>
-                  <CopyButton value={va.deposit_message} label="Mensaje de depósito" />
+            {/* Primary account identifier — currency-specific */}
+            {primaryId.value && (
+                <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider">{primaryId.label}</span>
+                    <span className="font-mono text-sm font-semibold text-foreground tracking-tight">
+                      •••• {primaryId.value.slice(-4)}
+                    </span>
                 </div>
+            )}
+            
+            {/* Deposit message alert inline (COP) */}
+            {va.deposit_message && (
+              <div className="flex items-center gap-2 mt-1 pt-2 border-t border-border/40">
+                <AlertTriangle className="size-3.5 shrink-0 text-amber-500" />
+                <span className="text-[10px] font-semibold text-amber-500 uppercase tracking-wider">Requiere referencia obligatoria</span>
               </div>
-            </div>
-          )}
+            )}
+
+            {/* Payment rails */}
+            {va.payment_rails && va.payment_rails.length > 0 && (
+                <div className="flex justify-between items-center mt-1.5 border-t border-border/40 pt-2.5">
+                    <span className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider">Soporta</span>
+                    <div className="flex flex-wrap gap-1 justify-end">
+                      {va.payment_rails.map((rail) => (
+                        <Badge key={rail} variant="outline" className="text-[9px] font-semibold uppercase bg-background shadow-sm border-border/50 text-foreground/80">{rail.replace(/_/g, ' ')}</Badge>
+                      ))}
+                    </div>
+                </div>
+            )}
         </div>
 
-        {/* Payment rails */}
-        {va.payment_rails && va.payment_rails.length > 0 && (
-          <div className="flex items-center gap-2">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Rails:</p>
-            <div className="flex flex-wrap gap-1">
-              {va.payment_rails.map((rail) => (
-                <Badge
-                  key={rail}
-                  variant="outline"
-                  className="text-[10px] font-normal uppercase"
-                >
-                  {rail.replace(/_/g, ' ')}
-                </Badge>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* View details button */}
+        <Dialog>
+           <DialogTrigger asChild>
+             <Button className="w-full rounded-xl shadow-sm text-sm h-12 font-semibold gap-2" variant="outline">
+                <Eye className="size-4" />
+                Ver datos de cuenta
+             </Button>
+           </DialogTrigger>
+           <DialogContent className="max-w-md sm:rounded-3xl p-0 overflow-hidden">
+              <DialogHeader className="px-6 py-5 bg-background border-b border-border/40">
+                 <DialogTitle className="flex items-center gap-3">
+                    <div className="flex size-8 overflow-hidden rounded-full border-2 border-border/40 shadow-sm">
+                        <Flag code={getFlagCode(va.source_currency)} className="h-full w-full object-cover" />
+                    </div>
+                    <div>
+                      <span className="block">Cuenta {va.source_currency.toUpperCase()}</span>
+                      <span className={`block text-xs font-medium ${accent.text}`}>{depositRailLabel}</span>
+                    </div>
+                 </DialogTitle>
+                 <DialogDescription className="text-xs pt-1">
+                    Instrucciones para depositar {va.source_currency.toUpperCase()} hacia tu billetera {destCurrencyLabel}.
+                 </DialogDescription>
+              </DialogHeader>
 
-        {/* Destino */}
-        <div className="rounded-lg border border-border/40 bg-muted/20 p-3">
-          <div className="mb-1.5 flex items-center gap-1.5">
-            <ArrowDownToLine className="size-3.5 text-muted-foreground" />
-            <p className="text-xs font-medium text-muted-foreground">Destino de conversión</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-foreground/80">
-            <span>
-              Moneda: <span className="font-semibold">{destCurrencyLabel}</span>
-            </span>
-            <span>
-              Red: <span className="font-semibold">{railLabel}</span>
-            </span>
-            {va.is_external_sweep && va.external_destination_label && (
-              <span>
-                Etiqueta: <span className="font-semibold">{va.external_destination_label}</span>
-              </span>
-            )}
-            {!va.is_external_sweep && (
-              <span className="inline-flex items-center gap-1 text-emerald-400">
-                <Landmark className="size-3" />
-                Wallet Guira
-              </span>
-            )}
-          </div>
+              {/* Scrollable details — currency-filtered */}
+              <div className="max-h-[60vh] overflow-y-auto px-6 py-5 space-y-5">
+                 
+                 {/* Deposit instructions — only relevant fields */}
+                 <div>
+                    <div className="mb-3 flex flex-row items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <Landmark className="size-4 text-muted-foreground" />
+                        <p className="text-sm font-semibold tracking-tight text-foreground">Instrucciones de depósito</p>
+                      </div>
+                      <Button variant="outline" size="sm" className="h-8 rounded-lg px-3 text-xs gap-1.5 font-semibold text-primary/80 border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors" onClick={handleShareAll}>
+                        <Share2 className="size-3.5" />
+                        Compartir
+                      </Button>
+                    </div>
+                    <div className="overflow-hidden rounded-xl border border-border/40 bg-background shadow-sm">
+                      {depositInstructions.map((instr, i) => (
+                        <InstructionRow
+                          key={instr.label}
+                          label={instr.label}
+                          value={instr.value}
+                          isLast={i === depositInstructions.length - 1}
+                        />
+                      ))}
+                    </div>
+                 </div>
 
-          {/* Dirección de destino para VAs externas (Hallazgo 4) */}
-          {va.is_external_sweep && va.destination_address && (
-            <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-border/30 bg-muted/10 px-2.5 py-1.5">
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Dirección destino</p>
-                <p className="mt-0.5 truncate font-mono text-[11px] text-foreground/80">
-                  {va.destination_address}
-                </p>
+                 {/* Deposit message — COP / Bre-B critical warning */}
+                 {va.deposit_message && (
+                  <div className="flex items-start gap-3 rounded-xl border-l-4 border-l-amber-500 border-y border-y-border/40 border-r border-r-border/40 bg-amber-500/10 px-4 py-3 shadow-sm">
+                    <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-500" />
+                    <div className="min-w-0 pr-1">
+                      <p className="text-sm font-bold text-amber-600 dark:text-amber-500">Referencia Obligatoria</p>
+                      <p className="mt-0.5 text-[11px] font-medium leading-tight text-amber-600/80 dark:text-amber-500/80">
+                        Copia este código y pégalo como &apos;Referencia&apos; o &apos;Mensaje&apos; en tu transferencia bancaria. Sin él, los fondos podrían perderse temporalmente.
+                      </p>
+                      <div className="mt-2.5 flex items-center justify-between gap-3 rounded-lg border border-amber-500/20 bg-background p-2 pl-3 shadow-sm">
+                        <code className="truncate font-mono text-sm font-black text-amber-600 dark:text-amber-500">{va.deposit_message}</code>
+                        <CopyButton value={va.deposit_message} label="Referencia" />
+                      </div>
+                    </div>
+                  </div>
+                 )}
+
+                 {/* Destination / conversion info */}
+                 <div className="rounded-xl border border-border/40 bg-muted/10 p-4 shadow-sm">
+                    <div className="mb-2.5 flex items-center gap-1.5 border-b border-border/30 pb-2">
+                      <ArrowDownToLine className="size-3.5 text-muted-foreground" />
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">Destino de conversión</p>
+                    </div>
+                    <div className="space-y-2 text-xs text-foreground/80">
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Moneda destino</span>
+                        <span className="font-semibold">{destCurrencyLabel}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Red / Rail</span>
+                        <span className="font-semibold">{railLabel}</span>
+                      </div>
+                      {va.developer_fee_percent != null && (
+                        <div className="flex justify-between items-center text-amber-500/90 font-medium">
+                          <span className="flex items-center gap-1"><Info className="size-3" /> Fee de servicio</span>
+                          <span>{va.developer_fee_percent}%</span>
+                        </div>
+                      )}
+                      
+                      {va.is_external_sweep ? (
+                        <>
+                          <div className="flex justify-between items-center border-t border-border/30 pt-2 mt-2">
+                            <span className="text-muted-foreground">Etiqueta Externa</span>
+                            <span className="font-semibold truncate max-w-[150px]">{va.external_destination_label}</span>
+                          </div>
+                          {va.destination_address && (
+                            <div className="flex justify-between items-center bg-muted/30 p-2 rounded-lg mt-1 border border-border/40">
+                               <span className="font-mono text-[10px] truncate text-muted-foreground">{va.destination_address}</span>
+                               <CopyButton value={va.destination_address} label="dirección" />
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="flex justify-between items-center text-emerald-500 font-semibold border-t border-border/30 pt-2 mt-2">
+                           <span>Direccionado a</span>
+                           <span className="flex items-center gap-1"><Landmark className="size-3" /> Wallet Guira</span>
+                        </div>
+                      )}
+                    </div>
+                 </div>
+
+                 {/* Deactivate option */}
+                 <div className="border-t border-border/30 pt-4 pb-2">
+                    <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          className="w-full text-xs font-medium text-destructive/80 hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="mr-1.5 size-3.5" />
+                          Desactivar permanentemente
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="sm:rounded-2xl">
+                        <AlertDialogHeader>
+                          <AlertDialogMedia className="bg-destructive/10">
+                            <Trash2 className="size-5 text-destructive" />
+                          </AlertDialogMedia>
+                          <AlertDialogTitle>
+                            ¿Desactivar cuenta virtual?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Esta cuenta virtual dejará de aceptar depósitos. Los fondos ya recibidos no se verán afectados. Esta acción no se puede deshacer.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel className="rounded-full">Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            variant="destructive"
+                            className="rounded-full"
+                            onClick={handleDeactivate}
+                            disabled={deactivating}
+                          >
+                            {deactivating ? 'Desactivando…' : 'Desactivar Cuenta'}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                 </div>
+
               </div>
-              <CopyButton value={va.destination_address} label="dirección destino" />
-            </div>
-          )}
-        </div>
-
-        {/* Fee */}
-        {va.developer_fee_percent != null && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Info className="size-3" />
-            <span>Fee de servicio: <span className="font-medium text-foreground/80">{va.developer_fee_percent}%</span></span>
-          </div>
-        )}
-
-        {/* Desactivar */}
-        <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <AlertDialogTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full text-xs text-destructive/70 hover:text-destructive hover:bg-destructive/5"
-              />
-            }
-          >
-            <Trash2 className="mr-1.5 size-3.5" />
-            Desactivar cuenta virtual
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogMedia className="bg-destructive/10">
-                <Trash2 className="size-5 text-destructive" />
-              </AlertDialogMedia>
-              <AlertDialogTitle>
-                ¿Desactivar cuenta virtual?
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                Esta cuenta virtual dejará de aceptar depósitos. Los fondos ya recibidos no se verán afectados. Esta acción no se puede deshacer.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                variant="destructive"
-                onClick={handleDeactivate}
-                disabled={deactivating}
-              >
-                {deactivating ? 'Desactivando…' : 'Desactivar'}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+           </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   )

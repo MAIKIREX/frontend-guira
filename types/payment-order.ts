@@ -206,15 +206,7 @@ export interface PsavConfigRow {
   [key: string]: unknown
 }
 
-export interface PaymentSnapshot {
-  suppliers: import('@/types/supplier').Supplier[]
-  paymentOrders: PaymentOrder[]
-  activityLogs: import('@/types/activity-log').ActivityLog[]
-  feesConfig: FeeConfigRow[]
-  appSettings: AppSettingRow[]
-  psavConfigs: PsavConfigRow[]
-  gaps: string[]
-}
+
 
 export interface CreatePaymentOrderInput {
   user_id: string
@@ -231,10 +223,8 @@ export interface CreatePaymentOrderInput {
   metadata: PaymentOrderMetadata
 }
 
-export interface OrderFileUploadResult {
-  publicUrl: string
-  order: PaymentOrder
-}
+
+
 
 export interface SupplierUpsertInput {
   user_id: string

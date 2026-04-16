@@ -49,8 +49,6 @@ const STATUS_FILTER_LABELS: Record<string, string> = {
 interface PaymentsHistoryTableProps {
   orders: PaymentOrder[]
   suppliers: Supplier[]
-  /** @deprecated Ya no se usa — las instrucciones se leen de cada orden. Se mantiene como prop opcional para compatibilidad temporal. */
-  psavConfigs?: unknown[]
   activityLogs: ActivityLog[]
   disabled?: boolean
   onUploadOrderFile: (orderId: string, field: OrderFileField, file: File) => Promise<unknown>
@@ -221,6 +219,7 @@ export function PaymentsHistoryTable({
               <SelectItem value="completed">Completado</SelectItem>
               <SelectItem value="failed">Fallido</SelectItem>
               <SelectItem value="cancelled">Cancelado</SelectItem>
+              <SelectItem value="swept_external">Swept external</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -342,11 +341,6 @@ export function PaymentsHistoryTable({
             {isExpanded ? (
               <CardContent className="grid border-t border-border/60 gap-0 p-0 xl:grid-cols-[1.18fr_0.82fr] ">
                 <div className="space-y-6 sm:space-y-8 p-4 sm:px-6 sm:py-6">
-                  {/*<div className="grid gap-4 border-b border-border/60 pb-6 md:grid-cols-3">
-                    <SnapshotMetric label="Inicio del flujo" value={format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')} />
-                    <SnapshotMetric label="Tiempo operativo" value={getElapsedLabel(order.created_at, order.status)} accent={order.status !== 'completed' && order.status !== 'failed'} />
-                    <SnapshotMetric label="Contexto" value={getContextMetric(order, supplier)} />
-                  </div>*/}
 
                   <section className="space-y-4">
                     <SectionHeading

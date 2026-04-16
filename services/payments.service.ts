@@ -27,7 +27,7 @@
  *   GET /psav
  *   GET /exchange-rates
  */
-import { apiGet, apiPost, apiPatch, apiDelete, apiUpload } from '@/lib/api/client'
+import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/api/client'
 import type { PaymentOrder, PsavConfigRow, AppSettingRow } from '@/types/payment-order'
 import type { Supplier, CreateSupplierPayload } from '@/types/supplier'
 import type { ActivityLog } from '@/types/activity-log'
