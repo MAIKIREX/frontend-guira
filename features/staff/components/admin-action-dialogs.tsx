@@ -567,29 +567,35 @@ function FeeOverridesDialog({ actor, user }: { actor: StaffActor; user: Profile 
 
 /**
  * VaFeeOverridePanel — Standalone panel for VA fee matrix + VAs management.
- * Can be rendered inline (user detail page) or inside a Dialog wrapper.
+ * Master-Detail UI: left sidebar selects currency, right panel shows fee config.
+ * VAs shown in a clean data table with dropdown actions + edit modal.
  */
 export function VaFeeOverridePanel({ actor, user }: { actor: StaffActor; user: Profile }) {
   const [loading, setLoading] = useState(false)
   const [feeMatrix, setFeeMatrix] = useState<VaFeeMatrixEntry[]>([])
   const [userVAs, setUserVAs] = useState<AdminVirtualAccount[]>([])
 
+  // Estado para la moneda seleccionada en el sidebar
+  const [selectedCurrency, setSelectedCurrency] = useState<string>('usd')
+
   // Estado para edición de override en la matriz
-  const [editingCell, setEditingCell] = useState<string | null>(null)
+  const [editingDestType, setEditingDestType] = useState<string | null>(null)
   const [editCellFee, setEditCellFee] = useState('')
   const [editCellReason, setEditCellReason] = useState('')
   const [savingCell, setSavingCell] = useState(false)
 
-  // Estado para edición inline de VA
-  const [editingVaId, setEditingVaId] = useState<string | null>(null)
+  // Estado para edición de VA (modal)
+  const [editingVa, setEditingVa] = useState<AdminVirtualAccount | null>(null)
   const [editVaForm, setEditVaForm] = useState<{ fee: string; address: string; currency: string; reason: string }>({ fee: '', address: '', currency: '', reason: '' })
   const [savingVa, setSavingVa] = useState(false)
 
   const canManage = actor.role === 'admin' || actor.role === 'super_admin'
 
   const CURRENCIES = ['usd', 'eur', 'mxn', 'brl', 'gbp', 'cop'] as const
+  const CURRENCY_FLAGS: Record<string, string> = { usd: '🇺🇸', eur: '🇪🇺', mxn: '🇲🇽', brl: '🇧🇷', gbp: '🇬🇧', cop: '🇨🇴' }
   const DEST_TYPES = ['wallet_bridge', 'wallet_external'] as const
   const DEST_TYPE_LABELS: Record<string, string> = { wallet_bridge: 'Wallet Bridge', wallet_external: 'Wallet Externa' }
+  const DEST_TYPE_ICONS: Record<string, string> = { wallet_bridge: '🔗', wallet_external: '🌐' }
   const DESTINATION_CURRENCIES = ['usdc', 'usdt', 'usdb', 'dai', 'pyusd', 'eurc'] as const
 
   const loadData = async () => {
@@ -616,30 +622,30 @@ export function VaFeeOverridePanel({ actor, user }: { actor: StaffActor; user: P
   const getFeeEntry = (currency: string, destType: string) =>
     feeMatrix.find((e) => e.source_currency === currency && e.destination_type === destType)
 
-  const startEditCell = (currency: string, destType: string) => {
-    const entry = getFeeEntry(currency, destType)
-    setEditingCell(`${currency}:${destType}`)
+  // ── Fee Matrix Handlers ──
+  const startEditCell = (destType: string) => {
+    const entry = getFeeEntry(selectedCurrency, destType)
+    setEditingDestType(destType)
     setEditCellFee(entry?.resolved_fee != null ? String(entry.resolved_fee) : '')
     setEditCellReason('')
   }
 
-  const cancelEditCell = () => { setEditingCell(null); setEditCellFee(''); setEditCellReason('') }
+  const cancelEditCell = () => { setEditingDestType(null); setEditCellFee(''); setEditCellReason('') }
 
   const handleSetCellOverride = async () => {
-    if (!editingCell) return
-    const [currency, destType] = editingCell.split(':')
+    if (!editingDestType) return
     const fee = parseFloat(editCellFee)
     if (isNaN(fee) || fee < 0 || fee > 100) { toast.error('Fee debe ser entre 0 y 100.'); return }
-    if (editCellReason.trim().length < 5) { toast.error('Motivo mín. 5 caracteres.'); return }
+    if (editCellReason.trim().length < 5) { toast.error('Motivo mínimo 5 caracteres.'); return }
     setSavingCell(true)
     try {
       await UsersAdminService.setVaFeeOverride(user.id, {
-        source_currency: currency,
-        destination_type: destType,
+        source_currency: selectedCurrency,
+        destination_type: editingDestType,
         fee_percent: fee,
         reason: editCellReason.trim(),
       })
-      toast.success(`Override: ${currency.toUpperCase()} / ${DEST_TYPE_LABELS[destType]} → ${fee}%`)
+      toast.success(`Override: ${selectedCurrency.toUpperCase()} / ${DEST_TYPE_LABELS[editingDestType]} → ${fee}%`)
       cancelEditCell()
       loadData()
     } catch (err: unknown) {
@@ -647,19 +653,20 @@ export function VaFeeOverridePanel({ actor, user }: { actor: StaffActor; user: P
     } finally { setSavingCell(false) }
   }
 
-  const handleClearCellOverride = async (currency: string, destType: string) => {
-    if (!confirm(`¿Eliminar override para ${currency.toUpperCase()} / ${DEST_TYPE_LABELS[destType]}?`)) return
+  const handleClearCellOverride = async (destType: string) => {
+    if (!confirm(`¿Eliminar override para ${selectedCurrency.toUpperCase()} / ${DEST_TYPE_LABELS[destType]}?`)) return
     try {
-      await UsersAdminService.clearVaFeeOverride(user.id, currency, destType)
-      toast.success('Override eliminado')
+      await UsersAdminService.clearVaFeeOverride(user.id, selectedCurrency, destType)
+      toast.success('Override eliminado — se aplicará el fee global.')
       loadData()
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Error al eliminar override')
     }
   }
 
-  const startEditVa = (va: AdminVirtualAccount) => {
-    setEditingVaId(va.id)
+  // ── VA Edit Handlers ──
+  const openEditVaModal = (va: AdminVirtualAccount) => {
+    setEditingVa(va)
     setEditVaForm({
       fee: va.developer_fee_percent != null ? String(va.developer_fee_percent) : '',
       address: va.destination_address ?? '',
@@ -668,25 +675,26 @@ export function VaFeeOverridePanel({ actor, user }: { actor: StaffActor; user: P
     })
   }
 
-  const cancelEditVa = () => { setEditingVaId(null); setEditVaForm({ fee: '', address: '', currency: '', reason: '' }) }
+  const closeEditVaModal = () => { setEditingVa(null); setEditVaForm({ fee: '', address: '', currency: '', reason: '' }) }
 
-  const handleSaveVa = async (va: AdminVirtualAccount) => {
-    if (!editVaForm.reason || editVaForm.reason.trim().length < 5) { toast.error('Motivo mín. 5 caracteres.'); return }
+  const handleSaveVa = async () => {
+    if (!editingVa) return
+    if (!editVaForm.reason || editVaForm.reason.trim().length < 5) { toast.error('Motivo mínimo 5 caracteres.'); return }
     const payload: UpdateVirtualAccountPayload = { reason: editVaForm.reason.trim() }
     let hasChanges = false
     const newFee = editVaForm.fee ? parseFloat(editVaForm.fee) : undefined
-    if (newFee !== undefined && !isNaN(newFee) && newFee !== va.developer_fee_percent) {
+    if (newFee !== undefined && !isNaN(newFee) && newFee !== editingVa.developer_fee_percent) {
       if (newFee < 0 || newFee > 100) { toast.error('Fee debe estar entre 0 y 100.'); return }
       payload.developer_fee_percent = newFee; hasChanges = true
     }
-    if (editVaForm.address.trim() && editVaForm.address.trim() !== (va.destination_address ?? '')) { payload.destination_address = editVaForm.address.trim(); hasChanges = true }
-    if (editVaForm.currency && editVaForm.currency !== va.destination_currency) { payload.destination_currency = editVaForm.currency; hasChanges = true }
+    if (editVaForm.address.trim() && editVaForm.address.trim() !== (editingVa.destination_address ?? '')) { payload.destination_address = editVaForm.address.trim(); hasChanges = true }
+    if (editVaForm.currency && editVaForm.currency !== editingVa.destination_currency) { payload.destination_currency = editVaForm.currency; hasChanges = true }
     if (!hasChanges) { toast.warning('No hay cambios para guardar.'); return }
     setSavingVa(true)
     try {
-      await UsersAdminService.updateVirtualAccount(va.id, payload)
+      await UsersAdminService.updateVirtualAccount(editingVa.id, payload)
       toast.success('VA actualizada correctamente en Bridge y DB.')
-      cancelEditVa(); loadData()
+      closeEditVaModal(); loadData()
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Error al actualizar VA')
     } finally { setSavingVa(false) }
@@ -694,147 +702,402 @@ export function VaFeeOverridePanel({ actor, user }: { actor: StaffActor; user: P
 
   if (!canManage) return null
 
+  // ── Helpers for the selected currency view ──
+  const getOverrideCount = (currency: string) =>
+    DEST_TYPES.filter((dt) => getFeeEntry(currency, dt)?.source === 'override').length
+
   return (
     <>
       {loading ? (
-          <div className="flex items-center justify-center py-8 gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> Cargando...
+        <div className="flex items-center justify-center py-12 gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Cargando configuración de fees...
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {/* ═══════════════════════════════════════════════════
+              SECCIÓN 1 — MASTER-DETAIL: Matriz de Fees
+             ═══════════════════════════════════════════════════ */}
+          <div className="rounded-xl border border-border/50 overflow-hidden bg-card">
+            <div className="flex min-h-[320px]">
+              {/* ── Left Sidebar: Currency Selector ── */}
+              <div className="w-[140px] shrink-0 border-r border-border/40 bg-muted/20">
+                <div className="px-3 py-3 border-b border-border/30">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Moneda Origen</span>
+                </div>
+                <nav className="p-1.5 space-y-0.5">
+                  {CURRENCIES.map((c) => {
+                    const isActive = selectedCurrency === c
+                    const overrides = getOverrideCount(c)
+                    return (
+                      <button
+                        key={c}
+                        onClick={() => { setSelectedCurrency(c); cancelEditCell() }}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-sm font-medium transition-all duration-150
+                          ${isActive
+                            ? 'bg-primary text-primary-foreground shadow-sm'
+                            : 'text-foreground/80 hover:bg-muted/60 hover:text-foreground'
+                          }`}
+                      >
+                        <span className="text-base leading-none">{CURRENCY_FLAGS[c]}</span>
+                        <span className="font-mono text-xs font-bold">{c.toUpperCase()}</span>
+                        {overrides > 0 && (
+                          <span className={`ml-auto text-[9px] font-bold rounded-full size-4 flex items-center justify-center
+                            ${isActive ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'}`}>
+                            {overrides}
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </nav>
+              </div>
+
+              {/* ── Right Panel: Fee Detail for Selected Currency ── */}
+              <div className="flex-1 min-w-0">
+                <div className="px-5 py-3 border-b border-border/30 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-xl">{CURRENCY_FLAGS[selectedCurrency]}</span>
+                    <div>
+                      <h4 className="text-sm font-bold text-foreground">{selectedCurrency.toUpperCase()} — Configuración de Developer Fee</h4>
+                      <p className="text-[11px] text-muted-foreground">Tarifa aplicada a las Virtual Accounts creadas con esta moneda de origen.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-5 space-y-4">
+                  {DEST_TYPES.map((dt) => {
+                    const entry = getFeeEntry(selectedCurrency, dt)
+                    const isOverride = entry?.source === 'override'
+                    const isEditing = editingDestType === dt
+
+                    return (
+                      <div
+                        key={dt}
+                        className={`rounded-xl border p-4 transition-all duration-200
+                          ${isOverride
+                            ? 'border-amber-500/30 bg-amber-500/[0.03]'
+                            : 'border-border/40 bg-muted/5'
+                          }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className="text-lg">{DEST_TYPE_ICONS[dt]}</span>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold text-foreground">{DEST_TYPE_LABELS[dt]}</span>
+                                {isOverride ? (
+                                  <Badge className="text-[9px] px-1.5 py-0 h-[18px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/25 hover:bg-amber-500/20">
+                                    OVERRIDE
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-[18px] text-muted-foreground">
+                                    POR DEFECTO
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">
+                                {isOverride ? 'Tarifa personalizada para este usuario.' : 'Usa la tarifa global del sistema.'}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            {/* Fee Display */}
+                            <div className="text-right">
+                              <span className="text-2xl font-bold font-mono tabular-nums text-foreground">
+                                {entry?.resolved_fee != null ? entry.resolved_fee : '—'}
+                              </span>
+                              <span className="text-sm font-medium text-muted-foreground ml-0.5">%</span>
+                            </div>
+
+                            {/* Actions */}
+                            {!isEditing && (
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => startEditCell(dt)}
+                                  className="h-8 text-xs gap-1.5 px-3"
+                                >
+                                  Establecer tarifa
+                                </Button>
+                                {isOverride && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleClearCellOverride(dt)}
+                                    className="h-8 text-xs px-2 text-destructive/60 hover:text-destructive hover:bg-destructive/10"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* ── Inline Edit Form ── */}
+                        {isEditing && (
+                          <div className="mt-4 pt-4 border-t border-border/30 space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <Label className="text-xs text-muted-foreground mb-1.5 block">Nuevo fee (%)</Label>
+                                <div className="relative">
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    max="100"
+                                    value={editCellFee}
+                                    onChange={(e) => setEditCellFee(e.target.value)}
+                                    className="h-10 text-sm font-mono pr-8"
+                                    placeholder="0.00"
+                                    autoFocus
+                                  />
+                                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">%</span>
+                                </div>
+                              </div>
+                              <div>
+                                <Label className="text-xs text-muted-foreground mb-1.5 block">Motivo del cambio *</Label>
+                                <Input
+                                  value={editCellReason}
+                                  onChange={(e) => setEditCellReason(e.target.value)}
+                                  className="h-10 text-sm"
+                                  placeholder="Ej: Cliente VIP — volumen alto"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400">
+                                <AlertTriangle className="h-3 w-3 shrink-0" />
+                                Este override aplica solo a futuras VAs con {selectedCurrency.toUpperCase()}.
+                              </div>
+                              <div className="flex gap-2">
+                                <Button size="sm" variant="ghost" onClick={cancelEditCell} className="h-9 px-3 text-xs">
+                                  Cancelar
+                                </Button>
+                                <Button size="sm" onClick={handleSetCellOverride} disabled={savingCell} className="h-9 px-4 text-xs gap-1.5">
+                                  {savingCell ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                                  Guardar Override
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
-        ) : (
-          <div className="space-y-5">
-            {/* ── Matriz de Fees (6 monedas × 2 destinos) ── */}
-            <div className="space-y-2">
-              <h4 className="text-sm font-semibold text-foreground">Matriz de Fees Resueltos</h4>
-              <div className="rounded-lg border border-border/40 overflow-hidden">
-                <table className="w-full text-xs">
+
+          {/* ═══════════════════════════════════════════════════
+              SECCIÓN 2 — VAs Activas (Clean Data Table)
+             ═══════════════════════════════════════════════════ */}
+          {userVAs.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-blue-500" />
+                  Virtual Accounts Activas
+                  <Badge variant="secondary" className="text-[10px] ml-1">{userVAs.length}</Badge>
+                </h4>
+              </div>
+
+              <div className="rounded-xl border border-border/50 overflow-hidden">
+                <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-muted/30 border-b border-border/40">
-                      <th className="text-left px-3 py-2 font-medium text-muted-foreground">Moneda</th>
-                      {DEST_TYPES.map((dt) => (
-                        <th key={dt} className="text-center px-3 py-2 font-medium text-muted-foreground">{DEST_TYPE_LABELS[dt]}</th>
-                      ))}
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Par</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Tipo</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Dev Fee</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Dirección Destino</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Creada</th>
+                      <th className="w-10 px-2 py-2.5"></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {CURRENCIES.map((currency) => (
-                      <tr key={currency} className="border-b border-border/20 last:border-b-0 hover:bg-muted/10">
-                        <td className="px-3 py-2 font-mono font-semibold">{currency.toUpperCase()}</td>
-                        {DEST_TYPES.map((dt) => {
-                          const entry = getFeeEntry(currency, dt)
-                          const cellKey = `${currency}:${dt}`
-                          const isEditing = editingCell === cellKey
-
-                          if (isEditing) {
-                            return (
-                              <td key={dt} className="px-2 py-1.5">
-                                <div className="flex flex-col gap-1">
-                                  <div className="flex items-center gap-1">
-                                    <Input type="number" step="0.01" min="0" max="100" value={editCellFee} onChange={(e) => setEditCellFee(e.target.value)} className="h-7 text-xs font-mono w-20" placeholder="0.00" />
-                                    <span className="text-[10px]">%</span>
-                                  </div>
-                                  <Input value={editCellReason} onChange={(e) => setEditCellReason(e.target.value)} className="h-7 text-[10px]" placeholder="Motivo (mín 5 chars)" />
-                                  <div className="flex gap-1">
-                                    <Button size="sm" onClick={handleSetCellOverride} disabled={savingCell} className="h-6 text-[10px] px-2 gap-1">
-                                      {savingCell ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <CheckCircle2 className="h-2.5 w-2.5" />} OK
-                                    </Button>
-                                    <Button size="sm" variant="ghost" onClick={cancelEditCell} className="h-6 text-[10px] px-2"><XCircle className="h-2.5 w-2.5" /></Button>
-                                  </div>
-                                </div>
-                              </td>
-                            )
-                          }
-
-                          return (
-                            <td key={dt} className="px-3 py-2 text-center">
-                              <div className="flex items-center justify-center gap-1.5">
-                                <span className="font-mono font-semibold tabular-nums">{entry?.resolved_fee != null ? `${entry.resolved_fee}%` : '—'}</span>
-                                {entry?.source === 'override' ? (
-                                  <Badge variant="default" className="text-[8px] px-1 py-0 h-4">OVR</Badge>
-                                ) : (
-                                  <Badge variant="outline" className="text-[8px] px-1 py-0 h-4">DEF</Badge>
-                                )}
-                              </div>
-                              <div className="flex justify-center gap-0.5 mt-1">
-                                <Button size="sm" variant="ghost" onClick={() => startEditCell(currency, dt)} className="h-5 text-[9px] px-1.5 text-blue-600 hover:text-blue-800">Editar</Button>
-                                {entry?.source === 'override' && (
-                                  <Button size="sm" variant="ghost" onClick={() => handleClearCellOverride(currency, dt)} className="h-5 text-[9px] px-1.5 text-destructive/60 hover:text-destructive">Quitar</Button>
-                                )}
-                              </div>
-                            </td>
-                          )
-                        })}
+                    {userVAs.map((va) => (
+                      <tr key={va.id} className="border-b border-border/20 last:border-b-0 hover:bg-muted/10 transition-colors">
+                        <td className="px-4 py-3">
+                          <span className="font-mono font-semibold text-xs bg-muted/40 px-2 py-0.5 rounded">
+                            {va.source_currency.toUpperCase()} → {va.destination_currency.toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant={va.is_external_sweep ? 'secondary' : 'outline'} className="text-[10px]">
+                            {va.is_external_sweep ? 'Externa' : 'Bridge'}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <span className="font-mono font-bold tabular-nums text-sm">
+                            {va.developer_fee_percent != null ? `${va.developer_fee_percent}%` : '—'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {va.destination_address ? (
+                            <span className="font-mono text-xs text-muted-foreground" title={va.destination_address}>
+                              {va.destination_address.slice(0, 10)}…{va.destination_address.slice(-6)}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground/50">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs text-muted-foreground">{new Date(va.created_at).toLocaleDateString('es-BO')}</span>
+                        </td>
+                        <td className="px-2 py-3">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => openEditVaModal(va)}
+                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                            title="Actualizar cuenta en Bridge"
+                          >
+                            <Percent className="h-3.5 w-3.5" />
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <div className="flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-1.5 rounded-md">
-                <AlertTriangle className="h-3 w-3 shrink-0" />
-                <strong>OVR</strong> = Override del usuario. <strong>DEF</strong> = Fee global por defecto. Los overrides aplican solo a <strong>futuras</strong> VAs.
-              </div>
             </div>
+          )}
 
-            {/* ── VAs activas del usuario ── */}
-            {userVAs.length > 0 && (
-              <div className="space-y-2 pt-2 border-t border-border/50">
-                <h4 className="text-sm font-semibold text-foreground">Virtual Accounts Activas ({userVAs.length})</h4>
-                <div className="space-y-1.5 max-h-72 overflow-y-auto">
-                  {userVAs.map((va) => (
-                    <div key={va.id} className="rounded-lg border border-border/40 bg-muted/10 text-sm">
-                      <div className="flex items-center justify-between p-2.5">
-                        <div className="flex items-center gap-2 flex-wrap min-w-0">
-                          <Badge variant="outline" className="text-[10px] font-mono">{va.source_currency.toUpperCase()} → {va.destination_currency.toUpperCase()}</Badge>
-                          <span className="text-xs font-semibold tabular-nums">Fee: {va.developer_fee_percent != null ? `${va.developer_fee_percent}%` : '—'}</span>
-                          <Badge variant={va.is_external_sweep ? 'secondary' : 'outline'} className="text-[8px]">{va.is_external_sweep ? 'Externa' : 'Bridge'}</Badge>
-                          {va.destination_address && (
-                            <span className="text-[10px] text-muted-foreground font-mono truncate max-w-[120px]" title={va.destination_address}>{va.destination_address.slice(0, 8)}…{va.destination_address.slice(-6)}</span>
-                          )}
-                          <span className="text-[10px] text-muted-foreground">{new Date(va.created_at).toLocaleDateString()}</span>
-                        </div>
-                        <Button size="sm" variant={editingVaId === va.id ? 'secondary' : 'ghost'} onClick={() => editingVaId === va.id ? cancelEditVa() : startEditVa(va)} className="text-xs gap-1 h-7 px-2 text-blue-700 hover:text-blue-800 hover:bg-blue-500/10 dark:text-blue-300">
-                          {editingVaId === va.id ? 'Cancelar' : 'Editar'}
-                        </Button>
+          {/* ═══════════════════════════════════════════════════
+              MODAL: Edición de VA activa
+             ═══════════════════════════════════════════════════ */}
+          <Dialog
+            open={!!editingVa}
+            onOpenChange={(open) => { if (!open) closeEditVaModal() }}
+          >
+            <DialogContent className="max-w-lg w-[95vw] sm:w-full">
+              <DialogHeader className="mb-1">
+                <DialogTitle className="flex items-center gap-2">
+                  <Globe className="h-5 w-5 text-blue-500" />
+                  Actualizar Virtual Account
+                </DialogTitle>
+                <DialogDescription>
+                  {editingVa && (
+                    <>
+                      Modifica los parámetros de la cuenta <strong className="font-mono">{editingVa.source_currency.toUpperCase()} → {editingVa.destination_currency.toUpperCase()}</strong>.
+                      Los cambios se sincronizarán directamente con Bridge.
+                    </>
+                  )}
+                </DialogDescription>
+              </DialogHeader>
+
+              {editingVa && (
+                <div className="space-y-4">
+                  {/* Current State Summary */}
+                  <div className="rounded-lg bg-muted/30 border border-border/30 p-3 space-y-1.5">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Estado Actual</span>
+                    <div className="grid grid-cols-3 gap-3 text-xs">
+                      <div>
+                        <span className="text-muted-foreground block">Fee</span>
+                        <span className="font-mono font-bold">{editingVa.developer_fee_percent != null ? `${editingVa.developer_fee_percent}%` : '—'}</span>
                       </div>
-                      {editingVaId === va.id && (
-                        <div className="px-2.5 pb-2.5 pt-1 border-t border-border/30 space-y-2">
-                          <div className="grid grid-cols-3 gap-2">
-                            <div>
-                              <Label className="text-[10px] text-muted-foreground">Fee (%)</Label>
-                              <Input type="number" step="0.01" min="0" max="100" value={editVaForm.fee} onChange={(e) => setEditVaForm(prev => ({ ...prev, fee: e.target.value }))} placeholder={va.developer_fee_percent != null ? String(va.developer_fee_percent) : '0'} className="h-8 text-xs font-mono" />
-                            </div>
-                            <div>
-                              <Label className="text-[10px] text-muted-foreground">Moneda Destino</Label>
-                              <Select value={editVaForm.currency} onValueChange={(v) => setEditVaForm(prev => ({ ...prev, currency: v ?? '' }))}>
-                                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={va.destination_currency.toUpperCase()} /></SelectTrigger>
-                                <SelectContent>
-                                  {DESTINATION_CURRENCIES.map((c) => (<SelectItem key={c} value={c} className="text-xs">{c.toUpperCase()}</SelectItem>))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
-                              <Label className="text-[10px] text-muted-foreground">Dirección Destino</Label>
-                              <Input value={editVaForm.address} onChange={(e) => setEditVaForm(prev => ({ ...prev, address: e.target.value }))} placeholder={va.destination_address ?? '0x…'} className="h-8 text-xs font-mono" />
-                            </div>
-                          </div>
-                          <div className="flex items-end gap-2">
-                            <div className="flex-1">
-                              <Label className="text-[10px] text-muted-foreground">Motivo del cambio *</Label>
-                              <Input value={editVaForm.reason} onChange={(e) => setEditVaForm(prev => ({ ...prev, reason: e.target.value }))} placeholder="Ej: Cliente cambió wallet destino" className="h-8 text-xs" />
-                            </div>
-                            <Button size="sm" onClick={() => handleSaveVa(va)} disabled={savingVa} className="h-8 text-xs gap-1">
-                              {savingVa ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                              Guardar en Bridge
-                            </Button>
-                          </div>
-                        </div>
-                      )}
+                      <div>
+                        <span className="text-muted-foreground block">Moneda</span>
+                        <span className="font-mono font-bold">{editingVa.destination_currency.toUpperCase()}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block">Tipo</span>
+                        <span className="font-semibold">{editingVa.is_external_sweep ? 'Externa' : 'Bridge'}</span>
+                      </div>
                     </div>
-                  ))}
+                  </div>
+
+                  {/* Edit Fields */}
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Nuevo Fee</Label>
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            value={editVaForm.fee}
+                            onChange={(e) => setEditVaForm(prev => ({ ...prev, fee: e.target.value }))}
+                            placeholder={editingVa.developer_fee_percent != null ? String(editingVa.developer_fee_percent) : '0'}
+                            className="h-10 text-sm font-mono pr-8"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">%</span>
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Moneda Destino</Label>
+                        <Select
+                          value={editVaForm.currency}
+                          onValueChange={(v) => setEditVaForm(prev => ({ ...prev, currency: v ?? '' }))}
+                        >
+                          <SelectTrigger className="h-10 text-sm">
+                            <SelectValue placeholder={editingVa.destination_currency.toUpperCase()} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {DESTINATION_CURRENCIES.map((c) => (
+                              <SelectItem key={c} value={c} className="text-sm">{c.toUpperCase()}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Dirección Destino</Label>
+                      <Input
+                        value={editVaForm.address}
+                        onChange={(e) => setEditVaForm(prev => ({ ...prev, address: e.target.value }))}
+                        placeholder={editingVa.destination_address ?? '0x…'}
+                        className="h-10 text-sm font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Motivo del cambio *</Label>
+                      <Textarea
+                        value={editVaForm.reason}
+                        onChange={(e) => setEditVaForm(prev => ({ ...prev, reason: e.target.value }))}
+                        placeholder="Ej: Cliente cambió wallet destino, acuerdo de fee VIP..."
+                        rows={2}
+                        className="text-sm resize-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Warning */}
+                  <div className="flex items-start gap-2 rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2.5">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
+                      Esta acción modifica la cuenta activa directamente en el servidor de Bridge.
+                      Los cambios se reflejarán inmediatamente en las próximas transacciones.
+                    </p>
+                  </div>
+
+                  {/* Footer */}
+                  <DialogFooter className="gap-2 sm:gap-2">
+                    <Button variant="outline" onClick={closeEditVaModal} className="flex-1 sm:flex-none">
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={handleSaveVa}
+                      disabled={savingVa}
+                      className="flex-1 sm:flex-none gap-1.5"
+                    >
+                      {savingVa ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                      Guardar en Bridge
+                    </Button>
+                  </DialogFooter>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
+              )}
+            </DialogContent>
+          </Dialog>
+        </div>
+      )}
     </>
   )
 }
