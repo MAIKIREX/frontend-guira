@@ -51,7 +51,9 @@ export function VirtualAccountsSection({ isApproved }: VirtualAccountsSectionPro
     }
   }, [isApproved, loadAccounts])
 
-  const existingCurrencies = accounts.map((a) => a.source_currency) as SourceCurrency[]
+  const existingCurrencies = accounts
+    .filter((a) => !a.is_external_sweep)
+    .map((a) => a.source_currency) as SourceCurrency[]
 
   const handleCreated = useCallback((va: VirtualAccount) => {
     setAccounts((prev) => [va, ...prev])

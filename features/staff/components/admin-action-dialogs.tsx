@@ -222,8 +222,11 @@ export function UserAdminActions({ actor, onUpdated, user }: { actor: StaffActor
   )
 }
 
-function FeeOverridesDialog({ actor, user }: { actor: StaffActor; user: Profile }) {
-  const [open, setOpen] = useState(false)
+/**
+ * FeeOverridesPanel — Standalone panel for fee overrides management.
+ * Can be rendered inline (user detail page) or inside a Dialog wrapper.
+ */
+export function FeeOverridesPanel({ actor, user }: { actor: StaffActor; user: Profile }) {
   const [overrides, setOverrides] = useState<FeeOverride[]>([])
   const [loading, setLoading] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -264,9 +267,9 @@ function FeeOverridesDialog({ actor, user }: { actor: StaffActor; user: Profile 
   }
 
   useEffect(() => {
-    if (open) loadOverrides()
+    loadOverrides()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
+  }, [user.id])
 
   const handleToggle = async (override: FeeOverride) => {
     try {
@@ -327,24 +330,8 @@ function FeeOverridesDialog({ actor, user }: { actor: StaffActor; user: Profile 
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="sm" variant="outline" className="gap-1.5" />}>
-        <CircleDollarSign className="h-3.5 w-3.5" />
-        Tarifas VIP
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="mb-2">
-          <DialogTitle className="flex items-center gap-2">
-            <CircleDollarSign className="h-5 w-5 text-amber-500" />
-            Tarifas Personalizadas
-          </DialogTitle>
-          <DialogDescription>
-            Gestiona las tarifas especiales para <strong>{user.full_name || user.email}</strong>.
-            Los overrides tienen prioridad sobre la configuración global de fees.
-          </DialogDescription>
-        </DialogHeader>
-
-        {/* ── Lista de overrides existentes ── */}
+    <>
+      {/* ── Lista de overrides existentes ── */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold text-foreground">Overrides Activos</h4>
@@ -546,13 +533,43 @@ function FeeOverridesDialog({ actor, user }: { actor: StaffActor; user: Profile 
             </Form>
           </div>
         )}
+    </>
+  )
+}
+
+function FeeOverridesDialog({ actor, user }: { actor: StaffActor; user: Profile }) {
+  const [open, setOpen] = useState(false)
+  const canManage = actor.role === 'admin' || actor.role === 'super_admin'
+  if (!canManage) return null
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button size="sm" variant="outline" className="gap-1.5" />}>
+        <CircleDollarSign className="h-3.5 w-3.5" />
+        Tarifas VIP
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="mb-2">
+          <DialogTitle className="flex items-center gap-2">
+            <CircleDollarSign className="h-5 w-5 text-amber-500" />
+            Tarifas Personalizadas
+          </DialogTitle>
+          <DialogDescription>
+            Gestiona las tarifas especiales para <strong>{user.full_name || user.email}</strong>.
+            Los overrides tienen prioridad sobre la configuración global de fees.
+          </DialogDescription>
+        </DialogHeader>
+        {open ? <FeeOverridesPanel actor={actor} user={user} /> : null}
       </DialogContent>
     </Dialog>
   )
 }
 
-function VaFeeOverrideDialog({ actor, user }: { actor: StaffActor; user: Profile }) {
-  const [open, setOpen] = useState(false)
+/**
+ * VaFeeOverridePanel — Standalone panel for VA fee matrix + VAs management.
+ * Can be rendered inline (user detail page) or inside a Dialog wrapper.
+ */
+export function VaFeeOverridePanel({ actor, user }: { actor: StaffActor; user: Profile }) {
   const [loading, setLoading] = useState(false)
   const [feeMatrix, setFeeMatrix] = useState<VaFeeMatrixEntry[]>([])
   const [userVAs, setUserVAs] = useState<AdminVirtualAccount[]>([])
@@ -592,9 +609,9 @@ function VaFeeOverrideDialog({ actor, user }: { actor: StaffActor; user: Profile
   }
 
   useEffect(() => {
-    if (open) loadData()
+    loadData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
+  }, [user.id])
 
   const getFeeEntry = (currency: string, destType: string) =>
     feeMatrix.find((e) => e.source_currency === currency && e.destination_type === destType)
@@ -678,25 +695,8 @@ function VaFeeOverrideDialog({ actor, user }: { actor: StaffActor; user: Profile
   if (!canManage) return null
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="sm" variant="outline" className="gap-1.5" />}>
-        <Percent className="h-3.5 w-3.5" />
-        Fee Bridge VA
-      </DialogTrigger>
-      <DialogContent className="max-w-3xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="mb-2">
-          <DialogTitle className="flex items-center gap-2">
-            <Percent className="h-5 w-5 text-blue-500" />
-            Developer Fee — Virtual Accounts
-          </DialogTitle>
-          <DialogDescription>
-            Gestiona el <code>developer_fee_percent</code> de Bridge para <strong>{user.full_name || user.email}</strong>.
-            <br />
-            <span className="text-[10px]">2 niveles: Override por usuario → Fee global por defecto.</span>
-          </DialogDescription>
-        </DialogHeader>
-
-        {loading ? (
+    <>
+      {loading ? (
           <div className="flex items-center justify-center py-8 gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Cargando...
           </div>
@@ -835,6 +835,34 @@ function VaFeeOverrideDialog({ actor, user }: { actor: StaffActor; user: Profile
             )}
           </div>
         )}
+    </>
+  )
+}
+
+function VaFeeOverrideDialog({ actor, user }: { actor: StaffActor; user: Profile }) {
+  const [open, setOpen] = useState(false)
+  const canManage = actor.role === 'admin' || actor.role === 'super_admin'
+  if (!canManage) return null
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button size="sm" variant="outline" className="gap-1.5" />}>
+        <Percent className="h-3.5 w-3.5" />
+        Fee Bridge VA
+      </DialogTrigger>
+      <DialogContent className="max-w-3xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="mb-2">
+          <DialogTitle className="flex items-center gap-2">
+            <Percent className="h-5 w-5 text-blue-500" />
+            Developer Fee — Virtual Accounts
+          </DialogTitle>
+          <DialogDescription>
+            Gestiona el <code>developer_fee_percent</code> de Bridge para <strong>{user.full_name || user.email}</strong>.
+            <br />
+            <span className="text-[10px]">2 niveles: Override por usuario → Fee global por defecto.</span>
+          </DialogDescription>
+        </DialogHeader>
+        {open ? <VaFeeOverridePanel actor={actor} user={user} /> : null}
       </DialogContent>
     </Dialog>
   )
@@ -842,7 +870,7 @@ function VaFeeOverrideDialog({ actor, user }: { actor: StaffActor; user: Profile
 
 
 
-function ChangeRoleDialog({ actor, onUpdated, user }: { actor: StaffActor; onUpdated: (user: Profile | null, mode: 'replace' | 'remove' | 'noop') => Promise<void> | void; user: Profile }) {
+export function ChangeRoleDialog({ actor, onUpdated, user }: { actor: StaffActor; onUpdated: (user: Profile | null, mode: 'replace' | 'remove' | 'noop') => Promise<void> | void; user: Profile }) {
   const [open, setOpen] = useState(false)
 
   // Determinar roles asignables según el rol del actor
@@ -982,7 +1010,7 @@ function ChangeRoleDialog({ actor, onUpdated, user }: { actor: StaffActor; onUpd
   )
 }
 
-function ArchiveDeleteUserDialog({ action, actor, onUpdated, user }: { action: 'archive' | 'delete'; actor: StaffActor; onUpdated: (user: Profile | null, mode: 'replace' | 'remove' | 'noop') => Promise<void> | void; user: Profile }) {
+export function ArchiveDeleteUserDialog({ action, actor, onUpdated, user }: { action: 'archive' | 'delete'; actor: StaffActor; onUpdated: (user: Profile | null, mode: 'replace' | 'remove' | 'noop') => Promise<void> | void; user: Profile }) {
   const [open, setOpen] = useState(false)
   const form = useForm<AdminReasonValues>({ resolver: zodResolver(adminReasonSchema), defaultValues: { reason: '' } })
 
@@ -1028,7 +1056,7 @@ function ArchiveDeleteUserDialog({ action, actor, onUpdated, user }: { action: '
   )
 }
 
-function UnarchiveUserDialog({ actor, onUpdated, user }: { actor: StaffActor; onUpdated: (user: Profile | null, mode: 'replace' | 'remove' | 'noop') => Promise<void> | void; user: Profile }) {
+export function UnarchiveUserDialog({ actor, onUpdated, user }: { actor: StaffActor; onUpdated: (user: Profile | null, mode: 'replace' | 'remove' | 'noop') => Promise<void> | void; user: Profile }) {
   const [open, setOpen] = useState(false)
   const form = useForm<AdminReasonValues>({ resolver: zodResolver(adminReasonSchema), defaultValues: { reason: '' } })
 
@@ -1072,7 +1100,7 @@ function UnarchiveUserDialog({ actor, onUpdated, user }: { actor: StaffActor; on
   )
 }
 
-function ResetPasswordDialog({ actor, email, onUpdated }: { actor: StaffActor; email: string; onUpdated: (user: Profile | null, mode: 'replace' | 'remove' | 'noop') => Promise<void> | void }) {
+export function ResetPasswordDialog({ actor, email, onUpdated }: { actor: StaffActor; email: string; onUpdated: (user: Profile | null, mode: 'replace' | 'remove' | 'noop') => Promise<void> | void }) {
   const [open, setOpen] = useState(false)
   const form = useForm<AdminReasonValues>({ resolver: zodResolver(adminReasonSchema), defaultValues: { reason: '' } })
 
@@ -1970,8 +1998,11 @@ export function RateConfigDialog({
   )
 }
 
-function BankAccountReviewDialog({ actor, user }: { actor: StaffActor; user: Profile }) {
-  const [open, setOpen] = useState(false)
+/**
+ * BankAccountReviewPanel — Standalone panel for bank account review.
+ * Can be rendered inline (user detail page) or inside a Dialog wrapper.
+ */
+export function BankAccountReviewPanel({ actor, user }: { actor: StaffActor; user: Profile }) {
   const [accounts, setAccounts] = useState<PendingBankAccount[]>([])
   const [loading, setLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
@@ -1993,13 +2024,11 @@ function BankAccountReviewDialog({ actor, user }: { actor: StaffActor; user: Pro
   }
 
   useEffect(() => {
-    if (open) {
-      loadAccounts()
-      setShowRejectForm(null)
-      setRejectReason('')
-    }
+    loadAccounts()
+    setShowRejectForm(null)
+    setRejectReason('')
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
+  }, [user.id])
 
   const handleApprove = async (accountId: string) => {
     setActionLoading(true)
@@ -2038,23 +2067,8 @@ function BankAccountReviewDialog({ actor, user }: { actor: StaffActor; user: Pro
   if (!canManage) return null
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="sm" variant="outline" className="gap-1.5" />}>
-        <Landmark className="h-3.5 w-3.5" />
-        Cuenta bancaria
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="mb-2">
-          <DialogTitle className="flex items-center gap-2">
-            <Landmark className="h-5 w-5 text-primary" />
-            Cuenta Bancaria — {user.full_name || user.email}
-          </DialogTitle>
-          <DialogDescription>
-            Gestiona la cuenta bancaria de este usuario. Revisa y aprueba o rechaza solicitudes de cambio.
-          </DialogDescription>
-        </DialogHeader>
-
-        {loading ? (
+    <>
+      {loading ? (
           <div className="text-sm text-muted-foreground text-center py-8 flex items-center justify-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
             Cargando...
@@ -2220,6 +2234,32 @@ function BankAccountReviewDialog({ actor, user }: { actor: StaffActor; user: Pro
             })}
           </div>
         )}
+    </>
+  )
+}
+
+function BankAccountReviewDialog({ actor, user }: { actor: StaffActor; user: Profile }) {
+  const [open, setOpen] = useState(false)
+  const canManage = actor.role === 'admin' || actor.role === 'super_admin' || actor.role === 'staff'
+  if (!canManage) return null
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button size="sm" variant="outline" className="gap-1.5" />}>
+        <Landmark className="h-3.5 w-3.5" />
+        Cuenta bancaria
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="mb-2">
+          <DialogTitle className="flex items-center gap-2">
+            <Landmark className="h-5 w-5 text-primary" />
+            Cuenta Bancaria — {user.full_name || user.email}
+          </DialogTitle>
+          <DialogDescription>
+            Gestiona la cuenta bancaria de este usuario. Revisa y aprueba o rechaza solicitudes de cambio.
+          </DialogDescription>
+        </DialogHeader>
+        {open ? <BankAccountReviewPanel actor={actor} user={user} /> : null}
       </DialogContent>
     </Dialog>
   )

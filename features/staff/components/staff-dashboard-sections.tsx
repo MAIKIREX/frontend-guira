@@ -18,6 +18,7 @@ import {
   Bell,
   CheckCircle2,
   CircleDollarSign,
+  ExternalLink,
   FileCheck,
   Loader2,
   Percent,
@@ -783,12 +784,10 @@ export function StaffAuditTable({
 
 export function StaffUsersTable({
   snapshot,
-  actor,
   isAdmin,
+  actor,
   addUser,
-  replaceUser,
-  removeUser,
-}: Pick<StaffDashboardLoadedState, 'snapshot' | 'actor' | 'isAdmin' | 'addUser' | 'replaceUser' | 'removeUser'>) {
+}: Pick<StaffDashboardLoadedState, 'snapshot' | 'isAdmin' | 'actor' | 'addUser'>) {
   const users = snapshot.users
   const [query, setQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
@@ -817,17 +816,6 @@ export function StaffUsersTable({
     roleFilter !== 'all' ||
     onboardingFilter !== 'all' ||
     archiveFilter !== 'all'
-
-  const handleUserUpdated = async (user: Profile | null, mode: 'replace' | 'remove' | 'noop') => {
-    if (mode === 'remove' && user) {
-      removeUser(user.id)
-      return
-    }
-
-    if (mode === 'replace' && user) {
-      replaceUser(user)
-    }
-  }
 
   return (
     <Card className="overflow-hidden border-0 bg-background shadow-none ring-0">
@@ -928,7 +916,12 @@ export function StaffUsersTable({
                   </div>
 
                   <div className="flex justify-end">
-                    {isAdmin ? <UserAdminActions actor={actor} onUpdated={handleUserUpdated} user={user} /> : <span className="text-xs text-muted-foreground">Solo admin</span>}
+                    <Link href={`/admin/users/${user.id}`}>
+                      <Button size="sm" variant="outline" className="gap-1.5">
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Gestionar
+                      </Button>
+                    </Link>
                   </div>
                 </CardContent>
               </Card>
@@ -979,7 +972,12 @@ export function StaffUsersTable({
                     <TableCell>{formatDate(user.created_at)}</TableCell>
                     <TableCell>
                       <div className="flex justify-end">
-                        {isAdmin ? <UserAdminActions actor={actor} onUpdated={handleUserUpdated} user={user} /> : <span className="text-xs text-muted-foreground">Solo admin</span>}
+                        <Link href={`/admin/users/${user.id}`}>
+                          <Button size="sm" variant="outline" className="gap-1.5">
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            Gestionar
+                          </Button>
+                        </Link>
                       </div>
                     </TableCell>
                   </TableRow>

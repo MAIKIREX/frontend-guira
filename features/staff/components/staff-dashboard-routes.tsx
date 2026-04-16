@@ -79,14 +79,12 @@ export function StaffAuditRoute() {
 export function StaffUsersRoute() {
   return (
     <StaffDashboardPage>
-      {({ snapshot, actor, isAdmin, addUser, replaceUser, removeUser }) => (
+      {({ snapshot, isAdmin, actor, addUser }) => (
         <StaffUsersTable
           snapshot={snapshot}
-          actor={actor}
           isAdmin={isAdmin}
+          actor={actor}
           addUser={addUser}
-          replaceUser={replaceUser}
-          removeUser={removeUser}
         />
       )}
     </StaffDashboardPage>
