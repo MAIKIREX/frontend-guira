@@ -251,7 +251,7 @@ export function VirtualAccountCard({ va, onDeactivate }: VirtualAccountCardProps
             </span>
             {va.is_external_sweep && va.external_destination_label && (
               <span>
-                Wallet: <span className="font-semibold">{va.external_destination_label}</span>
+                Etiqueta: <span className="font-semibold">{va.external_destination_label}</span>
               </span>
             )}
             {!va.is_external_sweep && (
@@ -261,6 +261,19 @@ export function VirtualAccountCard({ va, onDeactivate }: VirtualAccountCardProps
               </span>
             )}
           </div>
+
+          {/* Dirección de destino para VAs externas (Hallazgo 4) */}
+          {va.is_external_sweep && va.destination_address && (
+            <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-border/30 bg-muted/10 px-2.5 py-1.5">
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Dirección destino</p>
+                <p className="mt-0.5 truncate font-mono text-[11px] text-foreground/80">
+                  {va.destination_address}
+                </p>
+              </div>
+              <CopyButton value={va.destination_address} label="dirección destino" />
+            </div>
+          )}
         </div>
 
         {/* Fee */}

@@ -314,7 +314,8 @@ export function WalletRampDetailStep({
           <CreateVirtualAccountDialog
             open={vaDialogOpen}
             onOpenChange={setVaDialogOpen}
-            existingCurrencies={virtualAccounts.map((va) => va.source_currency)}
+            internalCurrencies={virtualAccounts.filter((va) => !va.is_external_sweep).map((va) => va.source_currency)}
+            externalCountBySource={virtualAccounts.filter((va) => va.is_external_sweep).reduce<Record<string, number>>((acc, va) => { acc[va.source_currency] = (acc[va.source_currency] ?? 0) + 1; return acc }, {})}
             onCreated={onVaCreated}
           />
         </div>

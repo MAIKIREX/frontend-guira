@@ -50,6 +50,31 @@ function truncateAddress(address: string, chars = 8): string {
   return `${address.slice(0, chars)}...${address.slice(-chars)}`
 }
 
+const EXPLORER_URLS: Record<string, string> = {
+  ethereum:  'https://etherscan.io/address/',
+  polygon:   'https://polygonscan.com/address/',
+  solana:    'https://solscan.io/account/',
+  tron:      'https://tronscan.org/#/address/',
+  avalanche: 'https://snowtrace.io/address/',
+  base:      'https://basescan.org/address/',
+  stellar:   'https://stellar.expert/explorer/public/account/',
+}
+
+const EXPLORER_NAMES: Record<string, string> = {
+  ethereum:  'Etherscan',
+  polygon:   'PolygonScan',
+  solana:    'Solscan',
+  tron:      'TronScan',
+  avalanche: 'Snowtrace',
+  base:      'BaseScan',
+  stellar:   'Stellar Expert',
+}
+
+function getExplorerUrl(network: string, address: string): string {
+  const base = EXPLORER_URLS[network] ?? EXPLORER_URLS.ethereum
+  return `${base}${address}`
+}
+
 function WalletCard({ wallet }: { wallet: WalletBalance }) {
   const [copied, setCopied] = useState(false)
 
@@ -167,10 +192,10 @@ function WalletCard({ wallet }: { wallet: WalletBalance }) {
                 )}
               </Button>
               <a
-                href={`https://etherscan.io/address/${wallet.address}`}
+                href={getExplorerUrl(wallet.network ?? 'ethereum', wallet.address)}
                 target="_blank"
                 rel="noopener noreferrer"
-                title="Ver en explorador"
+                title={`Ver en ${EXPLORER_NAMES[wallet.network ?? ''] ?? 'explorador'}`}
                 className="inline-flex size-7 items-center justify-center rounded-[min(var(--radius-md),12px)] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 <ExternalLink className="size-3.5" />

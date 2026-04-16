@@ -51,9 +51,18 @@ export function VirtualAccountsSection({ isApproved }: VirtualAccountsSectionPro
     }
   }, [isApproved, loadAccounts])
 
-  const existingCurrencies = accounts
+  // Monedas con VA interna (Bridge) existente — solo aplica al crear VAs internas
+  const internalCurrencies = accounts
     .filter((a) => !a.is_external_sweep)
     .map((a) => a.source_currency) as SourceCurrency[]
+
+  // Mapa de VAs externas existentes por moneda (para informar al diálogo)
+  const externalCountBySource: Record<string, number> = {}
+  accounts
+    .filter((a) => a.is_external_sweep)
+    .forEach((a) => {
+      externalCountBySource[a.source_currency] = (externalCountBySource[a.source_currency] ?? 0) + 1
+    })
 
   const handleCreated = useCallback((va: VirtualAccount) => {
     setAccounts((prev) => [va, ...prev])
@@ -93,7 +102,8 @@ export function VirtualAccountsSection({ isApproved }: VirtualAccountsSectionPro
             <CreateVirtualAccountDialog
               open={dialogOpen}
               onOpenChange={setDialogOpen}
-              existingCurrencies={existingCurrencies}
+              internalCurrencies={internalCurrencies}
+              externalCountBySource={externalCountBySource}
               onCreated={handleCreated}
             />
           )}

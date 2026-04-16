@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import Flag from 'react-world-flags'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form'
@@ -14,6 +15,7 @@ import { Switch } from '@/components/ui/switch'
 import { createClient } from '@/lib/supabase/browser'
 import { Label } from '@/components/ui/label'
 import { ACCEPTED_UPLOADS, safeFileExtension } from '@/lib/file-validation'
+import { CRYPTO_NETWORK_OPTIONS, CRYPTO_NETWORK_LABELS } from '@/features/payments/lib/crypto-networks'
 import {
   ShieldCheck,
   CircleDollarSign,
@@ -253,6 +255,13 @@ export function FeeOverridesPanel({ actor, user }: { actor: StaffActor; user: Pr
   })
 
   const watchFeeType = form.watch('fee_type')
+  const watchOperationType = form.watch('operation_type')
+
+  useEffect(() => {
+    if (!watchOperationType) return
+    const isPsav = watchOperationType.includes('_bo')
+    form.setValue('payment_rail', isPsav ? 'psav' : 'bridge')
+  }, [watchOperationType, form])
 
   const loadOverrides = async () => {
     setLoading(true)
@@ -417,7 +426,7 @@ export function FeeOverridesPanel({ actor, user }: { actor: StaffActor; user: Pr
                   <FormField control={form.control} name="payment_rail" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs">Payment Rail</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select disabled onValueChange={field.onChange} value={field.value}>
                         <FormControl><SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger></FormControl>
                         <SelectContent>
                           <SelectItem value="psav">PSAV (Manual)</SelectItem>
@@ -586,12 +595,20 @@ export function VaFeeOverridePanel({ actor, user }: { actor: StaffActor; user: P
 
   // Estado para edición de VA (modal)
   const [editingVa, setEditingVa] = useState<AdminVirtualAccount | null>(null)
-  const [editVaForm, setEditVaForm] = useState<{ fee: string; address: string; currency: string; reason: string }>({ fee: '', address: '', currency: '', reason: '' })
+  const [editVaForm, setEditVaForm] = useState<{ fee: string; address: string; currency: string; payment_rail: string; reason: string }>({ fee: '', address: '', currency: '', payment_rail: '', reason: '' })
   const [savingVa, setSavingVa] = useState(false)
 
   const canManage = actor.role === 'admin' || actor.role === 'super_admin'
 
   const CURRENCIES = ['usd', 'eur', 'mxn', 'brl', 'gbp', 'cop'] as const
+  const CURRENCY_FLAG_CODES: Record<string, string> = {
+    usd: 'us',
+    eur: 'eu',
+    mxn: 'mx',
+    brl: 'br',
+    gbp: 'gb',
+    cop: 'co',
+  }
   const CURRENCY_FLAGS: Record<string, string> = { usd: '🇺🇸', eur: '🇪🇺', mxn: '🇲🇽', brl: '🇧🇷', gbp: '🇬🇧', cop: '🇨🇴' }
   const DEST_TYPES = ['wallet_bridge', 'wallet_external'] as const
   const DEST_TYPE_LABELS: Record<string, string> = { wallet_bridge: 'Wallet Bridge', wallet_external: 'Wallet Externa' }
@@ -670,12 +687,13 @@ export function VaFeeOverridePanel({ actor, user }: { actor: StaffActor; user: P
     setEditVaForm({
       fee: va.developer_fee_percent != null ? String(va.developer_fee_percent) : '',
       address: va.destination_address ?? '',
+      payment_rail: va.destination_payment_rail ?? '',
       currency: va.destination_currency ?? '',
       reason: '',
     })
   }
 
-  const closeEditVaModal = () => { setEditingVa(null); setEditVaForm({ fee: '', address: '', currency: '', reason: '' }) }
+  const closeEditVaModal = () => { setEditingVa(null); setEditVaForm({ fee: '', address: '', currency: '', payment_rail: '', reason: '' }) }
 
   const handleSaveVa = async () => {
     if (!editingVa) return
@@ -689,6 +707,7 @@ export function VaFeeOverridePanel({ actor, user }: { actor: StaffActor; user: P
     }
     if (editVaForm.address.trim() && editVaForm.address.trim() !== (editingVa.destination_address ?? '')) { payload.destination_address = editVaForm.address.trim(); hasChanges = true }
     if (editVaForm.currency && editVaForm.currency !== editingVa.destination_currency) { payload.destination_currency = editVaForm.currency; hasChanges = true }
+    if (editVaForm.payment_rail && editVaForm.payment_rail !== editingVa.destination_payment_rail) { payload.destination_payment_rail = editVaForm.payment_rail; hasChanges = true }
     if (!hasChanges) { toast.warning('No hay cambios para guardar.'); return }
     setSavingVa(true)
     try {
@@ -705,6 +724,15 @@ export function VaFeeOverridePanel({ actor, user }: { actor: StaffActor; user: P
   // ── Helpers for the selected currency view ──
   const getOverrideCount = (currency: string) =>
     DEST_TYPES.filter((dt) => getFeeEntry(currency, dt)?.source === 'override').length
+
+  const renderCurrencyFlag = (currency: string, width: number, height: number, className?: string) => (
+    <Flag
+      code={CURRENCY_FLAG_CODES[currency]}
+      fallback={<span className="text-base leading-none">{CURRENCY_FLAGS[currency] ?? '🌐'}</span>}
+      style={{ width, height, objectFit: 'cover' }}
+      className={className}
+    />
+  )
 
   return (
     <>
@@ -738,7 +766,7 @@ export function VaFeeOverridePanel({ actor, user }: { actor: StaffActor; user: P
                             : 'text-foreground/80 hover:bg-muted/60 hover:text-foreground'
                           }`}
                       >
-                        <span className="text-base leading-none">{CURRENCY_FLAGS[c]}</span>
+                        {renderCurrencyFlag(c, 20, 14, 'rounded-sm shrink-0')}
                         <span className="font-mono text-xs font-bold">{c.toUpperCase()}</span>
                         {overrides > 0 && (
                           <span className={`ml-auto text-[9px] font-bold rounded-full size-4 flex items-center justify-center
@@ -756,7 +784,7 @@ export function VaFeeOverridePanel({ actor, user }: { actor: StaffActor; user: P
               <div className="flex-1 min-w-0">
                 <div className="px-5 py-3 border-b border-border/30 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <span className="text-xl">{CURRENCY_FLAGS[selectedCurrency]}</span>
+                    {renderCurrencyFlag(selectedCurrency, 24, 16, 'rounded-sm shrink-0')}
                     <div>
                       <h4 className="text-sm font-bold text-foreground">{selectedCurrency.toUpperCase()} — Configuración de Developer Fee</h4>
                       <p className="text-[11px] text-muted-foreground">Tarifa aplicada a las Virtual Accounts creadas con esta moneda de origen.</p>
@@ -878,7 +906,7 @@ export function VaFeeOverridePanel({ actor, user }: { actor: StaffActor; user: P
                                 </Button>
                                 <Button size="sm" onClick={handleSetCellOverride} disabled={savingCell} className="h-9 px-4 text-xs gap-1.5">
                                   {savingCell ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                                  Guardar Override
+                                  <span>Guardar Override</span>
                                 </Button>
                               </div>
                             </div>
@@ -1012,7 +1040,7 @@ export function VaFeeOverridePanel({ actor, user }: { actor: StaffActor; user: P
 
                   {/* Edit Fields */}
                   <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-3 gap-3">
                       <div>
                         <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Nuevo Fee</Label>
                         <div className="relative">
@@ -1041,6 +1069,23 @@ export function VaFeeOverridePanel({ actor, user }: { actor: StaffActor; user: P
                           <SelectContent>
                             {DESTINATION_CURRENCIES.map((c) => (
                               <SelectItem key={c} value={c} className="text-sm">{c.toUpperCase()}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">Red Destino</Label>
+                        <Select
+                          value={editVaForm.payment_rail}
+                          onValueChange={(v) => setEditVaForm(prev => ({ ...prev, payment_rail: v ?? '' }))}
+                        >
+                          <SelectTrigger className="h-10 text-sm">
+                            <SelectValue placeholder={editingVa.destination_payment_rail ? (CRYPTO_NETWORK_LABELS[editingVa.destination_payment_rail as keyof typeof CRYPTO_NETWORK_LABELS] || editingVa.destination_payment_rail) : 'Seleccionar'} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CRYPTO_NETWORK_OPTIONS.map((net) => (
+                              <SelectItem key={net} value={net} className="text-sm">{CRYPTO_NETWORK_LABELS[net as keyof typeof CRYPTO_NETWORK_LABELS]}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -1089,7 +1134,7 @@ export function VaFeeOverridePanel({ actor, user }: { actor: StaffActor; user: P
                       className="flex-1 sm:flex-none gap-1.5"
                     >
                       {savingVa ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                      Guardar en Bridge
+                      <span>Guardar en Bridge</span>
                     </Button>
                   </DialogFooter>
                 </div>
@@ -2527,3 +2572,4 @@ function BankAccountReviewDialog({ actor, user }: { actor: StaffActor; user: Pro
     </Dialog>
   )
 }
+

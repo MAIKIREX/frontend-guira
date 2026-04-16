@@ -880,21 +880,7 @@ export function StaffUsersTable({
               <Card key={user.id} className="border-border/70 bg-card/95 shadow-sm">
                 <CardContent className="space-y-4 p-4">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <Avatar className="size-10 shrink-0 rounded-xl ring-1 ring-border/70">
-                        <AvatarImage
-                          alt={user.full_name || 'Usuario'}
-                          src={readProfileAvatarUrl(user.metadata) ?? undefined}
-                        />
-                        <AvatarFallback className="rounded-xl bg-muted/70 text-[0.8rem] font-semibold text-foreground/80">
-                          {getInitials(user.full_name || user.email)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0">
-                        <div className="truncate font-medium text-foreground">{user.full_name || 'Sin nombre'}</div>
-                        <div className="truncate text-xs text-muted-foreground">{user.email}</div>
-                      </div>
-                    </div>
+                    <UserIdentity user={user} avatarClassName="size-11 shadow-sm" />
                     <div className="shrink-0">
                       <Badge variant="outline" className="text-[10px]">{user.role}</Badge>
                     </div>
@@ -950,21 +936,7 @@ export function StaffUsersTable({
                 filteredUsers.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="size-10 rounded-xl ring-1 ring-border/70">
-                          <AvatarImage
-                            alt={user.full_name || 'Usuario'}
-                            src={readProfileAvatarUrl(user.metadata) ?? undefined}
-                          />
-                          <AvatarFallback className="rounded-xl bg-muted/70 text-[0.8rem] font-semibold text-foreground/80">
-                            {getInitials(user.full_name || user.email)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0">
-                          <div className="font-medium">{user.full_name || 'Sin nombre'}</div>
-                          <div className="truncate text-xs text-muted-foreground">{user.email}</div>
-                        </div>
-                      </div>
+                      <UserIdentity user={user} />
                     </TableCell>
                     <TableCell><Badge variant="outline">{user.role}</Badge></TableCell>
                     <TableCell><StatusBadge value={user.onboarding_status} /></TableCell>
@@ -2681,6 +2653,55 @@ function getInitials(value?: string | null) {
   return `${words[0][0] ?? ''}${words[1][0] ?? ''}`.toUpperCase()
 }
 
+function UserIdentity({
+  user,
+  avatarClassName,
+}: {
+  user: Pick<Profile, 'avatar_url' | 'email' | 'full_name' | 'metadata'> & {
+    client_photo_url?: string | null
+  }
+  avatarClassName?: string
+}) {
+  const avatarUrl = resolveUserAvatarUrl(user)
+
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      <Avatar className={cn('size-10 shrink-0 rounded-xl ring-1 ring-border/70 bg-muted/20', avatarClassName)}>
+        <AvatarImage
+          alt={user.full_name || 'Usuario'}
+          className="object-cover"
+          src={avatarUrl ?? undefined}
+        />
+        <AvatarFallback className="rounded-xl bg-muted/70 text-[0.8rem] font-semibold text-foreground/80">
+          {getInitials(user.full_name || user.email)}
+        </AvatarFallback>
+      </Avatar>
+      <div className="min-w-0 space-y-1">
+        <div className="truncate text-sm font-semibold leading-none text-foreground">
+          {user.full_name || 'Sin nombre'}
+        </div>
+        <div className="truncate text-xs leading-5 text-muted-foreground">{user.email}</div>
+      </div>
+    </div>
+  )
+}
+
+function resolveUserAvatarUrl(
+  user?: Pick<Profile, 'avatar_url' | 'metadata'> & {
+    client_photo_url?: string | null
+  },
+) {
+  if (!user) return null
+
+  const directAvatar = user.avatar_url?.trim()
+  if (directAvatar) return directAvatar
+
+  const cachedAvatar = user.client_photo_url?.trim()
+  if (cachedAvatar) return cachedAvatar
+
+  return readProfileAvatarUrl(user.metadata)
+}
+
 function readProfileAvatarUrl(metadata?: Record<string, unknown>) {
   if (!metadata) return null
 
@@ -2963,7 +2984,7 @@ function VaFeeDefaultsCard({ isPrivileged }: { isPrivileged: boolean }) {
             </div>
             <div className="mt-4 flex items-start gap-2 rounded-lg bg-indigo-500/5 p-3 text-xs text-indigo-800 dark:text-indigo-300">
                <ShieldCheck className="mt-0.5 size-4 shrink-0 opacity-80" />
-               <p leading-relaxed>
+               <p className="leading-relaxed">
                  Estos porcentajes se aplican automáticamente a todas las cuentas virtuales. 
                  Si un usuario tiene un override configurado (botón "Fee Bridge VA" en usuarios), prevalecerá el override.
                </p>

@@ -231,6 +231,7 @@ export interface UpdateVirtualAccountPayload {
   developer_fee_percent?: number
   destination_address?: string
   destination_currency?: string
+  destination_payment_rail?: string
   reason: string
 }
 

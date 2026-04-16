@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Loader2,
   Plus,
   Landmark,
   Globe,
   Info,
+  AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -44,11 +45,40 @@ import { WalletService, type WalletBalance } from '@/services/wallet.service'
 
 type DestinationType = 'internal' | 'external'
 
+/** Límite por defecto de VAs externas por moneda (debe coincidir con VA_MAX_EXTERNAL_PER_CURRENCY en backend) */
+const DEFAULT_MAX_EXTERNAL_PER_CURRENCY = 3
+
 interface CreateVirtualAccountDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  existingCurrencies: SourceCurrency[]
+  /** Monedas que ya tienen una VA interna (Bridge) activa */
+  internalCurrencies: SourceCurrency[]
+  /** Conteo de VAs externas existentes por moneda origen */
+  externalCountBySource: Record<string, number>
   onCreated: (va: VirtualAccount) => void
+}
+
+// ── Helpers ──────────────────────────────────────────────────────
+
+/**
+ * Validación básica de formato de dirección blockchain en frontend.
+ * El backend tiene validación definitiva con @IsBlockchainAddress().
+ */
+function isValidBlockchainAddress(address: string): boolean {
+  const trimmed = address.trim()
+  if (trimmed.length < 10) return false
+
+  // EVM (Ethereum, Polygon, Arbitrum, Base, etc.) — 0x seguido de 40 hex chars
+  if (/^0x[0-9a-fA-F]{40}$/.test(trimmed)) return true
+  // Solana — base58, 32-44 chars
+  if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(trimmed)) return true
+  // Tron — T seguido de 33 chars alfanuméricos
+  if (/^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(trimmed)) return true
+  // Stellar — G seguido de 55 chars alfanuméricos uppercase
+  if (/^G[A-Z2-7]{55}$/.test(trimmed)) return true
+
+  // Fallback: acepta si tiene longitud razonable (el backend lo validará)
+  return trimmed.length >= 26 && trimmed.length <= 256
 }
 
 // ── Component ────────────────────────────────────────────────────
@@ -56,14 +86,15 @@ interface CreateVirtualAccountDialogProps {
 export function CreateVirtualAccountDialog({
   open,
   onOpenChange,
-  existingCurrencies,
+  internalCurrencies,
+  externalCountBySource,
   onCreated,
 }: CreateVirtualAccountDialogProps) {
-  // Form state
+  // Form state — destino se elige PRIMERO (Hallazgo 2)
+  const [destType, setDestType] = useState<DestinationType>('internal')
   const [sourceCurrency, setSourceCurrency] = useState<SourceCurrency | ''>('')
   const [destCurrency, setDestCurrency] = useState<DestinationCurrency | ''>('')
   const [destRail, setDestRail] = useState<DestinationRail | ''>('')
-  const [destType, setDestType] = useState<DestinationType>('internal')
   const [destWalletId, setDestWalletId] = useState('')
   const [destAddress, setDestAddress] = useState('')
   const [destLabel, setDestLabel] = useState('')
@@ -75,6 +106,7 @@ export function CreateVirtualAccountDialog({
   // UI state
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [addressTouched, setAddressTouched] = useState(false)
 
   // Load user wallets for internal destination
   useEffect(() => {
@@ -96,16 +128,22 @@ export function CreateVirtualAccountDialog({
   // Reset form on close
   useEffect(() => {
     if (!open) {
+      setDestType('internal')
       setSourceCurrency('')
       setDestCurrency('')
       setDestRail('')
-      setDestType('internal')
       setDestWalletId('')
       setDestAddress('')
       setDestLabel('')
       setError(null)
+      setAddressTouched(false)
     }
   }, [open])
+
+  // Reset source currency when destination type changes (Hallazgo 1)
+  useEffect(() => {
+    setSourceCurrency('')
+  }, [destType])
 
   // Auto-fill currency and network when internal wallet changes
   useEffect(() => {
@@ -129,18 +167,37 @@ export function CreateVirtualAccountDialog({
     }
   }, [destType, destWalletId, wallets])
 
-  // Available source currencies (filter out already used)
-  const availableCurrencies = SOURCE_CURRENCY_OPTIONS.filter(
-    (o) => !existingCurrencies.includes(o.value)
-  )
+  // ── Filtrado dinámico de monedas según destType (Hallazgo 1) ──
+
+  const availableCurrencies = useMemo(() => {
+    if (destType === 'internal') {
+      // Para destino interno: filtrar monedas que ya tienen VA interna
+      return SOURCE_CURRENCY_OPTIONS.filter(
+        (o) => !internalCurrencies.includes(o.value)
+      )
+    }
+    // Para destino externo: todas las monedas están disponibles
+    // (el backend valida el límite por moneda: VA_MAX_EXTERNAL_PER_CURRENCY)
+    return SOURCE_CURRENCY_OPTIONS
+  }, [destType, internalCurrencies])
+
+  // Verificar si la moneda seleccionada alcanzó el límite de VAs externas
+  const externalLimitReached = destType === 'external' && sourceCurrency !== ''
+    ? (externalCountBySource[sourceCurrency] ?? 0) >= DEFAULT_MAX_EXTERNAL_PER_CURRENCY
+    : false
+
+  // Validar dirección blockchain (Hallazgo 6)
+  const addressValid = destAddress.trim().length === 0 || isValidBlockchainAddress(destAddress)
+  const showAddressError = addressTouched && destAddress.trim().length > 0 && !addressValid
 
   const isValid =
     sourceCurrency !== '' &&
     destCurrency !== '' &&
     destRail !== '' &&
+    !externalLimitReached &&
     (destType === 'internal'
       ? !!destWalletId
-      : destAddress.trim().length > 0)
+      : destAddress.trim().length > 0 && addressValid)
 
   const handleSubmit = useCallback(async () => {
     if (!isValid || submitting) return
@@ -196,38 +253,7 @@ export function CreateVirtualAccountDialog({
         </DialogHeader>
 
         <div className="space-y-5 py-2">
-          {/* Moneda de depósito */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-muted-foreground">
-              Moneda de depósito
-            </Label>
-            {availableCurrencies.length === 0 ? (
-              <div className="flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-400">
-                <Info className="size-3.5 shrink-0" />
-                Ya tienes cuentas virtuales para todas las monedas disponibles.
-              </div>
-            ) : (
-              <Select
-                value={sourceCurrency}
-                onValueChange={(val) => { if (val) setSourceCurrency(val as SourceCurrency) }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar moneda" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableCurrencies.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      <span className="mr-1.5">{opt.flag}</span>
-                      {opt.value.toUpperCase()} — {opt.label}
-                      <span className="ml-1 text-muted-foreground">({opt.railLabel})</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-
-          {/* Destino */}
+          {/* ── PASO 1: Tipo de destino (ANTES de moneda — Hallazgo 2) ── */}
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-muted-foreground">
               ¿Dónde recibir los fondos convertidos?
@@ -266,7 +292,48 @@ export function CreateVirtualAccountDialog({
             </div>
           </div>
 
-          {/* Wallet interna selector */}
+          {/* ── PASO 2: Moneda de depósito (filtrado dinámico — Hallazgo 1) ── */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-muted-foreground">
+              Moneda de depósito
+            </Label>
+            {availableCurrencies.length === 0 ? (
+              <div className="flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-400">
+                <Info className="size-3.5 shrink-0" />
+                {destType === 'internal'
+                  ? 'Ya tienes cuentas virtuales internas para todas las monedas disponibles. Puedes crear cuentas virtuales externas seleccionando "Wallet externa" arriba.'
+                  : 'Ya tienes cuentas virtuales para todas las monedas disponibles.'}
+              </div>
+            ) : (
+              <Select
+                value={sourceCurrency}
+                onValueChange={(val) => { if (val) setSourceCurrency(val as SourceCurrency) }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar moneda" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableCurrencies.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      <span className="mr-1.5">{opt.flag}</span>
+                      {opt.value.toUpperCase()} — {opt.label}
+                      <span className="ml-1 text-muted-foreground">({opt.railLabel})</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {/* Aviso de límite de VAs externas alcanzado */}
+            {externalLimitReached && (
+              <div className="flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                <AlertTriangle className="size-3.5 shrink-0" />
+                Has alcanzado el límite de {DEFAULT_MAX_EXTERNAL_PER_CURRENCY} cuentas virtuales externas para {sourceCurrency.toUpperCase()}. Desactiva alguna antes de crear otra.
+              </div>
+            )}
+          </div>
+
+          {/* ── PASO 3A: Wallet interna selector ── */}
           {destType === 'internal' && (
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground">
@@ -304,7 +371,7 @@ export function CreateVirtualAccountDialog({
             </div>
           )}
 
-          {/* Wallet externa inputs */}
+          {/* ── PASO 3B: Wallet externa inputs ── */}
           {destType === 'external' && (
             <div className="space-y-3">
               <div className="space-y-1.5">
@@ -315,8 +382,15 @@ export function CreateVirtualAccountDialog({
                   placeholder="0x1234...abcd"
                   value={destAddress}
                   onChange={(e) => setDestAddress(e.target.value)}
-                  className="font-mono text-xs"
+                  onBlur={() => setAddressTouched(true)}
+                  className={`font-mono text-xs ${showAddressError ? 'border-destructive focus-visible:ring-destructive/30' : ''}`}
                 />
+                {/* Hallazgo 6: Feedback de validación de dirección */}
+                {showAddressError && (
+                  <p className="text-[11px] text-destructive">
+                    La dirección no parece tener un formato válido. Formatos soportados: EVM (0x…), Solana, Tron, Stellar.
+                  </p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium text-muted-foreground">
@@ -333,7 +407,7 @@ export function CreateVirtualAccountDialog({
             </div>
           )}
 
-          {/* Moneda crypto */}
+          {/* ── PASO 4: Moneda crypto + Red ── */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground">
@@ -355,6 +429,12 @@ export function CreateVirtualAccountDialog({
                   ))}
                 </SelectContent>
               </Select>
+              {/* Hallazgo 5: Feedback para campos deshabilitados */}
+              {destType === 'internal' && (
+                <p className="text-[10px] text-muted-foreground/60">
+                  Se auto-configura según la wallet seleccionada.
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -377,6 +457,12 @@ export function CreateVirtualAccountDialog({
                   ))}
                 </SelectContent>
               </Select>
+              {/* Hallazgo 5: Feedback para campos deshabilitados */}
+              {destType === 'internal' && (
+                <p className="text-[10px] text-muted-foreground/60">
+                  Se auto-configura según la wallet seleccionada.
+                </p>
+              )}
             </div>
           </div>
 
@@ -384,7 +470,9 @@ export function CreateVirtualAccountDialog({
           <div className="flex items-start gap-2 rounded-lg border border-border/40 bg-muted/20 p-3 text-xs text-muted-foreground">
             <Info className="mt-0.5 size-3.5 shrink-0" />
             <p>
-              Se creará una cuenta bancaria virtual donde podrás recibir depósitos en la moneda seleccionada. Los fondos se convertirán automáticamente a la criptomoneda elegida y se enviarán al destino configurado.
+              {destType === 'internal'
+                ? 'Se creará una cuenta bancaria virtual. Los fondos depositados se convertirán a crypto y se acreditarán en tu wallet Guira.'
+                : 'Se creará una cuenta bancaria virtual. Los fondos depositados se convertirán a crypto y se enviarán directamente a tu wallet externa. No se acreditarán en el balance de Guira.'}
             </p>
           </div>
 
