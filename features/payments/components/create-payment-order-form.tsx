@@ -62,7 +62,7 @@ import { AnimatedBackButton } from '@/components/shared/animated-back-button'
 import { StepProgressRail } from '@/features/payments/components/step-progress-rail'
 import { WalletRampDetailStep } from '@/features/payments/components/wallet-ramp-detail-step'
 import { WalletWithdrawDetailStep } from '@/features/payments/components/wallet-withdraw-detail-step'
-import { CRYPTO_NETWORK_OPTIONS, CRYPTO_NETWORK_LABELS, resolveCryptoNetwork } from '@/features/payments/lib/crypto-networks'
+import { ACTIVE_CRYPTO_NETWORKS, CRYPTO_NETWORK_LABELS, resolveCryptoNetwork } from '@/features/payments/lib/crypto-networks'
 import {
   paymentOrderSchema,
   type PaymentOrderFormValues,
@@ -1766,7 +1766,7 @@ function NetworkSelectField({
                 <SelectValue placeholder={placeholder} />
               </SelectTrigger>
               <SelectContent>
-                {CRYPTO_NETWORK_OPTIONS.map((network) => (
+                {ACTIVE_CRYPTO_NETWORKS.map((network) => (
                   <SelectItem key={network} value={network}>
                     {CRYPTO_NETWORK_LABELS[network]}
                   </SelectItem>

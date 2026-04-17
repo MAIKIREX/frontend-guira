@@ -15,7 +15,7 @@ import { Switch } from '@/components/ui/switch'
 import { createClient } from '@/lib/supabase/browser'
 import { Label } from '@/components/ui/label'
 import { ACCEPTED_UPLOADS, safeFileExtension } from '@/lib/file-validation'
-import { CRYPTO_NETWORK_OPTIONS, CRYPTO_NETWORK_LABELS } from '@/features/payments/lib/crypto-networks'
+import { ACTIVE_CRYPTO_NETWORKS, CRYPTO_NETWORK_LABELS } from '@/features/payments/lib/crypto-networks'
 import {
   ShieldCheck,
   CircleDollarSign,
@@ -1095,7 +1095,7 @@ export function VaFeeOverridePanel({ actor, user }: { actor: StaffActor; user: P
                             <SelectValue placeholder={editingVa.destination_payment_rail ? (CRYPTO_NETWORK_LABELS[editingVa.destination_payment_rail as keyof typeof CRYPTO_NETWORK_LABELS] || editingVa.destination_payment_rail) : 'Seleccionar'} />
                           </SelectTrigger>
                           <SelectContent>
-                            {CRYPTO_NETWORK_OPTIONS.map((net) => (
+                            {ACTIVE_CRYPTO_NETWORKS.map((net) => (
                               <SelectItem key={net} value={net} className="text-sm">{CRYPTO_NETWORK_LABELS[net as keyof typeof CRYPTO_NETWORK_LABELS]}</SelectItem>
                             ))}
                           </SelectContent>

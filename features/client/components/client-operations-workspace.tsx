@@ -135,12 +135,12 @@ export function ClientOperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
       ) : null}
 
       {mode === 'transacciones' ? (
-        <div className="space-y-6">
+        <div className="mx-auto w-full max-w-7xl space-y-6">
           <Card className='bg-background ring-0 shadow-none'>
             <CardHeader>
               <CardTitle className='text-2xl font-semibold'>Expedientes</CardTitle>
             </CardHeader>
-            <CardContent className='bg-background '>
+            <CardContent className='bg-background'>
               <PaymentsHistoryTable
                 activityLogs={payments.snapshot.activityLogs}
                 disabled={!canOperate}

@@ -1,6 +1,3 @@
-import type { BridgeTransfer } from '@/types/bridge-transfer'
-import type { PaymentOrder } from '@/types/payment-order'
-
 export type LedgerEntryType = 'deposit' | 'payout'
 
 export interface Wallet {
@@ -30,18 +27,4 @@ export interface WalletMovement {
   currency: string
   direction: 'in' | 'out'
   created_at: string
-}
-
-export interface WalletDashboardSnapshot {
-  wallet: Wallet | null
-  ledgerEntries: LedgerEntry[]
-  bridgeTransfers: BridgeTransfer[]
-  pendingBridgeTransfers: BridgeTransfer[]
-  paymentOrders: PaymentOrder[]
-  activePaymentOrders: PaymentOrder[]
-  movements: WalletMovement[]
-  ledgerBalance: number
-  reservedInOrders: number
-  pendingBridgeTotal: number
-  availableBalance: number
 }

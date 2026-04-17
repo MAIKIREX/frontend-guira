@@ -23,6 +23,14 @@ import type { PaginationParams } from '@/lib/api/types'
 
 // ── Tipos retornados por el backend ──────────────────────────────
 
+/** Balance individual de un token dentro de una wallet multi-token */
+export interface TokenBalance {
+  currency: string
+  balance: number
+  available_balance: number
+  reserved_balance: number
+}
+
 export interface WalletBalance {
   id: string
   currency: string
@@ -30,6 +38,9 @@ export interface WalletBalance {
   address: string | null
   /** Red blockchain (ethereum, polygon, solana, etc.) */
   network: string | null
+  /** Balances individuales por token (multi-stablecoin) */
+  token_balances: TokenBalance[]
+  /** Balance total agregado (suma de todos los tokens) */
   balance: number
   available_balance: number
   reserved_balance: number

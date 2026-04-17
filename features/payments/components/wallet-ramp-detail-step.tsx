@@ -17,7 +17,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Plus, CircleAlert, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { CRYPTO_NETWORK_OPTIONS, CRYPTO_NETWORK_LABELS } from '@/features/payments/lib/crypto-networks'
+import { ACTIVE_CRYPTO_NETWORKS, CRYPTO_NETWORK_LABELS } from '@/features/payments/lib/crypto-networks'
 import { CreateVirtualAccountDialog } from '@/features/client/components/create-virtual-account-dialog'
 import { resolveFeeTotal, type ExchangeRateRecord } from '@/features/payments/lib/deposit-instructions'
 import type { WalletBalance } from '@/services/wallet.service'
@@ -201,7 +201,7 @@ export function WalletRampDetailStep({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {CRYPTO_NETWORK_OPTIONS.map((net) => (
+                    {ACTIVE_CRYPTO_NETWORKS.map((net) => (
                       <SelectItem key={net} value={net}>
                         {CRYPTO_NETWORK_LABELS[net] ?? net}
                       </SelectItem>

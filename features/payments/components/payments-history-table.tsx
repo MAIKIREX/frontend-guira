@@ -29,8 +29,6 @@ const FLOW_STAGES: Array<{ key: PaymentOrder['status']; label: string }> = [
   { key: 'processing', label: 'Procesando' },
   { key: 'sent', label: 'Enviado' },
   { key: 'completed', label: 'Completado' },
-  { key: 'failed', label: 'Fallido' },
-  { key: 'cancelled', label: 'Cancelado' },
 ]
 
 const STATUS_FILTER_LABELS: Record<string, string> = {
@@ -41,8 +39,6 @@ const STATUS_FILTER_LABELS: Record<string, string> = {
   processing: 'Procesando',
   sent: 'Enviado',
   completed: 'Completado',
-  failed: 'Fallido',
-  cancelled: 'Cancelado',
   swept_external: 'Swept external',
 }
 
@@ -173,7 +169,7 @@ export function PaymentsHistoryTable({
   return (
     <div className="space-y-4 ">
       <section className="overflow-hidden rounded-[28px]  ">
-        <div className="grid gap-5 border-b border-border/60 px-4 py-5 sm:px-6 xl:grid-cols-[1.15fr_0.85fr] xl:items-end">
+        <div className="grid gap-5 border-b border-border/60 px-4 py-5 sm:px-6 xl:grid-cols-[1fr_auto] xl:items-end">
           <div className="space-y-3">
             <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">Bitacora operativa</div>
             <div className="space-y-1">
@@ -217,8 +213,6 @@ export function PaymentsHistoryTable({
               <SelectItem value="processing">Procesando</SelectItem>
               <SelectItem value="sent">Enviado</SelectItem>
               <SelectItem value="completed">Completado</SelectItem>
-              <SelectItem value="failed">Fallido</SelectItem>
-              <SelectItem value="cancelled">Cancelado</SelectItem>
               <SelectItem value="swept_external">Swept external</SelectItem>
             </SelectContent>
           </Select>
@@ -339,9 +333,8 @@ export function PaymentsHistoryTable({
             </CardHeader>
 
             {isExpanded ? (
-              <CardContent className="grid border-t border-border/60 gap-0 p-0 xl:grid-cols-[1.18fr_0.82fr] ">
-                <div className="space-y-6 sm:space-y-8 p-4 sm:px-6 sm:py-6">
-
+              <CardContent className="flex flex-col border-t border-border/60 gap-0 p-0">
+                <div className="w-full border-b border-border/60 p-4 sm:px-6 sm:py-6 bg-muted/[0.04]">
                   <section className="space-y-4">
                     <SectionHeading
                       description="Lectura rapida del expediente para validar contraparte, monto y etapa actual."
@@ -349,8 +342,11 @@ export function PaymentsHistoryTable({
                     />
                     <StatusRail order={order} />
                   </section>
-
-                  <ComplianceNote order={order} quotePreparedAt={quotePreparedAt} />
+                </div>
+                
+                <div className="grid w-full xl:grid-cols-[1fr_380px]">
+                  <div className="space-y-6 sm:space-y-8 p-4 sm:px-6 sm:py-6">
+                    <ComplianceNote order={order} quotePreparedAt={quotePreparedAt} />
 
                   {showFundingInstructions ? (
                     <section className="space-y-4 border-t border-border/60 pt-6">
@@ -404,6 +400,7 @@ export function PaymentsHistoryTable({
                       <ActivityPanel orderActivity={orderActivity} />
                     </section>
                   </div>
+                </div>
                 </div>
               </CardContent>
             ) : null}

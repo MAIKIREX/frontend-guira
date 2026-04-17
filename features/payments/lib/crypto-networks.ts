@@ -22,6 +22,18 @@ export const CRYPTO_NETWORK_OPTIONS = [
 
 export type CryptoNetworkOption = (typeof CRYPTO_NETWORK_OPTIONS)[number]
 
+/**
+ * Redes activas en la plataforma.
+ *
+ * Este array determina qué redes se muestran en los selectores de la UI.
+ * Debe coincidir con las redes configuradas en `SUPPORTED_WALLET_CONFIGS` (app_settings).
+ *
+ * TODO: En producción, este valor debería obtenerse dinámicamente desde
+ * el backend (ej. GET /wallets/supported-networks) para mantener
+ * sincronización con app_settings sin deploy de frontend.
+ */
+export const ACTIVE_CRYPTO_NETWORKS: CryptoNetworkOption[] = ['solana']
+
 /** Labels legibles para mostrar en la UI */
 export const CRYPTO_NETWORK_LABELS: Record<CryptoNetworkOption, string> = {
   ethereum: 'Ethereum (ERC-20)',
@@ -42,7 +54,7 @@ export const CRYPTO_NETWORK_LABELS: Record<CryptoNetworkOption, string> = {
  * como los valores correctos en minúsculas (e.g. "polygon").
  */
 export function resolveCryptoNetwork(network?: string): CryptoNetworkOption {
-  if (!network) return 'polygon'
+  if (!network) return 'solana'
 
   const lower = network.toLowerCase()
 
@@ -62,5 +74,5 @@ export function resolveCryptoNetwork(network?: string): CryptoNetworkOption {
     celo: 'celo',
   }
 
-  return legacyMap[lower] ?? 'polygon'
+  return legacyMap[lower] ?? 'solana'
 }

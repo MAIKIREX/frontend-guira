@@ -85,6 +85,26 @@ function getExplorerUrl(network: string, address: string): string {
   return `${base}${address}`
 }
 
+/** Labels para los tokens / stablecoins */
+const TOKEN_LABELS: Record<string, string> = {
+  USDC: 'USD Coin',
+  USDT: 'Tether',
+  USDB: 'Bridge USD',
+  PYUSD: 'PayPal USD',
+  EURC: 'Euro Coin',
+  USD: 'Dólar (fiat)',
+}
+
+/** Colores por token para los indicadores visuales */
+const TOKEN_COLORS: Record<string, string> = {
+  USDC: 'bg-blue-500',
+  USDT: 'bg-emerald-500',
+  USDB: 'bg-violet-500',
+  PYUSD: 'bg-sky-500',
+  EURC: 'bg-amber-500',
+  USD: 'bg-green-500',
+}
+
 function WalletCard({ wallet }: { wallet: WalletBalance }) {
   const [copied, setCopied] = useState(false)
 
@@ -104,6 +124,8 @@ function WalletCard({ wallet }: { wallet: WalletBalance }) {
   const networkColor = NETWORK_COLORS[wallet.network ?? ''] ?? 'bg-muted text-muted-foreground border-border/50'
   const networkGradient = NETWORK_GRADIENTS[wallet.network ?? ''] ?? 'from-muted/20 via-background to-background'
 
+  const hasMultipleTokens = wallet.token_balances && wallet.token_balances.length > 1
+
   return (
     <Card className={`group relative overflow-hidden transition-all hover:shadow-lg bg-gradient-to-br ${networkGradient} border-border/40`}>
       {/* Fondo decorativo de cristal */}
@@ -116,10 +138,13 @@ function WalletCard({ wallet }: { wallet: WalletBalance }) {
           </div>
           <div>
             <CardTitle className="text-base font-bold tracking-tight">
-              {wallet.label ?? `${wallet.currency.toUpperCase()}`}
+              {wallet.label ?? `Wallet ${networkLabel}`}
             </CardTitle>
             <CardDescription className="text-xs font-medium">
               <span className="capitalize">{wallet.provider}</span>
+              {hasMultipleTokens && (
+                <span className="ml-1.5 text-muted-foreground/60">· {wallet.token_balances.length} tokens</span>
+              )}
             </CardDescription>
           </div>
         </div>
@@ -144,25 +169,67 @@ function WalletCard({ wallet }: { wallet: WalletBalance }) {
       </CardHeader>
 
       <CardContent className="relative z-10 pt-2 space-y-5">
-        {/* Balances */}
+        {/* Balance total (agregado) */}
         <div className="flex flex-col gap-1">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">Balance Disponible</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+            {hasMultipleTokens ? 'Balance Total Disponible' : 'Balance Disponible'}
+          </p>
           <div className="flex items-baseline gap-2">
             <span className="text-4xl font-black tracking-tighter text-foreground">
               {(wallet.available_balance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
             <span className="text-lg font-bold text-muted-foreground">
-              {wallet.currency?.toUpperCase()}
+              USD
             </span>
           </div>
           {(wallet.reserved_balance ?? 0) > 0 && (
              <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-amber-500/90">
-               Total en cuenta: {(wallet.balance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} {wallet.currency?.toUpperCase()} 
+               Total en cuenta: {(wallet.balance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                <span className="text-muted-foreground/50">|</span> 
                Retenido: {(wallet.reserved_balance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
              </p>
           )}
         </div>
+
+        {/* Desglose de tokens (solo si es multi-token) */}
+        {hasMultipleTokens && (
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+              Desglose por Token
+            </p>
+            <div className="space-y-1">
+              {wallet.token_balances.map((token) => {
+                const hasBalance = (token.available_balance ?? 0) > 0
+                const tokenColor = TOKEN_COLORS[token.currency] ?? 'bg-gray-500'
+                return (
+                  <div
+                    key={token.currency}
+                    className={`flex items-center justify-between rounded-lg px-3 py-2 transition-colors ${
+                      hasBalance
+                        ? 'bg-background/60 border border-border/30'
+                        : 'bg-background/20 opacity-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className={`inline-block size-2 rounded-full ${tokenColor}`} />
+                      <div>
+                        <span className="text-xs font-bold tracking-tight text-foreground">
+                          {token.currency}
+                        </span>
+                        <span className="ml-1.5 text-[10px] text-muted-foreground/70">
+                          {TOKEN_LABELS[token.currency] ?? ''}
+                        </span>
+                      </div>
+                    </div>
+                    <span className={`font-mono text-sm font-semibold tabular-nums ${hasBalance ? 'text-foreground' : 'text-muted-foreground/50'}`}>
+                      {(token.available_balance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Dirección blockchain */}
         {wallet.address && (
@@ -190,7 +257,7 @@ function WalletCard({ wallet }: { wallet: WalletBalance }) {
                 )}
               </Button>
               <a
-                href={getExplorerUrl(wallet.network ?? 'ethereum', wallet.address)}
+                href={getExplorerUrl(wallet.network ?? 'solana', wallet.address)}
                 target="_blank"
                 rel="noopener noreferrer"
                 title={`Ver en ${EXPLORER_NAMES[wallet.network ?? ''] ?? 'explorador'}`}

@@ -37,7 +37,7 @@ export function useWalletDashboard() {
         WalletService.getLedger({ limit: 20 }),
       ])
 
-      const primaryBalance = balances.find((b) => b.currency === 'USD' && b.is_active) ?? balances[0] ?? null
+      const primaryBalance = balances.find((b) => b.currency === 'USDC' && b.is_active) ?? balances[0] ?? null
 
       setState({ wallets, balances, payinRoutes, recentLedger, primaryBalance })
     } catch (err) {
