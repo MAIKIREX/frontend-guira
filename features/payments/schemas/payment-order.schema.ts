@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { ALLOWED_NETWORKS, validateCryptoAddress, ADDRESS_VALIDATORS, type AllowedNetwork } from '@/lib/guira-crypto-config'
 
 export const paymentOrderSchema = z
   .object({
@@ -102,6 +103,22 @@ export const paymentOrderSchema = z
         }
         if (!value.crypto_network) {
            ctx.addIssue({ code: 'custom', message: 'La red es obligatoria.', path: ['crypto_network'] })
+        }
+        // Validar formato de dirección según red seleccionada
+        if (
+          value.crypto_address &&
+          value.crypto_network &&
+          (ALLOWED_NETWORKS as readonly string[]).includes(value.crypto_network)
+        ) {
+          const network = value.crypto_network as AllowedNetwork
+          if (!validateCryptoAddress(value.crypto_address, network)) {
+            const validator = ADDRESS_VALIDATORS[network]
+            ctx.addIssue({
+              code: 'custom',
+              message: `Dirección inválida para ${network}. Formato: ${validator?.description ?? 'desconocido'}`,
+              path: ['crypto_address'],
+            })
+          }
         }
       } else if (value.wallet_ramp_withdraw_method === 'fiat_us') {
         if (!value.supplier_id) {

@@ -1,11 +1,8 @@
 /**
  * CRYPTO_NETWORK_OPTIONS
  *
- * Valores exactos que acepta la API de Bridge en los campos
- * `payment_rail` para source y destination.
- *
- * Refs: BridgeWalletSepaSwiftInclusivePaymentRail /
- *       SepaSwiftInclusivePaymentRail (OpenAPI spec transfer.md)
+ * Todos los valores que la API de Bridge acepta en `payment_rail`.
+ * Se conserva como referencia completa para resolución de legados.
  */
 export const CRYPTO_NETWORK_OPTIONS = [
   'ethereum',
@@ -22,17 +19,32 @@ export const CRYPTO_NETWORK_OPTIONS = [
 
 export type CryptoNetworkOption = (typeof CRYPTO_NETWORK_OPTIONS)[number]
 
+// ── Re-export de la config centralizada de Guira ──────────────────
+// Estos son los valores que la UI debe mostrar en dropdowns y validar.
+import {
+  ALLOWED_NETWORKS,
+  NETWORK_LABELS,
+  type AllowedNetwork,
+  validateCryptoAddress,
+  ADDRESS_VALIDATORS,
+} from '@/lib/guira-crypto-config'
+
+export {
+  ALLOWED_NETWORKS,
+  NETWORK_LABELS,
+  type AllowedNetwork,
+  validateCryptoAddress,
+  ADDRESS_VALIDATORS,
+}
+
 /**
- * Redes activas en la plataforma.
+ * Redes activas en la plataforma (wallet custodial).
  *
- * Este array determina qué redes se muestran en los selectores de la UI.
+ * Este array determina qué redes se muestran en selectores
+ * que requieren una wallet custodial (ej: retiros internos).
  * Debe coincidir con las redes configuradas en `SUPPORTED_WALLET_CONFIGS` (app_settings).
- *
- * TODO: En producción, este valor debería obtenerse dinámicamente desde
- * el backend (ej. GET /wallets/supported-networks) para mantener
- * sincronización con app_settings sin deploy de frontend.
  */
-export const ACTIVE_CRYPTO_NETWORKS: CryptoNetworkOption[] = ['solana']
+export const ACTIVE_CRYPTO_NETWORKS: AllowedNetwork[] = ['solana']
 
 /** Labels legibles para mostrar en la UI */
 export const CRYPTO_NETWORK_LABELS: Record<CryptoNetworkOption, string> = {
@@ -52,6 +64,9 @@ export const CRYPTO_NETWORK_LABELS: Record<CryptoNetworkOption, string> = {
  * Resuelve un valor de red al formato exacto que Bridge acepta.
  * Soporta tanto valores legados con mayúsculas (e.g. "Polygon")
  * como los valores correctos en minúsculas (e.g. "polygon").
+ *
+ * Nota: Si la red no se reconoce, lanza un error en lugar de
+ * silenciosamente asignar un fallback.
  */
 export function resolveCryptoNetwork(network?: string): CryptoNetworkOption {
   if (!network) return 'solana'
@@ -67,12 +82,16 @@ export function resolveCryptoNetwork(network?: string): CryptoNetworkOption {
     base: 'base',
     solana: 'solana',
     tron: 'tron',
-    bsc: 'ethereum', // BSC no soportado por Bridge, fallback a ethereum
     stellar: 'stellar',
     avalanche_c_chain: 'avalanche_c_chain',
     avalanche: 'avalanche_c_chain',
     celo: 'celo',
   }
 
-  return legacyMap[lower] ?? 'solana'
+  const resolved = legacyMap[lower]
+  if (!resolved) {
+    console.warn(`[resolveCryptoNetwork] Red no reconocida: "${network}", usando "solana" como fallback.`)
+    return 'solana'
+  }
+  return resolved
 }

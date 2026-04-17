@@ -19,19 +19,14 @@ import { apiGet, apiPost, apiDelete } from '@/lib/api/client'
 // ── Tipos — Virtual Accounts ─────────────────────────────────────
 
 export type SourceCurrency = 'usd' | 'eur' | 'mxn' | 'brl' | 'gbp' | 'cop'
-export type DestinationCurrency = 'usdc' | 'usdt' | 'usdb' | 'dai' | 'pyusd' | 'eurc'
+export type DestinationCurrency = 'usdc' | 'usdt' | 'usdb' | 'pyusd' | 'eurc'
 export type DestinationRail =
-  | 'arbitrum'
-  | 'avalanche_c_chain'
   | 'base'
-  | 'celo'
   | 'ethereum'
-  | 'optimism'
-  | 'polygon'
   | 'solana'
-  | 'stellar'
-  | 'tempo'
   | 'tron'
+  | 'polygon'
+  | 'stellar'
 
 export interface VirtualAccount {
   id: string
@@ -102,7 +97,6 @@ export const DESTINATION_CURRENCY_OPTIONS: {
   { value: 'usdt', label: 'USDT' },
   { value: 'usdb', label: 'USDB' },
   { value: 'eurc', label: 'EURC' },
-  { value: 'dai', label: 'DAI' },
   { value: 'pyusd', label: 'PYUSD' },
 ]
 
@@ -110,16 +104,11 @@ export const DESTINATION_RAIL_OPTIONS: {
   value: DestinationRail
   label: string
 }[] = [
-  { value: 'arbitrum', label: 'Arbitrum' },
-  { value: 'avalanche_c_chain', label: 'Avalanche C-Chain' },
   { value: 'base', label: 'Base' },
-  { value: 'celo', label: 'Celo' },
   { value: 'ethereum', label: 'Ethereum' },
-  { value: 'optimism', label: 'Optimism' },
   { value: 'polygon', label: 'Polygon' },
   { value: 'solana', label: 'Solana' },
   { value: 'stellar', label: 'Stellar' },
-  { value: 'tempo', label: 'Tempo' },
   { value: 'tron', label: 'Tron' },
 ]
 

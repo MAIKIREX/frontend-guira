@@ -1,16 +1,10 @@
 import { z } from 'zod'
+import { ALLOWED_NETWORKS, validateCryptoAddress, ADDRESS_VALIDATORS, type AllowedNetwork } from '@/lib/guira-crypto-config'
 
 const supplierMethodSchema = z.enum(['crypto', 'ach', 'swift'])
-const cryptoNetworkSchema = z.enum([
-  'Ethereum',
-  'Polygon',
-  'Arbitrum',
-  'Optimism',
-  'Base',
-  'Solana',
-  'Tron',
-  'BSC',
-])
+const cryptoNetworkSchema = z.enum(
+  ALLOWED_NETWORKS as unknown as [string, ...string[]],
+)
 
 export const supplierSchema = z
   .object({
@@ -92,6 +86,23 @@ export const supplierSchema = z
         message: 'La red crypto es obligatoria.',
         path: ['crypto_network'],
       })
+    }
+
+    // Validar formato de dirección crypto según la red seleccionada
+    if (
+      value.payment_method === 'crypto' &&
+      value.crypto_address &&
+      value.crypto_network
+    ) {
+      const network = value.crypto_network as AllowedNetwork
+      if (!validateCryptoAddress(value.crypto_address, network)) {
+        const validator = ADDRESS_VALIDATORS[network]
+        ctx.addIssue({
+          code: 'custom',
+          message: `Dirección inválida para ${network}. Formato esperado: ${validator?.description ?? 'desconocido'}`,
+          path: ['crypto_address'],
+        })
+      }
     }
   })
 

@@ -21,6 +21,7 @@ import type { WalletBalance } from '@/services/wallet.service'
 import type { FeeConfigRow } from '@/types/payment-order'
 import { ClientBankAccountsService, type ClientBankAccount } from '@/services/client-bank-accounts.service'
 import { AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
+import { ALLOWED_NETWORKS, NETWORK_LABELS } from '@/lib/guira-crypto-config'
 
 const LABEL_CLASS = 'text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground'
 const FORM_TEXT_CLASS = 'tracking-[0.01em]'
@@ -283,12 +284,11 @@ export function WalletWithdrawDetailStep({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="polygon">Polygon</SelectItem>
-                      <SelectItem value="ethereum">Ethereum</SelectItem>
-                      <SelectItem value="arbitrum">Arbitrum</SelectItem>
-                      <SelectItem value="optimism">Optimism</SelectItem>
-                      <SelectItem value="base">Base</SelectItem>
-                      <SelectItem value="tron">Tron</SelectItem>
+                      {ALLOWED_NETWORKS.map((net) => (
+                        <SelectItem key={net} value={net}>
+                          {NETWORK_LABELS[net]}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />

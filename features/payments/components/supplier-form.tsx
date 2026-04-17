@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { StepProgressRail } from '@/features/payments/components/step-progress-rail'
 import { interactiveClickableCardClassName, cn } from '@/lib/utils'
+import { ALLOWED_NETWORKS, NETWORK_LABELS } from '@/lib/guira-crypto-config'
 import type { Supplier, PaymentRail, CreateSupplierPayload } from '@/types/supplier'
 
 interface SupplierFormProps {
@@ -106,7 +107,7 @@ const defaultValues: SupplierFormValues = {
   bre_b_key: '',
 
   wallet_address: '',
-  wallet_network: 'Polygon',
+  wallet_network: 'ethereum',
 }
 
 const RAIL_OPTIONS: Array<{
@@ -670,10 +671,11 @@ export function SupplierForm({
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="Polygon">Polygon (Recomendado)</SelectItem>
-                                <SelectItem value="Ethereum">Ethereum (ERC-20)</SelectItem>
-                                <SelectItem value="Stellar">Stellar</SelectItem>
-                                <SelectItem value="Tron">Tron (TRC-20)</SelectItem>
+                                {ALLOWED_NETWORKS.map((net) => (
+                                  <SelectItem key={net} value={net}>
+                                    {NETWORK_LABELS[net]}
+                                  </SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                             <FormMessage />

@@ -336,10 +336,7 @@ export function PaymentsHistoryTable({
               <CardContent className="flex flex-col border-t border-border/60 gap-0 p-0">
                 <div className="w-full border-b border-border/60 p-4 sm:px-6 sm:py-6 bg-muted/[0.04]">
                   <section className="space-y-4">
-                    <SectionHeading
-                      description="Lectura rapida del expediente para validar contraparte, monto y etapa actual."
-                      title="Progreso de trazabilidad"
-                    />
+                    <SectionHeading title="Progreso de trazabilidad" />
                     <StatusRail order={order} />
                   </section>
                 </div>
@@ -350,10 +347,7 @@ export function PaymentsHistoryTable({
 
                   {showFundingInstructions ? (
                     <section className="space-y-4 border-t border-border/60 pt-6">
-                      <SectionHeading
-                        description="Usa estos datos para fondear la orden y luego sube el comprobante desde la mesa de accion."
-                        title="Cuenta para depositar"
-                      />
+                      <SectionHeading title="Cuenta para depositar" />
                       <div className="grid gap-4 xl:grid-cols-2">
                         {primaryDepositInstructions.map((instruction) => (
                           <DepositInstructionCard key={`${order.id}-${instruction.id}`} instruction={instruction} />
@@ -370,10 +364,7 @@ export function PaymentsHistoryTable({
                   ) : null}
 
                   <section className="space-y-4 border-t border-border/60 pt-6">
-                    <SectionHeading
-                      description="Valores finales publicados por mesa para ejecutar la orden con fee y tipo de cambio efectivos."
-                      title="Cotizacion final"
-                    />
+                    <SectionHeading title="Cotizacion final" />
                     <QuoteCard order={order} quotePreparedAt={quotePreparedAt} />
                   </section>
                 </div>
@@ -393,10 +384,7 @@ export function PaymentsHistoryTable({
                     />
 
                     <section className="space-y-4 border-t border-border/60 pt-6">
-                      <SectionHeading
-                        description="Registro de eventos visibles para el cliente durante la vida del expediente."
-                        title="Bitacora de actividad"
-                      />
+                      <SectionHeading title="Bitacora de actividad" />
                       <ActivityPanel orderActivity={orderActivity} />
                     </section>
                   </div>
@@ -476,9 +464,6 @@ function StatusRail({ order }: { order: PaymentOrder }) {
                 )}>
                   {stage.label}
                 </div>
-                {isCurrent && (
-                  <div className="text-[10px] font-medium uppercase tracking-wider text-cyan-400/80">Etapa actual</div>
-                )}
               </div>
             </div>
           )
@@ -486,8 +471,8 @@ function StatusRail({ order }: { order: PaymentOrder }) {
       </div>
 
       {/* Desktop view: full horizontal rail */}
-      <div className="hidden md:block overflow-x-auto">
-        <div className="flex min-w-max items-start justify-center gap-3 md:gap-4">
+      <div className="hidden md:block overflow-x-auto py-2 pb-4">
+        <div className="flex min-w-max items-start justify-center gap-3 md:gap-4 px-2">
           {FLOW_STAGES.map((stage, index) => {
             const isCurrent = stage.key === order.status
             const isReached = currentIndex >= index
@@ -539,10 +524,6 @@ function StatusRail({ order }: { order: PaymentOrder }) {
                   {stage.label}
                 </motion.div>
 
-                <div className="mt-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                  {isCurrent ? 'Etapa actual' : isReached ? 'Completada' : 'Pendiente'}
-                </div>
-
                 {index < FLOW_STAGES.length - 1 ? (
                   <div className="absolute left-[calc(50%+2rem)] top-6 hidden w-[calc(100%-4rem)] -translate-y-1/2 md:block">
                     <div className="relative h-px w-full rounded-full bg-border/70">
@@ -572,11 +553,8 @@ function QuoteCard({ order, quotePreparedAt }: { order: PaymentOrder; quotePrepa
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="text-sm font-medium text-foreground">Snapshot de ejecucion</div>
-          <div className="text-xs text-muted-foreground">Comparativo entre cotizacion previa y valores finales.</div>
-        </div>
+      <div className="flex items-center justify-between gap-3 mb-1">
+        <div />
         <div className="flex flex-wrap gap-2">
           {quoteChanges.length > 0 ? <Badge variant="default">Actualizado por staff</Badge> : null}
           {quotePreparedAt ? <Badge variant="outline">Lista {format(new Date(quotePreparedAt), 'dd/MM HH:mm')}</Badge> : null}
@@ -862,7 +840,7 @@ function AttachmentUploader({
       existingUrl={resolvedExistingUrl || existingUrl || undefined}
       existingUrlLabel="Ver archivo ya entregado"
       file={selectedFile ?? null}
-      helperText={`Arrastra ${label.toLowerCase()} o haz click para seleccionarlo.`}
+      helperText={undefined}
       label={label}
       onFileChange={(file) => onFileChange(file ?? undefined)}
       onUpload={onUpload}
@@ -894,11 +872,10 @@ function ComplianceNote({ order, quotePreparedAt }: { order: PaymentOrder; quote
   )
 }
 
-function SectionHeading({ title, description }: { title: string; description: string }) {
+function SectionHeading({ title }: { title: string }) {
   return (
     <div className="space-y-1">
       <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">{title}</div>
-      <p className="text-sm text-muted-foreground">{description}</p>
     </div>
   )
 }

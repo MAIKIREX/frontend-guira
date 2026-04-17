@@ -154,24 +154,28 @@ export function buildPaymentOrderPayload(
       payload.wallet_id = values.wallet_ramp_wallet_id
       payload.source_network = values.wallet_ramp_source_network
       payload.source_address = values.wallet_ramp_source_address
+      payload.source_currency = values.origin_currency
       break
     case 'fiat_us_to_bridge_wallet':
       payload.virtual_account_id = values.wallet_ramp_va_id
       break
     case 'bridge_wallet_to_fiat_bo':
       payload.wallet_id = values.wallet_ramp_wallet_id
+      payload.source_currency = values.origin_currency
       // Los datos bancarios (bank_name, account_number, account_holder)
       // ahora se leen del perfil del usuario en el backend (client_bank_accounts).
       // No se envían desde el formulario.
       break
     case 'bridge_wallet_to_crypto':
       payload.wallet_id = values.wallet_ramp_wallet_id
+      payload.source_currency = values.origin_currency
       payload.destination_address = values.crypto_address
       payload.destination_network = values.crypto_network
-      payload.destination_currency = values.destination_currency || 'USDC'
+      payload.destination_currency = values.destination_currency
       break
     case 'bridge_wallet_to_fiat_us':
       payload.wallet_id = values.wallet_ramp_wallet_id
+      payload.source_currency = values.origin_currency
       payload.external_account_id = supplier?.bridge_external_account_id || supplier?.id || undefined
       break
   }

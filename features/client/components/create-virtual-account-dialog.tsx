@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { validateCryptoAddress, isAllowedNetwork } from '@/lib/guira-crypto-config'
 import {
   Loader2,
   Plus,
@@ -61,23 +62,25 @@ interface CreateVirtualAccountDialogProps {
 // ── Helpers ──────────────────────────────────────────────────────
 
 /**
- * Validación básica de formato de dirección blockchain en frontend.
- * El backend tiene validación definitiva con @IsBlockchainAddress().
+ * Validación de formato de dirección blockchain.
+ * Usa los validadores centralizados de guira-crypto-config cuando la red es conocida.
+ * Cuando no hay red específica, realiza validación genérica.
  */
-function isValidBlockchainAddress(address: string): boolean {
+function isValidBlockchainAddress(address: string, network?: string): boolean {
   const trimmed = address.trim()
   if (trimmed.length < 10) return false
 
-  // EVM (Ethereum, Polygon, Arbitrum, Base, etc.) — 0x seguido de 40 hex chars
+  // Si tenemos red específica y es una red permitida, usar validador centralizado
+  if (network && isAllowedNetwork(network)) {
+    return validateCryptoAddress(trimmed, network as any)
+  }
+
+  // Fallback genérico: acepta cualquiera de los formatos conocidos
   if (/^0x[0-9a-fA-F]{40}$/.test(trimmed)) return true
-  // Solana — base58, 32-44 chars
   if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(trimmed)) return true
-  // Tron — T seguido de 33 chars alfanuméricos
   if (/^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(trimmed)) return true
-  // Stellar — G seguido de 55 chars alfanuméricos uppercase
   if (/^G[A-Z2-7]{55}$/.test(trimmed)) return true
 
-  // Fallback: acepta si tiene longitud razonable (el backend lo validará)
   return trimmed.length >= 26 && trimmed.length <= 256
 }
 
