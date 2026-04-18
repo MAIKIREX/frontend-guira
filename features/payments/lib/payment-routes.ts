@@ -149,12 +149,14 @@ export function buildPaymentOrderPayload(
       break
     case 'fiat_bo_to_bridge_wallet':
       payload.wallet_id = values.wallet_ramp_wallet_id
+      payload.destination_currency = values.wallet_ramp_destination_currency ?? values.destination_currency
       break
     case 'crypto_to_bridge_wallet':
       payload.wallet_id = values.wallet_ramp_wallet_id
       payload.source_network = values.wallet_ramp_source_network
       payload.source_address = values.wallet_ramp_source_address
       payload.source_currency = values.origin_currency
+      payload.destination_currency = values.wallet_ramp_destination_currency ?? values.destination_currency
       break
     case 'fiat_us_to_bridge_wallet':
       payload.virtual_account_id = values.wallet_ramp_va_id

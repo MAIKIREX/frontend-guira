@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useCallback } from 'react'
 import {
   FormControl,
   FormField,
@@ -17,7 +17,14 @@ import {
 import { Button } from '@/components/ui/button'
 import { Plus, CircleAlert, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ACTIVE_CRYPTO_NETWORKS, CRYPTO_NETWORK_LABELS } from '@/features/payments/lib/crypto-networks'
+import { RAMP_ON_SOURCE_NETWORKS, CRYPTO_NETWORK_LABELS } from '@/features/payments/lib/crypto-networks'
+import { CRYPTO_CURRENCY_LABELS } from '@/lib/guira-crypto-config'
+import {
+  getSourceCurrencies,
+  getDestinationCurrencies,
+  getMinAmount,
+  FIAT_BO_ALLOWED_DESTINATION_CURRENCIES,
+} from '@/features/payments/lib/bridge-route-catalog'
 import { CreateVirtualAccountDialog } from '@/features/client/components/create-virtual-account-dialog'
 import { resolveFeeTotal, type ExchangeRateRecord } from '@/features/payments/lib/deposit-instructions'
 import type { WalletBalance } from '@/services/wallet.service'
@@ -29,10 +36,10 @@ const FORM_TEXT_CLASS = 'tracking-[0.01em]'
 const FORM_UNDERLINE_INPUT_CLASS = 'h-11 rounded-none border-0 border-b border-input bg-transparent px-0 py-0 shadow-none transition-colors focus-visible:border-primary focus-visible:ring-0 disabled:bg-transparent'
 const FORM_UNDERLINE_SELECT_CLASS = 'h-11 w-full rounded-none border-0 border-b border-input bg-transparent px-0 py-0 shadow-none transition-colors focus-visible:border-primary focus-visible:ring-0'
 
-const METHOD_META = {
-  fiat_bo: { originCurrency: 'BOB', destCurrency: 'USDC' },
-  crypto: { originCurrency: 'USDT', destCurrency: 'USDC' },
-  fiat_us: { originCurrency: 'USD', destCurrency: 'USDC' }
+const METHOD_META: Record<string, { originCurrency: string }> = {
+  fiat_bo: { originCurrency: 'BOB' },
+  crypto: { originCurrency: '' }, // dinámico según selector
+  fiat_us: { originCurrency: 'USD' },
 }
 
 // Hoisted outside the component so the reference is stable across renders
@@ -72,6 +79,68 @@ export function WalletRampDetailStep({
   const prevEstimateRef = useRef<{ feeTotal: number; exchangeRateApplied: number; amountConverted: number } | null>(null)
 
   const amount = form.watch('amount_origin')
+  const selectedSourceNetwork = form.watch('wallet_ramp_source_network') ?? ''
+  const selectedOriginCurrency = form.watch('origin_currency') ?? ''
+  const selectedDestCurrency = form.watch('wallet_ramp_destination_currency') ?? ''
+
+  // ── Listas dinámicas filtradas por catálogo Bridge ──
+  const availableSourceCurrencies = React.useMemo(() => {
+    if (method !== 'crypto' || !selectedSourceNetwork) return []
+    return getSourceCurrencies(selectedSourceNetwork)
+  }, [method, selectedSourceNetwork])
+
+  const availableDestCurrencies = React.useMemo(() => {
+    if (method === 'fiat_bo') {
+      return [...FIAT_BO_ALLOWED_DESTINATION_CURRENCIES]
+    }
+    if (method === 'crypto' && selectedSourceNetwork && selectedOriginCurrency) {
+      return getDestinationCurrencies(selectedSourceNetwork, selectedOriginCurrency)
+    }
+    return []
+  }, [method, selectedSourceNetwork, selectedOriginCurrency])
+
+  const minAmount = React.useMemo(() => {
+    if (method === 'crypto' && selectedSourceNetwork && selectedOriginCurrency) {
+      return getMinAmount(selectedSourceNetwork, selectedOriginCurrency)
+    }
+    return 0
+  }, [method, selectedSourceNetwork, selectedOriginCurrency])
+
+  // ── Cascada: auto-clear cuando la selección queda inválida ──
+  const handleNetworkChange = useCallback((network: string, fieldOnChange: (v: string) => void) => {
+    fieldOnChange(network)
+    // Limpiar moneda origen y destino si ya no son válidas
+    const newSourceCurrencies = getSourceCurrencies(network)
+    const currentOrigin = form.getValues('origin_currency')
+    if (currentOrigin && !newSourceCurrencies.includes(currentOrigin.toLowerCase())) {
+      form.setValue('origin_currency', '', { shouldValidate: false })
+      form.setValue('wallet_ramp_destination_currency', '', { shouldValidate: false })
+    } else if (currentOrigin) {
+      // Verificar si destino sigue siendo válido
+      const newDests = getDestinationCurrencies(network, currentOrigin)
+      const currentDest = form.getValues('wallet_ramp_destination_currency')
+      if (currentDest && !newDests.includes(currentDest.toLowerCase())) {
+        form.setValue('wallet_ramp_destination_currency', '', { shouldValidate: false })
+      }
+    }
+  }, [form])
+
+  const handleSourceCurrencyChange = useCallback((currency: string, fieldOnChange: (v: string) => void) => {
+    fieldOnChange(currency)
+    const network = form.getValues('wallet_ramp_source_network')
+    if (network) {
+      const newDests = getDestinationCurrencies(network, currency)
+      const currentDest = form.getValues('wallet_ramp_destination_currency')
+      if (currentDest && !newDests.includes(currentDest.toLowerCase())) {
+        form.setValue('wallet_ramp_destination_currency', '', { shouldValidate: false })
+      }
+    }
+  }, [form])
+
+  // ── Resolución de moneda para labels ──
+  const displayOriginCurrency = method === 'fiat_bo' ? 'BOB' : (selectedOriginCurrency || 'CRYPTO').toUpperCase()
+  const displayDestCurrency = (selectedDestCurrency || 'USDC').toUpperCase()
+
   const estimate = React.useMemo(() => {
     const feeTotal = resolveFeeTotal(feesConfig, Number(amount) || 0, FLOW_TYPE_MAP[method] as any)
     let exchangeRateApplied = 1
@@ -87,7 +156,7 @@ export function WalletRampDetailStep({
       }
     }
 
-    // Fiat BO → USDC: dividir por tasa (BOB/USD)
+    // Fiat BO → token: dividir por tasa (BOB/USD)
     const netAmt = Math.max((Number(amount) || 0) - feeTotal, 0)
     const amountConverted = method === 'fiat_bo'
       ? netAmt / exchangeRateApplied
@@ -125,7 +194,7 @@ export function WalletRampDetailStep({
         render={({ field }) => (
           <FormItem>
             <FormLabel className={LABEL_CLASS}>
-              Monto inicial en {meta.originCurrency}
+              Monto inicial en {displayOriginCurrency}
             </FormLabel>
             <FormControl>
               <div className="relative">
@@ -139,10 +208,15 @@ export function WalletRampDetailStep({
                   className={cn(FORM_UNDERLINE_INPUT_CLASS, 'text-lg font-medium tracking-[-0.02em] pr-16')}
                 />
                 <span className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
-                  {meta.originCurrency}
+                  {displayOriginCurrency}
                 </span>
               </div>
             </FormControl>
+            {method === 'crypto' && minAmount > 0 && (
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Mínimo: {minAmount} {displayOriginCurrency}
+              </p>
+            )}
             <FormMessage />
           </FormItem>
         )}
@@ -182,36 +256,108 @@ export function WalletRampDetailStep({
         />
       )}
 
+      {/* ── Token de destino: fiat_bo y crypto ── */}
+      {(method === 'fiat_bo' || method === 'crypto') && (
+        <FormField
+          control={form.control}
+          name="wallet_ramp_destination_currency"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className={LABEL_CLASS}>Token de destino</FormLabel>
+              <Select
+                value={field.value ?? ''}
+                onValueChange={field.onChange}
+                disabled={disabled || availableDestCurrencies.length === 0}
+              >
+                <FormControl>
+                  <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
+                    <SelectValue placeholder="Seleccionar token destino" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {availableDestCurrencies.map((cur) => (
+                    <SelectItem key={cur} value={cur}>
+                      {CRYPTO_CURRENCY_LABELS[cur as keyof typeof CRYPTO_CURRENCY_LABELS] ?? cur.toUpperCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {method === 'crypto' && availableDestCurrencies.length === 0 && selectedSourceNetwork && (
+                <p className="text-[10px] text-amber-500 mt-1">
+                  Selecciona red y moneda de origen para ver los tokens destino disponibles.
+                </p>
+              )}
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+
       {method === 'crypto' && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="wallet_ramp_source_network"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className={LABEL_CLASS}>Red de origen</FormLabel>
-                <Select
-                  value={field.value ?? ''}
-                  onValueChange={field.onChange}
-                  disabled={disabled}
-                >
-                  <FormControl>
-                    <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
-                      <SelectValue placeholder="Seleccionar red" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {ACTIVE_CRYPTO_NETWORKS.map((net) => (
-                      <SelectItem key={net} value={net}>
-                        {CRYPTO_NETWORK_LABELS[net] ?? net}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* Red de origen */}
+            <FormField
+              control={form.control}
+              name="wallet_ramp_source_network"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className={LABEL_CLASS}>Red de origen</FormLabel>
+                  <Select
+                    value={field.value ?? ''}
+                    onValueChange={(v) => handleNetworkChange(v, field.onChange)}
+                    disabled={disabled}
+                  >
+                    <FormControl>
+                      <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
+                        <SelectValue placeholder="Seleccionar red" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {RAMP_ON_SOURCE_NETWORKS.map((net) => (
+                        <SelectItem key={net} value={net}>
+                          {CRYPTO_NETWORK_LABELS[net] ?? net}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Moneda de origen (filtrada por red) */}
+            <FormField
+              control={form.control}
+              name="origin_currency"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className={LABEL_CLASS}>Moneda de origen</FormLabel>
+                  <Select
+                    value={field.value ?? ''}
+                    onValueChange={(v) => handleSourceCurrencyChange(v, field.onChange)}
+                    disabled={disabled || availableSourceCurrencies.length === 0}
+                  >
+                    <FormControl>
+                      <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
+                        <SelectValue placeholder={selectedSourceNetwork ? 'Seleccionar moneda' : 'Selecciona una red primero'} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {availableSourceCurrencies.map((cur) => (
+                        <SelectItem key={cur} value={cur}>
+                          {CRYPTO_CURRENCY_LABELS[cur as keyof typeof CRYPTO_CURRENCY_LABELS] ?? cur.toUpperCase()}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          {/* Dirección de origen */}
           <FormField
             control={form.control}
             name="wallet_ramp_source_address"
@@ -328,21 +474,21 @@ export function WalletRampDetailStep({
             <div>
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Fee estimado</p>
               <p className="mt-1 text-base font-semibold">
-                {estimate.feeTotal.toFixed(2)} <span className="text-xs text-muted-foreground">{meta.originCurrency}</span>
+                {estimate.feeTotal.toFixed(2)} <span className="text-xs text-muted-foreground">{displayOriginCurrency}</span>
               </p>
             </div>
             {method === 'fiat_bo' && (
               <div>
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Tipo de cambio</p>
                 <p className="mt-1 text-base font-semibold">
-                  {estimate.exchangeRateApplied.toFixed(4)} <span className="text-xs text-muted-foreground">BOB/USDC</span>
+                  {estimate.exchangeRateApplied.toFixed(4)} <span className="text-xs text-muted-foreground">BOB/{displayDestCurrency}</span>
                 </p>
               </div>
             )}
             <div>
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Recibirás aprox.</p>
               <p className="mt-1 text-base font-semibold text-emerald-500">
-                {estimate.amountConverted.toFixed(2)} <span className="text-xs">USDC</span>
+                {estimate.amountConverted.toFixed(2)} <span className="text-xs">{displayDestCurrency}</span>
               </p>
             </div>
           </div>

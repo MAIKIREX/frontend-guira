@@ -46,6 +46,18 @@ export {
  */
 export const ACTIVE_CRYPTO_NETWORKS: AllowedNetwork[] = ['solana']
 
+/**
+ * Redes habilitadas como ORIGEN para on-ramp crypto_to_bridge_wallet.
+ * Include all networks where Bridge supports transfers TO the custodial Solana wallet.
+ */
+export const RAMP_ON_SOURCE_NETWORKS: AllowedNetwork[] = [
+  'ethereum',
+  'solana',
+  'tron',
+  'polygon',
+  'stellar',
+]
+
 /** Labels legibles para mostrar en la UI */
 export const CRYPTO_NETWORK_LABELS: Record<CryptoNetworkOption, string> = {
   ethereum: 'Ethereum (ERC-20)',

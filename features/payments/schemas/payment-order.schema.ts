@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { ALLOWED_NETWORKS, validateCryptoAddress, ADDRESS_VALIDATORS, type AllowedNetwork } from '@/lib/guira-crypto-config'
+import { isValidRoute, FIAT_BO_ALLOWED_DESTINATION_CURRENCIES } from '@/features/payments/lib/bridge-route-catalog'
 
 export const paymentOrderSchema = z
   .object({
@@ -45,6 +46,7 @@ export const paymentOrderSchema = z
     wallet_ramp_va_id: z.string().optional(),
     wallet_ramp_source_network: z.string().optional(),
     wallet_ramp_source_address: z.string().optional(),
+    wallet_ramp_destination_currency: z.string().optional(),
     // Wallet withdraw (bridge_wallet_to_fiat_bo / crypto / fiat_us) fields
     wallet_ramp_withdraw_method: z.enum(['fiat_bo', 'crypto', 'fiat_us']).optional(),
     withdraw_bank_name: z.string().trim().optional(),
@@ -76,6 +78,40 @@ export const paymentOrderSchema = z
         }
         if (!value.wallet_ramp_source_address) {
           ctx.addIssue({ code: 'custom', message: 'Ingresa la dirección cripto origen.', path: ['wallet_ramp_source_address'] })
+        }
+      }
+
+      // ── Validar token de destino para fiat_bo y crypto ──
+      if (value.wallet_ramp_method === 'fiat_bo' || value.wallet_ramp_method === 'crypto') {
+        if (!value.wallet_ramp_destination_currency) {
+          ctx.addIssue({ code: 'custom', message: 'Selecciona el token de destino.', path: ['wallet_ramp_destination_currency'] })
+        }
+      }
+
+      // ── Validar que fiat_bo destino sea USD-pegged (EURC excluido Etapa 1) ──
+      if (value.wallet_ramp_method === 'fiat_bo' && value.wallet_ramp_destination_currency) {
+        if (!(FIAT_BO_ALLOWED_DESTINATION_CURRENCIES as readonly string[]).includes(value.wallet_ramp_destination_currency.toLowerCase())) {
+          ctx.addIssue({ code: 'custom', message: 'Solo tokens USD-pegged (USDC, USDT, USDB, PYUSD) están disponibles para fondeo con BOB.', path: ['wallet_ramp_destination_currency'] })
+        }
+      }
+
+      // ── Validar compatibilidad de ruta Bridge para crypto ──
+      if (
+        value.wallet_ramp_method === 'crypto' &&
+        value.wallet_ramp_source_network &&
+        value.origin_currency &&
+        value.wallet_ramp_destination_currency
+      ) {
+        if (!isValidRoute(
+          value.wallet_ramp_source_network,
+          value.origin_currency.toLowerCase(),
+          value.wallet_ramp_destination_currency.toLowerCase()
+        )) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'Esta combinación de red/moneda origen/destino no es soportada por Bridge.',
+            path: ['wallet_ramp_destination_currency']
+          })
         }
       }
 
