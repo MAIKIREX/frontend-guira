@@ -634,11 +634,11 @@ export function CreatePaymentOrderForm({
         if (route === 'bolivia_to_exterior') {
           const minSetting = appSettings.find(s => s.key === 'MIN_INTERBANK_USD')?.value ?? '0'
           const maxSetting = appSettings.find(s => s.key === 'MAX_INTERBANK_USD')?.value ?? '999999'
-          const minUsd = parseFloat(minSetting)
-          const maxUsd = parseFloat(maxSetting)
+          const minUsd = parseFloat(String(minSetting))
+          const maxUsd = parseFloat(String(maxSetting))
           
           const rateData = exchangeRates.find(r => r.pair === 'BOB_USD')
-          const rate = rateData?.effective_rate || 1
+          const rate = (rateData as any)?.effective_rate ?? rateData?.rate ?? 1
           const amountInUsd = Number(amountOrigin) / rate
           
           if (amountInUsd < minUsd) {
@@ -993,7 +993,7 @@ export function CreatePaymentOrderForm({
                           disabled={disabled}
                         />
                       ) : (
-                        <>
+                          <>
                           <NumericField control={form.control} disabled={disabled} label={getAmountLabel(currentRoute.key)} name="amount_origin" />
                           <InlineSummaryBar
                             exchangeRate={summaryStats.exchangeRate}
@@ -1002,6 +1002,9 @@ export function CreatePaymentOrderForm({
                             originCurrency={summaryStats.originCurrency}
                             destinationCurrency={summaryStats.destinationCurrency}
                             amountOrigin={summaryStats.amountOrigin}
+                            equivalentUsdValue={(Number(form.watch('amount_origin') || 0)) / ((exchangeRates.find(r => r.pair === 'BOB_USD') as any)?.effective_rate ?? exchangeRates.find(r => r.pair === 'BOB_USD')?.rate ?? 1)}
+                            minUsdLimit={parseFloat(String(appSettings.find(s => s.key === 'MIN_INTERBANK_USD')?.value ?? '0'))}
+                            showValidation={route === 'bolivia_to_exterior'}
                           />
                         </>
                       )}
@@ -1628,6 +1631,9 @@ function InlineSummaryBar({
   originCurrency,
   destinationCurrency,
   amountOrigin,
+  equivalentUsdValue,
+  minUsdLimit,
+  showValidation,
 }: {
   exchangeRate: string
   feeTotal: number
@@ -1635,16 +1641,30 @@ function InlineSummaryBar({
   originCurrency: string
   destinationCurrency: string
   amountOrigin: number
+  equivalentUsdValue?: number
+  minUsdLimit?: number
+  showValidation?: boolean
 }) {
   const hasAmount = amountOrigin > 0
   const hasCurrencyChange = originCurrency.trim().toUpperCase() !== destinationCurrency.trim().toUpperCase()
 
+  const isBelowMinLimit = showValidation && equivalentUsdValue !== undefined && minUsdLimit !== undefined && hasAmount && equivalentUsdValue < minUsdLimit
+
   return (
     <div className="rounded-xl border border-border/60 bg-muted/10 divide-y divide-border/40 overflow-hidden">
       {/* Tipo de cambio */}
-      <div className="flex items-center justify-between px-4 py-3">
-        <span className={FORM_LABEL_CLASS}>Tipo de cambio</span>
-        <span className="text-sm font-semibold tracking-[0.01em] text-foreground">{exchangeRate}</span>
+      <div className="flex flex-col px-4 py-3">
+        <div className="flex items-center justify-between">
+          <span className={FORM_LABEL_CLASS}>Tipo de cambio</span>
+          <span className="text-sm font-semibold tracking-[0.01em] text-foreground">{exchangeRate}</span>
+        </div>
+        {hasAmount && equivalentUsdValue !== undefined && showValidation && originCurrency.toUpperCase() === 'BS' ? (
+          <div className="flex justify-end mt-1">
+            <span className="text-xs text-muted-foreground/80 font-medium">
+              Valor de envío: ~${equivalentUsdValue.toFixed(2)} USD
+            </span>
+          </div>
+        ) : null}
       </div>
 
       {/* Conversión bruta (solo si hay monto ingresado) */}
@@ -1670,17 +1690,32 @@ function InlineSummaryBar({
             </span>
           </div>
 
+          {/* Banner de Validación (Semáforo) */}
+          {isBelowMinLimit && (
+            <div className="px-4 py-3 bg-destructive/10 border-l-4 border-destructive/80">
+              <div className="flex items-start gap-2">
+                <span className="text-destructive/90 text-sm mt-0.5">⚠️</span>
+                <div>
+                  <p className="text-[13px] font-medium text-destructive/90">Monto mínimo no alcanzado</p>
+                  <p className="text-[11px] text-destructive/80 mt-0.5 leading-snug">
+                    El envío equivale a ~${equivalentUsdValue.toFixed(2)} USD. El sistema interbancario exige un mínimo de ${minUsdLimit?.toFixed(2)} USD. Ajusta tu monto para continuar.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Monto neto al destino — el dato clave de transparencia */}
-          <div className="flex items-center justify-between px-4 py-3.5 bg-primary/5">
+          <div className={cn("flex items-center justify-between px-4 py-3.5", isBelowMinLimit ? "bg-muted/30 opacity-60 grayscale" : "bg-primary/5")}>
             <div>
-              <span className={cn(FORM_LABEL_CLASS, 'text-primary/80')}>Monto que llegará al destino</span>
+              <span className={cn(FORM_LABEL_CLASS, isBelowMinLimit ? 'text-muted-foreground' : 'text-primary/80')}>Monto que llegará al destino</span>
               <p className="mt-0.5 text-[10px] text-muted-foreground/70 tracking-wider">
                 {hasCurrencyChange
                   ? `Después de comisión y conversión a ${destinationCurrency}`
                   : 'Después de descontar la comisión'}
               </p>
             </div>
-            <span className="text-base font-bold tracking-[-0.02em] text-primary">
+            <span className={cn("text-lg font-bold", isBelowMinLimit ? "text-muted-foreground" : "text-primary tracking-tight")}>
               {netAmountDestination.toFixed(2)} {destinationCurrency}
             </span>
           </div>
