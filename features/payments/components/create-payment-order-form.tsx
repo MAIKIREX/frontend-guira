@@ -890,7 +890,7 @@ export function CreatePaymentOrderForm({
                                   isSelected={field.value === 'fiat_bo'}
                                   onClick={() => {
                                     field.onChange('fiat_bo')
-                                    form.setValue('origin_currency', 'USDC')
+                                    form.setValue('origin_currency', '')
                                     form.setValue('destination_currency', 'BOB')
                                   }}
                                   title="A cuenta bancaria en Bolivia"
@@ -902,8 +902,10 @@ export function CreatePaymentOrderForm({
                                   isSelected={field.value === 'crypto'}
                                   onClick={() => {
                                     field.onChange('crypto')
-                                    form.setValue('origin_currency', 'USDC')
-                                    form.setValue('destination_currency', 'USDC')
+                                    form.setValue('origin_currency', '')
+                                    form.setValue('destination_currency', '')
+                                    form.setValue('crypto_network', '')
+                                    form.setValue('crypto_address', '')
                                   }}
                                   title="A wallet cripto externa"
                                 />
@@ -914,7 +916,7 @@ export function CreatePaymentOrderForm({
                                   isSelected={field.value === 'fiat_us'}
                                   onClick={() => {
                                     field.onChange('fiat_us')
-                                    form.setValue('origin_currency', 'USDC')
+                                    form.setValue('origin_currency', '')
                                     form.setValue('destination_currency', 'USD')
                                   }}
                                   title="A cuenta bancaria (EE.UU.)"
@@ -955,6 +957,7 @@ export function CreatePaymentOrderForm({
                           wallets={bridgeWallets}
                           exchangeRates={exchangeRates}
                           feesConfig={feesConfig}
+                          psavConfigs={psavConfigs}
                           disabled={disabled}
                         />
                       ) : route === 'wallet_ramp_deposit' ? (
@@ -2202,6 +2205,7 @@ function buildReviewItems(args: {
       items.push({ label: 'Cripto destino', value: args.values.crypto_address || 'Pendiente' })
       items.push({ label: 'Red destino', value: args.values.crypto_network || 'Pendiente' })
     } else if (method === 'fiat_us') {
+      items.push({ label: 'Token de origen', value: (args.values.origin_currency || 'Pendiente').toUpperCase() })
       if (args.values.amount_converted !== undefined) {
         items.push({ label: 'Recibirás aprox.', value: formatMoney(args.values.amount_converted, 'USD') })
       }

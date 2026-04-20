@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { ALLOWED_NETWORKS, validateCryptoAddress, ADDRESS_VALIDATORS, type AllowedNetwork } from '@/lib/guira-crypto-config'
-import { isValidRoute, FIAT_BO_ALLOWED_DESTINATION_CURRENCIES } from '@/features/payments/lib/bridge-route-catalog'
+import { isValidRoute, isValidOffRampRoute, getOffRampMinAmount, FIAT_BO_ALLOWED_DESTINATION_CURRENCIES, getFiatBoStaticMinAmount } from '@/features/payments/lib/bridge-route-catalog'
 
 export const paymentOrderSchema = z
   .object({
@@ -130,6 +130,16 @@ export const paymentOrderSchema = z
       }
 
       if (value.wallet_ramp_withdraw_method === 'fiat_bo') {
+        // Validar token de origen obligatorio
+        if (!value.origin_currency || value.origin_currency.trim().length === 0) {
+          ctx.addIssue({ code: 'custom', message: 'Selecciona el token de origen.', path: ['origin_currency'] })
+        } else {
+          // Validar monto mínimo según catálogo Bridge
+          const staticMin = getFiatBoStaticMinAmount(value.origin_currency)
+          if (staticMin > 0 && (value.amount_origin ?? 0) > 0 && (value.amount_origin ?? 0) < staticMin) {
+            ctx.addIssue({ code: 'custom', message: `Monto mínimo para ${value.origin_currency.toUpperCase()}: ${staticMin}`, path: ['amount_origin'] })
+          }
+        }
         // La validación de cuenta bancaria se realiza en el backend.
         // El backend verifica que exista en client_bank_accounts y que esté aprobada.
         // No se requieren campos manuales de banco desde el formulario.
@@ -139,6 +149,12 @@ export const paymentOrderSchema = z
         }
         if (!value.crypto_network) {
            ctx.addIssue({ code: 'custom', message: 'La red es obligatoria.', path: ['crypto_network'] })
+        }
+        if (!value.origin_currency || value.origin_currency.trim().length === 0) {
+          ctx.addIssue({ code: 'custom', message: 'Selecciona el token de origen.', path: ['origin_currency'] })
+        }
+        if (!value.destination_currency || value.destination_currency.trim().length === 0) {
+          ctx.addIssue({ code: 'custom', message: 'Selecciona el token de destino.', path: ['destination_currency'] })
         }
         // Validar formato de dirección según red seleccionada
         if (
@@ -156,7 +172,31 @@ export const paymentOrderSchema = z
             })
           }
         }
+        // Validar que la ruta off-ramp sea soportada por Bridge
+        if (value.origin_currency && value.crypto_network && value.destination_currency) {
+          if (!isValidOffRampRoute(value.origin_currency, value.crypto_network, value.destination_currency)) {
+            ctx.addIssue({
+              code: 'custom',
+              message: 'Esta combinación de token origen / red / token destino no es soportada por Bridge.',
+              path: ['destination_currency'],
+            })
+          } else {
+            // Validar monto mínimo según la ruta seleccionada
+            const minAmount = getOffRampMinAmount(value.origin_currency, value.crypto_network, value.destination_currency)
+            const amount = Number(value.amount_origin)
+            if (minAmount > 0 && (!amount || amount < minAmount)) {
+              ctx.addIssue({
+                code: 'custom',
+                message: `El monto mínimo para esta ruta es ${minAmount} ${value.origin_currency.toUpperCase()}.`,
+                path: ['amount_origin'],
+              })
+            }
+          }
+        }
       } else if (value.wallet_ramp_withdraw_method === 'fiat_us') {
+        if (!value.origin_currency || value.origin_currency.trim().length === 0) {
+          ctx.addIssue({ code: 'custom', message: 'Selecciona el token de origen.', path: ['origin_currency'] })
+        }
         if (!value.supplier_id) {
           ctx.addIssue({ code: 'custom', message: 'Selecciona un proveedor para el retiro.', path: ['supplier_id'] })
         }

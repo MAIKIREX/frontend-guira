@@ -421,11 +421,9 @@ export function VirtualAccountCard({ va, onDeactivate }: VirtualAccountCardProps
 
         {/* View details button */}
         <Dialog>
-           <DialogTrigger asChild>
-             <Button className="w-full rounded-xl shadow-sm text-sm h-12 font-semibold gap-2" variant="outline">
-                <Eye className="size-4" />
-                Ver datos de cuenta
-             </Button>
+           <DialogTrigger render={<Button className="w-full rounded-xl shadow-sm text-sm h-12 font-semibold gap-2" variant="outline" />}>
+              <Eye className="size-4" />
+              Ver datos de cuenta
            </DialogTrigger>
            <DialogContent className="max-w-md sm:rounded-3xl p-0 overflow-hidden">
               <DialogHeader className="px-6 py-5 bg-background border-b border-border/40">

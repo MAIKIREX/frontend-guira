@@ -107,20 +107,33 @@ export function WalletRampDetailStep({
   }, [method, selectedSourceNetwork, selectedOriginCurrency])
 
   // ── Cascada: auto-clear cuando la selección queda inválida ──
+  // IMPORTANT: Base UI Select treats '' as a valid value that doesn't match
+  // any item, causing the component to freeze. Use undefined to clear.
   const handleNetworkChange = useCallback((network: string, fieldOnChange: (v: string) => void) => {
     fieldOnChange(network)
     // Limpiar moneda origen y destino si ya no son válidas
     const newSourceCurrencies = getSourceCurrencies(network)
     const currentOrigin = form.getValues('origin_currency')
     if (currentOrigin && !newSourceCurrencies.includes(currentOrigin.toLowerCase())) {
-      form.setValue('origin_currency', '', { shouldValidate: false })
-      form.setValue('wallet_ramp_destination_currency', '', { shouldValidate: false })
+      // Auto-select if there's only one source currency available (e.g. Tron → usdt)
+      if (newSourceCurrencies.length === 1) {
+        form.setValue('origin_currency', newSourceCurrencies[0], { shouldValidate: false })
+        // Also auto-cascade destination currencies
+        const newDests = getDestinationCurrencies(network, newSourceCurrencies[0])
+        const currentDest = form.getValues('wallet_ramp_destination_currency')
+        if (currentDest && !newDests.includes(currentDest.toLowerCase())) {
+          form.setValue('wallet_ramp_destination_currency', undefined as any, { shouldValidate: false })
+        }
+      } else {
+        form.setValue('origin_currency', undefined as any, { shouldValidate: false })
+        form.setValue('wallet_ramp_destination_currency', undefined as any, { shouldValidate: false })
+      }
     } else if (currentOrigin) {
       // Verificar si destino sigue siendo válido
       const newDests = getDestinationCurrencies(network, currentOrigin)
       const currentDest = form.getValues('wallet_ramp_destination_currency')
       if (currentDest && !newDests.includes(currentDest.toLowerCase())) {
-        form.setValue('wallet_ramp_destination_currency', '', { shouldValidate: false })
+        form.setValue('wallet_ramp_destination_currency', undefined as any, { shouldValidate: false })
       }
     }
   }, [form])
@@ -132,7 +145,7 @@ export function WalletRampDetailStep({
       const newDests = getDestinationCurrencies(network, currency)
       const currentDest = form.getValues('wallet_ramp_destination_currency')
       if (currentDest && !newDests.includes(currentDest.toLowerCase())) {
-        form.setValue('wallet_ramp_destination_currency', '', { shouldValidate: false })
+        form.setValue('wallet_ramp_destination_currency', undefined as any, { shouldValidate: false })
       }
     }
   }, [form])
@@ -200,6 +213,7 @@ export function WalletRampDetailStep({
               <div className="relative">
                 <Input
                   {...field}
+                  value={field.value ?? ''}
                   type="number"
                   min={0}
                   step="any"
@@ -230,7 +244,7 @@ export function WalletRampDetailStep({
             <FormItem>
               <FormLabel className={LABEL_CLASS}>Wallet Bridge destino</FormLabel>
               <Select
-                value={field.value ?? ''}
+                value={field.value || null}
                 onValueChange={field.onChange}
                 disabled={disabled || wallets.length === 0}
               >
@@ -265,7 +279,7 @@ export function WalletRampDetailStep({
             <FormItem>
               <FormLabel className={LABEL_CLASS}>Token de destino</FormLabel>
               <Select
-                value={field.value ?? ''}
+                value={field.value || null}
                 onValueChange={field.onChange}
                 disabled={disabled || availableDestCurrencies.length === 0}
               >
@@ -304,7 +318,7 @@ export function WalletRampDetailStep({
                 <FormItem>
                   <FormLabel className={LABEL_CLASS}>Red de origen</FormLabel>
                   <Select
-                    value={field.value ?? ''}
+                    value={field.value || null}
                     onValueChange={(v) => handleNetworkChange(v, field.onChange)}
                     disabled={disabled}
                   >
@@ -334,7 +348,7 @@ export function WalletRampDetailStep({
                 <FormItem>
                   <FormLabel className={LABEL_CLASS}>Moneda de origen</FormLabel>
                   <Select
-                    value={field.value ?? ''}
+                    value={field.value || null}
                     onValueChange={(v) => handleSourceCurrencyChange(v, field.onChange)}
                     disabled={disabled || availableSourceCurrencies.length === 0}
                   >
@@ -367,6 +381,7 @@ export function WalletRampDetailStep({
                 <FormControl>
                   <Input
                     {...field}
+                    value={field.value ?? ''}
                     placeholder="0x... / T... / sol..."
                     className={cn(FORM_UNDERLINE_INPUT_CLASS, FORM_TEXT_CLASS, 'font-mono text-xs')}
                     disabled={disabled}
