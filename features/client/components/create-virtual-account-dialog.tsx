@@ -415,7 +415,6 @@ export function CreateVirtualAccountDialog({
               <Select
                 value={destCurrency}
                 onValueChange={(val) => { if (val) setDestCurrency(val as DestinationCurrency) }}
-                disabled={destType === 'internal'}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar" />
@@ -428,10 +427,10 @@ export function CreateVirtualAccountDialog({
                   ))}
                 </SelectContent>
               </Select>
-              {/* Hallazgo 5: Feedback para campos deshabilitados */}
+              {/* Hallazgo 5: Feedback — pre-llenado pero editable */}
               {destType === 'internal' && (
                 <p className="text-[10px] text-muted-foreground/60">
-                  Se auto-configura según la wallet seleccionada.
+                  Pre-seleccionada según tu wallet. Puedes cambiarla.
                 </p>
               )}
             </div>

@@ -126,7 +126,7 @@ export function ClientOperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
       {mode === 'proveedores' ? (
         <SuppliersSection
           disabled={!canOperate}
-          onCreateSupplier={(input) => payments.createSupplier({ ...input, user_id: user.id } as any)}
+          onCreateSupplier={(input) => payments.createSupplier(input as any)}
           onDeleteSupplier={payments.deleteSupplier}
           onUpdateSupplier={(id, input) => payments.updateSupplier(id, input as any)}
           suppliers={payments.snapshot.suppliers}

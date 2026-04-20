@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { StepProgressRail } from '@/features/payments/components/step-progress-rail'
 import { interactiveClickableCardClassName, cn } from '@/lib/utils'
-import { ALLOWED_NETWORKS, NETWORK_LABELS } from '@/lib/guira-crypto-config'
+import { ALLOWED_NETWORKS, NETWORK_LABELS, ALLOWED_CRYPTO_CURRENCIES, CRYPTO_CURRENCY_LABELS } from '@/lib/guira-crypto-config'
 import type { Supplier, PaymentRail, CreateSupplierPayload } from '@/types/supplier'
 
 interface SupplierFormProps {
@@ -69,6 +69,7 @@ type SupplierFormValues = {
   // Crypto
   wallet_address: string
   wallet_network: string
+  wallet_currency: string
 }
 
 const defaultValues: SupplierFormValues = {
@@ -108,6 +109,7 @@ const defaultValues: SupplierFormValues = {
 
   wallet_address: '',
   wallet_network: 'ethereum',
+  wallet_currency: 'usdc',
 }
 
 const RAIL_OPTIONS: Array<{
@@ -176,7 +178,8 @@ export function SupplierForm({
       bre_b_key: (details.bre_b_key as string) || '',
 
       wallet_address: isCrypto ? (details.wallet_address as string) : '',
-      wallet_network: isCrypto ? (details.wallet_network as string) : 'Polygon',
+      wallet_network: isCrypto ? ((details.wallet_network as string)?.toLowerCase() || 'ethereum') : 'ethereum',
+      wallet_currency: isCrypto ? ((details.wallet_currency as string)?.toLowerCase() || 'usdc') : 'usdc',
     }
   }, [editingSupplier])
 
@@ -216,6 +219,7 @@ export function SupplierForm({
     if (values.payment_rail === 'spei') currency = 'MXN'
     if (values.payment_rail === 'pix') currency = 'BRL'
     if (values.payment_rail === 'bre_b') currency = 'COP'
+    if (values.payment_rail === 'crypto') currency = values.wallet_currency.toLowerCase()
 
     const payload: CreateSupplierPayload = {
       name: values.name,
@@ -257,7 +261,8 @@ export function SupplierForm({
       payload.bre_b_key = values.bre_b_key
     } else if (values.payment_rail === 'crypto') {
       payload.wallet_address = values.wallet_address
-      payload.wallet_network = values.wallet_network
+      payload.wallet_network = values.wallet_network.toLowerCase()
+      payload.wallet_currency = values.wallet_currency.toLowerCase()
     }
 
     await onSubmitSupplier(payload, editingSupplier?.id)
@@ -614,11 +619,11 @@ export function SupplierForm({
                       <FormField
                         control={form.control}
                         name="document_number"
-                        rules={{ required: 'Requerido' }}
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Document Number (CPF/CNPJ)</FormLabel>
-                            <FormControl><Input disabled={disabled} {...field} /></FormControl>
+                            <FormControl><Input disabled={disabled} placeholder="Opcional" {...field} /></FormControl>
+                            <p className="text-xs text-muted-foreground">Opcional según Bridge API</p>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -642,47 +647,75 @@ export function SupplierForm({
                   )}
 
                   {selectedRail === 'crypto' && (
-                    <div className="grid gap-6 md:grid-cols-2">
+                    <>
+                      <div className="grid gap-6 md:grid-cols-2">
+                        <FormField
+                          control={form.control}
+                          name="wallet_network"
+                          rules={{ required: 'La red es requerida' }}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Red (Network)</FormLabel>
+                              <Select disabled={disabled} onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Seleccione" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {ALLOWED_NETWORKS.map((net) => (
+                                    <SelectItem key={net} value={net}>
+                                      {NETWORK_LABELS[net]}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="wallet_currency"
+                          rules={{ required: 'La moneda es requerida' }}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Token / Moneda</FormLabel>
+                              <Select disabled={disabled} onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Seleccione token" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {ALLOWED_CRYPTO_CURRENCIES.map((cur) => (
+                                    <SelectItem key={cur} value={cur}>
+                                      {CRYPTO_CURRENCY_LABELS[cur]}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                       <FormField
                         control={form.control}
                         name="wallet_address"
                         rules={{ required: 'La dirección es requerida' }}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Dirección Wallet (USDC/USDT)</FormLabel>
+                            <FormLabel>Dirección de Wallet</FormLabel>
                             <FormControl>
-                              <Input disabled={disabled} placeholder="0x..." {...field} />
+                              <Input disabled={disabled} placeholder="0x... / T... / G..." {...field} />
                             </FormControl>
+                            <p className="text-xs text-muted-foreground">Asegúrate de que la dirección sea compatible con la red seleccionada</p>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      <FormField
-                        control={form.control}
-                        name="wallet_network"
-                        rules={{ required: 'La red es requerida' }}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Red (Network)</FormLabel>
-                            <Select disabled={disabled} onValueChange={field.onChange} value={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Seleccione" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {ALLOWED_NETWORKS.map((net) => (
-                                  <SelectItem key={net} value={net}>
-                                    {NETWORK_LABELS[net]}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                    </>
                   )}
 
                   <div className="flex justify-between pt-4">

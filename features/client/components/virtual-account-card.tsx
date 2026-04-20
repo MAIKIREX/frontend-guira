@@ -532,14 +532,14 @@ export function VirtualAccountCard({ va, onDeactivate }: VirtualAccountCardProps
                  {/* Deactivate option */}
                  <div className="border-t border-border/30 pt-4 pb-2">
                     <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                      <AlertDialogTrigger asChild>
+                      <AlertDialogTrigger render={
                         <Button
                           variant="ghost"
                           className="w-full text-xs font-medium text-destructive/80 hover:text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="mr-1.5 size-3.5" />
-                          Desactivar permanentemente
-                        </Button>
+                        />
+                      }>
+                        <Trash2 className="mr-1.5 size-3.5" />
+                        Desactivar permanentemente
                       </AlertDialogTrigger>
                       <AlertDialogContent className="sm:rounded-2xl">
                         <AlertDialogHeader>

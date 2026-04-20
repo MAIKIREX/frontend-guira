@@ -631,6 +631,26 @@ export function CreatePaymentOrderForm({
 
         setShowSupportFileError(false)
 
+        if (route === 'bolivia_to_exterior') {
+          const minSetting = appSettings.find(s => s.key === 'MIN_INTERBANK_USD')?.value ?? '0'
+          const maxSetting = appSettings.find(s => s.key === 'MAX_INTERBANK_USD')?.value ?? '999999'
+          const minUsd = parseFloat(minSetting)
+          const maxUsd = parseFloat(maxSetting)
+          
+          const rateData = exchangeRates.find(r => r.pair === 'BOB_USD')
+          const rate = rateData?.effective_rate || 1
+          const amountInUsd = Number(amountOrigin) / rate
+          
+          if (amountInUsd < minUsd) {
+            toast.error(`El monto mínimo interbancario es $${minUsd} USD (tu monto de envío equivale a ~$${amountInUsd.toFixed(2)} USD).`)
+            return
+          }
+          if (amountInUsd > maxUsd) {
+            toast.error(`El monto máximo interbancario es $${maxUsd} USD (tu monto de envío equivale a ~$${amountInUsd.toFixed(2)} USD).`)
+            return
+          }
+        }
+
         const isValidDetail = await form.trigger(getDetailStepFields({
           route,
           deliveryMethod,
@@ -1133,7 +1153,7 @@ export function CreatePaymentOrderForm({
                                       <FormItem>
                                         <FormLabel className={FORM_LABEL_CLASS}>Funding method</FormLabel>
                                         <FormControl>
-                                          <Select value={field.value} onValueChange={field.onChange} disabled={disabled}>
+                                          <Select value={field.value} onValueChange={field.onChange} disabled={true}>
                                             <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
                                               <SelectValue placeholder="Selecciona" />
                                             </SelectTrigger>
@@ -1188,8 +1208,8 @@ export function CreatePaymentOrderForm({
                                     </>
                                   ) : null}
                                   <div className="grid gap-4 lg:grid-cols-2 mt-4">
-                                    <TextField control={form.control} disabled={disabled} label="Wallet destino" name="crypto_address" />
-                                    <NetworkSelectField control={form.control} disabled={disabled} label="Red destino" name="crypto_network" placeholder="Selecciona la red" />
+                                    <TextField control={form.control} disabled={disabled || hasSupplierSelected} label="Wallet destino" name="crypto_address" />
+                                    <NetworkSelectField control={form.control} disabled={disabled || hasSupplierSelected} label="Red destino" name="crypto_network" placeholder="Selecciona la red" />
                                   </div>
                                 </>
                               ) : null}
@@ -1763,7 +1783,7 @@ function NetworkSelectField({
             <Select
               disabled={disabled}
               onValueChange={field.onChange}
-              value={field.value ? resolveCryptoNetwork(field.value as string) : undefined}
+              value={field.value ? resolveCryptoNetwork(field.value as string) : ""}
             >
               <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
                 <SelectValue placeholder={placeholder} />
@@ -1814,7 +1834,7 @@ function CurrencySelectField({
             <Select
               disabled={disabled}
               onValueChange={field.onChange}
-              value={(field.value as string) || undefined}
+              value={(field.value as string) || ""}
             >
               <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
                 <SelectValue placeholder={placeholder} />

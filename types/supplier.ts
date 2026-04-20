@@ -63,4 +63,5 @@ export interface CreateSupplierPayload {
   // Crypto
   wallet_address?: string;
   wallet_network?: string;
+  wallet_currency?: string;
 }
