@@ -838,6 +838,22 @@ export function CompanyForm({
               )} />
             </div>
 
+            {/* conducts_money_services_description — requerido por Bridge cuando MSB=true */}
+            {form.watch('conducts_money_services') && (
+              <FormField control={form.control as any} name="conducts_money_services_description" render={({ field }) => (
+                <FormItem className="col-span-2">
+                  <FormLabel>Descripción de servicios de dinero <span className="text-destructive">*</span></FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ej: Remesas internacionales, cambio de divisas, pagos móviles..." {...field} />
+                  </FormControl>
+                  <FormDescription className="text-xs">
+                    Requerido por Bridge: descripción detallada de los servicios financieros que ofrece la empresa.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )} />
+            )}
+
             {/* F7: Actividades de alto riesgo — solo visible si es MSB */}
             {form.watch('conducts_money_services') && (
               <div className="border rounded-lg p-4 space-y-3 bg-amber-50/40 dark:bg-amber-950/20">

@@ -106,6 +106,7 @@ const companyOnboardingBase = z.object({
   // F3: renombrado estimated_monthly_volume → expected_monthly_payments_usd, now integer
   expected_monthly_payments_usd: z.coerce.number().int('Debe ser un número entero').min(0, 'El valor no puede ser negativo'),
   conducts_money_services: z.boolean(),
+  conducts_money_services_description: z.string().optional(),
   uses_bridge_for_money_services: z.boolean(),
 
   // ── P1: High-risk / EDD ───────────────────────────────────────
@@ -145,13 +146,21 @@ const companyOnboardingBase = z.object({
   ubos: z.array(uboSchema).optional(),
 })
 
-// P1-A: conditional validation — account_purpose_other required when account_purpose = 'other'
 const companyWithSuperRefine = companyOnboardingBase.superRefine((data, ctx) => {
+  // P1-A: account_purpose_other required when account_purpose = 'other'
   if (data.account_purpose === 'other' && !data.account_purpose_other?.trim()) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: 'Debes especificar el propósito de la cuenta',
       path: ['account_purpose_other'],
+    })
+  }
+  // Bridge requiere conducts_money_services_description cuando conducts_money_services=true
+  if (data.conducts_money_services && !data.conducts_money_services_description?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Debes describir los servicios de dinero que ofrece la empresa',
+      path: ['conducts_money_services_description'],
     })
   }
 })
