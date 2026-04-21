@@ -23,9 +23,9 @@ import {
   INDIVIDUAL_ACCOUNT_PURPOSE,
   EXPECTED_MONTHLY_PAYMENTS,
   EMPLOYMENT_STATUS_OPTIONS,
-  OCCUPATION_OPTIONS,
   BRIDGE_COUNTRIES,
 } from '@/lib/bridge-constants'
+import { OccupationCombobox } from '@/components/shared/occupation-combobox'
 
 import { getRequiredDocumentsForId } from '@/lib/document-requirements'
 
@@ -446,24 +446,16 @@ export function PersonalForm({
             <h2 className="text-xl font-medium">Información Financiera</h2>
             <div className="grid grid-cols-2 gap-4">
               <FormField control={form.control} name="most_recent_occupation" render={({ field }) => (
-                <FormItem>
+                <FormItem className="flex flex-col">
                   <FormLabel>Ocupación</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ''}>
-                    <FormControl>
-                      <SelectTrigger>
-                        {field.value ? (
-                          <span className="truncate">{OCCUPATION_OPTIONS.find(o => o.value === field.value)?.label || field.value}</span>
-                        ) : <span className="text-muted-foreground">Selecciona tu ocupación</span>}
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {OCCUPATION_OPTIONS.map(o => (
-                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <OccupationCombobox
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
+                  </FormControl>
                   <FormDescription className="text-xs">
-                    Código de ocupación requerido por Bridge para compliance regulatorio.
+                    Escribe para buscar entre las ocupaciones disponibles.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
