@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import {
   ArrowRight,
   Banknote,
+  Clock,
   Eye,
   FileCheck2,
   FileText,
@@ -56,12 +57,23 @@ import type { PaymentOrder } from '@/types/payment-order'
 
 export function OnboardingActions({ actor, record, onUpdated }: { actor: StaffActor; record: StaffOnboardingRecord; onUpdated: (record: StaffOnboardingRecord) => Promise<void> | void }) {
   const availableStatuses = useMemo(() => {
+    if (record.status === 'pending_bridge') return []
+    
     const statuses: StaffOnboardingActionValues['status'][] = []
     if (record.status !== 'approved') statuses.push('approved')
     if (record.status !== 'in_review') statuses.push('in_review')
     if (record.status !== 'rejected') statuses.push('rejected')
     return statuses
   }, [record.status])
+
+  if (record.status === 'pending_bridge') {
+    return (
+      <div className="flex items-center gap-2 rounded-md border border-muted bg-muted/40 px-3 py-2 text-sm text-muted-foreground shadow-sm">
+        <Clock className="size-4 opacity-70" />
+        Esperando respuesta de Bridge
+      </div>
+    )
+  }
 
   if (availableStatuses.length === 0) return null
 
