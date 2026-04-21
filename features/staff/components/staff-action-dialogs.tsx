@@ -1231,7 +1231,7 @@ function getOnboardingActionLabel(status: StaffOnboardingActionValues['status'])
     case 'approved':
       return 'Aprobar'
     case 'in_review':
-      return 'En revision'
+      return 'Solicitar Correcciones'
     case 'rejected':
       return 'Rechazar'
   }
