@@ -274,7 +274,7 @@ export interface DocumentRecord {
   file_name: string
   mime_type: string
   file_size_bytes: number
-  status: 'pending' | 'approved' | 'rejected'
+  status: 'pending' | 'approved' | 'rejected' | 'superseded'
   created_at: string
 }
 

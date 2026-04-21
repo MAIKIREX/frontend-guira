@@ -52,6 +52,9 @@ export function CompanyForm({
   const [tosModalOpen, setTosModalOpen] = useState(false)
   const [tosContractId, setTosContractId] = useState<string | null>(null)
   const [pendingFiles, setPendingFiles] = useState<Record<string, File>>({})
+  // Documentos ya subidos previamente al servidor (para mostrar estado "ya adjuntado")
+  const [existingDocs, setExistingDocs] = useState<Record<string, { fileName: string; id: string }>>({})
+  const [docsLoaded, setDocsLoaded] = useState(false)
 
   const form = useForm<CompanyOnboardingValues>({
     resolver: zodResolver(companyOnboardingSchema) as any,
@@ -117,6 +120,34 @@ export function CompanyForm({
 
   useEffect(() => { form.setValue('state', '') }, [watchedCountry, form])
   useEffect(() => { form.setValue('physical_state', '') }, [watchedPhysicalCountry, form])
+
+  // ── Cargar documentos existentes del servidor al montar ─────────────
+  useEffect(() => {
+    if (docsLoaded) return
+    let cancelled = false
+    async function loadExistingDocs() {
+      try {
+        const docs = await OnboardingService.listDocuments('business')
+        if (cancelled) return
+        const map: Record<string, { fileName: string; id: string }> = {}
+        for (const doc of docs) {
+          if (!map[doc.document_type]) {
+            map[doc.document_type] = { fileName: doc.file_name, id: doc.id }
+          }
+        }
+        setExistingDocs(map)
+      } catch (_e) {
+        // Sin documentos previos
+      } finally {
+        if (!cancelled) setDocsLoaded(true)
+      }
+    }
+    loadExistingDocs()
+    return () => { cancelled = true }
+  }, [docsLoaded])
+
+  /** Un doc está cubierto si el usuario seleccionó uno nuevo O ya existía en el servidor. */
+  const hasDoc = (docKey: string) => !!pendingFiles[docKey] || !!existingDocs[docKey]
 
   // ── Navegación entre pasos ─────────────────────────────────────
   const handleNext = async () => {
@@ -189,11 +220,11 @@ export function CompanyForm({
 
   // ── Submit final KYB ───────────────────────────────────────────
   async function onFinalSubmit(data: CompanyOnboardingValues) {
-    if (!pendingFiles['incorporation_certificate']) {
+    if (!hasDoc('incorporation_certificate')) {
       toast.error('Debes subir el documento de constitución / registro de empresa')
       return
     }
-    const missingLegalDocs = legalRepDocs.filter(d => !pendingFiles[`replegal_${d.id}`])
+    const missingLegalDocs = legalRepDocs.filter(d => !hasDoc(`replegal_${d.id}`))
     if (missingLegalDocs.length > 0) {
       toast.error(`Faltan documentos del Representante Legal: ${missingLegalDocs.map(d => d.title).join(', ')}`)
       return
@@ -203,7 +234,7 @@ export function CompanyForm({
     let missingUbo = false
     data.ubos?.forEach((ubo, index) => {
       const docs = getRequiredDocumentsForId(ubo.id_type)
-      const missing = docs.filter(d => !pendingFiles[`ubo_${index}_${d.id}`])
+      const missing = docs.filter(d => !hasDoc(`ubo_${index}_${d.id}`))
       if (missing.length > 0) {
         missingUbo = true
         toast.error(`Socio #${index + 1}: Faltan documentos (${missing.map(d => d.title).join(', ')})`)
@@ -220,21 +251,23 @@ export function CompanyForm({
     setIsUploading(true)
 
     try {
-      // Paso 0: Subir documentos acumulados en memoria
-      for (const [docKey, file] of Object.entries(pendingFiles)) {
-        let subjectType: 'business' | 'person' | 'ubo' = 'business'
-        let docType = docKey
-        
-        if (docKey.startsWith('replegal_')) {
-          subjectType = 'person'
-          docType = docKey.replace('replegal_', '')
-        } else if (docKey.startsWith('ubo_')) {
-          subjectType = 'ubo'
-          // Extraer el docType real: ubo_0_passport → passport
-          docType = docKey.replace(/^ubo_\d+_/, '')
+      // Paso 0: Subir SOLO los archivos nuevos seleccionados por el usuario
+      if (Object.keys(pendingFiles).length > 0) {
+        for (const [docKey, file] of Object.entries(pendingFiles)) {
+          let subjectType: 'business' | 'person' | 'ubo' = 'business'
+          let docType = docKey
+          
+          if (docKey.startsWith('replegal_')) {
+            subjectType = 'person'
+            docType = docKey.replace('replegal_', '')
+          } else if (docKey.startsWith('ubo_')) {
+            subjectType = 'ubo'
+            // Extraer el docType real: ubo_0_passport → passport
+            docType = docKey.replace(/^ubo_\d+_/, '')
+          }
+          
+          await OnboardingService.uploadDocument(file, docType, subjectType)
         }
-        
-        await OnboardingService.uploadDocument(file, docType, subjectType)
       }
 
       // Paso 1: Guardar datos empresa
@@ -912,8 +945,16 @@ export function CompanyForm({
             <div className="border p-4 rounded bg-muted/20">
               <label className="block text-sm font-medium mb-2">
                 Acta de Constitución / Registro Mercantil
-                {pendingFiles['incorporation_certificate'] && <span className="ml-2 text-emerald-500 text-xs">✓ Adjuntado</span>}
+                {pendingFiles['incorporation_certificate'] && <span className="ml-2 text-emerald-500 text-xs">✓ Nuevo adjuntado</span>}
+                {!pendingFiles['incorporation_certificate'] && existingDocs['incorporation_certificate'] && (
+                  <span className="ml-2 text-sky-500 text-xs">📎 Ya subido: {existingDocs['incorporation_certificate'].fileName}</span>
+                )}
               </label>
+              {!pendingFiles['incorporation_certificate'] && existingDocs['incorporation_certificate'] && (
+                <p className="text-xs text-muted-foreground mb-2">
+                  Ya tienes este documento subido. Si deseas reemplazarlo, selecciona uno nuevo.
+                </p>
+              )}
               <FileDropzone 
                 accept="image/*,.pdf" 
                 file={pendingFiles['incorporation_certificate'] || null}
@@ -928,8 +969,16 @@ export function CompanyForm({
                 <div key={docSpec.id} className="border p-4 rounded bg-muted/20">
                   <label className="block text-sm font-medium mb-2">
                     Representante Legal: {docSpec.title}
-                    {pendingFiles[uploadKey] && <span className="ml-2 text-emerald-500 text-xs">✓ Adjuntado</span>}
+                    {pendingFiles[uploadKey] && <span className="ml-2 text-emerald-500 text-xs">✓ Nuevo adjuntado</span>}
+                    {!pendingFiles[uploadKey] && existingDocs[uploadKey] && (
+                      <span className="ml-2 text-sky-500 text-xs">📎 Ya subido: {existingDocs[uploadKey].fileName}</span>
+                    )}
                   </label>
+                  {!pendingFiles[uploadKey] && existingDocs[uploadKey] && (
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Ya tienes este documento subido. Si deseas reemplazarlo, selecciona uno nuevo.
+                    </p>
+                  )}
                   <FileDropzone 
                     accept={docSpec.accept || 'image/*,.pdf'} 
                     file={pendingFiles[uploadKey] || null}
@@ -943,8 +992,16 @@ export function CompanyForm({
             <div className="border p-4 rounded bg-muted/20">
               <label className="block text-sm font-medium mb-2">
                 Comprobante Domicilio Fiscal
-                {pendingFiles['proof_of_address'] && <span className="ml-2 text-emerald-500 text-xs">✓ Adjuntado</span>}
+                {pendingFiles['proof_of_address'] && <span className="ml-2 text-emerald-500 text-xs">✓ Nuevo adjuntado</span>}
+                {!pendingFiles['proof_of_address'] && existingDocs['proof_of_address'] && (
+                  <span className="ml-2 text-sky-500 text-xs">📎 Ya subido: {existingDocs['proof_of_address'].fileName}</span>
+                )}
               </label>
+              {!pendingFiles['proof_of_address'] && existingDocs['proof_of_address'] && (
+                <p className="text-xs text-muted-foreground mb-2">
+                  Ya tienes un comprobante subido. Si deseas reemplazarlo, selecciona uno nuevo.
+                </p>
+              )}
               <FileDropzone 
                 accept="image/*,.pdf" 
                 file={pendingFiles['proof_of_address'] || null}
@@ -1148,8 +1205,16 @@ export function CompanyForm({
                         <div key={docSpec.id}>
                           <label className="block text-sm font-medium mb-2">
                             {docSpec.title}
-                            {pendingFiles[upKey] && <span className="ml-2 text-emerald-500 text-xs">✓ Adjuntado</span>}
+                            {pendingFiles[upKey] && <span className="ml-2 text-emerald-500 text-xs">✓ Nuevo adjuntado</span>}
+                            {!pendingFiles[upKey] && existingDocs[upKey] && (
+                              <span className="ml-2 text-sky-500 text-xs">📎 Ya subido: {existingDocs[upKey].fileName}</span>
+                            )}
                           </label>
+                          {!pendingFiles[upKey] && existingDocs[upKey] && (
+                            <p className="text-xs text-muted-foreground mb-2">
+                              Ya tienes este documento subido. Si deseas reemplazarlo, selecciona uno nuevo.
+                            </p>
+                          )}
                           <FileDropzone
                             accept={docSpec.accept || 'image/*,.pdf'}
                             file={pendingFiles[upKey] || null}

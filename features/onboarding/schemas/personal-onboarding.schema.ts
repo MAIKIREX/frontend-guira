@@ -43,8 +43,8 @@ const personalOnboardingBase = z.object({
     .min(8, 'Teléfono requerido (incluye código de país)'),
 
   // ── Dirección ─────────────────────────────────────
-  address1: z.string().min(4, 'Requerido'),
-  address2: z.string().optional(),
+  address1: z.string().min(4, 'Requerido').regex(/^[a-zA-Z0-9\s.,#'/()-]*$/, 'Solo letras sin acentos ni símbolos especiales (ej. evite º o ñ)'),
+  address2: z.string().regex(/^[a-zA-Z0-9\s.,#'/()-]*$/, 'Solo letras sin acentos ni símbolos especiales (ej. evite º o ñ)').optional(),
   city: z.string().min(2, 'Requerido'),
   state: z.string().optional(),
   postal_code: z.string().optional(),

@@ -27,8 +27,8 @@ export const uboSchema = z.object({
     error: 'Selecciona un país válido',
   }).optional(),
   // P0-B: Residential Address mandatory for UBO via Bridge API
-  address1: z.string().min(4, 'Dirección residencial requerida'),
-  address2: z.string().optional(),
+  address1: z.string().min(4, 'Dirección residencial requerida').regex(/^[a-zA-Z0-9\s.,#'/()-]*$/, 'Solo letras sin acentos ni símbolos especiales (ej. evite º o ñ)'),
+  address2: z.string().regex(/^[a-zA-Z0-9\s.,#'/()-]*$/, 'Solo letras sin acentos ni símbolos especiales (ej. evite º o ñ)').optional(),
   city: z.string().min(2, 'Ciudad requerida'),
   state: z.string().optional(),
   postal_code: z.string().optional(),
@@ -74,8 +74,8 @@ const companyOnboardingBase = z.object({
     .optional().or(z.literal('')),
 
   // ── Dirección registrada (registered_address → Bridge) ────────────
-  address1: z.string().min(4, 'Requerido'),
-  address2: z.string().optional(),
+  address1: z.string().min(4, 'Requerido').regex(/^[a-zA-Z0-9\s.,#'/()-]*$/, 'Solo letras sin acentos ni símbolos especiales (ej. evite º o ñ)'),
+  address2: z.string().regex(/^[a-zA-Z0-9\s.,#'/()-]*$/, 'Solo letras sin acentos ni símbolos especiales (ej. evite º o ñ)').optional(),
   city: z.string().min(2, 'Requerido'),
   state: z.string().optional(),
   postal_code: z.string().optional(),
@@ -85,8 +85,8 @@ const companyOnboardingBase = z.object({
 
   // ── P2: Dirección operacional / física (physical_address → Bridge) ─
   // Se envía a Bridge solo si physical_city + physical_country están presentes.
-  physical_address1: z.string().optional(),
-  physical_address2: z.string().optional(),
+  physical_address1: z.string().regex(/^[a-zA-Z0-9\s.,#'/()-]*$/, 'Solo letras sin acentos ni símbolos especiales (ej. evite º o ñ)').optional(),
+  physical_address2: z.string().regex(/^[a-zA-Z0-9\s.,#'/()-]*$/, 'Solo letras sin acentos ni símbolos especiales (ej. evite º o ñ)').optional(),
   physical_city: z.string().optional(),
   physical_state: z.string().optional(),
   physical_postal_code: z.string().optional(),
@@ -128,8 +128,8 @@ const companyOnboardingBase = z.object({
   legal_rep_date_of_birth: z.string().min(10, 'Fecha de nacimiento del Rep. Legal requerida (aaaa-mm-dd)'),
   legal_rep_is_pep: z.boolean(),
   // P0-B: Residential Address mandatory for Director via Bridge API
-  legal_rep_address1: z.string().min(4, 'Dirección residencial requerida'),
-  legal_rep_address2: z.string().optional(),
+  legal_rep_address1: z.string().min(4, 'Dirección residencial requerida').regex(/^[a-zA-Z0-9\s.,#'/()-]*$/, 'Solo letras sin acentos ni símbolos especiales (ej. evite º o ñ)'),
+  legal_rep_address2: z.string().regex(/^[a-zA-Z0-9\s.,#'/()-]*$/, 'Solo letras sin acentos ni símbolos especiales (ej. evite º o ñ)').optional(),
   legal_rep_city: z.string().min(2, 'Ciudad requerida'),
   legal_rep_state: z.string().optional(),
   legal_rep_postal_code: z.string().optional(),

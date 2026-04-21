@@ -45,6 +45,9 @@ export function PersonalForm({
   const [tosModalOpen, setTosModalOpen] = useState(false)
   const [tosContractId, setTosContractId] = useState<string | null>(null)
   const [pendingFiles, setPendingFiles] = useState<Record<string, File>>({})
+  // Documentos ya subidos previamente al servidor (para mostrar estado "ya adjuntado")
+  const [existingDocs, setExistingDocs] = useState<Record<string, { fileName: string; id: string }>>({})
+  const [docsLoaded, setDocsLoaded] = useState(false)
 
   const form = useForm<PersonalOnboardingValues>({
 
@@ -89,6 +92,32 @@ export function PersonalForm({
   useEffect(() => {
     form.setValue('state', '')
   }, [watchedCountry, form])
+
+  // ── Cargar documentos existentes del servidor al montar ─────────────
+  useEffect(() => {
+    if (docsLoaded) return
+    let cancelled = false
+    async function loadExistingDocs() {
+      try {
+        const docs = await OnboardingService.listDocuments('person')
+        if (cancelled) return
+        const map: Record<string, { fileName: string; id: string }> = {}
+        for (const doc of docs) {
+          // Solo toma el primero por tipo (el más reciente, ya vienen ordenados desc)
+          if (!map[doc.document_type]) {
+            map[doc.document_type] = { fileName: doc.file_name, id: doc.id }
+          }
+        }
+        setExistingDocs(map)
+      } catch (_e) {
+        // Sin documentos previos — first time
+      } finally {
+        if (!cancelled) setDocsLoaded(true)
+      }
+    }
+    loadExistingDocs()
+    return () => { cancelled = true }
+  }, [docsLoaded])
 
   // ── Avanzar entre pasos con validación parcial ────────────────────
   const handleNext = async () => {
@@ -155,13 +184,17 @@ export function PersonalForm({
   }
 
   // ── Submit final: flujo completo al backend ───────────────────────
+  /** Helper: un doc está cubierto si el usuario seleccionó uno nuevo
+   *  O si ya existía uno previamente subido en el servidor. */
+  const hasDoc = (docType: string) => !!pendingFiles[docType] || !!existingDocs[docType]
+
   async function onSubmit(data: PersonalOnboardingValues) {
-    const missingDocs = requiredDocuments.filter(doc => !pendingFiles[doc.id])
+    const missingDocs = requiredDocuments.filter(doc => !hasDoc(doc.id))
     if (missingDocs.length > 0) {
       toast.error(`Faltan documentos por subir: ${missingDocs.map(d => d.title).join(', ')}`)
       return
     }
-    if (!pendingFiles['proof_of_address']) {
+    if (!hasDoc('proof_of_address')) {
       toast.error('Debes subir el comprobante de domicilio')
       return
     }
@@ -172,9 +205,12 @@ export function PersonalForm({
 
     setIsUploading(true)
     try {
-      // Paso 0: Subir todos los archivos pendientes
-      for (const [docType, file] of Object.entries(pendingFiles)) {
-        await OnboardingService.uploadDocument(file, docType, 'person')
+      // Paso 0: Subir SOLO los archivos nuevos seleccionados por el usuario
+      // (los que ya existen en el servidor no se re-suben)
+      if (Object.keys(pendingFiles).length > 0) {
+        for (const [docType, file] of Object.entries(pendingFiles)) {
+          await OnboardingService.uploadDocument(file, docType, 'person')
+        }
       }
 
       // Paso 1: Guardar datos biográficos
@@ -615,8 +651,16 @@ export function PersonalForm({
                 <div key={id} className="border p-4 rounded bg-muted/20">
                   <label className="block text-sm font-medium mb-2">
                     {title}
-                    {pendingFiles[id] && <span className="ml-2 text-emerald-500 text-xs">✓ Adjuntado</span>}
+                    {pendingFiles[id] && <span className="ml-2 text-emerald-500 text-xs">✓ Nuevo adjuntado</span>}
+                    {!pendingFiles[id] && existingDocs[id] && (
+                      <span className="ml-2 text-sky-500 text-xs">📎 Ya subido: {existingDocs[id].fileName}</span>
+                    )}
                   </label>
+                  {!pendingFiles[id] && existingDocs[id] && (
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Ya tienes un documento de este tipo subido. Si deseas reemplazarlo, selecciona uno nuevo.
+                    </p>
+                  )}
                   <FileDropzone
                     accept={accept || 'image/*,.pdf'}
                     file={pendingFiles[id] || null}
@@ -630,8 +674,16 @@ export function PersonalForm({
               <div className="border p-4 rounded bg-muted/20">
                 <label className="block text-sm font-medium mb-2">
                   Comprobante de Domicilio
-                  {pendingFiles['proof_of_address'] && <span className="ml-2 text-emerald-500 text-xs">✓ Adjuntado</span>}
+                  {pendingFiles['proof_of_address'] && <span className="ml-2 text-emerald-500 text-xs">✓ Nuevo adjuntado</span>}
+                  {!pendingFiles['proof_of_address'] && existingDocs['proof_of_address'] && (
+                    <span className="ml-2 text-sky-500 text-xs">📎 Ya subido: {existingDocs['proof_of_address'].fileName}</span>
+                  )}
                 </label>
+                {!pendingFiles['proof_of_address'] && existingDocs['proof_of_address'] && (
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Ya tienes un comprobante subido. Si deseas reemplazarlo, selecciona uno nuevo.
+                  </p>
+                )}
                 <FileDropzone
                   accept="image/*,.pdf"
                   file={pendingFiles['proof_of_address'] || null}
