@@ -7,6 +7,7 @@ import {
   MONTHLY_PAYMENT_VALUES,
   EMPLOYMENT_STATUS_VALUES,
   OCCUPATION_VALUES,
+  COUNTRIES_WITH_SUBDIVISIONS,
 } from '@/lib/bridge-constants'
 
 const personalOnboardingBase = z.object({
@@ -91,6 +92,15 @@ export const personalOnboardingSchema = personalOnboardingBase.superRefine((data
       code: z.ZodIssueCode.custom,
       message: 'Debes especificar el propósito de la cuenta',
       path: ['account_purpose_other'],
+    })
+  }
+
+  // State/subdivision requerido cuando el país tiene subdivisiones definidas
+  if (data.country && COUNTRIES_WITH_SUBDIVISIONS.has(data.country) && !data.state?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Debes seleccionar un estado / provincia',
+      path: ['state'],
     })
   }
 })

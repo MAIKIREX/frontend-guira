@@ -129,7 +129,7 @@ export function PersonalForm({
         'email', 'phone',
       ])
     } else if (step === 3) {
-      isValid = await form.trigger(['address1', 'city', 'country'])
+      isValid = await form.trigger(['address1', 'city', 'country', 'state'])
     } else if (step === 4) {
       // F3: campo renombrado
       const fieldsToValidate: any = ['most_recent_occupation', 'account_purpose', 'source_of_funds', 'expected_monthly_payments_usd']
@@ -440,7 +440,9 @@ export function PersonalForm({
               )} />
               <FormField control={form.control} name="state" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Estado / Provincia</FormLabel>
+                  <FormLabel>
+                    Estado / Provincia{subdivisions.length > 0 && <span className="text-destructive"> *</span>}
+                  </FormLabel>
                   {subdivisions.length > 0 ? (
                     <Select onValueChange={field.onChange} value={field.value || ''}>
                       <FormControl>

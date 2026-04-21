@@ -1270,6 +1270,9 @@ export const COUNTRY_SUBDIVISIONS: Record<string, { value: string; label: string
   ],
 }
 
+// ─── Countries with required subdivisions ─────────────────────────────────────
+export const COUNTRIES_WITH_SUBDIVISIONS = new Set(Object.keys(COUNTRY_SUBDIVISIONS))
+
 // ─── Helper: extract values only (for zod enum) ──────────────────────────────
 export const BRIDGE_COUNTRY_CODES = BRIDGE_COUNTRIES.map(c => c.value) as unknown as readonly [string, ...string[]]
 export const INDIVIDUAL_ID_TYPE_VALUES = INDIVIDUAL_ID_TYPES.map(t => t.value) as unknown as readonly [string, ...string[]]
