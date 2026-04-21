@@ -8,7 +8,8 @@ import { useAuthStore } from '@/stores/auth-store'
 import { useProfileStore } from '@/stores/profile-store'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { CheckCircle2, AlertCircle } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { CheckCircle2, AlertCircle, User, Building2 } from 'lucide-react'
 import { StepProgressRail } from '@/features/payments/components/step-progress-rail'
 import { interactiveClickableCardClassName } from '@/lib/utils'
 import { PersonalForm } from './personal-form'
@@ -158,19 +159,52 @@ export function OnboardingWizard() {
           Para operar en Guira necesitamos conocerte y validar tu identidad por regulacion financiera.
         </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Card className={interactiveClickableCardClassName} onClick={() => { setType('personal'); setStep(2) }}>
-            <CardHeader>
-              <CardTitle>Personal</CardTitle>
-              <CardDescription>Transacciones como individuo.</CardDescription>
-            </CardHeader>
-          </Card>
-          <Card className={interactiveClickableCardClassName} onClick={() => { setType('company'); setStep(2) }}>
-            <CardHeader>
-              <CardTitle>Empresa</CardTitle>
-              <CardDescription>Operaciones a nombre de su negocio o entidad legal.</CardDescription>
-            </CardHeader>
-          </Card>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-6">
+          {/* Tarjeta Personal (Indigo accent) */}
+          <button
+            type="button"
+            className="group relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-br from-indigo-50/50 to-background p-6 text-left shadow-sm transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30 hover:-translate-y-1 hover:border-indigo-300/60 hover:shadow-md dark:from-indigo-500/10 dark:hover:border-indigo-500/40"
+            onClick={() => { setType('personal'); setStep(2) }}
+          >
+            <div className="absolute -bottom-8 -right-8 size-40 text-indigo-500 opacity-[0.03] transition-transform duration-500 group-hover:-rotate-12 group-hover:scale-110 dark:text-indigo-400">
+              <User className="h-full w-full" />
+            </div>
+            
+            <div className="mb-5 flex size-12 items-center justify-center rounded-xl bg-indigo-100/80 text-indigo-700 shadow-sm transition-colors group-hover:bg-indigo-100 dark:bg-indigo-500/20 dark:text-indigo-400">
+              <User className="size-6" />
+            </div>
+            <div className="space-y-2 relative z-10">
+              <h3 className="text-xl font-bold tracking-tight text-foreground transition-colors group-hover:text-indigo-700 dark:group-hover:text-indigo-400">
+                Personal
+              </h3>
+              <p className="text-sm font-medium leading-relaxed text-muted-foreground">
+                Para individuos que buscan enviar, depositar o resguardar valor.
+              </p>
+            </div>
+          </button>
+
+          {/* Tarjeta Empresa (Emerald accent) */}
+          <button
+            type="button"
+            className="group relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-br from-emerald-50/50 to-background p-6 text-left shadow-sm transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 hover:-translate-y-1 hover:border-emerald-300/60 hover:shadow-md dark:from-emerald-500/10 dark:hover:border-emerald-500/40"
+            onClick={() => { setType('company'); setStep(2) }}
+          >
+            <div className="absolute -bottom-8 -right-8 size-40 text-emerald-500 opacity-[0.03] transition-transform duration-500 group-hover:-rotate-12 group-hover:scale-110 dark:text-emerald-400">
+              <Building2 className="h-full w-full" />
+            </div>
+
+            <div className="mb-5 flex size-12 items-center justify-center rounded-xl bg-emerald-100/80 text-emerald-700 shadow-sm transition-colors group-hover:bg-emerald-100 dark:bg-emerald-500/20 dark:text-emerald-400">
+              <Building2 className="size-6" />
+            </div>
+            <div className="space-y-2 relative z-10">
+              <h3 className="text-xl font-bold tracking-tight text-foreground transition-colors group-hover:text-emerald-700 dark:group-hover:text-emerald-400">
+                Empresa
+              </h3>
+              <p className="text-sm font-medium leading-relaxed text-muted-foreground">
+                Operaciones a nombre de su corporación, negocio o entidad legal.
+              </p>
+            </div>
+          </button>
         </div>
       </div>
     )
