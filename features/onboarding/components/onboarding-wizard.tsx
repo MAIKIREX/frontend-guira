@@ -110,7 +110,7 @@ export function OnboardingWizard() {
   }
 
   // 'in_review', 'submitted' y 'pending_bridge' son los estados operativos del backend
-  if (status === 'submitted' || status === 'in_review' || status === 'pending_bridge') {
+  if (status === 'submitted' || status === 'in_review' || status === 'pending_bridge' || status === 'sent_to_bridge') {
     return (
       <div className="max-w-xl mx-auto mt-12 px-4">
         <Card>
@@ -127,7 +127,7 @@ export function OnboardingWizard() {
     )
   }
 
-  if (status === 'rejected') {
+  if (status === 'rejected' || status === 'bridge_rejected') {
     return (
       <div className="max-w-xl mx-auto mt-12 px-4">
         <Card className="border-destructive/40">

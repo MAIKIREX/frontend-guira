@@ -236,6 +236,8 @@ export type KycStatus =
   | 'approved'
   | 'rejected'
   | 'needs_review'
+  | 'sent_to_bridge'
+  | 'bridge_rejected'
 
 export interface KycApplicationResponse {
   id: string
