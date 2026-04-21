@@ -917,17 +917,7 @@ export const COUNTRY_SUBDIVISIONS: Record<string, { value: string; label: string
     { value: 'V', label: 'Tierra del Fuego' },
     { value: 'T', label: 'Tucumán' },
   ],
-  BOL: [
-    { value: 'B', label: 'El Beni' },
-    { value: 'C', label: 'Cochabamba' },
-    { value: 'H', label: 'Chuquisaca' },
-    { value: 'L', label: 'La Paz' },
-    { value: 'N', label: 'Pando' },
-    { value: 'O', label: 'Oruro' },
-    { value: 'P', label: 'Potosí' },
-    { value: 'S', label: 'Santa Cruz' },
-    { value: 'T', label: 'Tarija' },
-  ],
+
   BRA: [
     { value: 'AC', label: 'Acre' },
     { value: 'AL', label: 'Alagoas' },

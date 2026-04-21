@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DepositInstructionCard } from '@/features/payments/components/deposit-instruction-card'
 import { buildDepositInstructionsFromOrder } from '@/features/payments/lib/deposit-instructions'
-import { generatePaymentPdf } from '@/features/payments/lib/generate-payment-pdf'
+import { api } from '@/lib/api'
 import { ACCEPTED_UPLOADS } from '@/lib/file-validation'
 import { cn, interactiveCardClassName, getErrorMessage } from '@/lib/utils'
 import { useSignedUrl } from '@/hooks/use-signed-url'
@@ -166,6 +166,28 @@ export function PaymentsHistoryTable({
     }
   }
 
+  async function handleDownloadPdf(order: PaymentOrder) {
+    setBusyKey(`${order.id}-pdf`)
+    try {
+      const response = await api.get(`/payment-orders/${order.id}/pdf`, {
+        responseType: 'blob',
+      })
+      const url = window.URL.createObjectURL(new Blob([response.data as BlobPart]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `payment-order-${order.id.slice(0, 8)}.pdf`)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error: unknown) {
+      console.error('Failed to download PDF', error)
+      toast.error(`No se pudo descargar el comprobante.`)
+    } finally {
+      setBusyKey(null)
+    }
+  }
+
   return (
     <div className="space-y-4 ">
       <section className="overflow-hidden rounded-[28px]  ">
@@ -306,8 +328,8 @@ export function PaymentsHistoryTable({
                   </Button>
                   <Button
                     className="flex-1 lg:flex-none text-xs sm:text-sm h-9 sm:h-10"
-                    disabled={disabled}
-                    onClick={() => generatePaymentPdf(order, supplier)}
+                    disabled={disabled || busyKey === `${order.id}-pdf`}
+                    onClick={() => handleDownloadPdf(order)}
                     size="sm"
                     type="button"
                     variant="outline"
