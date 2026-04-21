@@ -6,12 +6,12 @@ import { personalOnboardingSchema, type PersonalOnboardingValues } from '../sche
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { useOnboardingStore } from '@/stores/onboarding-store'
 import { OnboardingService } from '@/services/onboarding.service'
 import { toast } from 'sonner'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { FileDropzone } from '@/components/shared/file-dropzone'
 import { Loader2, CheckCircle2, FileText } from 'lucide-react'
 import { TosIframeModal } from './tos-iframe-modal'
@@ -24,6 +24,7 @@ import {
   EXPECTED_MONTHLY_PAYMENTS,
   EMPLOYMENT_STATUS_OPTIONS,
   BRIDGE_COUNTRIES,
+  COUNTRY_SUBDIVISIONS,
 } from '@/lib/bridge-constants'
 import { OccupationCombobox } from '@/components/shared/occupation-combobox'
 
@@ -46,6 +47,7 @@ export function PersonalForm({
   const [pendingFiles, setPendingFiles] = useState<Record<string, File>>({})
 
   const form = useForm<PersonalOnboardingValues>({
+
     resolver: zodResolver(personalOnboardingSchema),
     defaultValues: {
       first_name:                    (formData.first_name as string) || '',
@@ -81,6 +83,12 @@ export function PersonalForm({
   // form.watch debe ir DESPUÉS de useForm — fix lint "used before declaration"
   const selectedIdType = form.watch('id_type')
   const requiredDocuments = getRequiredDocumentsForId(selectedIdType)
+  const watchedCountry = form.watch('country')
+  const subdivisions = COUNTRY_SUBDIVISIONS[watchedCountry] ?? []
+
+  useEffect(() => {
+    form.setValue('state', '')
+  }, [watchedCountry, form])
 
   // ── Avanzar entre pasos con validación parcial ────────────────────
   const handleNext = async () => {
@@ -395,7 +403,28 @@ export function PersonalForm({
                 <FormItem><FormLabel>Ciudad</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
               <FormField control={form.control} name="state" render={({ field }) => (
-                <FormItem><FormLabel>Estado / Provincia</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>Estado / Provincia</FormLabel>
+                  {subdivisions.length > 0 ? (
+                    <Select onValueChange={field.onChange} value={field.value || ''}>
+                      <FormControl>
+                        <SelectTrigger>
+                          {field.value
+                            ? subdivisions.find(s => s.value === field.value)?.label ?? field.value
+                            : <span className="text-muted-foreground">Selecciona un estado / provincia</span>}
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {subdivisions.map(s => (
+                          <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <FormControl><Input placeholder="Estado / Provincia" {...field} /></FormControl>
+                  )}
+                  <FormMessage />
+                </FormItem>
               )} />
               <FormField control={form.control} name="postal_code" render={({ field }) => (
                 <FormItem><FormLabel>Código Postal</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>

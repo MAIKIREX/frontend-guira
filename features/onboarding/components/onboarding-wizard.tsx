@@ -169,7 +169,7 @@ export function OnboardingWizard() {
             <div className="absolute -bottom-8 -right-8 size-40 text-indigo-500 opacity-[0.03] transition-transform duration-500 group-hover:-rotate-12 group-hover:scale-110 dark:text-indigo-400">
               <User className="h-full w-full" />
             </div>
-            
+
             <div className="mb-5 flex size-12 items-center justify-center rounded-xl bg-indigo-100/80 text-indigo-700 shadow-sm transition-colors group-hover:bg-indigo-100 dark:bg-indigo-500/20 dark:text-indigo-400">
               <User className="size-6" />
             </div>

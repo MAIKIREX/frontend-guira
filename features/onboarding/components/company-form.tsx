@@ -6,12 +6,12 @@ import { companyOnboardingSchema, type CompanyOnboardingValues } from '../schema
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { useOnboardingStore } from '@/stores/onboarding-store'
 import { OnboardingService } from '@/services/onboarding.service'
 import { toast } from 'sonner'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { FileDropzone } from '@/components/shared/file-dropzone'
 import { ExternalLink, Loader2, PlusCircle, Trash2 } from 'lucide-react'
 import Flag from 'react-world-flags'
@@ -24,6 +24,7 @@ import {
   HIGH_RISK_ACTIVITIES,
   BRIDGE_COUNTRIES,
   BUSINESS_INDUSTRIES,
+  COUNTRY_SUBDIVISIONS,
 } from '@/lib/bridge-constants'
 import { TosIframeModal } from './tos-iframe-modal'
 import { getRequiredDocumentsForId } from '@/lib/document-requirements'
@@ -109,6 +110,13 @@ export function CompanyForm({
   const legalRepIdType = form.watch('legal_rep_id_type')
   const legalRepDocs = getRequiredDocumentsForId(legalRepIdType)
   const ubosWatched = form.watch('ubos') || []
+  const watchedCountry = form.watch('country')
+  const watchedPhysicalCountry = form.watch('physical_country')
+  const subdivisions = COUNTRY_SUBDIVISIONS[watchedCountry] ?? []
+  const physicalSubdivisions = COUNTRY_SUBDIVISIONS[watchedPhysicalCountry ?? ''] ?? []
+
+  useEffect(() => { form.setValue('state', '') }, [watchedCountry, form])
+  useEffect(() => { form.setValue('physical_state', '') }, [watchedPhysicalCountry, form])
 
   // ── Navegación entre pasos ─────────────────────────────────────
   const handleNext = async () => {
@@ -486,7 +494,28 @@ export function CompanyForm({
                 <FormItem><FormLabel>Ciudad</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
               <FormField control={form.control as any} name="state" render={({ field }) => (
-                <FormItem><FormLabel>Estado / Provincia</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>Estado / Provincia</FormLabel>
+                  {subdivisions.length > 0 ? (
+                    <Select onValueChange={field.onChange} value={field.value || ''}>
+                      <FormControl>
+                        <SelectTrigger>
+                          {field.value
+                            ? subdivisions.find(s => s.value === field.value)?.label ?? field.value
+                            : <span className="text-muted-foreground">Selecciona un estado / provincia</span>}
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {subdivisions.map(s => (
+                          <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <FormControl><Input placeholder="Estado / Provincia" {...field} /></FormControl>
+                  )}
+                  <FormMessage />
+                </FormItem>
               )} />
               <FormField control={form.control as any} name="postal_code" render={({ field }) => (
                 <FormItem><FormLabel>Código Postal</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
@@ -535,7 +564,28 @@ export function CompanyForm({
                 <FormItem><FormLabel>Ciudad (operacional)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
               <FormField control={form.control as any} name="physical_state" render={({ field }) => (
-                <FormItem><FormLabel>Estado / Provincia (operacional)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>Estado / Provincia (operacional)</FormLabel>
+                  {physicalSubdivisions.length > 0 ? (
+                    <Select onValueChange={field.onChange} value={field.value || ''}>
+                      <FormControl>
+                        <SelectTrigger>
+                          {field.value
+                            ? physicalSubdivisions.find(s => s.value === field.value)?.label ?? field.value
+                            : <span className="text-muted-foreground">Selecciona un estado / provincia</span>}
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {physicalSubdivisions.map(s => (
+                          <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <FormControl><Input placeholder="Estado / Provincia" {...field} /></FormControl>
+                  )}
+                  <FormMessage />
+                </FormItem>
               )} />
               <FormField control={form.control as any} name="physical_postal_code" render={({ field }) => (
                 <FormItem><FormLabel>Código Postal (operacional)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
