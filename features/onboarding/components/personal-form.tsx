@@ -11,7 +11,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { useOnboardingStore } from '@/stores/onboarding-store'
 import { OnboardingService } from '@/services/onboarding.service'
 import { toast } from 'sonner'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { FileDropzone } from '@/components/shared/file-dropzone'
 import { Loader2, CheckCircle2, FileText } from 'lucide-react'
 import { TosIframeModal } from './tos-iframe-modal'
@@ -89,8 +89,15 @@ export function PersonalForm({
   const watchedCountry = form.watch('country')
   const subdivisions = COUNTRY_SUBDIVISIONS[watchedCountry] ?? []
 
+  // Ref para distinguir el montaje inicial de un cambio manual de país.
+  // Sin esto, el useEffect borra el valor de state restaurado desde el backend.
+  const prevCountryRef = useRef(watchedCountry)
+
   useEffect(() => {
-    form.setValue('state', '')
+    if (prevCountryRef.current !== undefined && prevCountryRef.current !== watchedCountry) {
+      form.setValue('state', '')
+    }
+    prevCountryRef.current = watchedCountry
   }, [watchedCountry, form])
 
   // ── Cargar documentos existentes del servidor al montar ─────────────
@@ -440,9 +447,7 @@ export function PersonalForm({
               )} />
               <FormField control={form.control} name="state" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>
-                    Estado / Provincia{subdivisions.length > 0 && <span className="text-destructive"> *</span>}
-                  </FormLabel>
+                  <FormLabel>Estado / Provincia</FormLabel>
                   {subdivisions.length > 0 ? (
                     <Select onValueChange={field.onChange} value={field.value || ''}>
                       <FormControl>
