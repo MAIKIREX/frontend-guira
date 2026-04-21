@@ -61,7 +61,9 @@ export function OnboardingActions({ actor, record, onUpdated }: { actor: StaffAc
     
     const statuses: StaffOnboardingActionValues['status'][] = []
     if (record.status !== 'approved') statuses.push('approved')
-    if (record.status !== 'in_review') statuses.push('in_review')
+    // "Solicitar Correcciones" siempre visible para que el staff pueda pedir
+    // cambios al cliente, incluso cuando el status actual ya es 'in_review'.
+    statuses.push('in_review')
     if (record.status !== 'rejected') statuses.push('rejected')
     return statuses
   }, [record.status])
@@ -148,25 +150,34 @@ function OnboardingActionDialog({ actor, defaultStatus, onUpdated, record }: { a
     }
   }
 
+  const triggerVariant = defaultStatus === 'rejected' ? 'destructive' as const : 'outline' as const
+  const confirmVariant = defaultStatus === 'rejected' ? 'destructive' as const : 'default' as const
+  const quickComments = ONBOARDING_QUICK_COMMENTS[defaultStatus] ?? []
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="sm" variant="outline" />}>{getOnboardingActionLabel(defaultStatus)}</DialogTrigger>
+      <DialogTrigger render={<Button size="sm" variant={triggerVariant} />}>{getOnboardingActionLabel(defaultStatus)}</DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{getOnboardingActionLabel(defaultStatus)}</DialogTitle>
-          <DialogDescription>Esta accion registra auditoria, sincroniza `profiles.onboarding_status` y notifica al cliente.</DialogDescription>
+          <DialogDescription>{getOnboardingActionDescription(defaultStatus)}</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form className="space-y-4" onSubmit={form.handleSubmit(submit)}>
             <FormField control={form.control} name="reason" render={({ field }) => (
               <FormItem>
-                <FormLabel>Motivo</FormLabel>
-                <FormControl><Textarea {...field} placeholder="Explica el cambio de estado" /></FormControl>
+                <FormLabel>Motivo / Mensaje al cliente</FormLabel>
+                {quickComments.length > 0 && (
+                  <QuickCommentsList comments={quickComments} onSelect={(c) => form.setValue('reason', c, { shouldValidate: true })} />
+                )}
+                <FormControl><Textarea {...field} placeholder={getOnboardingActionPlaceholder(defaultStatus)} /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />
             <DialogFooter>
-              <Button disabled={form.formState.isSubmitting} type="submit">{form.formState.isSubmitting ? 'Guardando...' : 'Confirmar'}</Button>
+              <Button disabled={form.formState.isSubmitting} type="submit" variant={confirmVariant}>
+                {form.formState.isSubmitting ? 'Guardando...' : getOnboardingActionLabel(defaultStatus)}
+              </Button>
             </DialogFooter>
           </form>
         </Form>
@@ -1241,12 +1252,55 @@ function hasClientDepositEvidence(order: PaymentOrder) {
 function getOnboardingActionLabel(status: StaffOnboardingActionValues['status']) {
   switch (status) {
     case 'approved':
-      return 'Aprobar'
+      return 'Enviar a Bridge'
     case 'in_review':
       return 'Solicitar Correcciones'
     case 'rejected':
       return 'Rechazar'
   }
+}
+
+function getOnboardingActionDescription(status: StaffOnboardingActionValues['status']) {
+  switch (status) {
+    case 'approved':
+      return 'Los datos serán enviados a Bridge para verificación KYC/KYB. La aprobación final depende de la respuesta de Bridge vía webhook. El review permanece abierto hasta recibir confirmación.'
+    case 'in_review':
+      return 'El cliente recibirá una notificación con tu mensaje y podrá editar su formulario para corregir los datos. El wizard le mostrará tus observaciones como un banner de alerta. El review permanece abierto.'
+    case 'rejected':
+      return 'El expediente se cerrará permanentemente. El cliente NO podrá re-enviar su solicitud y recibirá una notificación de rechazo.'
+  }
+}
+
+function getOnboardingActionPlaceholder(status: StaffOnboardingActionValues['status']) {
+  switch (status) {
+    case 'approved':
+      return 'Describe la validación realizada antes de enviar a Bridge'
+    case 'in_review':
+      return 'Indica al cliente qué debe corregir. Ej: "Suba nuevamente su documento de identidad en mejor resolución"'
+    case 'rejected':
+      return 'Explica el motivo del rechazo definitivo'
+  }
+}
+
+const ONBOARDING_QUICK_COMMENTS: Record<string, string[]> = {
+  in_review: [
+    'Añadir dato de estado/provincia',
+    'Documento de identidad ilegible, favor resubir en mejor resolución',
+    'La selfie no coincide con el documento de identidad',
+    'Falta subir prueba de domicilio',
+    'Corregir dirección residencial, no es válida',
+    'Fecha de vencimiento del documento expirada',
+    'Datos personales incompletos, favor revisar nombres y apellidos',
+  ],
+  rejected: [
+    'Documentación fraudulenta detectada',
+    'No cumple requisitos mínimos de compliance',
+    'Datos inconsistentes tras múltiples correcciones',
+  ],
+  approved: [
+    'Datos y documentos verificados satisfactoriamente',
+    'Expediente completo y conforme a normativa',
+  ],
 }
 
 function calculateQuotedAmountConverted(amountOrigin: number, exchangeRateApplied: number, feeTotal: number) {

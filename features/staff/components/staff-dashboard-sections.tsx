@@ -127,6 +127,13 @@ export function StaffOnboardingTable({
   const pendingKybs = records.filter((r) => r.type === 'company' && ((r.status as string) === 'in_review' || (r.status as string) === 'kyb_submitted' || (r.status as string) === 'submitted' || (r.status as string) === 'open')).length
   const pendingPayouts = records.filter((r) => (r as any).subject_type === 'payout_request' && ((r.status as string) === 'open' || (r.status as string) === 'pending')).length
 
+  // Resubmissions: records that have observations from a previous NEEDS_CHANGES decision
+  // AND are now back in a review-pending status (the client has corrected and re-submitted).
+  const RESUBMIT_STATUSES = ['submitted', 'in_review', 'kyc_submitted', 'kyb_submitted', 'open']
+  const isRecordResubmitted = (r: typeof records[number]) =>
+    !!r.observations && RESUBMIT_STATUSES.includes(r.status as string)
+  const resubmittedCount = records.filter(isRecordResubmitted).length
+
   const filteredRecords = records.filter((record) => {
     const matchesStatus = matchesFilterValue(record.status, statusFilter)
     const matchesType = matchesFilterValue(record.type, typeFilter)
@@ -152,7 +159,7 @@ export function StaffOnboardingTable({
       </CardHeader>
       <CardContent className="space-y-4 px-0 pb-0">
         {/* Compliance summary stats */}
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Card className={cn('border-border/70 transition-colors', pendingKycs > 0 && 'border-amber-500/40 bg-amber-500/5')}>
             <CardContent className="flex items-center gap-3 p-4">
               <div className={cn('flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted/50', pendingKycs > 0 && 'bg-amber-500/15')}>
@@ -183,6 +190,17 @@ export function StaffOnboardingTable({
               <div>
                 <div className="text-2xl font-bold tabular-nums">{pendingPayouts}</div>
                 <div className="text-xs font-medium text-muted-foreground">Payouts en Revisión</div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className={cn('border-border/70 transition-colors', resubmittedCount > 0 && 'border-orange-500/40 bg-orange-500/5')}>
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className={cn('flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted/50', resubmittedCount > 0 && 'bg-orange-500/15')}>
+                <RefreshCw className={cn('size-5 text-muted-foreground', resubmittedCount > 0 && 'text-orange-600')} />
+              </div>
+              <div>
+                <div className="text-2xl font-bold tabular-nums">{resubmittedCount}</div>
+                <div className="text-xs font-medium text-muted-foreground">Re-envíos Pendientes</div>
               </div>
             </CardContent>
           </Card>
@@ -223,8 +241,10 @@ export function StaffOnboardingTable({
               No hay resultados con los filtros actuales.
             </div>
           ) : (
-            filteredRecords.map((record) => (
-              <Card key={record.id} className="border-border/70 bg-card/95 shadow-sm">
+            filteredRecords.map((record) => {
+              const resubmitted = isRecordResubmitted(record)
+              return (
+              <Card key={record.id} className={cn('border-border/70 bg-card/95 shadow-sm', resubmitted && 'border-l-2 border-l-orange-500 bg-orange-500/[0.03]')}>
                 <CardContent className="space-y-4 p-4">
                   <div className="flex items-start gap-3">
                     <Avatar className="size-11 rounded-xl ring-1 ring-border/70">
@@ -245,7 +265,14 @@ export function StaffOnboardingTable({
                   <div className="grid gap-3 rounded-xl border border-border/60 bg-muted/15 p-3 sm:grid-cols-2">
                     <div className="space-y-1">
                       <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Estado</div>
-                      <StatusBadge value={record.status} />
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <StatusBadge value={record.status} />
+                        {resubmitted && (
+                          <Badge className="border-orange-400/40 bg-orange-400/10 text-orange-700 dark:text-orange-300 text-[10px] px-1.5 py-0">
+                            Re-envío
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Tipo</div>
@@ -275,7 +302,8 @@ export function StaffOnboardingTable({
                   </div>
                 </CardContent>
               </Card>
-            ))
+              )
+            })
           )}
         </div>
 
@@ -297,8 +325,10 @@ export function StaffOnboardingTable({
               ) : hasActiveFilters && filteredRecords.length === 0 ? (
                 <EmptyRow colSpan={6} message="No hay resultados con los filtros actuales." />
               ) : (
-                filteredRecords.map((record) => (
-                  <TableRow key={record.id}>
+                filteredRecords.map((record) => {
+                  const resubmitted = isRecordResubmitted(record)
+                  return (
+                  <TableRow key={record.id} className={cn(resubmitted && 'border-l-2 border-l-orange-500 bg-orange-500/[0.03]')}>
                     <TableCell className="min-w-0">
                       <div className="flex items-start gap-3">
                         <Avatar className="size-10 shrink-0 rounded-xl ring-1 ring-border/70">
@@ -322,7 +352,16 @@ export function StaffOnboardingTable({
                     <TableCell className="align-top">
                       <span className="text-sm font-medium text-foreground">{record.type}</span>
                     </TableCell>
-                    <TableCell className="align-top"><StatusBadge value={record.status} /></TableCell>
+                    <TableCell className="align-top">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <StatusBadge value={record.status} />
+                        {resubmitted && (
+                          <Badge className="border-orange-400/40 bg-orange-400/10 text-orange-700 dark:text-orange-300 text-[10px] px-1.5 py-0">
+                            Re-envío
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="align-top text-sm text-foreground">{formatDate(record.updated_at)}</TableCell>
                     <TableCell className="hidden max-w-[280px] align-top text-sm text-muted-foreground xl:table-cell">
                       <div className="overflow-hidden [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
@@ -340,7 +379,8 @@ export function StaffOnboardingTable({
                       </div>
                     </TableCell>
                   </TableRow>
-                ))
+                  )
+                })
               )}
             </TableBody>
           </Table>
