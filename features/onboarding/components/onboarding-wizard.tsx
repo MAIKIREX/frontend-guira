@@ -109,8 +109,8 @@ export function OnboardingWizard() {
     return <div className="p-8 text-center text-muted-foreground">Redirigiendo al panel...</div>
   }
 
-  // 'in_review' y 'submitted' son los estados reales del backend
-  if (status === 'submitted' || status === 'in_review') {
+  // 'in_review', 'submitted' y 'pending_bridge' son los estados operativos del backend
+  if (status === 'submitted' || status === 'in_review' || status === 'pending_bridge') {
     return (
       <div className="max-w-xl mx-auto mt-12 px-4">
         <Card>
@@ -118,13 +118,10 @@ export function OnboardingWizard() {
             <CheckCircle2 className="w-16 h-16 text-primary mx-auto mb-4" />
             <CardTitle className="text-2xl">Solicitud en Revisión</CardTitle>
             <CardDescription>
-              Hemos recibido tus datos y documentos. Nuestro equipo los revisará en las próximas horas hábiles.
-              Recibirás una notificación cuando haya novedades.
+              Hemos recibido tus datos y documentos. El equipo de cumplimiento está procesando tu solicitud.
+              Recibirás una notificación por correo electrónico cuando haya novedades.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex justify-center">
-            <Button variant="outline" onClick={() => router.push('/panel')}>Ir al panel</Button>
-          </CardContent>
         </Card>
       </div>
     )
@@ -143,9 +140,6 @@ export function OnboardingWizard() {
               Contáctanos si necesitas más información.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex justify-center gap-3">
-            <Button variant="outline" onClick={() => router.push('/panel')}>Ir al panel</Button>
-          </CardContent>
         </Card>
       </div>
     )
