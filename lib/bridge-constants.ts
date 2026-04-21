@@ -880,6 +880,17 @@ export type BridgeCountryCode = typeof BRIDGE_COUNTRIES[number]['value']
 
 // ─── Subdivisions — ISO 3166-2 (código sin prefijo de país, ej. "L" no "BO-L") ─
 export const COUNTRY_SUBDIVISIONS: Record<string, { value: string; label: string }[]> = {
+  BOL: [
+    { value: 'B', label: 'El Beni' },
+    { value: 'C', label: 'Cochabamba' },
+    { value: 'H', label: 'Chuquisaca' },
+    { value: 'L', label: 'La Paz' },
+    { value: 'N', label: 'Pando' },
+    { value: 'O', label: 'Oruro' },
+    { value: 'P', label: 'Potosí' },
+    { value: 'S', label: 'Santa Cruz' },
+    { value: 'T', label: 'Tarija' },
+  ],
   ARG: [
     { value: 'C', label: 'Ciudad Autónoma de Buenos Aires' },
     { value: 'B', label: 'Buenos Aires' },

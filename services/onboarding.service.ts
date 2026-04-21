@@ -261,6 +261,7 @@ export interface KybApplicationResponse {
   status: KycStatus
   tos_accepted_at?: string
   submitted_at?: string
+  observations?: string
   created_at: string
   updated_at: string
 }
@@ -531,7 +532,7 @@ export const OnboardingService = {
           id: kyb.id,
           type: 'company' as const,
           status: kyb.status,
-          observations: null,
+          observations: kyb.observations ?? null,
           data: formData,
         }
       }

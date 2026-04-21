@@ -217,11 +217,11 @@ export function OnboardingWizard() {
       <StepProgressRail currentStep={getOnboardingStepKey(step)} getStepLabel={getOnboardingStepLabel} steps={getOnboardingSteps(type)} />
 
       {status === 'needs_review' && (
-        <div className="bg-destructive/10 border-l-4 border-destructive p-4 mb-6 rounded flex items-start">
-          <AlertCircle className="w-5 h-5 text-destructive mr-3 mt-0.5" />
-          <div>
-            <p className="font-semibold text-destructive">Observaciones a corregir:</p>
-            <p className="text-sm text-destructive">{observations}</p>
+        <div className="bg-amber-50 dark:bg-amber-500/10 border-l-4 border-amber-500 p-4 mb-6 rounded-md flex items-start shadow-sm">
+          <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-500 mr-3 mt-0.5 flex-shrink-0" />
+          <div className="flex-1">
+            <h3 className="font-semibold text-amber-800 dark:text-amber-400">Acción Requerida</h3>
+            <p className="text-sm text-amber-700 dark:text-amber-300 mt-1 whitespace-pre-wrap">{observations || "Por favor, revisa y corrige la información de tu solicitud."}</p>
           </div>
         </div>
       )}
