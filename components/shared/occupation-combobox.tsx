@@ -17,16 +17,16 @@ import { OCCUPATION_OPTIONS } from '@/lib/bridge-constants'
 
 // ─── Ocupaciones populares (las más frecuentes en la plataforma) ──────────────
 const POPULAR_CODES = [
-  '151252', // Software Developers
-  '132011', // Accountants and Auditors
-  '231011', // Lawyers
-  '111021', // General and Operations Managers
-  '291240', // General Physicians
-  '412031', // Retail Salespersons
-  '113031', // Financial Managers
-  '541511', // Programadores (uses O*NET code from list)
-  '999999', // Other
-  '999998', // Not Specified
+  '151252', // Software Developer
+  '132011', // Accountant and Auditor
+  '231011', // Lawyer
+  '111021', // General and Operations Manager
+  '291141', // Registered Nurse
+  '412031', // Retail Salesperson
+  '113031', // Financial Manager
+  '151251', // Computer Programmer
+  '434051', // Customer Service Representative
+  '999999', // Unemployed / Other
 ]
 
 // ─── Categorías con emoji para agrupación visual ──────────────────────────────
@@ -39,23 +39,28 @@ interface OccupationCategory {
 const CATEGORIES: OccupationCategory[] = [
   { emoji: '👔', label: 'Gerencia y Dirección',         range: ['111', '119'] },
   { emoji: '💰', label: 'Finanzas y Negocios',          range: ['131', '132'] },
-  { emoji: '💻', label: 'Ciencias e Ingeniería',        range: ['151', '172'] },
-  { emoji: '🩺', label: 'Salud',                        range: ['291', '299'] },
-  { emoji: '🎓', label: 'Educación',                    range: ['251', '254'] },
+  { emoji: '💻', label: 'Computación y Tecnología',     range: ['151', '151'] },
+  { emoji: '📐', label: 'Matemáticas',                  range: ['152', '152'] },
+  { emoji: '🔬', label: 'Ingeniería',                   range: ['171', '173'] },
+  { emoji: '🧪', label: 'Ciencias Naturales',           range: ['191', '195'] },
+  { emoji: '👥', label: 'Trabajo Social y Consejería',  range: ['211', '212'] },
+  { emoji: '🎓', label: 'Educación',                    range: ['251', '259'] },
   { emoji: '⚖️', label: 'Legal',                        range: ['231', '232'] },
   { emoji: '🎨', label: 'Arte, Diseño y Media',         range: ['271', '274'] },
+  { emoji: '🩺', label: 'Salud — Profesionales',        range: ['291', '292'] },
+  { emoji: '🏥', label: 'Apoyo Sanitario',              range: ['299', '319'] },
+  { emoji: '🛡️', label: 'Protección y Seguridad',       range: ['331', '339'] },
+  { emoji: '🍳', label: 'Alimentos y Servicios',        range: ['351', '359'] },
+  { emoji: '🧹', label: 'Limpieza y Jardinería',        range: ['371', '373'] },
+  { emoji: '✂️', label: 'Cuidado Personal',             range: ['391', '399'] },
   { emoji: '🛒', label: 'Ventas',                       range: ['411', '419'] },
   { emoji: '🏢', label: 'Oficina y Administración',     range: ['431', '439'] },
-  { emoji: '🔧', label: 'Instalación y Mantenimiento',  range: ['492', '499'] },
-  { emoji: '🍳', label: 'Alimentos y Servicios',        range: ['351', '359'] },
-  { emoji: '🏗️', label: 'Construcción',                 range: ['472', '472'] },
-  { emoji: '🚛', label: 'Transporte',                   range: ['531', '536'] },
-  { emoji: '🌾', label: 'Agricultura',                  range: ['452', '454'] },
-  { emoji: '🛡️', label: 'Protección y Seguridad',       range: ['331', '332'] },
-  { emoji: '🏥', label: 'Apoyo Sanitario',              range: ['311', '319'] },
-  { emoji: '👥', label: 'Trabajo Social',               range: ['211', '211'] },
-  { emoji: '🏠', label: 'Limpieza y Jardinería',        range: ['371', '393'] },
-  { emoji: '🏭', label: 'Producción e Industria',       range: ['511', '514'] },
+  { emoji: '🌾', label: 'Agricultura',                  range: ['451', '454'] },
+  { emoji: '🏗️', label: 'Construcción y Extracción',    range: ['471', '475'] },
+  { emoji: '🔧', label: 'Instalación y Mantenimiento',  range: ['491', '499'] },
+  { emoji: '🏭', label: 'Producción',                   range: ['511', '519'] },
+  { emoji: '🚛', label: 'Transporte y Carga',           range: ['531', '537'] },
+  { emoji: '🎖️', label: 'Militar',                      range: ['551', '554'] },
 ]
 
 function getCategoryForCode(code: string): OccupationCategory | null {

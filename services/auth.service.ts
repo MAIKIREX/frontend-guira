@@ -60,10 +60,23 @@ export const AuthService = {
       password,
       options: {
         data: { full_name: fullName },
-        emailRedirectTo: `${window.location.origin}/login?verified=true`, // Aquí controlas a dónde redirige tras confirmar
+        emailRedirectTo: `${window.location.origin}/login?verified=true`,
       },
     })
     if (error) throw error
+
+    // ─── Validación: detectar email ya registrado ───
+    // Supabase NO lanza error cuando el email ya existe; en su lugar retorna
+    // un objeto user con `identities: []` (array vacío). Sin esta verificación,
+    // el usuario vería "Cuenta creada" cuando en realidad no se creó nada.
+    if (
+      data.user &&
+      (!data.user.identities || data.user.identities.length === 0)
+    ) {
+      throw new Error(
+        'Ya existe una cuenta registrada con este correo electrónico. Por favor, inicia sesión o recupera tu contraseña.',
+      )
+    }
 
     // Paso 2: Notificar al backend para setup inicial (perfil, wallet, onboarding)
     // El interceptor de axios tomará el JWT recién creado automáticamente
@@ -72,9 +85,17 @@ export const AuthService = {
         full_name: fullName,
         email,
       })
-    } catch (backendError) {
-      // Si el backend falla, el usuario quedó en Supabase pero sin perfil
-      // Se puede reintentar en el siguiente login
+    } catch (backendError: unknown) {
+      // Si el backend responde 409 (Conflict), significa que ya existe la cuenta
+      // en el backend — propagar el error al usuario en vez de silenciarlo.
+      const status = (backendError as { response?: { status?: number } })?.response?.status
+      if (status === 409) {
+        throw new Error(
+          'Ya existe una cuenta registrada con este correo electrónico. Por favor, inicia sesión o recupera tu contraseña.',
+        )
+      }
+      // Para otros errores no-conflicto, el usuario quedó en Supabase pero sin perfil.
+      // Se puede reintentar en el siguiente login (el middleware de onboarding lo maneja).
       console.error('[AuthService] Backend registration failed after Supabase signup:', backendError)
     }
 
