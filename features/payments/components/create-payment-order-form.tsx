@@ -179,7 +179,7 @@ export function CreatePaymentOrderForm({
   const [loadingVirtualAccounts, setLoadingVirtualAccounts] = useState(false)
 
   const routeOptions = useMemo(
-    () => supportedPaymentRoutes.filter((entry) => !allowedRoutes || allowedRoutes.includes(entry.key)),
+    () => supportedPaymentRoutes.filter((entry) => (!allowedRoutes || allowedRoutes.includes(entry.key)) && !entry.hidden),
     [allowedRoutes]
   )
   const resolvedDefaultRoute = routeOptions.some((entry) => entry.key === defaultRoute)

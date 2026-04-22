@@ -19,6 +19,7 @@ export const supportedPaymentRoutes: Array<{
   description: string
   supportedDeliveryMethods: DeliveryMethod[]
   disabled?: boolean
+  hidden?: boolean
 }> = [
   {
     key: 'bolivia_to_exterior',
@@ -38,6 +39,7 @@ export const supportedPaymentRoutes: Array<{
     description: 'Expediente US_TO_WALLET para fondeo PSAV con entrega final a wallet.',
     supportedDeliveryMethods: ['ach'],
     disabled: true,
+    hidden: true,
   },
   {
     key: 'crypto_to_crypto',
