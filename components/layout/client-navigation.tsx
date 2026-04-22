@@ -9,7 +9,7 @@ const clientLinks = [
   { href: '/panel', label: 'Panel', icon: LayoutDashboard },
   { href: '/cuentas', label: 'Mis Cuentas', icon: Wallet },
   { href: '/depositar', label: 'Depositar', icon: ArrowDownToLine },
-  { href: '/enviar', label: 'Enviar', icon: ArrowUpFromLine },
+  { href: '/enviar', label: 'Enviar / Retirar', icon: ArrowUpFromLine },
   { href: '/proveedores', label: 'Proveedores', icon: UsersRound },
   { href: '/transacciones', label: 'Transacciones', icon: Waypoints },
   { href: '/configuracion', label: 'Configuracion', icon: Settings },

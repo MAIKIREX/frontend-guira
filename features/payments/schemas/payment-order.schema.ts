@@ -11,6 +11,7 @@ export const paymentOrderSchema = z
       'crypto_to_crypto',
       'wallet_ramp_deposit',
       'wallet_ramp_withdraw',
+      'wallet_to_fiat',
     ]),
     receive_variant: z.enum(['bank_account', 'bank_qr', 'wallet']).optional(),
     ui_method_group: z.enum(['bank', 'crypto']).optional(),
@@ -52,9 +53,36 @@ export const paymentOrderSchema = z
     withdraw_bank_name: z.string().trim().optional(),
     withdraw_account_number: z.string().trim().optional(),
     withdraw_account_holder: z.string().trim().optional(),
+    // wallet_to_fiat: origen on-chain
+    wallet_to_fiat_source_network: z.string().trim().optional(),
+    wallet_to_fiat_source_address: z.string().trim().optional(),
+    wallet_to_fiat_source_currency: z.string().trim().optional(),
   })
   .superRefine((value, ctx) => {
-    
+
+    // ── wallet_to_fiat validations ──
+    if (value.route === 'wallet_to_fiat') {
+      const VALID_NETWORKS = ['ethereum', 'solana', 'tron', 'polygon', 'stellar']
+      if (!value.wallet_to_fiat_source_network) {
+        ctx.addIssue({ code: 'custom', message: 'Selecciona la red de origen.', path: ['wallet_to_fiat_source_network'] })
+      } else if (!VALID_NETWORKS.includes(value.wallet_to_fiat_source_network)) {
+        ctx.addIssue({ code: 'custom', message: `Red inválida. Opciones: ${VALID_NETWORKS.join(', ')}`, path: ['wallet_to_fiat_source_network'] })
+      }
+      if (!value.wallet_to_fiat_source_currency) {
+        ctx.addIssue({ code: 'custom', message: 'Selecciona el token de origen (usdc / usdt).', path: ['wallet_to_fiat_source_currency'] })
+      }
+      if (!value.wallet_to_fiat_source_address || value.wallet_to_fiat_source_address.trim().length < 10) {
+        ctx.addIssue({ code: 'custom', message: 'Ingresa la dirección on-chain de origen.', path: ['wallet_to_fiat_source_address'] })
+      }
+      if (!value.supplier_id) {
+        ctx.addIssue({ code: 'custom', message: 'Selecciona un proveedor fiat destino.', path: ['supplier_id'] })
+      }
+      if (!value.payment_reason || value.payment_reason.trim().length < 5) {
+        ctx.addIssue({ code: 'custom', message: 'El motivo del retiro es obligatorio (mín. 5 caracteres).', path: ['payment_reason'] })
+      }
+      return
+    }
+
     if (value.route === 'wallet_ramp_deposit') {
       if (!value.wallet_ramp_method) {
         ctx.addIssue({ code: 'custom', message: 'Debes seleccionar un método de fondeo.', path: ['wallet_ramp_method'] })

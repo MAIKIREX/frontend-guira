@@ -250,6 +250,7 @@ export interface KycApplicationResponse {
   submitted_at?: string
   approved_at?: string
   observations?: string
+  field_observations?: Record<string, string>
   created_at: string
   updated_at: string
 }
@@ -262,6 +263,7 @@ export interface KybApplicationResponse {
   tos_accepted_at?: string
   submitted_at?: string
   observations?: string
+  field_observations?: Record<string, string>
   created_at: string
   updated_at: string
 }
@@ -464,6 +466,7 @@ export const OnboardingService = {
     type: 'personal' | 'company'
     status: KycStatus
     observations: string | null
+    fieldObservations: Record<string, string>
     data: Record<string, unknown> | null
   } | null> {
     try {
@@ -507,6 +510,7 @@ export const OnboardingService = {
           type: 'personal' as const,
           status: kyc.status,
           observations: kyc.observations ?? null,
+          fieldObservations: kyc.field_observations ?? {},
           data: formData,
         }
       }
@@ -533,6 +537,7 @@ export const OnboardingService = {
           type: 'company' as const,
           status: kyb.status,
           observations: kyb.observations ?? null,
+          fieldObservations: kyb.field_observations ?? {},
           data: formData,
         }
       }

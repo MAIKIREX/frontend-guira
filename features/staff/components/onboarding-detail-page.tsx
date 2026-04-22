@@ -173,6 +173,9 @@ function OnboardingDetailScene({
       <Tabs className="gap-5" defaultValue="form-data">
         <TabsList variant="line" className="w-full flex-wrap justify-start rounded-none border-b border-border/70 bg-transparent p-0">
           <TabsTrigger className="rounded-none px-4 py-3" value="form-data">Formulario</TabsTrigger>
+          {record.previous_data && (
+            <TabsTrigger className="rounded-none px-4 py-3" value="diff-view">Cambios (Diff)</TabsTrigger>
+          )}
           <TabsTrigger className="rounded-none px-4 py-3" value="documents">Documentos</TabsTrigger>
           <TabsTrigger className="rounded-none px-4 py-3" value="activity">Actividad</TabsTrigger>
           <TabsTrigger className="rounded-none px-4 py-3" value="decision">Decision</TabsTrigger>
@@ -195,6 +198,26 @@ function OnboardingDetailScene({
             </Card>
           </div>
         </TabsContent>
+
+        {record.previous_data && (
+          <TabsContent value="diff-view">
+            <div className="mx-auto max-w-5xl">
+              <Card className="border-border/70 bg-card/95">
+                <CardHeader>
+                  <CardTitle>Análisis de Cambios (Diff)</CardTitle>
+                  <CardDescription>
+                    Comparación entre la información actual provista por el usuario y los datos previos a la solicitud de corrección. Los campos marcados en verde son los que el cliente ha modificado.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {buildDiffSections(record, record.previous_data, data).map((section) => (
+                    <SectionDiffBlock key={section.title} section={section} />
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        )}
 
         <TabsContent value="documents">
           <div className="mx-auto max-w-6xl">
@@ -519,6 +542,67 @@ function CompactInfoList({ rows }: { rows: SummaryRow[] }) {
   )
 }
 
+interface DiffRow {
+  label: string
+  oldValue: string | null
+  newValue: string | null
+  isChanged: boolean
+}
+
+interface DiffSection {
+  title: string
+  description: string
+  rows: DiffRow[]
+}
+
+function SectionDiffBlock({ section }: { section: DiffSection }) {
+  if (section.rows.length === 0) return null
+
+  const hasChanges = section.rows.some((row) => row.isChanged)
+
+  return (
+    <div className="space-y-4 rounded-xl border border-border/50 bg-background/50 p-5">
+      <div className="flex items-start justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">{section.title}</h3>
+          <p className="mt-1 text-xs text-muted-foreground">{section.description}</p>
+        </div>
+        {hasChanges && (
+          <Badge variant="outline" className="border-emerald-400/40 bg-emerald-400/10 text-emerald-700 dark:text-emerald-300">
+            Cambios detectados
+          </Badge>
+        )}
+      </div>
+
+      <div className="mt-4 divide-y divide-border/70 rounded-2xl border border-border/70 bg-background/40">
+        {section.rows.map((row) => (
+          <div key={row.label} className="grid gap-2 px-4 py-3 md:grid-cols-[180px_1fr] md:items-start">
+            <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+              {row.label}
+            </div>
+            <div className={`grid gap-2 ${row.isChanged ? 'md:grid-cols-2' : 'md:grid-cols-1'}`}>
+              {row.isChanged ? (
+                <>
+                  <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-2 text-sm line-through text-muted-foreground">
+                    {row.oldValue || <span className="text-xs italic">Ninguno</span>}
+                  </div>
+                  <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-2 text-sm text-foreground">
+                    {row.newValue || <span className="text-xs italic">Eliminado</span>}
+                  </div>
+                </>
+              ) : (
+                <div className="text-sm leading-6 text-foreground">
+                  {row.newValue}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function MetaRow({
   icon: Icon,
   label,
@@ -603,6 +687,45 @@ function buildCaseSummary(record: StaffOnboardingRecord) {
     caseTypeLabel: record.type === 'company' ? 'Empresa' : 'Persona natural',
     profileStatus: record.profiles?.onboarding_status ?? record.status,
   }
+}
+
+function buildDiffSections(record: StaffOnboardingRecord, prevData: Record<string, unknown>, newData: Record<string, unknown>): DiffSection[] {
+  const prevSections = buildStructuredSections(record, prevData)
+  const newSections = buildStructuredSections(record, newData)
+
+  return newSections.map((newSection, idx) => {
+    const prevSection = prevSections[idx] || { rows: [] }
+    const prevMap = new Map(prevSection.rows.map(r => [r.label, r.value]))
+    
+    const diffRows: DiffRow[] = newSection.rows.map(newRow => {
+      const oldValue = prevMap.get(newRow.label) ?? null
+      const newValue = newRow.value
+      return {
+        label: newRow.label,
+        oldValue,
+        newValue,
+        isChanged: oldValue !== newValue
+      }
+    })
+
+    const newMap = new Map(newSection.rows.map(r => [r.label, r.value]))
+    prevSection.rows.forEach(prevRow => {
+      if (!newMap.has(prevRow.label)) {
+        diffRows.push({
+          label: prevRow.label,
+          oldValue: prevRow.value,
+          newValue: null,
+          isChanged: true
+        })
+      }
+    })
+
+    return {
+      title: newSection.title,
+      description: newSection.description,
+      rows: diffRows.filter(r => r.oldValue !== null || r.newValue !== null)
+    }
+  })
 }
 
 function buildStructuredSections(record: StaffOnboardingRecord, data: Record<string, unknown>): DetailSection[] {

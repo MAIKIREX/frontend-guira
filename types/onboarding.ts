@@ -66,6 +66,7 @@ export interface Onboarding {
   type: OnboardingType
   status: OnboardingStatus
   data: Record<string, unknown>
+  previous_data?: Record<string, unknown> | null
   observations?: string
   bridge_customer_id?: string
   created_at: string

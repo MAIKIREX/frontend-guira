@@ -96,6 +96,7 @@ export const ComplianceAdminService = {
       type: raw.onboarding_type ?? 'personal',
       status: (raw.profile?.onboarding_status ?? raw.application_status ?? 'in_review') as StaffOnboardingRecord['status'],
       data: raw.application_data ?? {},
+      previous_data: raw.previous_data ?? null,
       observations: (raw.comments as Array<{ body: string }> | null)?.[0]?.body,
       bridge_customer_id: raw.profile?.bridge_customer_id ?? undefined,
       created_at: (raw.opened_at ?? '') as string,
@@ -137,6 +138,7 @@ export const ComplianceAdminService = {
     record: StaffOnboardingRecord
     status: Extract<OnboardingStatus, 'approved' | 'rejected' | 'in_review'>
     reason: string
+    fieldObservations?: Record<string, string>
   }) {
     if (args.status === 'approved') {
       await apiPost(
@@ -149,7 +151,12 @@ export const ComplianceAdminService = {
     if (args.status === 'in_review') {
       await apiPost(
         `/admin/compliance/reviews/${args.record.id}/request-changes`,
-        { reason: args.reason },
+        {
+          reason: args.reason,
+          ...(args.fieldObservations && Object.keys(args.fieldObservations).length > 0
+            ? { field_observations: args.fieldObservations }
+            : {}),
+        },
       )
       return { ...args.record, status: 'in_review' } as StaffOnboardingRecord
     }

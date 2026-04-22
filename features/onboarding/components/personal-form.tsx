@@ -14,6 +14,7 @@ import { toast } from 'sonner'
 import { useState, useEffect, useRef } from 'react'
 import { FileDropzone } from '@/components/shared/file-dropzone'
 import { Loader2, CheckCircle2, FileText } from 'lucide-react'
+import { FieldObservationAlert } from './field-observation-alert'
 import { TosIframeModal } from './tos-iframe-modal'
 import Flag from 'react-world-flags'
 import { PhoneInputField } from '@/components/shared/phone-input-field'
@@ -33,10 +34,12 @@ import { getRequiredDocumentsForId } from '@/lib/document-requirements'
 export function PersonalForm({
   userId,
   onStatusChange,
+  fieldObservations = {},
 }: {
   status: string | null
   userId: string
   onStatusChange: (status: string) => void
+  fieldObservations?: Record<string, string>
 }) {
   const { step, setStep, formData, updateFormData, reset } = useOnboardingStore()
   const [isUploading, setIsUploading] = useState(false)
@@ -283,16 +286,16 @@ export function PersonalForm({
             <div className="grid grid-cols-2 gap-4">
 
               <FormField control={form.control} name="first_name" render={({ field }) => (
-                <FormItem><FormLabel>Nombre(s)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Nombre(s)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="first_name" fieldObservations={fieldObservations} /></FormItem>
               )} />
               <FormField control={form.control} name="middle_name" render={({ field }) => (
-                <FormItem><FormLabel>Segundo Nombre (opcional)</FormLabel><FormControl><Input {...field} placeholder="Si aplica" /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Segundo Nombre (opcional)</FormLabel><FormControl><Input {...field} placeholder="Si aplica" /></FormControl><FormMessage /><FieldObservationAlert fieldName="middle_name" fieldObservations={fieldObservations} /></FormItem>
               )} />
               <FormField control={form.control} name="last_name" render={({ field }) => (
-                <FormItem><FormLabel>Apellido(s)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Apellido(s)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="last_name" fieldObservations={fieldObservations} /></FormItem>
               )} />
               <FormField control={form.control} name="date_of_birth" render={({ field }) => (
-                <FormItem><FormLabel>Fecha de Nacimiento</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Fecha de Nacimiento</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="date_of_birth" fieldObservations={fieldObservations} /></FormItem>
               )} />
 
               {/* Nacionalidad */}
@@ -325,6 +328,7 @@ export function PersonalForm({
                     </SelectContent>
                   </Select>
                   <FormMessage />
+                  <FieldObservationAlert fieldName="nationality" fieldObservations={fieldObservations} />
                 </FormItem>
               )} />
 
@@ -358,6 +362,7 @@ export function PersonalForm({
                     </SelectContent>
                   </Select>
                   <FormMessage />
+                  <FieldObservationAlert fieldName="country_of_residence" fieldObservations={fieldObservations} />
                 </FormItem>
               )} />
 
@@ -380,18 +385,19 @@ export function PersonalForm({
                     </SelectContent>
                   </Select>
                   <FormMessage />
+                  <FieldObservationAlert fieldName="id_type" fieldObservations={fieldObservations} />
                 </FormItem>
               )} />
 
               <FormField control={form.control} name="id_number" render={({ field }) => (
-                <FormItem><FormLabel>Nro. de Documento</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Nro. de Documento</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="id_number" fieldObservations={fieldObservations} /></FormItem>
               )} />
               <FormField control={form.control} name="id_expiry_date" render={({ field }) => (
-                <FormItem><FormLabel>Vencimiento del Documento</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Vencimiento del Documento</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="id_expiry_date" fieldObservations={fieldObservations} /></FormItem>
               )} />
 
               <FormField control={form.control} name="email" render={({ field }) => (
-                <FormItem><FormLabel>Email de Contacto</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Email de Contacto</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="email" fieldObservations={fieldObservations} /></FormItem>
               )} />
               <FormField control={form.control} name="phone" render={({ field }) => (
                 <FormItem>
@@ -407,6 +413,7 @@ export function PersonalForm({
                     El código de país se detecta automáticamente según tu nacionalidad
                   </FormDescription>
                   <FormMessage />
+                  <FieldObservationAlert fieldName="phone" fieldObservations={fieldObservations} />
                 </FormItem>
               )} />
 
@@ -437,13 +444,13 @@ export function PersonalForm({
             <h2 className="text-xl font-medium">Dirección de Residencia</h2>
             <div className="grid grid-cols-2 gap-4">
               <FormField control={form.control} name="address1" render={({ field }) => (
-                <FormItem className="col-span-2"><FormLabel>Calle y Número</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem className="col-span-2"><FormLabel>Calle y Número</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="address1" fieldObservations={fieldObservations} /></FormItem>
               )} />
               <FormField control={form.control} name="address2" render={({ field }) => (
-                <FormItem className="col-span-2"><FormLabel>Complemento (opcional)</FormLabel><FormControl><Input placeholder="Apto, Piso, etc." {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem className="col-span-2"><FormLabel>Complemento (opcional)</FormLabel><FormControl><Input placeholder="Apto, Piso, etc." {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="address2" fieldObservations={fieldObservations} /></FormItem>
               )} />
               <FormField control={form.control} name="city" render={({ field }) => (
-                <FormItem><FormLabel>Ciudad</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Ciudad</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="city" fieldObservations={fieldObservations} /></FormItem>
               )} />
               <FormField control={form.control} name="state" render={({ field }) => (
                 <FormItem>
@@ -467,10 +474,11 @@ export function PersonalForm({
                     <FormControl><Input placeholder="Estado / Provincia" {...field} /></FormControl>
                   )}
                   <FormMessage />
+                  <FieldObservationAlert fieldName="state" fieldObservations={fieldObservations} />
                 </FormItem>
               )} />
               <FormField control={form.control} name="postal_code" render={({ field }) => (
-                <FormItem><FormLabel>Código Postal</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Código Postal</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="postal_code" fieldObservations={fieldObservations} /></FormItem>
               )} />
 
               <FormField control={form.control} name="country" render={({ field }) => (
@@ -502,6 +510,7 @@ export function PersonalForm({
                     </SelectContent>
                   </Select>
                   <FormMessage />
+                  <FieldObservationAlert fieldName="country" fieldObservations={fieldObservations} />
                 </FormItem>
               )} />
             </div>
@@ -674,6 +683,7 @@ export function PersonalForm({
                     helperText={helperText || 'Máximo 10MB'}
                     onFileSelect={(file) => handleDocSelect(id, file)}
                   />
+                  <FieldObservationAlert fieldName={id} fieldObservations={fieldObservations} />
                 </div>
               ))}
               
@@ -697,6 +707,7 @@ export function PersonalForm({
                   helperText="Factura de servicios, extracto bancario (max 3 meses)"
                   onFileSelect={(file) => handleDocSelect('proof_of_address', file)}
                 />
+                <FieldObservationAlert fieldName="proof_of_address" fieldObservations={fieldObservations} />
               </div>
             </div>
 

@@ -12,6 +12,7 @@ export type SupportedPaymentRoute =
   | 'crypto_to_crypto'
   | 'wallet_ramp_deposit'
   | 'wallet_ramp_withdraw'
+  | 'wallet_to_fiat'
 
 export const supportedPaymentRoutes: Array<{
   key: SupportedPaymentRoute
@@ -20,18 +21,21 @@ export const supportedPaymentRoutes: Array<{
   supportedDeliveryMethods: DeliveryMethod[]
   disabled?: boolean
   hidden?: boolean
+  category?: 'interbank' | 'ramp'
 }> = [
   {
     key: 'bolivia_to_exterior',
     label: 'Bolivia al exterior',
     description: 'Expediente BO_TO_WORLD con entrega SWIFT, ACH o crypto.',
     supportedDeliveryMethods: ['swift', 'ach', 'crypto'],
+    category: 'interbank',
   },
   {
     key: 'world_to_bolivia',
     label: 'Exterior a Bolivia',
-    description: 'Expediente WORLD_TO_BO para depositos desde el exterior con destino Bolivia.',
+    description: 'Recibe fondos desde una cuenta en el exterior y deposítalos directamente en tu cuenta bancaria en Bolivia.',
     supportedDeliveryMethods: ['ach'],
+    category: 'interbank',
   },
   {
     key: 'us_to_wallet',
@@ -40,24 +44,35 @@ export const supportedPaymentRoutes: Array<{
     supportedDeliveryMethods: ['ach'],
     disabled: true,
     hidden: true,
+    category: 'interbank',
   },
   {
     key: 'crypto_to_crypto',
     label: 'Crypto a crypto',
     description: 'Expediente CRYPTO_TO_CRYPTO con DIGITAL_NETWORK.',
     supportedDeliveryMethods: ['crypto'],
+    category: 'interbank',
   },
   {
     key: 'wallet_ramp_deposit',
     label: 'Deposita a tu wallet',
     description: 'Fondea tu wallet Bridge desde bolivianos, crypto externo o USD (EE.UU.).',
     supportedDeliveryMethods: [], // no aplica delivery method técnico
+    category: 'ramp',
   },
   {
     key: 'wallet_ramp_withdraw',
     label: 'Retirar fondos de mi Wallet',
     description: 'Retira fondos de tu wallet a tu cuenta en Bolivia (BOB), cuenta en EE.UU. o a una wallet externa.',
     supportedDeliveryMethods: [], // no aplica delivery method técnico
+    category: 'ramp',
+  },
+  {
+    key: 'wallet_to_fiat',
+    label: 'Wallet → Cuenta Bancaria',
+    description: 'Envía crypto desde tu wallet on-chain (Solana, Ethereum, Tron, Polygon, Stellar) directo a la cuenta bancaria fiat de un proveedor.',
+    supportedDeliveryMethods: [],
+    category: 'interbank',
   },
 ]
 
@@ -90,6 +105,8 @@ export function resolveFlowType(route: SupportedPaymentRoute, deliveryMethod?: s
       if (walletRampWithdrawMethod === 'crypto') return 'bridge_wallet_to_crypto'
       if (walletRampWithdrawMethod === 'fiat_us') return 'bridge_wallet_to_fiat_us'
       return 'bridge_wallet_to_fiat_bo'
+    case 'wallet_to_fiat':
+      return 'wallet_to_fiat'
   }
 }
 
@@ -102,6 +119,7 @@ export function buildPaymentOrderPayload(
   const isWalletRamp = [
     'fiat_bo_to_bridge_wallet', 'crypto_to_bridge_wallet', 'fiat_us_to_bridge_wallet',
     'bridge_wallet_to_fiat_bo', 'bridge_wallet_to_crypto', 'bridge_wallet_to_fiat_us',
+    'wallet_to_fiat',
   ].includes(flowType)
 
   const payload: any = {
@@ -181,6 +199,13 @@ export function buildPaymentOrderPayload(
       payload.wallet_id = values.wallet_ramp_wallet_id
       payload.source_currency = values.origin_currency
       payload.external_account_id = supplier?.bridge_external_account_id || supplier?.id || undefined
+      break
+    case 'wallet_to_fiat':
+      payload.source_network = (values as any).wallet_to_fiat_source_network
+      payload.source_address = (values as any).wallet_to_fiat_source_address
+      payload.source_currency = (values as any).wallet_to_fiat_source_currency
+      payload.supplier_id = supplier?.id
+      payload.business_purpose = values.payment_reason
       break
   }
 

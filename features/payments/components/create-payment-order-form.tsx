@@ -62,6 +62,7 @@ import { AnimatedBackButton } from '@/components/shared/animated-back-button'
 import { StepProgressRail } from '@/features/payments/components/step-progress-rail'
 import { WalletRampDetailStep } from '@/features/payments/components/wallet-ramp-detail-step'
 import { WalletWithdrawDetailStep } from '@/features/payments/components/wallet-withdraw-detail-step'
+import { WalletToFiatDetailStep } from '@/features/payments/components/wallet-to-fiat-detail-step'
 import { ACTIVE_CRYPTO_NETWORKS, CRYPTO_NETWORK_LABELS, resolveCryptoNetwork } from '@/features/payments/lib/crypto-networks'
 import {
   paymentOrderSchema,
@@ -148,6 +149,12 @@ const ROUTE_STAGE_COPY: Record<SupportedPaymentRoute, {
     detailDescription: 'Ingresa el monto, selecciona tu wallet Bridge y los datos de tu cuenta bancaria boliviana.',
     finishTitle: 'Retiro en proceso',
     finishDescription: 'Tu orden fue creada y la transferencia de fondos está en camino. Recibirás tus bolivianos en tu cuenta bancaria.',
+  },
+  wallet_to_fiat: {
+    detailTitle: 'Envío desde wallet on-chain',
+    detailDescription: 'Selecciona la red, el token y la dirección origen. Bridge realizará la conversión y acreditará al proveedor seleccionado.',
+    finishTitle: 'Transferencia on-chain iniciada',
+    finishDescription: 'Tu solicitud fue enviada a Bridge. Los fondos serán enviados desde tu dirección on-chain al proveedor fiat una vez que Bridge los detecte.',
   },
 }
 
@@ -245,11 +252,14 @@ export function CreatePaymentOrderForm({
   const shouldHideSupplier = currentRoute.key === 'us_to_wallet' || currentRoute.key === 'world_to_bolivia' || currentRoute.key === 'crypto_to_crypto' || (currentRoute.key === 'wallet_ramp_withdraw' && walletRampWithdrawMethod !== 'fiat_us')
   const requiresSupplierSelection = currentRoute.key === 'bolivia_to_exterior'
   const hasSupplierSelected = Boolean(selectedSupplier)
-  const showSupportUpload = currentRoute.key === 'world_to_bolivia' || !isDepositRouteActive
+  const showSupportUpload = (currentRoute.key === 'world_to_bolivia' || !isDepositRouteActive) && currentRoute.key !== 'wallet_to_fiat'
 
-  // Para retiros a cuenta bancaria US, solo mostrar proveedores con external account registrada en Bridge
+  // Para retiros a cuenta bancaria US y wallet_to_fiat, solo mostrar proveedores con external account registrada en Bridge
   const filteredSuppliers = useMemo(() => {
-    if (currentRoute.key === 'wallet_ramp_withdraw' && walletRampWithdrawMethod === 'fiat_us') {
+    if (
+      (currentRoute.key === 'wallet_ramp_withdraw' && walletRampWithdrawMethod === 'fiat_us') ||
+      currentRoute.key === 'wallet_to_fiat'
+    ) {
       return suppliers.filter((s) => s.bridge_external_account_id)
     }
     return suppliers
@@ -709,32 +719,67 @@ export function CreatePaymentOrderForm({
                     <FormField
                       control={form.control}
                       name="route"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className={FORM_LABEL_CLASS}>Ruta soportada</FormLabel>
-                          <FormControl>
-                            <div className="grid gap-3 sm:grid-cols-2">
-                              {routeOptions.map((entry) => (
-                                <SelectionCard
-                                  key={entry.key}
-                                  description={entry.description}
-                                  disabled={disabled || entry.disabled}
-                                  icon={Landmark}
-                                  isSelected={field.value === entry.key}
-                                  onClick={() => {
-                                    field.onChange(entry.key)
-                                    setCreatedOrder(null)
-                                    setSupportFile(null)
-                                    setEvidenceFile(null)
-                                  }}
-                                  title={entry.label}
-                                />
-                              ))}
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                      render={({ field }) => {
+                        const interbankRoutes = routeOptions.filter(r => r.category === 'interbank' || !r.category)
+                        const rampRoutes = routeOptions.filter(r => r.category === 'ramp')
+
+                        return (
+                          <FormItem>
+                            <FormLabel className={FORM_LABEL_CLASS}>Ruta soportada</FormLabel>
+                            <FormControl>
+                              <div className="space-y-6">
+                                {interbankRoutes.length > 0 && (
+                                  <div className="space-y-3">
+                                    <h3 className="text-sm font-medium text-foreground">Interbank</h3>
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                      {interbankRoutes.map((entry) => (
+                                        <SelectionCard
+                                          key={entry.key}
+                                          description={entry.description}
+                                          disabled={disabled || entry.disabled}
+                                          icon={Landmark}
+                                          isSelected={field.value === entry.key}
+                                          onClick={() => {
+                                            field.onChange(entry.key)
+                                            setCreatedOrder(null)
+                                            setSupportFile(null)
+                                            setEvidenceFile(null)
+                                          }}
+                                          title={entry.label}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                {rampRoutes.length > 0 && (
+                                  <div className="space-y-3">
+                                    <h3 className="text-sm font-medium text-foreground">Ramp</h3>
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                      {rampRoutes.map((entry) => (
+                                        <SelectionCard
+                                          key={entry.key}
+                                          description={entry.description}
+                                          disabled={disabled || entry.disabled}
+                                          icon={Landmark}
+                                          isSelected={field.value === entry.key}
+                                          onClick={() => {
+                                            field.onChange(entry.key)
+                                            setCreatedOrder(null)
+                                            setSupportFile(null)
+                                            setEvidenceFile(null)
+                                          }}
+                                          title={entry.label}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )
+                      }}
                     />
 
                     <div className="flex justify-end mt-8">
@@ -770,6 +815,8 @@ export function CreatePaymentOrderForm({
                                   onClick={() => field.onChange('bank_account')}
                                   title="Recibir en cuenta bancaria"
                                 />
+                                {/* Hidden from UI — set to true to re-enable */}
+                                {false && (
                                 <SelectionCard
                                   description="Adjunta el QR bancario o respaldo y crea el expediente sin proveedor. (Próximamente)"
                                   disabled={true} // Inhabilitado temporalmente a petición
@@ -778,6 +825,7 @@ export function CreatePaymentOrderForm({
                                   onClick={() => field.onChange('bank_qr')}
                                   title="Recibir por QR"
                                 />
+                                )}
                               </div>
                             </FormControl>
                             <FormMessage />
@@ -849,7 +897,7 @@ export function CreatePaymentOrderForm({
                           <FormItem>
                             <FormLabel className={FORM_LABEL_CLASS}>¿Desde dónde depositas?</FormLabel>
                             <FormControl>
-                              <div className="grid gap-3 md:grid-cols-3">
+                              <div className="grid gap-3 sm:grid-cols-2">
                                 <SelectionCard
                                   description="Deposita bolivianos y recibe USDC al tipo de cambio del día."
                                   disabled={disabled}
@@ -874,6 +922,8 @@ export function CreatePaymentOrderForm({
                                   }}
                                   title="Desde crypto externo"
                                 />
+                                {/* Hidden from UI — set to true to re-enable */}
+                                {false && (
                                 <SelectionCard
                                   description="Tu Virtual Account fondea tu wallet automáticamente. No necesitas crear un expediente."
                                   disabled={true}
@@ -886,6 +936,7 @@ export function CreatePaymentOrderForm({
                                   }}
                                   title="Desde cuenta USD (EEUU) — Automático"
                                 />
+                                )}
                               </div>
                             </FormControl>
                             <FormMessage />
@@ -992,6 +1043,13 @@ export function CreatePaymentOrderForm({
                           feesConfig={feesConfig}
                           disabled={disabled}
                         />
+                      ) : route === 'wallet_to_fiat' ? (
+                        <WalletToFiatDetailStep
+                          form={form}
+                          feesConfig={feesConfig}
+                          exchangeRates={exchangeRates}
+                          disabled={disabled}
+                        />
                       ) : (
                           <>
                           <NumericField control={form.control} disabled={disabled} label={getAmountLabel(currentRoute.key)} name="amount_origin" />
@@ -1046,11 +1104,17 @@ export function CreatePaymentOrderForm({
                                 <p className="text-xs text-amber-500">
                                   No tienes proveedores con cuenta externa bancaria (ACH/Wire) registrada. Crea uno en la sección Proveedores para continuar.
                                 </p>
+                              ) : currentRoute.key === 'wallet_to_fiat' && filteredSuppliers.length === 0 ? (
+                                <p className="text-xs text-amber-500">
+                                  No tienes proveedores con cuenta bancaria externa registrada en Bridge. Crea uno en la sección Proveedores.
+                                </p>
                               ) : (
                                 <p className="text-xs text-muted-foreground">
                                   {currentRoute.key === 'wallet_ramp_withdraw' && walletRampWithdrawMethod === 'fiat_us'
                                     ? 'Solo se muestran proveedores con cuenta bancaria externa registrada en Bridge (ACH/Wire).'
-                                    : 'Debes crear un proveedor con los datos correctos antes de usar esta opcion.'}
+                                    : currentRoute.key === 'wallet_to_fiat'
+                                      ? 'Solo se muestran proveedores con cuenta bancaria externa registrada en Bridge (ACH/Wire).'
+                                      : 'Debes crear un proveedor con los datos correctos antes de usar esta opcion.'}
                                 </p>
                               )}
                               <div className="flex flex-wrap items-center gap-3">
@@ -1074,7 +1138,7 @@ export function CreatePaymentOrderForm({
 
                       {shouldShowExpandedDetail && route !== 'wallet_ramp_deposit' ? (
                         <>
-                          {!shouldHideSupplier ? (
+                          {!shouldHideSupplier && route !== 'wallet_to_fiat' ? (
                             <FormField
                               control={form.control}
                               name="delivery_method"
@@ -1142,7 +1206,7 @@ export function CreatePaymentOrderForm({
                             </>
                           ) : null}
 
-                          {currentRoute.key !== 'us_to_wallet' && currentRoute.key !== 'world_to_bolivia' && currentRoute.key !== 'wallet_ramp_withdraw' ? (
+                          {currentRoute.key !== 'us_to_wallet' && currentRoute.key !== 'world_to_bolivia' && currentRoute.key !== 'wallet_ramp_withdraw' && currentRoute.key !== 'wallet_to_fiat' ? (
                             <>
                               <div className={`grid gap-4 ${(route === 'bolivia_to_exterior' && uiMethodGroup !== 'crypto') ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
                                 {!(route === 'bolivia_to_exterior' && uiMethodGroup === 'crypto') && route !== 'crypto_to_crypto' ? (
@@ -2074,6 +2138,17 @@ function getDetailStepFields({
 
   if (route === 'wallet_ramp_withdraw') {
     return ['amount_origin', 'wallet_ramp_wallet_id', 'withdraw_bank_name', 'withdraw_account_number', 'withdraw_account_holder', 'crypto_address', 'crypto_network', 'supplier_id']
+  }
+
+  if (route === 'wallet_to_fiat') {
+    return [
+      'amount_origin',
+      'wallet_to_fiat_source_network' as any,
+      'wallet_to_fiat_source_currency' as any,
+      'wallet_to_fiat_source_address' as any,
+      'supplier_id',
+      'payment_reason',
+    ]
   }
 
   if (route === 'bolivia_to_exterior') {

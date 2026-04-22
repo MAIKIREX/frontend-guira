@@ -14,6 +14,7 @@ import { toast } from 'sonner'
 import { useState, useEffect } from 'react'
 import { FileDropzone } from '@/components/shared/file-dropzone'
 import { ExternalLink, Loader2, PlusCircle, Trash2 } from 'lucide-react'
+import { FieldObservationAlert } from './field-observation-alert'
 import Flag from 'react-world-flags'
 import {
   BUSINESS_TYPES,
@@ -39,10 +40,12 @@ export function CompanyForm({
   status,
   userId,
   onStatusChange,
+  fieldObservations = {},
 }: {
   status: string | null
   userId: string
   onStatusChange: (status: string) => void
+  fieldObservations?: Record<string, string>
 }) {
   const { step, setStep, formData, updateFormData, reset } = useOnboardingStore()
   const [isUploading, setIsUploading] = useState(false)
@@ -381,16 +384,16 @@ export function CompanyForm({
             <h2 className="text-xl font-medium">Información de la Empresa</h2>
             <div className="grid grid-cols-2 gap-4">
               <FormField control={form.control as any} name="legal_name" render={({ field }) => (
-                <FormItem><FormLabel>Razón Social</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Razón Social</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="legal_name" fieldObservations={fieldObservations} /></FormItem>
               )} />
               <FormField control={form.control as any} name="trade_name" render={({ field }) => (
-                <FormItem><FormLabel>Nombre Comercial (opcional)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Nombre Comercial (opcional)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="trade_name" fieldObservations={fieldObservations} /></FormItem>
               )} />
               <FormField control={form.control as any} name="registration_number" render={({ field }) => (
-                <FormItem><FormLabel>Nro. de Registro</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Nro. de Registro</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="registration_number" fieldObservations={fieldObservations} /></FormItem>
               )} />
               <FormField control={form.control as any} name="tax_id" render={({ field }) => (
-                <FormItem><FormLabel>NIT / Tax ID</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>NIT / Tax ID</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="tax_id" fieldObservations={fieldObservations} /></FormItem>
               )} />
 
               <FormField control={form.control as any} name="entity_type" render={({ field }) => (
@@ -501,7 +504,7 @@ export function CompanyForm({
               )} />
 
               <FormField control={form.control as any} name="email" render={({ field }) => (
-                <FormItem><FormLabel>Email Corporativo</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Email Corporativo</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="email" fieldObservations={fieldObservations} /></FormItem>
               )} />
               <FormField control={form.control as any} name="phone" render={({ field }) => (
                 <FormItem><FormLabel>Teléfono (opcional)</FormLabel><FormControl><Input placeholder="+1 415 555 0100" {...field} /></FormControl><FormMessage /></FormItem>
@@ -521,10 +524,10 @@ export function CompanyForm({
             <p className="text-xs text-muted-foreground">Domicilio legal de la empresa según el registro mercantil.</p>
             <div className="grid grid-cols-2 gap-4">
               <FormField control={form.control as any} name="address1" render={({ field }) => (
-                <FormItem className="col-span-2"><FormLabel>Calle y Número</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem className="col-span-2"><FormLabel>Calle y Número</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="address1" fieldObservations={fieldObservations} /></FormItem>
               )} />
               <FormField control={form.control as any} name="city" render={({ field }) => (
-                <FormItem><FormLabel>Ciudad</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Ciudad</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="city" fieldObservations={fieldObservations} /></FormItem>
               )} />
               <FormField control={form.control as any} name="state" render={({ field }) => (
                 <FormItem>
@@ -660,10 +663,10 @@ export function CompanyForm({
             <p className="text-xs text-muted-foreground">Será registrado como director firmante en el expediente KYB.</p>
             <div className="grid grid-cols-2 gap-4">
               <FormField control={form.control as any} name="legal_rep_first_name" render={({ field }) => (
-                <FormItem><FormLabel>Nombres</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Nombres</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="legal_rep_first_name" fieldObservations={fieldObservations} /></FormItem>
               )} />
               <FormField control={form.control as any} name="legal_rep_last_name" render={({ field }) => (
-                <FormItem><FormLabel>Apellidos</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Apellidos</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="legal_rep_last_name" fieldObservations={fieldObservations} /></FormItem>
               )} />
               <FormField control={form.control as any} name="legal_rep_position" render={({ field }) => (
                 <FormItem><FormLabel>Cargo</FormLabel><FormControl><Input placeholder="CEO, Director, etc." {...field} /></FormControl><FormMessage /></FormItem>

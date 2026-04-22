@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { useForm, useWatch, type Control, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -51,9 +51,26 @@ import {
 } from '@/features/staff/schemas/staff-actions.schema'
 import { StaffService } from '@/services/staff.service'
 import { ComplianceAdminService } from '@/services/admin/compliance.admin.service'
+import { RejectionTemplatesService } from '@/services/admin/rejection-templates.service'
 import { ACCEPTED_UPLOADS } from '@/lib/file-validation'
 import type { StaffActor, StaffOnboardingRecord, StaffSupportTicket } from '@/types/staff'
 import type { PaymentOrder } from '@/types/payment-order'
+
+/**
+ * Hook that fetches quick-comment templates from the API, cached in-memory.
+ * Falls back to an empty array on error so the UI never breaks.
+ */
+function useDynamicQuickComments(category: string) {
+  const [comments, setComments] = useState<string[]>([])
+  useEffect(() => {
+    let cancelled = false
+    RejectionTemplatesService.getQuickComments(category)
+      .then((data) => { if (!cancelled) setComments(data) })
+      .catch(() => { /* silently fallback to empty */ })
+    return () => { cancelled = true }
+  }, [category])
+  return comments
+}
 
 export function OnboardingActions({ actor, record, onUpdated }: { actor: StaffActor; record: StaffOnboardingRecord; onUpdated: (record: StaffOnboardingRecord) => Promise<void> | void }) {
   const availableStatuses = useMemo(() => {
@@ -132,17 +149,48 @@ export function OnboardingDetailDialog({ actor, record, onUpdated }: { actor: St
 
 function OnboardingActionDialog({ actor, defaultStatus, onUpdated, record }: { actor: StaffActor; defaultStatus: StaffOnboardingActionValues['status']; onUpdated: (record: StaffOnboardingRecord) => Promise<void> | void; record: StaffOnboardingRecord }) {
   const [open, setOpen] = useState(false)
+  const [fieldObservations, setFieldObservations] = useState<Record<string, string>>({})
+  const [newFieldKey, setNewFieldKey] = useState('')
+  const [newFieldMessage, setNewFieldMessage] = useState('')
   const form = useForm<StaffOnboardingActionValues>({
     resolver: zodResolver(staffOnboardingActionSchema),
     defaultValues: { status: defaultStatus, reason: '' },
   })
 
+  const isRequestChanges = defaultStatus === 'in_review'
+
+  // Common field names for quick selection
+  const FIELD_OPTIONS = record.type === 'kyb'
+    ? ['legal_name', 'tax_id', 'entity_type', 'address1', 'city', 'country', 'email', 'legal_rep_first_name', 'legal_rep_last_name', 'legal_rep_id_number', 'incorporation_certificate', 'id_front', 'id_back', 'proof_of_address']
+    : ['first_name', 'last_name', 'date_of_birth', 'nationality', 'id_type', 'id_number', 'email', 'phone', 'address1', 'city', 'country', 'id_front', 'id_back', 'proof_of_address']
+
+  function addFieldObservation() {
+    if (!newFieldKey || !newFieldMessage.trim()) return
+    setFieldObservations(prev => ({ ...prev, [newFieldKey]: newFieldMessage.trim() }))
+    setNewFieldKey('')
+    setNewFieldMessage('')
+  }
+
+  function removeFieldObservation(key: string) {
+    setFieldObservations(prev => {
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+  }
+
   async function submit(values: StaffOnboardingActionValues) {
     try {
-      const updatedRecord = await ComplianceAdminService.updateOnboardingStatus({ actor, record, status: values.status, reason: values.reason })
+      const updatedRecord = await ComplianceAdminService.updateOnboardingStatus({
+        actor, record,
+        status: values.status,
+        reason: values.reason,
+        fieldObservations: isRequestChanges && Object.keys(fieldObservations).length > 0 ? fieldObservations : undefined,
+      })
       toast.success('Onboarding actualizado.')
       setOpen(false)
       form.reset({ status: defaultStatus, reason: '' })
+      setFieldObservations({})
       await onUpdated(updatedRecord)
     } catch (error) {
       console.error('Failed to update onboarding status', error)
@@ -152,12 +200,12 @@ function OnboardingActionDialog({ actor, defaultStatus, onUpdated, record }: { a
 
   const triggerVariant = defaultStatus === 'rejected' ? 'destructive' as const : 'outline' as const
   const confirmVariant = defaultStatus === 'rejected' ? 'destructive' as const : 'default' as const
-  const quickComments = ONBOARDING_QUICK_COMMENTS[defaultStatus] ?? []
+  const quickComments = useDynamicQuickComments(defaultStatus)
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button size="sm" variant={triggerVariant} />}>{getOnboardingActionLabel(defaultStatus)}</DialogTrigger>
-      <DialogContent>
+      <DialogContent className={isRequestChanges ? 'max-w-2xl max-h-[85vh] overflow-y-auto' : undefined}>
         <DialogHeader>
           <DialogTitle>{getOnboardingActionLabel(defaultStatus)}</DialogTitle>
           <DialogDescription>{getOnboardingActionDescription(defaultStatus)}</DialogDescription>
@@ -174,6 +222,54 @@ function OnboardingActionDialog({ actor, defaultStatus, onUpdated, record }: { a
                 <FormMessage />
               </FormItem>
             )} />
+
+            {/* ── Observaciones por campo (solo para "Solicitar Correcciones") ── */}
+            {isRequestChanges && (
+              <div className="space-y-3 rounded-lg border p-4 bg-amber-50/50 dark:bg-amber-950/20">
+                <Label className="text-sm font-semibold">Observaciones por campo (opcional)</Label>
+                <p className="text-xs text-muted-foreground">
+                  Marca campos específicos que necesitan corrección. El cliente los verá resaltados en su formulario.
+                </p>
+
+                {/* Lista de observaciones actuales */}
+                {Object.entries(fieldObservations).length > 0 && (
+                  <div className="space-y-2">
+                    {Object.entries(fieldObservations).map(([key, msg]) => (
+                      <div key={key} className="flex items-center gap-2 rounded border bg-white dark:bg-zinc-900 px-3 py-2 text-sm">
+                        <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">{key}</code>
+                        <span className="flex-1 truncate text-muted-foreground">{msg}</span>
+                        <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive" onClick={() => removeFieldObservation(key)}>×</Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Formulario para agregar nueva observación */}
+                <div className="flex gap-2">
+                  <Select value={newFieldKey} onValueChange={setNewFieldKey}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Campo..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FIELD_OPTIONS.filter(f => !fieldObservations[f]).map(f => (
+                        <SelectItem key={f} value={f}>{f}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    className="flex-1"
+                    placeholder="Mensaje de corrección..."
+                    value={newFieldMessage}
+                    onChange={(e) => setNewFieldMessage(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addFieldObservation() } }}
+                  />
+                  <Button type="button" variant="outline" size="sm" onClick={addFieldObservation} disabled={!newFieldKey || !newFieldMessage.trim()}>
+                    Agregar
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <DialogFooter>
               <Button disabled={form.formState.isSubmitting} type="submit" variant={confirmVariant}>
                 {form.formState.isSubmitting ? 'Guardando...' : getOnboardingActionLabel(defaultStatus)}
@@ -981,7 +1077,7 @@ function OrderReasonActionDialog({ actor, action, blockedReason, label, onUpdate
             <FormField control={form.control} name="reason" render={({ field }) => (
               <FormItem>
                 <FormLabel>Motivo</FormLabel>
-                <QuickCommentsList comments={QUICK_COMMENTS.failed} onSelect={(c) => form.setValue('reason', c, { shouldValidate: true })} />
+                <DynamicQuickComments category="failed" onSelect={(c) => form.setValue('reason', c, { shouldValidate: true })} />
                 <FormControl><Textarea {...field} placeholder="Describe la accion realizada" /></FormControl>
                 <FormMessage />
               </FormItem>
@@ -1048,7 +1144,7 @@ function OrderQuoteDialog({ actor, onUpdated, order }: { actor: StaffActor; onUp
             <FormField control={form.control} name="reason" render={({ field }) => (
               <FormItem>
                 <FormLabel>Motivo</FormLabel>
-                <QuickCommentsList comments={QUICK_COMMENTS.quote} onSelect={(c) => form.setValue('reason', c, { shouldValidate: true })} />
+                <DynamicQuickComments category="quote" onSelect={(c) => form.setValue('reason', c, { shouldValidate: true })} />
                 <FormControl><Textarea {...field} placeholder="Resume la validacion realizada" /></FormControl>
                 <FormMessage />
               </FormItem>
@@ -1105,7 +1201,7 @@ function OrderSentDialog({ actor, onUpdated, order }: { actor: StaffActor; onUpd
             <FormField control={form.control} name="reason" render={({ field }) => (
               <FormItem>
                 <FormLabel>Motivo</FormLabel>
-                <QuickCommentsList comments={QUICK_COMMENTS.sent} onSelect={(c) => form.setValue('reason', c, { shouldValidate: true })} />
+                <DynamicQuickComments category="sent" onSelect={(c) => form.setValue('reason', c, { shouldValidate: true })} />
                 <FormControl><Textarea {...field} placeholder="Contexto del envio" /></FormControl>
                 <FormMessage />
               </FormItem>
@@ -1164,7 +1260,7 @@ function OrderCompletionDialog({ actor, onUpdated, order }: { actor: StaffActor;
             <FormField control={form.control} name="reason" render={({ field }) => (
               <FormItem>
                 <FormLabel>Motivo</FormLabel>
-                <QuickCommentsList comments={QUICK_COMMENTS.completed} onSelect={(c) => form.setValue('reason', c, { shouldValidate: true })} />
+                <DynamicQuickComments category="completed" onSelect={(c) => form.setValue('reason', c, { shouldValidate: true })} />
                 <FormControl><Textarea {...field} placeholder="Detalle del cierre de expediente" /></FormControl>
                 <FormMessage />
               </FormItem>
@@ -1282,26 +1378,8 @@ function getOnboardingActionPlaceholder(status: StaffOnboardingActionValues['sta
   }
 }
 
-const ONBOARDING_QUICK_COMMENTS: Record<string, string[]> = {
-  in_review: [
-    'Añadir dato de estado/provincia',
-    'Documento de identidad ilegible, favor resubir en mejor resolución',
-    'La selfie no coincide con el documento de identidad',
-    'Falta subir prueba de domicilio',
-    'Corregir dirección residencial, no es válida',
-    'Fecha de vencimiento del documento expirada',
-    'Datos personales incompletos, favor revisar nombres y apellidos',
-  ],
-  rejected: [
-    'Documentación fraudulenta detectada',
-    'No cumple requisitos mínimos de compliance',
-    'Datos inconsistentes tras múltiples correcciones',
-  ],
-  approved: [
-    'Datos y documentos verificados satisfactoriamente',
-    'Expediente completo y conforme a normativa',
-  ],
-}
+// ONBOARDING_QUICK_COMMENTS: migrated to rejection_templates table (Fase 2)
+// Templates are now fetched dynamically via useDynamicQuickComments hook.
 
 function calculateQuotedAmountConverted(amountOrigin: number, exchangeRateApplied: number, feeTotal: number) {
   const safeAmountOrigin = normalizeNumericValue(amountOrigin)
@@ -1326,24 +1404,14 @@ function normalizeNumericValue(value: unknown) {
   return 0
 }
 
-const QUICK_COMMENTS = {
-  failed: [
-    "No se recibio el deposito bancario",
-    "Comprobante ilegible o invalido",
-    "Rechazado por motivos de Compliance",
-  ],
-  quote: [
-    "Deposito bancario validado. Cotizacion lista.",
-    "Comprobante verificado. Se respeta tasa pactada.",
-  ],
-  sent: [
-    "Fondos liberados desde PSAV",
-    "Transferencia procesada. Hash generado.",
-  ],
-  completed: [
-    "Expediente administrativo cerrado",
-    "Comprobante final del staff adjunto y orden completada",
-  ],
+// QUICK_COMMENTS: migrated to rejection_templates table (Fase 2)
+// Templates are now fetched dynamically via DynamicQuickComments component.
+
+/** Wrapper component that fetches comments dynamically and renders QuickCommentsList */
+function DynamicQuickComments({ category, onSelect }: { category: string; onSelect: (comment: string) => void }) {
+  const comments = useDynamicQuickComments(category)
+  if (comments.length === 0) return null
+  return <QuickCommentsList comments={comments} onSelect={onSelect} />
 }
 
 function QuickCommentsList({

@@ -33,7 +33,7 @@ const MODE_CONFIG: Record<WorkspaceMode, {
     description: 'Aqui se crean expedientes para sacar fondos desde Bolivia o moverlos entre redes digitales.',
     eyebrow: 'Enviar',
     defaultRoute: 'bolivia_to_exterior',
-    allowedRoutes: ['bolivia_to_exterior', 'crypto_to_crypto', 'wallet_ramp_withdraw'],
+    allowedRoutes: ['bolivia_to_exterior', 'crypto_to_crypto', 'wallet_ramp_withdraw', 'wallet_to_fiat'],
   },
   proveedores: {
     title: 'Agenda operativa de proveedores',

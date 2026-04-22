@@ -19,7 +19,7 @@ export function OnboardingWizard() {
   const router = useRouter()
   const { user } = useAuthStore()
   const { profile, setProfile } = useProfileStore()
-  const { step, type, formData, setStep, setType, setId, updateFormData } = useOnboardingStore()
+  const { step, type, formData, fieldObservations, setStep, setType, setId, updateFormData, setFieldObservations } = useOnboardingStore()
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState<string | null>(null)
   const [observations, setObservations] = useState<string>('')
@@ -45,6 +45,7 @@ export function OnboardingWizard() {
         if (latest) {
           setStatus(latest.status)
           if (latest.observations) setObservations(latest.observations)
+          if (latest.fieldObservations) setFieldObservations(latest.fieldObservations)
 
           // 'pending' y 'needs_review' permiten al wizard continuar editando
           if (latest.status === 'pending' || latest.status === 'needs_review') {
@@ -54,7 +55,9 @@ export function OnboardingWizard() {
               updateFormData(latest.data as Record<string, unknown>)
             }
             const savedStep = localStorage.getItem(`guira_onboarding_step_${user.id}`)
-            if (savedStep) setStep(parseInt(savedStep, 10))
+            let parsedStep = savedStep ? parseInt(savedStep, 10) : 2
+            if (parsedStep === 1) parsedStep = 2 // Evitar que se quede en el selector de tipo
+            setStep(parsedStep)
           }
         } else {
           const savedType = localStorage.getItem(`guira_onboarding_type_${user.id}`)
@@ -73,7 +76,7 @@ export function OnboardingWizard() {
     }
     init()
     return () => { mounted = false }
-  }, [user, setId, setType, updateFormData, setStep])
+  }, [user, setId, setType, updateFormData, setStep, setFieldObservations])
 
   useEffect(() => {
     if (user && !loading && (status === 'pending' || status === 'needs_review' || status === null)) {
@@ -226,8 +229,8 @@ export function OnboardingWizard() {
         </div>
       )}
 
-      {type === 'personal' && <PersonalForm onStatusChange={handleStatusChange} status={status} userId={user!.id} />}
-      {type === 'company' && <CompanyForm onStatusChange={handleStatusChange} status={status} userId={user!.id} />}
+      {type === 'personal' && <PersonalForm onStatusChange={handleStatusChange} status={status} userId={user!.id} fieldObservations={status === 'needs_review' ? fieldObservations : {}} />}
+      {type === 'company' && <CompanyForm onStatusChange={handleStatusChange} status={status} userId={user!.id} fieldObservations={status === 'needs_review' ? fieldObservations : {}} />}
     </div>
   )
 }
