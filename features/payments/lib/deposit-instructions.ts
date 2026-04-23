@@ -9,6 +9,7 @@ export interface ExchangeRateRecord {
   pair: string
   rate: number
   spread_percent?: number
+  effective_rate?: number
   updated_at?: string
 }
 
@@ -63,19 +64,7 @@ export function estimateRouteValues(args: {
     ? args.exchangeRates.find((r) => r.pair?.toUpperCase() === ratePair)
     : null
 
-  let selectedBaseRate = rateRecord?.rate ?? 1
-
-  // Aplicar spread si existe
-  // BOB_* (dividimos): spread SUBE la tasa → penaliza al usuario
-  // USD_*/USDC_* (multiplicamos): spread BAJA la tasa → penaliza al usuario
-  const spreadPercent = rateRecord?.spread_percent ?? 0
-  if (spreadPercent > 0) {
-    const isBobPair = ratePair.startsWith('BOB_')
-    const spreadMultiplier = isBobPair
-      ? (1 + spreadPercent / 100)
-      : (1 - spreadPercent / 100)
-    selectedBaseRate = selectedBaseRate * spreadMultiplier
-  }
+  let selectedBaseRate = rateRecord?.effective_rate ?? rateRecord?.rate ?? 1
 
   // Con la nueva semántica, la tasa siempre es "BOB por 1 USD"
   // BOB→USD: dividir. USD→BOB: multiplicar.

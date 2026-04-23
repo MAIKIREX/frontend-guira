@@ -192,8 +192,7 @@ export function WalletWithdrawDetailStep({
         exchangeRates.find((r) => r.pair?.toUpperCase() === 'USD_BOB')
       exchangeRateApplied = 6.96 // fallback
       if (rateRecord) {
-        const spread = rateRecord.spread_percent ?? 0
-        exchangeRateApplied = rateRecord.rate * (1 - spread / 100)
+        exchangeRateApplied = rateRecord.effective_rate ?? rateRecord.rate
       }
       const netUsdc = Math.max((Number(amount) || 0) - feeTotal, 0)
       amountConverted = netUsdc * exchangeRateApplied
@@ -227,68 +226,76 @@ export function WalletWithdrawDetailStep({
   // Determine if the submit should be blocked for fiat_bo without bank account
   const isFiatBoBlocked = method === 'fiat_bo' && !bankLoading && !bankAccount
 
+  const walletField = (
+    <FormField
+      control={form.control}
+      name="wallet_ramp_wallet_id"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel className={LABEL_CLASS}>Wallet Bridge (origen)</FormLabel>
+          <Select
+            value={field.value || null}
+            onValueChange={field.onChange}
+            disabled={disabled || wallets.length === 0}
+          >
+            <FormControl>
+              <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
+                <SelectValue placeholder="Seleccionar wallet" />
+              </SelectTrigger>
+            </FormControl>
+            <SelectContent>
+              {wallets.map((w) => (
+                <SelectItem key={w.id} value={w.id}>
+                  <span className="font-medium">{w.label ?? `${w.currency.toUpperCase()} Wallet`}</span>
+                  <span className="ml-1.5 text-muted-foreground text-xs">
+                    ({w.currency.toUpperCase()} · {w.available_balance.toFixed(2)} disponible)
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  )
+
+  const amountField = (
+    <FormField
+      control={form.control}
+      name="amount_origin"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel className={LABEL_CLASS}>Monto a retirar ({displayWithdrawCurrency})</FormLabel>
+          <FormControl>
+            <div className="relative">
+              <Input
+                {...field}
+                type="number"
+                min={0}
+                step="any"
+                placeholder="0.00"
+                disabled={disabled || isFiatBoBlocked}
+                className={cn(FORM_UNDERLINE_INPUT_CLASS, 'text-lg font-medium tracking-[-0.02em] pr-16')}
+              />
+              <span className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
+                {displayWithdrawCurrency}
+              </span>
+            </div>
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  )
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      {/* Wallet origen */}
-      <FormField
-        control={form.control}
-        name="wallet_ramp_wallet_id"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel className={LABEL_CLASS}>Wallet Bridge (origen)</FormLabel>
-            <Select
-              value={field.value || null}
-              onValueChange={field.onChange}
-              disabled={disabled || wallets.length === 0}
-            >
-              <FormControl>
-                <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
-                  <SelectValue placeholder="Seleccionar wallet" />
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                {wallets.map((w) => (
-                  <SelectItem key={w.id} value={w.id}>
-                    <span className="font-medium">{w.label ?? `${w.currency.toUpperCase()} Wallet`}</span>
-                    <span className="ml-1.5 text-muted-foreground text-xs">
-                      ({w.currency.toUpperCase()} · {w.available_balance.toFixed(2)} disponible)
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      {/* Monto */}
-      <FormField
-        control={form.control}
-        name="amount_origin"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel className={LABEL_CLASS}>Monto a retirar ({displayWithdrawCurrency})</FormLabel>
-            <FormControl>
-              <div className="relative">
-                <Input
-                  {...field}
-                  type="number"
-                  min={0}
-                  step="any"
-                  placeholder="0.00"
-                  disabled={disabled || isFiatBoBlocked}
-                  className={cn(FORM_UNDERLINE_INPUT_CLASS, 'text-lg font-medium tracking-[-0.02em] pr-16')}
-                />
-                <span className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
-                  {displayWithdrawCurrency}
-                </span>
-              </div>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+      {method === 'crypto' ? (
+        <>{amountField}{walletField}</>
+      ) : (
+        <>{walletField}{amountField}</>
+      )}
 
       {method === 'fiat_bo' ? (
         <>

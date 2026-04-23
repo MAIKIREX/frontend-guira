@@ -190,7 +190,7 @@ export function usePaymentsModule() {
     }
 
     let order: PaymentOrder;
-    const rampFlows = ['fiat_bo_to_bridge_wallet', 'crypto_to_bridge_wallet', 'fiat_us_to_bridge_wallet', 'bridge_wallet_to_fiat_bo', 'bridge_wallet_to_crypto', 'bridge_wallet_to_fiat_us']
+    const rampFlows = ['fiat_bo_to_bridge_wallet', 'crypto_to_bridge_wallet', 'fiat_us_to_bridge_wallet', 'bridge_wallet_to_fiat_bo', 'bridge_wallet_to_crypto', 'bridge_wallet_to_fiat_us', 'wallet_to_fiat']
     
     if (rampFlows.includes(finalInput.flow_type)) {
       order = await PaymentsService.createWalletRampOrder(finalInput as any)
