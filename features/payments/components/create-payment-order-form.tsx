@@ -611,7 +611,6 @@ export function CreatePaymentOrderForm({
           'wallet_ramp_wallet_id',
           'wallet_ramp_va_id',
           'wallet_ramp_source_network',
-          'wallet_ramp_source_address'
         ], { shouldFocus: true })
 
         if (!isValidWalletRamp) return
@@ -2298,7 +2297,6 @@ function buildReviewItems(args: {
     }
     if (args.values.wallet_ramp_method === 'crypto') {
       items.push({ label: 'Red Cripto Origen', value: args.values.wallet_ramp_source_network || 'Pendiente' })
-      items.push({ label: 'Dirección Cripto Origen', value: args.values.wallet_ramp_source_address || 'Pendiente' })
     }
     if (args.values.wallet_ramp_method === 'fiat_us') {
       const vaSelected = args.virtualAccounts?.find(va => va.id === args.values.wallet_ramp_va_id)

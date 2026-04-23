@@ -174,7 +174,6 @@ export function buildPaymentOrderPayload(
     case 'crypto_to_bridge_wallet':
       payload.wallet_id = values.wallet_ramp_wallet_id
       payload.source_network = values.wallet_ramp_source_network
-      payload.source_address = values.wallet_ramp_source_address
       payload.source_currency = values.origin_currency
       payload.destination_currency = values.wallet_ramp_destination_currency ?? values.destination_currency
       break

@@ -297,27 +297,6 @@ export function WalletRampDetailStep({
               )}
             />
           </div>
-
-          {/* Dirección de origen */}
-          <FormField
-            control={form.control}
-            name="wallet_ramp_source_address"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className={LABEL_CLASS}>Dirección de origen</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    value={field.value ?? ''}
-                    placeholder="0x... / T... / sol..."
-                    className={cn(FORM_UNDERLINE_INPUT_CLASS, FORM_TEXT_CLASS, 'font-mono text-xs')}
-                    disabled={disabled}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
         </div>
       )}
 
