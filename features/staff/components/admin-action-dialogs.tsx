@@ -418,6 +418,7 @@ export function FeeOverridesPanel({ actor, user }: { actor: StaffActor; user: Pr
                           <SelectItem value="ramp_off_bo">Wallet → Fiat BO (2.4)</SelectItem>
                           <SelectItem value="ramp_off_crypto">Wallet → Crypto (2.5)</SelectItem>
                           <SelectItem value="ramp_off_fiat_us">Wallet → Fiat US (2.6)</SelectItem>
+                          <SelectItem value="wallet_to_fiat_off">On-Chain → Fiat (2.7)</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

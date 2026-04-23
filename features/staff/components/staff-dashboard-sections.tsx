@@ -1988,6 +1988,7 @@ const OPERATION_LABELS: Record<string, string> = {
   ramp_off_bo: 'Wallet → Fiat BO (2.4)',
   ramp_off_crypto: 'Wallet → Crypto (2.5)',
   ramp_off_fiat_us: 'Wallet → Fiat US (2.6)',
+  wallet_to_fiat_off: 'On-Chain → Fiat (2.7)',
 }
 
 const feeDisplay = (r: FeeConfigRow) => {

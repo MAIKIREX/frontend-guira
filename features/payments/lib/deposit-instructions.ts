@@ -510,6 +510,7 @@ export function resolveFeeTotal(fees: FeeConfigRow[], amountOrigin: number, rout
   else if ((route as string) === 'bridge_wallet_to_fiat_bo') targetOperation = 'ramp_off_bo'
   else if ((route as string) === 'bridge_wallet_to_crypto') targetOperation = 'ramp_off_crypto'
   else if ((route as string) === 'bridge_wallet_to_fiat_us') targetOperation = 'ramp_off_fiat_us'
+  else if ((route as string) === 'wallet_to_fiat') targetOperation = 'wallet_to_fiat_off'
   
   // Buscar config especifica o caer en el primer fallback si esta desactualizado
   let candidate = fees.find((fee) => fee.operation_type === targetOperation)
