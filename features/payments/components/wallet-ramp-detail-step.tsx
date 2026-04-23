@@ -236,77 +236,6 @@ export function WalletRampDetailStep({
         )}
       />
 
-      {(method === 'fiat_bo' || method === 'crypto') && (
-        <FormField
-          control={form.control}
-          name="wallet_ramp_wallet_id"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className={LABEL_CLASS}>Wallet Bridge destino</FormLabel>
-              <Select
-                value={field.value || null}
-                onValueChange={field.onChange}
-                disabled={disabled || wallets.length === 0}
-              >
-                <FormControl>
-                  <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
-                    <SelectValue placeholder="Seleccionar wallet" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {wallets.map((w) => (
-                    <SelectItem key={w.id} value={w.id}>
-                      <span className="font-medium">{w.label ?? `${w.currency.toUpperCase()} Wallet`}</span>
-                      <span className="ml-1.5 text-muted-foreground text-xs">
-                        ({w.currency.toUpperCase()} · {w.network ?? 'interna'} · {w.available_balance.toFixed(2)} disponible)
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      )}
-
-      {/* ── Token de destino: fiat_bo y crypto ── */}
-      {(method === 'fiat_bo' || method === 'crypto') && (
-        <FormField
-          control={form.control}
-          name="wallet_ramp_destination_currency"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className={LABEL_CLASS}>Token de destino</FormLabel>
-              <Select
-                value={field.value || null}
-                onValueChange={field.onChange}
-                disabled={disabled || availableDestCurrencies.length === 0}
-              >
-                <FormControl>
-                  <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
-                    <SelectValue placeholder="Seleccionar token destino" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {availableDestCurrencies.map((cur) => (
-                    <SelectItem key={cur} value={cur}>
-                      {CRYPTO_CURRENCY_LABELS[cur as keyof typeof CRYPTO_CURRENCY_LABELS] ?? cur.toUpperCase()}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {method === 'crypto' && availableDestCurrencies.length === 0 && selectedSourceNetwork && (
-                <p className="text-[10px] text-amber-500 mt-1">
-                  Selecciona red y moneda de origen para ver los tokens destino disponibles.
-                </p>
-              )}
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      )}
-
       {method === 'crypto' && (
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -392,6 +321,77 @@ export function WalletRampDetailStep({
             )}
           />
         </div>
+      )}
+
+      {(method === 'fiat_bo' || method === 'crypto') && (
+        <FormField
+          control={form.control}
+          name="wallet_ramp_wallet_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className={LABEL_CLASS}>Wallet Bridge destino</FormLabel>
+              <Select
+                value={field.value || null}
+                onValueChange={field.onChange}
+                disabled={disabled || wallets.length === 0}
+              >
+                <FormControl>
+                  <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
+                    <SelectValue placeholder="Seleccionar wallet" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {wallets.map((w) => (
+                    <SelectItem key={w.id} value={w.id}>
+                      <span className="font-medium">{w.label ?? `${w.currency.toUpperCase()} Wallet`}</span>
+                      <span className="ml-1.5 text-muted-foreground text-xs">
+                        ({w.currency.toUpperCase()} · {w.network ?? 'interna'} · {w.available_balance.toFixed(2)} disponible)
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+
+      {/* ── Token de destino: fiat_bo y crypto ── */}
+      {(method === 'fiat_bo' || method === 'crypto') && (
+        <FormField
+          control={form.control}
+          name="wallet_ramp_destination_currency"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className={LABEL_CLASS}>Token de destino</FormLabel>
+              <Select
+                value={field.value || null}
+                onValueChange={field.onChange}
+                disabled={disabled || availableDestCurrencies.length === 0}
+              >
+                <FormControl>
+                  <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
+                    <SelectValue placeholder="Seleccionar token destino" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {availableDestCurrencies.map((cur) => (
+                    <SelectItem key={cur} value={cur}>
+                      {CRYPTO_CURRENCY_LABELS[cur as keyof typeof CRYPTO_CURRENCY_LABELS] ?? cur.toUpperCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {method === 'crypto' && availableDestCurrencies.length === 0 && selectedSourceNetwork && (
+                <p className="text-[10px] text-amber-500 mt-1">
+                  Selecciona red y moneda de origen para ver los tokens destino disponibles.
+                </p>
+              )}
+              <FormMessage />
+            </FormItem>
+          )}
+        />
       )}
 
       {method === 'fiat_us' && (

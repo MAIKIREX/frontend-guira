@@ -64,6 +64,7 @@ export type WalletRampFlowType =
   | 'bridge_wallet_to_fiat_bo'
   | 'bridge_wallet_to_crypto'
   | 'bridge_wallet_to_fiat_us'
+  | 'wallet_to_fiat'
 
 export interface CreateWalletRampOrderDto {
   flow_type: WalletRampFlowType
@@ -79,6 +80,21 @@ export interface CreateWalletRampOrderDto {
   virtual_account_id?: string
   source_network?: string
   source_address?: string
+  source_currency?: string
+
+  // Off-ramp crypto (bridge_wallet_to_crypto)
+  destination_address?: string
+  destination_network?: string
+
+  // Off-ramp fiat BO
+  destination_qr_url?: string
+
+  // wallet_to_fiat
+  supplier_id?: string
+
+  // Comunes
+  notes?: string
+  supporting_document_url?: string
 }
 
 export interface SupplierUpsertDto {

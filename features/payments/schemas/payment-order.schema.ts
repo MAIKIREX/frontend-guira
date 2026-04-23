@@ -107,6 +107,22 @@ export const paymentOrderSchema = z
         if (!value.wallet_ramp_source_address) {
           ctx.addIssue({ code: 'custom', message: 'Ingresa la dirección cripto origen.', path: ['wallet_ramp_source_address'] })
         }
+        // ── Validar formato de dirección según red seleccionada ──
+        if (
+          value.wallet_ramp_source_address &&
+          value.wallet_ramp_source_network &&
+          (ALLOWED_NETWORKS as readonly string[]).includes(value.wallet_ramp_source_network)
+        ) {
+          const network = value.wallet_ramp_source_network as AllowedNetwork
+          if (!validateCryptoAddress(value.wallet_ramp_source_address, network)) {
+            const validator = ADDRESS_VALIDATORS[network]
+            ctx.addIssue({
+              code: 'custom',
+              message: `Dirección inválida para ${network}. Formato: ${validator?.description ?? 'desconocido'}`,
+              path: ['wallet_ramp_source_address'],
+            })
+          }
+        }
       }
 
       // ── Validar token de destino para fiat_bo y crypto ──
