@@ -176,6 +176,7 @@ export function buildPaymentOrderPayload(
       payload.source_network = values.wallet_ramp_source_network
       payload.source_currency = values.origin_currency
       payload.destination_currency = values.wallet_ramp_destination_currency ?? values.destination_currency
+      payload.amount = 0 // flexible_amount: Bridge acepta cualquier monto; se actualiza por webhook
       break
     case 'fiat_us_to_bridge_wallet':
       payload.virtual_account_id = values.wallet_ramp_va_id

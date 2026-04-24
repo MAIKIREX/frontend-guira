@@ -16,7 +16,7 @@ export const paymentOrderSchema = z
     receive_variant: z.enum(['bank_account', 'bank_qr', 'wallet']).optional(),
     ui_method_group: z.enum(['bank', 'crypto']).optional(),
     supplier_id: z.string().optional(),
-    amount_origin: z.coerce.number().positive('El monto debe ser mayor a cero.'),
+    amount_origin: z.coerce.number().nonnegative('El monto debe ser mayor a cero.'),
     amount_converted: z.coerce.number().nonnegative('Ingresa un monto destino valido.'),
     fee_total: z.coerce.number().nonnegative('Ingresa una fee valida.'),
     exchange_rate_applied: z.coerce.number().positive('Ingresa un tipo de cambio valido.'),
@@ -59,6 +59,13 @@ export const paymentOrderSchema = z
     wallet_to_fiat_source_currency: z.string().trim().optional(),
   })
   .superRefine((value, ctx) => {
+
+    // amount_origin debe ser positivo en todos los flujos excepto crypto_to_bridge_wallet
+    // (que usa flexible_amount y no requiere monto fijo)
+    const isCryptoFlexible = value.route === 'wallet_ramp_deposit' && value.wallet_ramp_method === 'crypto'
+    if (!isCryptoFlexible && (value.amount_origin ?? 0) <= 0) {
+      ctx.addIssue({ code: 'custom', message: 'El monto debe ser mayor a cero.', path: ['amount_origin'] })
+    }
 
     // ── wallet_to_fiat validations ──
     if (value.route === 'wallet_to_fiat') {

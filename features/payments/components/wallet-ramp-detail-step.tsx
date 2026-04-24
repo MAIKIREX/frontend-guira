@@ -199,40 +199,38 @@ export function WalletRampDetailStep({
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <FormField
-        control={form.control}
-        name="amount_origin"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel className={LABEL_CLASS}>
-              Monto inicial en {displayOriginCurrency}
-            </FormLabel>
-            <FormControl>
-              <div className="relative">
-                <Input
-                  {...field}
-                  value={field.value ?? ''}
-                  type="number"
-                  min={0}
-                  step="any"
-                  placeholder={`0.00`}
-                  disabled={disabled}
-                  className={cn(FORM_UNDERLINE_INPUT_CLASS, 'text-lg font-medium tracking-[-0.02em] pr-16')}
-                />
-                <span className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
-                  {displayOriginCurrency}
-                </span>
-              </div>
-            </FormControl>
-            {method === 'crypto' && minAmount > 0 && (
-              <p className="text-[10px] text-muted-foreground mt-1">
-                Mínimo: {minAmount} {displayOriginCurrency}
-              </p>
-            )}
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+      {/* Oculto para crypto_to_bridge_wallet: flexible_amount permite cualquier monto */}
+      <div className={method === 'crypto' ? 'hidden' : ''}>
+        <FormField
+          control={form.control}
+          name="amount_origin"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className={LABEL_CLASS}>
+                Monto inicial en {displayOriginCurrency}
+              </FormLabel>
+              <FormControl>
+                <div className="relative">
+                  <Input
+                    {...field}
+                    value={field.value ?? ''}
+                    type="number"
+                    min={0}
+                    step="any"
+                    placeholder={`0.00`}
+                    disabled={disabled}
+                    className={cn(FORM_UNDERLINE_INPUT_CLASS, 'text-lg font-medium tracking-[-0.02em] pr-16')}
+                  />
+                  <span className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
+                    {displayOriginCurrency}
+                  </span>
+                </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </div>
 
       {method === 'crypto' && (
         <div className="space-y-4">
