@@ -119,7 +119,27 @@ export interface OrderFilter extends PaginationParams {
 
 // ── Servicio ─────────────────────────────────────────────────────
 
+// ── Tipos del catálogo de rutas ───────────────────────────────────────────
+
+export interface BridgeRouteCatalog {
+  ramp_on: Record<string, Record<string, { destinations: string[]; min: number }>>
+  ramp_off: Record<string, Record<string, Record<string, number>>>
+  fiat_bo_off_ramp: Record<string, Record<string, Record<string, number>>>
+  fiat_bo_allowed_destinations: readonly string[]
+  fiat_bo_excluded_sources: readonly string[]
+}
+
 export const PaymentsService = {
+
+  // ── Catálogo de rutas Bridge ──────────────────────────────────
+
+  /**
+   * Obtiene el catálogo de rutas Bridge soportadas desde el backend.
+   * Usar en lugar del catálogo estático local para mantener una sola fuente de verdad.
+   */
+  async getRouteCatalog(): Promise<BridgeRouteCatalog> {
+    return apiGet<BridgeRouteCatalog>('/payment-orders/route-catalog')
+  },
 
   // ── Órdenes de pago ──────────────────────────────────────────
 

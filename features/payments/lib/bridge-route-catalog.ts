@@ -1,17 +1,12 @@
 // ═══════════════════════════════════════════════════════════════════
-//  CATÁLOGO DE RUTAS SOPORTADAS POR BRIDGE — ETAPA 1
-//  Fuente: lista.md (documentación Bridge, filtrada a destino Solana)
+//  CATÁLOGO DE RUTAS BRIDGE — FALLBACK ESTÁTICO
 //
-//  Estructura: { [red_origen]: { [moneda_origen]: { destinations, min } } }
+//  FUENTE DE VERDAD: backend GET /payment-orders/route-catalog
+//  Usar PaymentsService.getRouteCatalog() siempre que sea posible.
+//  Este archivo solo se usa como fallback SSR / offline.
 //
-//  Reglas aplicadas:
-//  - Solo destino Solana (wallet custodial actual)
-//  - Solo tokens destino en ALLOWED_CRYPTO_CURRENCIES
-//  - Solo tokens origen en ALLOWED_CRYPTO_CURRENCIES
-//  - EURC excluido de fiat_bo_to_bridge_wallet (requiere tasa BOB_EUR)
-//
-//  El backend tiene su réplica en:
-//  nest-base-backend/src/common/constants/bridge-route-catalog.constants.ts
+//  Si se modifica este archivo, replicar el cambio en el backend:
+//  backend_Guira/src/common/constants/bridge-route-catalog.constants.ts
 // ═══════════════════════════════════════════════════════════════════
 
 export interface BridgeRouteEntry {
