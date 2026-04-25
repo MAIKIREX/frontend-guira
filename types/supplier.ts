@@ -1,4 +1,4 @@
-export type PaymentRail = 'ach' | 'wire' | 'sepa' | 'spei' | 'pix' | 'bre_b' | 'crypto';
+export type PaymentRail = 'ach' | 'wire' | 'sepa' | 'spei' | 'pix' | 'bre_b' | 'faster_payments' | 'co_bank_transfer' | 'crypto';
 
 export interface Supplier {
   id: string;
@@ -37,7 +37,7 @@ export interface CreateSupplierPayload {
   // ACH / Wire
   account_number?: string;
   routing_number?: string;
-  checking_or_savings?: 'checking' | 'savings';
+  checking_or_savings?: 'checking' | 'savings' | 'electronic_deposit';
   address?: BeneficiaryAddress;
 
   // SEPA
@@ -59,6 +59,14 @@ export interface CreateSupplierPayload {
 
   // Bre-B
   bre_b_key?: string;
+
+  // FPS — Faster Payments (Reino Unido)
+  sort_code?: string;
+
+  // CO Bank Transfer (Colombia)
+  bank_code?: string;
+  document_type?: 'cc' | 'ce' | 'nit' | 'rut' | 'pa' | 'ppt' | 'ti' | 'rc' | 'te' | 'die' | 'nd';
+  phone_number?: string;
 
   // Crypto
   wallet_address?: string;
