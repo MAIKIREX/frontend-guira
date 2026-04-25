@@ -198,7 +198,8 @@ export function buildPaymentOrderPayload(
     case 'bridge_wallet_to_fiat_us':
       payload.wallet_id = values.wallet_ramp_wallet_id
       payload.source_currency = values.origin_currency
-      payload.external_account_id = supplier?.bridge_external_account_id || supplier?.id || undefined
+      // El backend resuelve la external_account a través del supplier (mismo patrón que wallet_to_fiat).
+      payload.supplier_id = supplier?.id || undefined
       break
     case 'wallet_to_fiat':
       payload.source_network = (values as any).wallet_to_fiat_source_network

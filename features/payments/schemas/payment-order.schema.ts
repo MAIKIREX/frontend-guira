@@ -232,7 +232,10 @@ export const paymentOrderSchema = z
           ctx.addIssue({ code: 'custom', message: 'Selecciona el token de origen.', path: ['origin_currency'] })
         }
         if (!value.supplier_id) {
-          ctx.addIssue({ code: 'custom', message: 'Selecciona un proveedor para el retiro.', path: ['supplier_id'] })
+          ctx.addIssue({ code: 'custom', message: 'Selecciona una cuenta bancaria de destino.', path: ['supplier_id'] })
+        }
+        if (!value.payment_reason || value.payment_reason.trim().length < 5) {
+          ctx.addIssue({ code: 'custom', message: 'El motivo del retiro es obligatorio (mín. 5 caracteres).', path: ['payment_reason'] })
         }
       }
       

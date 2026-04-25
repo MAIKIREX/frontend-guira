@@ -602,6 +602,7 @@ export function CreatePaymentOrderForm({
           'crypto_address',
           'crypto_network',
           'supplier_id',
+          'payment_reason',
         ], { shouldFocus: true })
         if (!isValidWithdraw) return
       } else if (route === 'wallet_ramp_deposit') {
@@ -1132,6 +1133,11 @@ export function CreatePaymentOrderForm({
                       ) : null}
 
                       {supplierValidationMessage && hasSupplierSelected ? <ValidationNotice message={supplierValidationMessage} /> : null}
+
+                      {/* Motivo obligatorio para retiro fiat US */}
+                      {currentRoute.key === 'wallet_ramp_withdraw' && walletRampWithdrawMethod === 'fiat_us' ? (
+                        <TextField control={form.control} disabled={disabled} label="Motivo del retiro" name="payment_reason" />
+                      ) : null}
 
                       {/* El campo QR bancario (Opcional) fue removido de aquí para trasladarlo al método 'bank_qr' posteriormente */}
 
