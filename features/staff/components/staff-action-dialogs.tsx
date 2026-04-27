@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { QRCodeSVG } from 'qrcode.react'
 import { format } from 'date-fns'
 import { useForm, useWatch, type Control, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -75,7 +76,7 @@ function useDynamicQuickComments(category: string) {
 export function OnboardingActions({ actor, record, onUpdated }: { actor: StaffActor; record: StaffOnboardingRecord; onUpdated: (record: StaffOnboardingRecord) => Promise<void> | void }) {
   const availableStatuses = useMemo(() => {
     if (record.status === 'pending_bridge') return []
-    
+
     const statuses: StaffOnboardingActionValues['status'][] = []
     if (record.status !== 'approved') statuses.push('approved')
     // "Solicitar Correcciones" siempre visible para que el staff pueda pedir
@@ -376,6 +377,18 @@ export function OrderDetailDialog({ actor, onUpdated, order }: { actor: StaffAct
   const documentItems = buildOrderDocumentItems(order)
   const stepExpectation = getOrderStepExpectation(order)
 
+  const liquidationQR = useMemo(() => {
+    if (order.flow_type !== 'fiat_bo_to_bridge_wallet') return null
+    const instr = order.bridge_source_deposit_instructions as Record<string, string> | undefined
+    if (instr?.type !== 'liquidation_address' || !instr.to_address) return null
+    return {
+      qrValue: buildLiquidationQRValue(instr.payment_rail ?? 'solana', instr.to_address),
+      address: instr.to_address,
+      network: instr.payment_rail ?? 'solana',
+      currency: instr.currency?.toUpperCase() ?? 'USDC',
+    }
+  }, [order.bridge_source_deposit_instructions, order.flow_type])
+
   return (
     <Dialog>
       <DialogTrigger render={<Button size="sm" variant="secondary" />}>Gestionar Orden</DialogTrigger>
@@ -488,6 +501,32 @@ export function OrderDetailDialog({ actor, onUpdated, order }: { actor: StaffAct
                 </p>
               </div>
             </section>
+
+            {liquidationQR && (
+              <section className="rounded-[28px] bg-transparent p-4">
+
+                <div className="mt-4 flex flex-col items-center gap-4 rounded-2xl border border-border bg-card p-5 shadow-sm">
+                  {/* Red destacada — el PSAV debe seleccionarla manualmente en el exchange antes de escanear */}
+                  <div className="w-full rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-center">
+                    <p className="mt-0.5 text-base font-bold tracking-tight text-amber-700 dark:text-amber-300">
+                      {liquidationQR.network.toUpperCase()} · {liquidationQR.currency}
+                    </p>
+                  </div>
+                  {/* QR contiene solo la dirección limpia — compatible con escáneres de exchanges (Binance, OKX, etc.) */}
+                  <div className="rounded-xl bg-white p-3 shadow-sm">
+                    <QRCodeSVG
+                      value={liquidationQR.address}
+                      size={180}
+                      level="M"
+                      includeMargin={false}
+                    />
+                  </div>
+                  <p className="break-all text-center text-[11px] font-mono text-foreground/70">
+                    {liquidationQR.address}
+                  </p>
+                </div>
+              </section>
+            )}
 
             <section className="rounded-[28px] bg-transparent p-4">
               <SectionHeading eyebrow="Acciones" title="Gestion operativa" />
@@ -630,11 +669,10 @@ function DocumentStatusCard({
             target={href.startsWith('http') ? '_blank' : undefined}
             rel="noopener noreferrer"
             onClick={href.startsWith('http') ? undefined : handleOpen}
-            className={`inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs font-semibold shadow-sm transition-colors ${
-              tone === 'success'
-                ? 'bg-emerald-500 text-white hover:bg-emerald-600'
-                : 'bg-primary text-primary-foreground hover:bg-primary/90'
-            }`}
+            className={`inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs font-semibold shadow-sm transition-colors ${tone === 'success'
+              ? 'bg-emerald-500 text-white hover:bg-emerald-600'
+              : 'bg-primary text-primary-foreground hover:bg-primary/90'
+              }`}
           >
             {loading ? <Loader2 className="size-3.5 animate-spin" /> : 'Ver archivo'}
           </a>
@@ -659,6 +697,15 @@ function EmptyPanel({ message }: { message: string }) {
   )
 }
 
+function buildLiquidationQRValue(payment_rail: string, to_address: string): string {
+  const rail = payment_rail.toLowerCase()
+  if (rail === 'solana') return `solana:${to_address}`
+  if (rail === 'polygon') return `ethereum:${to_address}@137`
+  if (rail === 'tron') return `tron:${to_address}`
+  // ethereum y cualquier otro EVM
+  return `ethereum:${to_address}`
+}
+
 function buildOrderDestinationInfo(order: PaymentOrder) {
   const meta = order.metadata as import('@/types/payment-order').PaymentOrderMetadata | undefined
   const items: Array<{ label: string; value: string }> = []
@@ -672,17 +719,23 @@ function buildOrderDestinationInfo(order: PaymentOrder) {
   // 1. Campos directos del nuevo backend (prioridad)
   push('Flujo', humanizeFlowType(order.flow_type))
   push('Categoría', order.flow_category === 'interbank' ? 'Interbancario' : order.flow_category === 'wallet_ramp' ? 'Wallet Ramp' : undefined)
-  
+
   if (order.flow_category === 'wallet_ramp') {
     push('Wallet Bridge', order.wallet_id)
 
-    // Mostrar instrucciones VA si están disponibles en los datos directos
     const instr = order.bridge_source_deposit_instructions as Record<string, string> | undefined
     if (instr?.type === 'virtual_account') {
       push('Banco VA', instr.bank_name)
       push('Cuenta VA', instr.account_number)
       push('Routing Number', instr.routing_number)
       push('Titular VA', instr.account_name ?? instr.beneficiary_name)
+    }
+    // Instrucciones para fiat_bo_to_bridge_wallet: el PSAV debe depositar crypto en esta dirección
+    if (instr?.type === 'liquidation_address') {
+      push('Red (PSAV debe usar)', instr.payment_rail)
+      push('Token (PSAV debe enviar)', instr.currency?.toUpperCase())
+      push('Dirección de liquidación Bridge', instr.to_address)
+      push('Instrucción PSAV', instr.label)
     }
   }
 
@@ -722,15 +775,15 @@ function buildOrderDestinationInfo(order: PaymentOrder) {
 
 function humanizeFlowType(flowType?: string) {
   switch (flowType) {
-    case 'bolivia_to_world': 
+    case 'bolivia_to_world':
       return 'Bolivia al Mundo'
-    case 'wallet_to_wallet': 
+    case 'wallet_to_wallet':
       return 'Wallet a Wallet'
-    case 'world_to_wallet': 
+    case 'world_to_wallet':
       return 'Mundo a Wallet'
-    case 'world_to_bolivia': 
+    case 'world_to_bolivia':
       return 'Mundo a Bolivia'
-    case 'bolivia_to_wallet': 
+    case 'bolivia_to_wallet':
       return 'Bolivia a Wallet'
 
     case 'fiat_bo_to_bridge_wallet':
@@ -923,6 +976,13 @@ function getOrderStepExpectation(order: PaymentOrder) {
           'En este punto se espera revisar si ya existe comprobante de deposito del cliente. Si el respaldo es correcto, procede con la validacion; si la operacion no puede continuar, marca la orden como failed.',
       }
     case 'deposit_received':
+      if (order.flow_type === 'fiat_bo_to_bridge_wallet') {
+        return {
+          title: 'Verificar comprobante BOB y aprobar para instruir al PSAV.',
+          description:
+            'El cliente ha subido su comprobante de depósito en BOB. Verifica el monto con la cuenta PSAV y aprueba la orden. Al aprobar, la orden pasará a "processing" y deberás comunicar al PSAV la dirección de liquidación Bridge (visible en "Información de entrega") para que envíe el crypto.',
+        }
+      }
       return {
         title: 'Preparar y publicar la cotizacion final.',
         description:
@@ -944,6 +1004,14 @@ function getOrderStepExpectation(order: PaymentOrder) {
           title: 'PSAV debe convertir USDC a BOB y depositar al cliente.',
           description:
             'Bridge ya transfirió el crypto al PSAV. Ahora el PSAV debe convertir los fondos a bolivianos y depositarlos en la cuenta bancaria del cliente. Cuando el PSAV confirme el envío, marcar como "Enviado".',
+        }
+      }
+      // fiat_bo_to_bridge_wallet: staff instruye al PSAV dónde depositar; Bridge cierra automáticamente
+      if (order.flow_type === 'fiat_bo_to_bridge_wallet') {
+        return {
+          title: 'Instrucción al PSAV pendiente.',
+          description:
+            'Comunica al PSAV la dirección de liquidación Bridge (visible en "Información de entrega") para que deposite el crypto. Una vez que Bridge confirme la recepción, la orden se completará automáticamente vía webhook. No es necesaria ninguna acción manual adicional.',
         }
       }
       return {
@@ -1031,9 +1099,9 @@ function formatNumericValue(value: unknown) {
 }
 function OrderReasonActionDialog({ actor, action, blockedReason, label, onUpdated, order }: { actor: StaffActor; action: 'failed'; blockedReason?: string | null; label: string; onUpdated: (order: PaymentOrder) => Promise<void> | void; order: PaymentOrder }) {
   const [open, setOpen] = useState(false)
-  const form = useForm<StaffReasonValues>({ 
-    resolver: zodResolver(staffReasonSchema) as any, 
-    defaultValues: { reason: '', notify_user: true } 
+  const form = useForm<StaffReasonValues>({
+    resolver: zodResolver(staffReasonSchema) as any,
+    defaultValues: { reason: '', notify_user: true }
   })
 
   async function submit(values: StaffReasonValues) {
@@ -1094,16 +1162,16 @@ function OrderQuoteDialog({ actor, onUpdated, order }: { actor: StaffActor; onUp
   const [open, setOpen] = useState(false)
   const form = useForm<StaffOrderProcessingValues>({
     resolver: zodResolver(staffOrderProcessingSchema) as Resolver<StaffOrderProcessingValues>,
-    defaultValues: { 
-      exchange_rate_applied: order.exchange_rate_applied ?? 1, 
-      amount_converted: order.amount_converted ?? order.amount_destination ?? 0, 
-      fee_total: order.fee_amount ?? order.fee_total ?? 0, 
-      reason: '' 
+    defaultValues: {
+      exchange_rate_applied: order.exchange_rate_applied ?? 1,
+      amount_converted: order.amount_converted ?? order.amount_destination ?? 0,
+      fee_total: order.fee_amount ?? order.fee_total ?? 0,
+      reason: ''
     },
   })
   const exchangeRateApplied = useWatch({ control: form.control, name: 'exchange_rate_applied' })
   const feeTotal = useWatch({ control: form.control, name: 'fee_total' })
-  const quotedAmountConverted = calculateQuotedAmountConverted(order.amount_origin ?? order.amount ?? 0, exchangeRateApplied, feeTotal)
+  const quotedAmountConverted = calculateQuotedAmountConverted(order.amount_origin ?? order.amount ?? 0, exchangeRateApplied, feeTotal, order.currency ?? 'BOB')
 
   async function submit(values: StaffOrderProcessingValues) {
     try {
@@ -1333,6 +1401,10 @@ function getOrderActions(order: PaymentOrder) {
       // Staff valida el depósito y aprueba → pasa a processing.
       return ['quote', 'failed'] as const
     case 'processing':
+      // fiat_bo_to_bridge_wallet se completa automáticamente por webhook; markSent no aplica
+      if (order.flow_type === 'fiat_bo_to_bridge_wallet') {
+        return ['failed'] as const
+      }
       return ['sent', 'failed'] as const
     case 'sent':
       return ['completed', 'failed'] as const
@@ -1381,12 +1453,16 @@ function getOnboardingActionPlaceholder(status: StaffOnboardingActionValues['sta
 // ONBOARDING_QUICK_COMMENTS: migrated to rejection_templates table (Fase 2)
 // Templates are now fetched dynamically via useDynamicQuickComments hook.
 
-function calculateQuotedAmountConverted(amountOrigin: number, exchangeRateApplied: number, feeTotal: number) {
+function calculateQuotedAmountConverted(amountOrigin: number, exchangeRateApplied: number, feeTotal: number, sourceCurrency: string) {
   const safeAmountOrigin = normalizeNumericValue(amountOrigin)
   const safeExchangeRateApplied = normalizeNumericValue(exchangeRateApplied)
   const safeFeeTotal = normalizeNumericValue(feeTotal)
-  const grossConverted = Math.max((safeAmountOrigin - safeFeeTotal) * safeExchangeRateApplied, 0)
-  return Math.round(grossConverted * 100) / 100
+  const netAmount = Math.max(safeAmountOrigin - safeFeeTotal, 0)
+  // La tasa siempre es "BOB por 1 USD" → BOB→USD: dividir; USD→BOB: multiplicar
+  const grossConverted = sourceCurrency === 'BOB'
+    ? netAmount / Math.max(safeExchangeRateApplied, 0.000001)
+    : netAmount * safeExchangeRateApplied
+  return Math.round(Math.max(grossConverted, 0) * 100) / 100
 }
 
 function normalizeNumericValue(value: unknown) {

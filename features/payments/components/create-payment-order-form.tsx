@@ -312,13 +312,13 @@ export function CreatePaymentOrderForm({
   )
 
   const finalInstructions = useMemo(() => {
-    if (currentRoute.key === 'wallet_ramp_deposit' && createdOrder) {
-      // Usaremos directamente las deposit instructions generadas a través de `buildDepositInstructions`,
-      // pero para `bridge_source_deposit_instructions` las resolvemos si es necesario.
-    }
+    // fiat_bo: bridge_source_deposit_instructions es la dirección de liquidación Solana
+    // que usa el PSAV internamente — no la mostramos al cliente.
+    // El cliente debe ver psav_deposit_instructions (cuenta bancaria boliviana donde depositar BOB).
+    const isFiatBo = createdOrder?.flow_type === 'fiat_bo_to_bridge_wallet'
 
     const bridgeDeposit = (createdOrder as any)?.bridge_source_deposit_instructions;
-    if (bridgeDeposit && Object.keys(bridgeDeposit).length > 0) {
+    if (!isFiatBo && bridgeDeposit && Object.keys(bridgeDeposit).length > 0) {
       if (bridgeDeposit.type === 'virtual_account') {
         return [{
           id: 'va-bank-deposit',

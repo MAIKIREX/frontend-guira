@@ -313,13 +313,7 @@ export const PaymentsService = {
    * Si falla (endpoint no disponible para clientes), retorna array vacío silenciosamente.
    */
   async getPsavConfigs(): Promise<PsavConfigRow[]> {
-    try {
-      return await apiGet<PsavConfigRow[]>('/payment-orders/psav-accounts')
-    } catch {
-      // Fallback: si el endpoint no está disponible para clientes, vacío
-      console.warn('[PaymentsService] PSAV configs endpoint not available for client role')
-      return []
-    }
+    return apiGet<PsavConfigRow[]>('/payment-orders/psav-configs')
   },
 
   // ── App Settings (tasas de cambio y configuración pública) ──────────────
