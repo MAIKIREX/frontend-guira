@@ -37,7 +37,9 @@ export function useWalletDashboard() {
         WalletService.getLedger({ limit: 20 }),
       ])
 
-      const primaryBalance = balances.find((b) => b.currency === 'USDC' && b.is_active) ?? balances[0] ?? null
+      // getBalances() retorna filas de la tabla balances que no tienen is_active.
+      // Seleccionar USDC directamente; si no existe, tomar el primero disponible.
+      const primaryBalance = balances.find((b) => b.currency === 'USDC') ?? balances[0] ?? null
 
       setState({ wallets, balances, payinRoutes, recentLedger, primaryBalance })
     } catch (err) {

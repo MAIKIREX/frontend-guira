@@ -59,9 +59,9 @@ export function WalletToFiatDetailStep({
   const sourceCurrency: string = form.watch('wallet_to_fiat_source_currency') ?? ''
   const displayCurrency = sourceCurrency ? sourceCurrency.toUpperCase() : 'CRYPTO'
 
-  // ── Estimación en vivo (misma lógica que fiat_us) ──
+  // ── Estimación en vivo ──
   const estimate = React.useMemo(() => {
-    const feeTotal = resolveFeeTotal(feesConfig, Number(amount) || 0, 'bridge_wallet_to_fiat_us' as any)
+    const feeTotal = resolveFeeTotal(feesConfig, Number(amount) || 0, 'wallet_to_fiat' as any)
     const amountConverted = Math.max((Number(amount) || 0) - feeTotal, 0)
     return { feeTotal, amountConverted }
   }, [amount, feesConfig])
