@@ -590,10 +590,10 @@ export function WalletWithdrawDetailStep({
           />
 
           <div className="space-y-1.5 pt-2">
-             <p className={cn(LABEL_CLASS, 'text-foreground')}>Cuenta Bancaria EE. UU.</p>
-             <p className="border-l-2 border-border/70 bg-muted/10 px-4 py-4 text-sm text-muted-foreground">
-               Selecciona el proveedor con cuenta externa bancaria (ACH/Wire) registrada desde el selector de abajo. Solo se muestran proveedores con cuenta bancaria estadounidense vinculada a Bridge.
-             </p>
+            <p className={cn(LABEL_CLASS, 'text-foreground')}>Cuenta Bancaria EE. UU.</p>
+            <p className="border-l-2 border-border/70 bg-muted/10 px-4 py-4 text-sm text-muted-foreground">
+              Selecciona el proveedor con cuenta externa bancaria (ACH/Wire) registrada desde el selector de abajo. Solo se muestran proveedores con cuenta bancaria estadounidense vinculada a Bridge.
+            </p>
           </div>
         </>
       ) : null}
@@ -604,7 +604,7 @@ export function WalletWithdrawDetailStep({
           <p className={cn(LABEL_CLASS, 'mb-4')}>Estimación de retiro</p>
           <div className={cn('grid gap-4 text-center', method === 'fiat_bo' ? 'grid-cols-3' : 'grid-cols-2')}>
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Fee estimado</p>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Fee</p>
               <p className="mt-1 text-base font-semibold">
                 {estimate.feeTotal.toFixed(2)} <span className="text-xs text-muted-foreground">{displayWithdrawCurrency}</span>
               </p>
@@ -613,12 +613,12 @@ export function WalletWithdrawDetailStep({
               <div>
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Tipo de cambio</p>
                 <p className="mt-1 text-base font-semibold">
-                  {estimate.exchangeRateApplied.toFixed(4)} <span className="text-xs text-muted-foreground">BOB/{displayWithdrawCurrency}</span>
+                  {estimate.exchangeRateApplied.toFixed(2)} <span className="text-xs text-muted-foreground">BOB/{displayWithdrawCurrency}</span>
                 </p>
               </div>
             ) : null}
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Recibirás aprox.</p>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Recibirás.</p>
               <p className="mt-1 text-base font-semibold text-emerald-500">
                 {estimate.amountConverted.toFixed(2)} <span className="text-xs">{method === 'fiat_bo' ? 'BOB' : method === 'fiat_us' ? 'USD' : displayWithdrawCurrency}</span>
               </p>

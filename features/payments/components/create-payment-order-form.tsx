@@ -526,6 +526,11 @@ export function CreatePaymentOrderForm({
   }, [deliveryMethod, form, route, selectedSupplier, supplierAchDetails, supplierSwiftDetails])
 
   useEffect(() => {
+    // Las rutas wallet ramp calculan y sincronizan sus propios estimados desde
+    // sus componentes de detalle (wallet-ramp-detail-step, wallet-withdraw-detail-step).
+    // Si el padre sobreescribe aquí, pisa los valores correctos del hijo.
+    if (currentRoute.key === 'wallet_ramp_deposit' || currentRoute.key === 'wallet_ramp_withdraw') return
+
     const estimate = estimateRouteValues({
       amountOrigin: Number(amountOrigin) || 0,
       route: currentRoute.key,

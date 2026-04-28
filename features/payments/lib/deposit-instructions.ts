@@ -512,28 +512,34 @@ export function resolveFeeTotal(fees: FeeConfigRow[], amountOrigin: number, rout
   const feeFixedVal = typeof candidate.fee_fixed === 'string' ? parseFloat(candidate.fee_fixed) : (Number(candidate.fee_fixed) || 0)
   const minFee = typeof candidate.min_fee === 'string' ? parseFloat(candidate.min_fee) : (Number(candidate.min_fee) || 0)
   
-  let calculatedFee = 0
+  const amountCents = Math.round(amountOrigin * 100)
+  const feeFixedCents = Math.round(feeFixedVal * 100)
 
+  let feeCents = 0
   if (candidate.fee_type === 'percent') {
-    calculatedFee = (amountOrigin * feePercentVal) / 100
+    feeCents = Math.round(amountCents * feePercentVal / 100)
   } else if (candidate.fee_type === 'fixed') {
-    calculatedFee = feeFixedVal
+    feeCents = feeFixedCents
   } else if (candidate.fee_type === 'mixed') {
-    calculatedFee = ((amountOrigin * feePercentVal) / 100) + feeFixedVal
+    feeCents = feeFixedCents + Math.round(amountCents * feePercentVal / 100)
   } else {
     // Legacy fallback for old rows if they exist
-    calculatedFee = typeof candidate.value === 'string' ? parseFloat(candidate.value) : (Number(candidate.value) || 0)
+    const legacyVal = typeof candidate.value === 'string' ? parseFloat(candidate.value) : (Number(candidate.value) || 0)
     if (candidate.fee_type === 'percentage') {
-       calculatedFee = (amountOrigin * calculatedFee) / 100
+      feeCents = Math.round(amountCents * legacyVal / 100)
+    } else {
+      feeCents = Math.round(legacyVal * 100)
     }
   }
 
-  // Retornar aplicando el cobro minimo si aplica
-  if (minFee > 0 && calculatedFee < minFee) {
-    return minFee
-  }
+  // Aplicar min/max en centavos (idéntico al backend fees.service.ts)
+  const minFeeCents = Math.round(minFee * 100)
+  const maxFee = typeof candidate.max_fee === 'string' ? parseFloat(candidate.max_fee) : (Number(candidate.max_fee) || 0)
+  const maxFeeCents = Math.round(maxFee * 100)
+  if (minFeeCents > 0 && feeCents < minFeeCents) feeCents = minFeeCents
+  if (maxFeeCents > 0 && feeCents > maxFeeCents) feeCents = maxFeeCents
 
-  return calculatedFee
+  return feeCents / 100
 }
 
 function toEstimate(values: RouteEstimate) {
