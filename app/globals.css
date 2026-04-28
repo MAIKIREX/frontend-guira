@@ -144,3 +144,22 @@
     @apply font-sans;
   }
 }
+
+/* Collapsible (Base UI) — animación de apertura y cierre */
+[data-slot="collapsible-content"] {
+  overflow: hidden;
+}
+[data-slot="collapsible-content"]:not([hidden]) {
+  animation: collapsible-open 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+[data-slot="collapsible-content"][data-closed] {
+  animation: collapsible-close 0.2s ease-in forwards;
+}
+@keyframes collapsible-open {
+  from { height: 0; opacity: 0; }
+  to   { height: var(--collapsible-panel-height); opacity: 1; }
+}
+@keyframes collapsible-close {
+  from { height: var(--collapsible-panel-height); opacity: 1; }
+  to   { height: 0; opacity: 0; }
+}

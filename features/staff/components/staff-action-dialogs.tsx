@@ -389,6 +389,19 @@ export function OrderDetailDialog({ actor, onUpdated, order }: { actor: StaffAct
     }
   }, [order.bridge_source_deposit_instructions, order.flow_type])
 
+  const boliviaToWorldInstr = useMemo(() => {
+    if (order.flow_type !== 'bolivia_to_world') return null
+    if (order.status !== 'processing') return null
+    const instr = order.bridge_source_deposit_instructions as Record<string, string> | undefined
+    if (!instr?.to_address) return null
+    return {
+      address: instr.to_address,
+      network: (instr.payment_rail ?? 'solana').toUpperCase(),
+      currency: (instr.currency ?? 'USDC').toUpperCase(),
+      bridgeTransferId: order.bridge_transfer_id as string | undefined,
+    }
+  }, [order.bridge_source_deposit_instructions, order.flow_type, order.status, order.bridge_transfer_id])
+
   return (
     <Dialog>
       <DialogTrigger render={<Button size="sm" variant="secondary" />}>Gestionar Orden</DialogTrigger>
@@ -524,6 +537,43 @@ export function OrderDetailDialog({ actor, onUpdated, order }: { actor: StaffAct
                   <p className="break-all text-center text-[11px] font-mono text-foreground/70">
                     {liquidationQR.address}
                   </p>
+                </div>
+              </section>
+            )}
+
+            {boliviaToWorldInstr && (
+              <section className="rounded-[28px] bg-transparent p-4">
+                <SectionHeading
+                  eyebrow="Instrucciones PSAV"
+                  title="Depósito USDC para Bridge"
+                  description="El PSAV debe convertir los BOB del cliente a USDC y enviarlos a esta dirección Solana. Bridge procesará el pago fiat al destino automáticamente."
+                />
+                <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-border bg-card p-5 shadow-sm">
+                  <div className="flex items-center justify-between rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3">
+                    <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">Red · Moneda</span>
+                    <span className="text-sm font-bold text-blue-700 dark:text-blue-300">
+                      {boliviaToWorldInstr.network} · {boliviaToWorldInstr.currency}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Dirección destino (Solana)</p>
+                    <p className="break-all rounded-lg bg-muted px-3 py-2 font-mono text-[11px] text-foreground">
+                      {boliviaToWorldInstr.address}
+                    </p>
+                  </div>
+                  {boliviaToWorldInstr.bridgeTransferId && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Bridge Transfer ID</p>
+                      <p className="break-all rounded-lg bg-muted px-3 py-2 font-mono text-[11px] text-foreground">
+                        {boliviaToWorldInstr.bridgeTransferId}
+                      </p>
+                    </div>
+                  )}
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                      Monto flexible — el PSAV envía el equivalente exacto en USDC. Bridge confirma la recepción y ejecuta el pago al banco destino automáticamente.
+                    </p>
+                  </div>
                 </div>
               </section>
             )}
@@ -1401,8 +1451,8 @@ function getOrderActions(order: PaymentOrder) {
       // Staff valida el depósito y aprueba → pasa a processing.
       return ['quote', 'failed'] as const
     case 'processing':
-      // fiat_bo_to_bridge_wallet se completa automáticamente por webhook; markSent no aplica
-      if (order.flow_type === 'fiat_bo_to_bridge_wallet') {
+      // Flujos webhook-driven: la transición a completed la hace Bridge automáticamente
+      if (['fiat_bo_to_bridge_wallet', 'bolivia_to_world'].includes(order.flow_type ?? '')) {
         return ['failed'] as const
       }
       return ['sent', 'failed'] as const

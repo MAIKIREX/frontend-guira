@@ -15,13 +15,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
 import { resolveFeeTotal, type ExchangeRateRecord } from '@/features/payments/lib/deposit-instructions'
 import type { WalletBalance } from '@/services/wallet.service'
 import type { FeeConfigRow, PsavConfigRow } from '@/types/payment-order'
 import { ClientBankAccountsService, type ClientBankAccount } from '@/services/client-bank-accounts.service'
 import { AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
-import { ALLOWED_NETWORKS, NETWORK_LABELS, CRYPTO_CURRENCY_LABELS } from '@/lib/guira-crypto-config'
+import { NETWORK_LABELS, CRYPTO_CURRENCY_LABELS } from '@/lib/guira-crypto-config'
 import {
   getOffRampDestNetworks,
   getOffRampDestCurrencies,
@@ -61,21 +62,19 @@ export function WalletWithdrawDetailStep({
   const [bankAccount, setBankAccount] = useState<ClientBankAccount | null>(null)
   const [bankLoading, setBankLoading] = useState(method === 'fiat_bo')
 
-  // ── Crypto off-ramp dynamic state ──
+  // ── Watched form values ──
   const selectedOriginCurrency = form.watch('origin_currency') ?? ''
   const selectedCryptoNetwork = form.watch('crypto_network') ?? ''
   const selectedDestCurrency = form.watch('destination_currency') ?? ''
-
-  // ── Fiat BO dynamic source currencies ──
   const selectedWalletId = form.watch('wallet_ramp_wallet_id') ?? ''
   const selectedWallet = wallets.find((w) => w.id === selectedWalletId)
+  const amount = form.watch('amount_origin')
 
+  // ── Available source currencies per method ──
   const fiatBoAvailableCurrencies = React.useMemo(() => {
     if (method !== 'fiat_bo') return []
-    // Get tokens valid for Bridge + PSAV
     const routeValid = getFiatBoAvailableSourceCurrencies(psavConfigs as any[])
     if (!selectedWallet?.token_balances?.length) return routeValid
-    // Further filter by tokens user actually has balance in
     return routeValid.filter((cur) => {
       const tb = selectedWallet.token_balances.find(
         (t) => t.currency.toLowerCase() === cur.toLowerCase()
@@ -84,13 +83,23 @@ export function WalletWithdrawDetailStep({
     })
   }, [method, psavConfigs, selectedWallet])
 
-  // ── Fiat US dynamic source currencies ──
   const fiatUsAvailableCurrencies = React.useMemo(() => {
     if (method !== 'fiat_us') return []
-    // All 5 tokens are valid for fiat_us off-ramp via Bridge (no PSAV dependency)
     const allTokens = [...OFF_RAMP_SOURCE_CURRENCIES]
     if (!selectedWallet?.token_balances?.length) return allTokens
-    // Filter to tokens user actually has balance in
+    return allTokens.filter((cur) => {
+      const tb = selectedWallet.token_balances.find(
+        (t) => t.currency.toLowerCase() === cur.toLowerCase()
+      )
+      return tb && tb.available_balance > 0
+    })
+  }, [method, selectedWallet])
+
+  // Crypto: misma lógica de filtrado por balance que fiat_bo y fiat_us
+  const cryptoAvailableCurrencies = React.useMemo(() => {
+    if (method !== 'crypto') return []
+    const allTokens = [...OFF_RAMP_SOURCE_CURRENCIES]
+    if (!selectedWallet?.token_balances?.length) return allTokens
     return allTokens.filter((cur) => {
       const tb = selectedWallet.token_balances.find(
         (t) => t.currency.toLowerCase() === cur.toLowerCase()
@@ -120,7 +129,6 @@ export function WalletWithdrawDetailStep({
   }, [method, selectedOriginCurrency, selectedCryptoNetwork, selectedDestCurrency])
 
   // ── Cascada off-ramp: auto-clear invalid selections ──
-  // IMPORTANT: Base UI Select treats '' as a valid value. Use undefined to clear.
   const handleSourceTokenChange = useCallback((token: string, fieldOnChange: (v: string) => void) => {
     fieldOnChange(token)
     const newNetworks = getOffRampDestNetworks(token)
@@ -146,7 +154,6 @@ export function WalletWithdrawDetailStep({
       if (currentDest && !newDests.includes(currentDest.toLowerCase())) {
         form.setValue('destination_currency', undefined as any, { shouldValidate: false })
       }
-      // Auto-select if only one dest currency
       if (newDests.length === 1) {
         form.setValue('destination_currency', newDests[0], { shouldValidate: false })
       }
@@ -179,8 +186,7 @@ export function WalletWithdrawDetailStep({
     }
   }, [bankAccount, form, method])
 
-  const amount = form.watch('amount_origin')
-
+  // ── Estimate ──
   const estimate = React.useMemo(() => {
     let feeTotal = 0
     let exchangeRateApplied = 1
@@ -188,9 +194,8 @@ export function WalletWithdrawDetailStep({
 
     if (method === 'fiat_bo') {
       feeTotal = resolveFeeTotal(feesConfig, Number(amount) || 0, 'bridge_wallet_to_fiat_bo' as any)
-      const rateRecord =
-        exchangeRates.find((r) => r.pair?.toUpperCase() === 'USD_BOB')
-      exchangeRateApplied = 6.96 // fallback
+      const rateRecord = exchangeRates.find((r) => r.pair?.toUpperCase() === 'USD_BOB')
+      exchangeRateApplied = 6.96
       if (rateRecord) {
         exchangeRateApplied = rateRecord.effective_rate ?? rateRecord.rate
       }
@@ -223,8 +228,9 @@ export function WalletWithdrawDetailStep({
     form.setValue('amount_converted', estimate.amountConverted, { shouldValidate: false, shouldDirty: false, shouldTouch: false })
   }, [estimate, form])
 
-  // Determine if the submit should be blocked for fiat_bo without bank account
   const isFiatBoBlocked = method === 'fiat_bo' && !bankLoading && !bankAccount
+
+  // ── Shared fields ────────────────────────────────────────────────
 
   const walletField = (
     <FormField
@@ -240,7 +246,16 @@ export function WalletWithdrawDetailStep({
           >
             <FormControl>
               <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
-                <SelectValue placeholder="Seleccionar wallet" />
+                {selectedWallet ? (
+                  <span className="flex items-center gap-1.5 truncate">
+                    <span className="font-medium">{selectedWallet.label ?? `${selectedWallet.currency.toUpperCase()} Wallet`}</span>
+                    <span className="text-muted-foreground text-xs">
+                      ({selectedWallet.currency.toUpperCase()} · {selectedWallet.available_balance.toFixed(2)} disponible)
+                    </span>
+                  </span>
+                ) : (
+                  <SelectValue placeholder="Seleccionar wallet" />
+                )}
               </SelectTrigger>
             </FormControl>
             <SelectContent>
@@ -259,6 +274,85 @@ export function WalletWithdrawDetailStep({
       )}
     />
   )
+
+  const tokenField = (() => {
+    let currencies: string[] = []
+    let placeholder = 'Seleccionar token'
+    let emptyMsg: string | null = null
+
+    if (method === 'fiat_bo') {
+      currencies = fiatBoAvailableCurrencies
+      placeholder = currencies.length === 0 ? 'No hay tokens disponibles' : 'Seleccionar token'
+      emptyMsg = currencies.length === 0 && !disabled
+        ? 'No hay tokens con balance y ruta PSAV disponible para retiro.'
+        : null
+    } else if (method === 'fiat_us') {
+      currencies = fiatUsAvailableCurrencies
+      placeholder = currencies.length === 0 ? 'No hay tokens con saldo' : 'Seleccionar token'
+      emptyMsg = currencies.length === 0 && !disabled
+        ? 'No hay tokens con balance disponible para retiro.'
+        : null
+    } else if (method === 'crypto') {
+      currencies = cryptoAvailableCurrencies
+      placeholder = currencies.length === 0 ? 'No hay tokens con saldo' : 'Seleccionar token'
+      emptyMsg = currencies.length === 0 && !disabled
+        ? 'No hay tokens con balance disponible para retiro.'
+        : null
+    }
+
+    const onChangeHandler = method === 'crypto'
+      ? (v: string, onChange: (v: string) => void) => handleSourceTokenChange(v, onChange)
+      : (v: string, onChange: (v: string) => void) => onChange(v)
+
+    return (
+      <FormField
+        control={form.control}
+        name="origin_currency"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel className={LABEL_CLASS}>Token de origen (de tu wallet)</FormLabel>
+            <Select
+              value={field.value || null}
+              onValueChange={(v) => onChangeHandler(v, field.onChange)}
+              disabled={disabled || currencies.length === 0}
+            >
+              <FormControl>
+                <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
+                  <SelectValue placeholder={placeholder} />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                {currencies.map((cur) => {
+                  const tokenBalance = selectedWallet?.token_balances?.find(
+                    (t) => t.currency.toLowerCase() === cur.toLowerCase()
+                  )
+                  return (
+                    <SelectItem key={cur} value={cur}>
+                      {CRYPTO_CURRENCY_LABELS[cur as keyof typeof CRYPTO_CURRENCY_LABELS] ?? cur.toUpperCase()}
+                      {tokenBalance ? (
+                        <span className="ml-1.5 text-muted-foreground text-xs">
+                          · {tokenBalance.available_balance.toFixed(2)} disponible
+                        </span>
+                      ) : null}
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
+            {emptyMsg && (
+              <p className="text-[10px] text-amber-500 mt-1">{emptyMsg}</p>
+            )}
+            {method === 'fiat_bo' && fiatBoMinAmount > 0 && selectedOriginCurrency && (
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Mínimo: {fiatBoMinAmount} {selectedOriginCurrency.toUpperCase()}
+              </p>
+            )}
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    )
+  })()
 
   const amountField = (
     <FormField
@@ -283,79 +377,89 @@ export function WalletWithdrawDetailStep({
               </span>
             </div>
           </FormControl>
+          {/* Opción A: aviso inline cuando el monto está bloqueado por falta de cuenta bancaria */}
+          {isFiatBoBlocked && (
+            <p className="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+              <AlertTriangle className="size-3 shrink-0" />
+              Debes registrar tu cuenta bancaria en{' '}
+              <Link href="/perfil" className="underline underline-offset-2 font-medium hover:text-amber-500">
+                Perfil
+              </Link>{' '}
+              para habilitar este campo.
+            </p>
+          )}
           <FormMessage />
         </FormItem>
       )}
     />
   )
 
+  const receiveCurrency = method === 'fiat_bo' ? 'BOB' : method === 'fiat_us' ? 'USD' : displayWithdrawCurrency
+
+  const estimationBlock = (
+    <Collapsible open={Number(amount) > 0}>
+      <CollapsibleContent>
+        <div className="mt-3 rounded-xl border border-border/50 bg-muted/15 overflow-hidden text-sm">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/30">
+            <span className="text-muted-foreground">Monto bruto</span>
+            <span className="font-medium tabular-nums">
+              {(Number(amount) || 0).toFixed(2)}{' '}
+              <span className="text-muted-foreground text-xs">{displayWithdrawCurrency}</span>
+            </span>
+          </div>
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/30">
+            <span className="text-muted-foreground">Fee estimado</span>
+            <span className="font-medium tabular-nums text-destructive/80">
+              − {estimate.feeTotal.toFixed(2)}{' '}
+              <span className="text-xs">{displayWithdrawCurrency}</span>
+            </span>
+          </div>
+          {method === 'fiat_bo' && (
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/30">
+              <span className="text-muted-foreground">Tipo de cambio</span>
+              <span className="font-medium tabular-nums">
+                × {estimate.exchangeRateApplied.toFixed(2)}{' '}
+                <span className="text-xs text-muted-foreground">BOB/{displayWithdrawCurrency}</span>
+              </span>
+            </div>
+          )}
+          <div className="flex items-center justify-between px-4 py-3 bg-muted/30">
+            <span className="font-semibold">Recibirás aprox.</span>
+            <span className="font-bold tabular-nums text-emerald-500">
+              {estimate.amountConverted.toFixed(2)}{' '}
+              <span className="text-xs font-medium">{receiveCurrency}</span>
+            </span>
+          </div>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  )
+
+  // ── Render ────────────────────────────────────────────────────────
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      {method === 'crypto' ? (
-        <>{amountField}{walletField}</>
-      ) : (
-        <>{walletField}{amountField}</>
-      )}
 
-      {method === 'fiat_bo' ? (
+      {/* 1. Wallet de origen — común a los 3 métodos */}
+      {walletField}
+
+      {/* 2. Token de origen — común a los 3 métodos */}
+      {tokenField}
+
+      {/* 3. Monto + desglose tipo recibo (se despliega al escribir) */}
+      <div>
+        {amountField}
+        {estimationBlock}
+      </div>
+
+      {/* 5. Campos específicos por método */}
+      {method === 'fiat_bo' && (
         <>
-          {/* Token de origen (dinámico) */}
-          <FormField
-            control={form.control}
-            name="origin_currency"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className={LABEL_CLASS}>Token de origen (de tu wallet)</FormLabel>
-                <Select
-                  value={field.value || null}
-                  onValueChange={field.onChange}
-                  disabled={disabled || fiatBoAvailableCurrencies.length === 0}
-                >
-                  <FormControl>
-                    <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
-                      <SelectValue placeholder={fiatBoAvailableCurrencies.length === 0 ? 'No hay tokens disponibles' : 'Seleccionar token'} />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {fiatBoAvailableCurrencies.map((cur) => {
-                      const tokenBalance = selectedWallet?.token_balances?.find(
-                        (t) => t.currency.toLowerCase() === cur.toLowerCase()
-                      )
-                      return (
-                        <SelectItem key={cur} value={cur}>
-                          {CRYPTO_CURRENCY_LABELS[cur as keyof typeof CRYPTO_CURRENCY_LABELS] ?? cur.toUpperCase()}
-                          {tokenBalance ? (
-                            <span className="ml-1.5 text-muted-foreground text-xs">
-                              · {tokenBalance.available_balance.toFixed(2)} disponible
-                            </span>
-                          ) : null}
-                        </SelectItem>
-                      )
-                    })}
-                  </SelectContent>
-                </Select>
-                {fiatBoAvailableCurrencies.length === 0 && !disabled && (
-                  <p className="text-[10px] text-amber-500 mt-1">
-                    No hay tokens con balance y ruta PSAV disponible para retiro.
-                  </p>
-                )}
-                {fiatBoMinAmount > 0 && selectedOriginCurrency && (
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    Mínimo: {fiatBoMinAmount} {selectedOriginCurrency.toUpperCase()}
-                  </p>
-                )}
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
           {bankLoading ? (
             <div className="flex items-center justify-center py-6">
               <Loader2 className="size-5 animate-spin text-muted-foreground" />
               <span className="ml-2 text-sm text-muted-foreground">Cargando cuenta bancaria...</span>
             </div>
           ) : bankAccount ? (
-            /* ── Datos bancarios del perfil (solo lectura) ── */
             <div className="rounded-xl border border-border/40 bg-muted/10 p-5 space-y-3">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="size-4 text-emerald-500" />
@@ -386,7 +490,6 @@ export function WalletWithdrawDetailStep({
               </div>
             </div>
           ) : (
-            /* ── CTA: Cuenta bancaria no registrada ── */
             <div className="rounded-xl border-l-4 border-amber-500/60 bg-amber-500/5 p-5 space-y-2">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="size-4 text-amber-600" />
@@ -408,39 +511,10 @@ export function WalletWithdrawDetailStep({
             </div>
           )}
         </>
-      ) : method === 'crypto' ? (
-        <>
-          {/* Token de origen */}
-          <FormField
-            control={form.control}
-            name="origin_currency"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className={LABEL_CLASS}>Token de origen (de tu wallet)</FormLabel>
-                <Select
-                  value={field.value || null}
-                  onValueChange={(v) => handleSourceTokenChange(v, field.onChange)}
-                  disabled={disabled}
-                >
-                  <FormControl>
-                    <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
-                      <SelectValue placeholder="Seleccionar token" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {OFF_RAMP_SOURCE_CURRENCIES.map((cur) => (
-                      <SelectItem key={cur} value={cur}>
-                        {CRYPTO_CURRENCY_LABELS[cur as keyof typeof CRYPTO_CURRENCY_LABELS] ?? cur.toUpperCase()}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+      )}
 
-          {/* Header wallet destino */}
+      {method === 'crypto' && (
+        <>
           <div className="space-y-1.5 pt-2">
             <p className={cn(LABEL_CLASS, 'text-foreground')}>Wallet externa destino</p>
             <p className="text-xs text-muted-foreground">
@@ -448,7 +522,6 @@ export function WalletWithdrawDetailStep({
             </p>
           </div>
 
-          {/* Red de destino + Token de destino */}
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField
               control={form.control}
@@ -514,7 +587,6 @@ export function WalletWithdrawDetailStep({
             />
           </div>
 
-          {/* Dirección cripto destino */}
           <FormField
             control={form.control}
             name="crypto_address"
@@ -535,98 +607,23 @@ export function WalletWithdrawDetailStep({
             )}
           />
 
-          {/* Monto mínimo indicator */}
           {offRampMinAmount > 0 && selectedDestCurrency && (
             <p className="text-[10px] text-muted-foreground mt-1">
               Mínimo: {offRampMinAmount} {(selectedOriginCurrency || '').toUpperCase()}
             </p>
           )}
         </>
-      ) : method === 'fiat_us' ? (
-        <>
-          {/* Token de origen (dinámico) */}
-          <FormField
-            control={form.control}
-            name="origin_currency"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className={LABEL_CLASS}>Token de origen (de tu wallet)</FormLabel>
-                <Select
-                  value={field.value || null}
-                  onValueChange={field.onChange}
-                  disabled={disabled || fiatUsAvailableCurrencies.length === 0}
-                >
-                  <FormControl>
-                    <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
-                      <SelectValue placeholder={fiatUsAvailableCurrencies.length === 0 ? 'No hay tokens con saldo' : 'Seleccionar token'} />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {fiatUsAvailableCurrencies.map((cur) => {
-                      const tokenBalance = selectedWallet?.token_balances?.find(
-                        (t) => t.currency.toLowerCase() === cur.toLowerCase()
-                      )
-                      return (
-                        <SelectItem key={cur} value={cur}>
-                          {CRYPTO_CURRENCY_LABELS[cur as keyof typeof CRYPTO_CURRENCY_LABELS] ?? cur.toUpperCase()}
-                          {tokenBalance ? (
-                            <span className="ml-1.5 text-muted-foreground text-xs">
-                              · {tokenBalance.available_balance.toFixed(2)} disponible
-                            </span>
-                          ) : null}
-                        </SelectItem>
-                      )
-                    })}
-                  </SelectContent>
-                </Select>
-                {fiatUsAvailableCurrencies.length === 0 && !disabled && (
-                  <p className="text-[10px] text-amber-500 mt-1">
-                    No hay tokens con balance disponible para retiro.
-                  </p>
-                )}
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+      )}
 
-          <div className="space-y-1.5 pt-2">
-            <p className={cn(LABEL_CLASS, 'text-foreground')}>Cuenta Bancaria EE. UU.</p>
-            <p className="border-l-2 border-border/70 bg-muted/10 px-4 py-4 text-sm text-muted-foreground">
-              Selecciona el proveedor con cuenta externa bancaria (ACH/Wire) registrada desde el selector de abajo. Solo se muestran proveedores con cuenta bancaria estadounidense vinculada a Bridge.
-            </p>
-          </div>
-        </>
-      ) : null}
-
-      {/* Estimación en vivo */}
-      {Number(amount) > 0 && (
-        <div className="rounded-2xl border border-border/40 bg-muted/20 p-5">
-          <p className={cn(LABEL_CLASS, 'mb-4')}>Estimación de retiro</p>
-          <div className={cn('grid gap-4 text-center', method === 'fiat_bo' ? 'grid-cols-3' : 'grid-cols-2')}>
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Fee</p>
-              <p className="mt-1 text-base font-semibold">
-                {estimate.feeTotal.toFixed(2)} <span className="text-xs text-muted-foreground">{displayWithdrawCurrency}</span>
-              </p>
-            </div>
-            {method === 'fiat_bo' ? (
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Tipo de cambio</p>
-                <p className="mt-1 text-base font-semibold">
-                  {estimate.exchangeRateApplied.toFixed(2)} <span className="text-xs text-muted-foreground">BOB/{displayWithdrawCurrency}</span>
-                </p>
-              </div>
-            ) : null}
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Recibirás.</p>
-              <p className="mt-1 text-base font-semibold text-emerald-500">
-                {estimate.amountConverted.toFixed(2)} <span className="text-xs">{method === 'fiat_bo' ? 'BOB' : method === 'fiat_us' ? 'USD' : displayWithdrawCurrency}</span>
-              </p>
-            </div>
-          </div>
+      {method === 'fiat_us' && (
+        <div className="space-y-1.5 pt-2">
+          <p className={cn(LABEL_CLASS, 'text-foreground')}>Cuenta Bancaria EE. UU.</p>
+          <p className="border-l-2 border-border/70 bg-muted/10 px-4 py-4 text-sm text-muted-foreground">
+            Selecciona el proveedor con cuenta externa bancaria (ACH/Wire) registrada desde el selector de abajo. Solo se muestran proveedores con cuenta bancaria estadounidense vinculada a Bridge.
+          </p>
         </div>
       )}
+
     </div>
   )
 }
-
