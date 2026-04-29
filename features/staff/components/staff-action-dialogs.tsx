@@ -378,25 +378,29 @@ export function OrderDetailDialog({ actor, onUpdated, order }: { actor: StaffAct
   const stepExpectation = getOrderStepExpectation(order)
 
   const liquidationQR = useMemo(() => {
-    if (order.flow_type !== 'fiat_bo_to_bridge_wallet') return null
+    if (!['fiat_bo_to_bridge_wallet', 'bolivia_to_wallet', 'bolivia_to_world'].includes(order.flow_type ?? '')) return null
     const instr = order.bridge_source_deposit_instructions as Record<string, string> | undefined
-    if (instr?.type !== 'liquidation_address' || !instr.to_address) return null
+    if (instr?.type !== 'liquidation_address') return null
+    const address = instr.to_address ?? instr.deposit_address
+    if (!address) return null
+    const network = instr.payment_rail ?? instr.chain ?? 'solana'
     return {
-      qrValue: buildLiquidationQRValue(instr.payment_rail ?? 'solana', instr.to_address),
-      address: instr.to_address,
-      network: instr.payment_rail ?? 'solana',
+      qrValue: buildLiquidationQRValue(network, address),
+      address,
+      network,
       currency: instr.currency?.toUpperCase() ?? 'USDC',
     }
   }, [order.bridge_source_deposit_instructions, order.flow_type])
 
   const boliviaToWorldInstr = useMemo(() => {
-    if (order.flow_type !== 'bolivia_to_world') return null
+    if (!['bolivia_to_world', 'bolivia_to_wallet'].includes(order.flow_type ?? '')) return null
     if (order.status !== 'processing') return null
     const instr = order.bridge_source_deposit_instructions as Record<string, string> | undefined
-    if (!instr?.to_address) return null
+    const addr = instr?.to_address ?? instr?.deposit_address
+    if (!addr) return null
     return {
-      address: instr.to_address,
-      network: (instr.payment_rail ?? 'solana').toUpperCase(),
+      address: addr,
+      network: (instr.payment_rail ?? instr.chain ?? 'solana').toUpperCase(),
       currency: (instr.currency ?? 'USDC').toUpperCase(),
       bridgeTransferId: order.bridge_transfer_id as string | undefined,
     }
@@ -782,9 +786,9 @@ function buildOrderDestinationInfo(order: PaymentOrder) {
     }
     // Instrucciones para fiat_bo_to_bridge_wallet: el PSAV debe depositar crypto en esta dirección
     if (instr?.type === 'liquidation_address') {
-      push('Red (PSAV debe usar)', instr.payment_rail)
+      push('Red (PSAV debe usar)', instr.payment_rail ?? instr.chain)
       push('Token (PSAV debe enviar)', instr.currency?.toUpperCase())
-      push('Dirección de liquidación Bridge', instr.to_address)
+      push('Dirección de liquidación Bridge', instr.to_address ?? instr.deposit_address)
       push('Instrucción PSAV', instr.label)
     }
   }
@@ -1062,6 +1066,13 @@ function getOrderStepExpectation(order: PaymentOrder) {
           title: 'Instrucción al PSAV pendiente.',
           description:
             'Comunica al PSAV la dirección de liquidación Bridge (visible en "Información de entrega") para que deposite el crypto. Una vez que Bridge confirme la recepción, la orden se completará automáticamente vía webhook. No es necesaria ninguna acción manual adicional.',
+        }
+      }
+      if (order.flow_type === 'bolivia_to_wallet') {
+        return {
+          title: 'Depositar crypto en la liquidation address del proveedor.',
+          description:
+            'El PSAV debe enviar el monto equivalente en crypto a la dirección de la liquidation address mostrada en el QR/datos de la sección "Depósito USDC para Bridge". Bridge confirmará la recepción y la orden se completará automáticamente vía webhook. No se requiere acción manual adicional.',
         }
       }
       return {
@@ -1452,7 +1463,7 @@ function getOrderActions(order: PaymentOrder) {
       return ['quote', 'failed'] as const
     case 'processing':
       // Flujos webhook-driven: la transición a completed la hace Bridge automáticamente
-      if (['fiat_bo_to_bridge_wallet', 'bolivia_to_world'].includes(order.flow_type ?? '')) {
+      if (['fiat_bo_to_bridge_wallet', 'bolivia_to_world', 'bolivia_to_wallet'].includes(order.flow_type ?? '')) {
         return ['failed'] as const
       }
       return ['sent', 'failed'] as const
