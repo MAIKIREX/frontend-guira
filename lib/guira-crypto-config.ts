@@ -59,6 +59,16 @@ export const CRYPTO_CURRENCY_LABELS: Record<AllowedCryptoCurrency, string> = {
   eurc: 'EURC',
 };
 
+// ── TOKENS VÁLIDOS POR RED ───────────────────────────────────────
+export const NETWORK_TOKEN_MAP: Record<AllowedNetwork, readonly AllowedCryptoCurrency[]> = {
+  base:     ['usdc'],
+  ethereum: ['pyusd', 'usdc'],
+  solana:   ['usdb', 'usdc'],
+  tron:     ['usdt'],
+  polygon:  ['usdc'],
+  stellar:  ['usdc'],
+};
+
 // ── VALIDACIÓN DE DIRECCIONES POR RED ───────────────────────────
 export const ADDRESS_VALIDATORS: Record<
   AllowedNetwork,

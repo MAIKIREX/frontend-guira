@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, ArrowRight, Building2, Landmark, Wallet, Globe } from 'lucide-react'
@@ -11,7 +11,8 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { StepProgressRail } from '@/features/payments/components/step-progress-rail'
 import { interactiveClickableCardClassName, cn } from '@/lib/utils'
-import { ALLOWED_NETWORKS, NETWORK_LABELS, ALLOWED_CRYPTO_CURRENCIES, CRYPTO_CURRENCY_LABELS } from '@/lib/guira-crypto-config'
+import { ALLOWED_NETWORKS, NETWORK_LABELS, ALLOWED_CRYPTO_CURRENCIES, CRYPTO_CURRENCY_LABELS, NETWORK_TOKEN_MAP, ADDRESS_VALIDATORS, validateCryptoAddress } from '@/lib/guira-crypto-config'
+import type { AllowedNetwork, AllowedCryptoCurrency } from '@/lib/guira-crypto-config'
 import type { Supplier, PaymentRail, CreateSupplierPayload } from '@/types/supplier'
 
 interface SupplierFormProps {
@@ -308,6 +309,17 @@ export function SupplierForm({
   const ownerType = useWatch({ control: form.control, name: 'account_owner_type' })
   const pixMode = useWatch({ control: form.control, name: 'pix_mode' })
   const addressCountry = useWatch({ control: form.control, name: 'address_country' })
+  const selectedWalletNetwork = useWatch({ control: form.control, name: 'wallet_network' })
+
+  useEffect(() => {
+    if (selectedRail !== 'crypto') return
+    const validTokens = NETWORK_TOKEN_MAP[selectedWalletNetwork as AllowedNetwork]
+    if (!validTokens) return
+    const current = form.getValues('wallet_currency')
+    if (!validTokens.includes(current as AllowedCryptoCurrency)) {
+      form.setValue('wallet_currency', validTokens[0])
+    }
+  }, [selectedWalletNetwork, selectedRail, form])
 
   const handleNext = async () => {
     const isGeneralValid = await form.trigger(['name', 'country', 'contact_email'])
@@ -1338,42 +1350,72 @@ export function SupplierForm({
                           control={form.control}
                           name="wallet_currency"
                           rules={{ required: 'La moneda es requerida' }}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Token / Moneda</FormLabel>
-                              <Select disabled={disabled} onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Seleccione token" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {ALLOWED_CRYPTO_CURRENCIES.map((cur) => (
-                                    <SelectItem key={cur} value={cur}>
-                                      {CRYPTO_CURRENCY_LABELS[cur]}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
+                          render={({ field }) => {
+                            const validTokens = NETWORK_TOKEN_MAP[selectedWalletNetwork as AllowedNetwork] ?? ALLOWED_CRYPTO_CURRENCIES
+                            return (
+                              <FormItem>
+                                <FormLabel>Token / Moneda</FormLabel>
+                                <Select disabled={disabled} onValueChange={field.onChange} value={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Seleccione token" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {validTokens.map((cur) => (
+                                      <SelectItem key={cur} value={cur}>
+                                        {CRYPTO_CURRENCY_LABELS[cur]}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )
+                          }}
                         />
                       </div>
                       <FormField
                         control={form.control}
                         name="wallet_address"
-                        rules={{ required: 'La dirección es requerida' }}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Dirección de Wallet</FormLabel>
-                            <FormControl>
-                              <Input disabled={disabled} placeholder="0x... / T... / G..." {...field} />
-                            </FormControl>
-                            <p className="text-xs text-muted-foreground">Asegúrate de que la dirección sea compatible con la red seleccionada</p>
-                            <FormMessage />
-                          </FormItem>
-                        )}
+                        rules={{
+                          required: 'La dirección es requerida',
+                          validate: (value) => {
+                            const network = form.getValues('wallet_network') as AllowedNetwork
+                            if (!validateCryptoAddress(value, network)) {
+                              const validator = ADDRESS_VALIDATORS[network]
+                              const label = NETWORK_LABELS[network] ?? network
+                              return validator
+                                ? `Dirección inválida para ${label} — formato esperado: ${validator.description}`
+                                : 'Dirección inválida para la red seleccionada'
+                            }
+                            return true
+                          },
+                        }}
+                        render={({ field }) => {
+                          const validator = ADDRESS_VALIDATORS[selectedWalletNetwork as AllowedNetwork]
+                          const placeholder = selectedWalletNetwork === 'solana'
+                            ? 'Ej: 4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM'
+                            : selectedWalletNetwork === 'tron'
+                            ? 'T...'
+                            : selectedWalletNetwork === 'stellar'
+                            ? 'G...'
+                            : '0x...'
+                          return (
+                            <FormItem>
+                              <FormLabel>Dirección de Wallet</FormLabel>
+                              <FormControl>
+                                <Input disabled={disabled} placeholder={placeholder} {...field} />
+                              </FormControl>
+                              {validator && (
+                                <p className="text-xs text-muted-foreground">
+                                  {NETWORK_LABELS[selectedWalletNetwork as AllowedNetwork]}: {validator.description}
+                                </p>
+                              )}
+                              <FormMessage />
+                            </FormItem>
+                          )
+                        }}
                       />
                     </>
                   )}
