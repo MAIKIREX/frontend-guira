@@ -403,6 +403,7 @@ export function OrderDetailDialog({ actor, onUpdated, order }: { actor: StaffAct
       network: (instr.payment_rail ?? instr.chain ?? 'solana').toUpperCase(),
       currency: (instr.currency ?? 'USDC').toUpperCase(),
       bridgeTransferId: order.bridge_transfer_id as string | undefined,
+      amountToDeposit: instr.amount_to_deposit ?? null,
     }
   }, [order.bridge_source_deposit_instructions, order.flow_type, order.status, order.bridge_transfer_id])
 
@@ -573,9 +574,23 @@ export function OrderDetailDialog({ actor, onUpdated, order }: { actor: StaffAct
                       </p>
                     </div>
                   )}
+                  {boliviaToWorldInstr.amountToDeposit ? (
+                    <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+                      <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Monto a depositar</span>
+                      <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
+                        {boliviaToWorldInstr.amountToDeposit} {boliviaToWorldInstr.currency}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+                      <p className="text-xs text-amber-700 dark:text-amber-300">
+                        Monto no disponible en las instrucciones — depositar el equivalente en {boliviaToWorldInstr.currency} según tipo de cambio.
+                      </p>
+                    </div>
+                  )}
                   <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
                     <p className="text-xs text-amber-700 dark:text-amber-300">
-                      Monto flexible — el PSAV envía el equivalente exacto en USDC. Bridge confirma la recepción y ejecuta el pago al banco destino automáticamente.
+                      El PSAV debe depositar el monto bruto indicado. Bridge descontará el fee automáticamente antes de enviar al banco destino.
                     </p>
                   </div>
                 </div>
@@ -789,6 +804,7 @@ function buildOrderDestinationInfo(order: PaymentOrder) {
       push('Red (PSAV debe usar)', instr.payment_rail ?? instr.chain)
       push('Token (PSAV debe enviar)', instr.currency?.toUpperCase())
       push('Dirección de liquidación Bridge', instr.to_address ?? instr.deposit_address)
+      push('Monto a depositar (bruto)', instr.amount_to_deposit ? `${instr.amount_to_deposit} ${instr.currency?.toUpperCase() ?? ''}`.trim() : undefined)
       push('Instrucción PSAV', instr.label)
     }
   }
