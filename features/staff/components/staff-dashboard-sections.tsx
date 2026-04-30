@@ -37,6 +37,19 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from '@/components/ui/carousel'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion'
 import { OrderDetailDialog, SupportTicketActions } from '@/features/staff/components/staff-action-dialogs'
 import { useExchangeRates } from '@/features/payments/hooks/use-exchange-rates'
 import {
@@ -1997,6 +2010,124 @@ const feeDisplay = (r: FeeConfigRow) => {
   return `$${Number(r.fee_fixed || 0)} + ${Number(r.fee_percent || 0)}%`
 }
 
+function FeeTableView({
+  fees,
+  actor,
+  isPrivileged,
+  onUpdateFeeConfig,
+}: {
+  fees: FeeConfigRow[]
+  actor: StaffActor
+  isPrivileged: boolean
+  onUpdateFeeConfig: (record: FeeConfigRow) => void
+}) {
+  if (fees.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-center text-sm text-muted-foreground">
+        No hay comisiones en esta sección.
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div className="space-y-3 p-2 md:hidden">
+        {fees.map((record) => (
+          <Card key={record.id} className="border-border/70 bg-card/95 shadow-sm">
+            <CardContent className="space-y-4 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold text-foreground/90">
+                    {record.operation_type ? (OPERATION_LABELS[record.operation_type] || record.operation_type) : record.type}
+                  </div>
+                  <div className="mt-1 flex items-center gap-2">
+                    <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-wider">{record.payment_rail || 'N/A'}</Badge>
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                      {record.fee_type === 'percent' ? 'Porcentual' : record.fee_type === 'fixed' ? 'Monto Fijo' : 'Mixto'}
+                    </span>
+                    {!record.is_active && (
+                      <Badge variant="destructive" className="bg-destructive/20 text-destructive text-[9px] px-1 py-0">Desactivado</Badge>
+                    )}
+                  </div>
+                </div>
+                <div className="shrink-0 flex flex-col items-end gap-1">
+                  <span className="inline-flex items-center rounded-md border border-border/40 bg-muted/60 px-2.5 py-1 text-xs font-bold">
+                    {feeDisplay(record)}
+                  </span>
+                  {(Number(record.min_fee) > 0 || Number(record.max_fee) > 0) && (
+                    <span className="text-[9px] text-muted-foreground mr-1">
+                      {Number(record.min_fee) > 0 ? `Min $${record.min_fee}` : ''}
+                      {Number(record.min_fee) > 0 && Number(record.max_fee) > 0 ? ' • ' : ''}
+                      {Number(record.max_fee) > 0 ? `Max $${record.max_fee}` : ''}
+                    </span>
+                  )}
+                </div>
+              </div>
+              {isPrivileged && (
+                <div className="flex justify-end pt-1">
+                  <FeeConfigDialog actor={actor} onUpdated={onUpdateFeeConfig} record={record} />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <div className="hidden md:block">
+        <Table>
+          <TableHeader className="bg-muted/30">
+            <TableRow className="border-none hover:bg-transparent">
+              <TableHead className="py-3 pl-6 text-[11px] font-bold uppercase tracking-wider">Concepto / Tipo</TableHead>
+              <TableHead className="py-3 text-center text-[11px] font-bold uppercase tracking-wider">Valor</TableHead>
+              <TableHead className="py-3 pr-6 text-right"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {fees.map((record) => (
+              <TableRow key={record.id} className={cn('group', interactiveCardClassName, 'hover:bg-muted/30')}>
+                <TableCell className="py-4 pl-6">
+                  <div className="text-sm font-semibold text-foreground/90 flex items-center gap-2">
+                    {record.operation_type ? (OPERATION_LABELS[record.operation_type] || record.operation_type) : record.type}
+                    {!record.is_active && (
+                      <Badge variant="destructive" className="bg-destructive/20 text-destructive text-[9px] px-1 py-0">Inactivo</Badge>
+                    )}
+                  </div>
+                  <div className="mt-1 flex items-center gap-2">
+                    <Badge variant="outline" className="text-[9px] uppercase font-bold tracking-wider py-0 rounded-sm">{record.payment_rail || 'N/A'}</Badge>
+                    <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+                      {record.fee_type === 'percent' ? 'Porcentual' : record.fee_type === 'fixed' ? 'Monto Fijo' : 'Mixto'}
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell className="py-4 text-center">
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="inline-flex items-center rounded-md border border-border/40 bg-muted/60 px-2.5 py-1 text-xs font-bold">
+                      {feeDisplay(record)}
+                    </span>
+                    {(Number(record.min_fee) > 0 || Number(record.max_fee) > 0) && (
+                      <span className="text-[9px] text-muted-foreground">
+                        {Number(record.min_fee) > 0 ? `Min $${record.min_fee}` : ''}
+                        {Number(record.min_fee) > 0 && Number(record.max_fee) > 0 ? ' • ' : ''}
+                        {Number(record.max_fee) > 0 ? `Max $${record.max_fee}` : ''}
+                      </span>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell className="py-4 pr-6 text-right">
+                  {isPrivileged && (
+                    <div className="flex justify-end opacity-0 transition-opacity group-hover:opacity-100">
+                      <FeeConfigDialog actor={actor} onUpdated={onUpdateFeeConfig} record={record} />
+                    </div>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </>
+  )
+}
+
 function ConfigPanel({
   actor,
   appSettings,
@@ -2039,6 +2170,11 @@ function ConfigPanel({
     }
   }
 
+  const interbankFees = feesConfig.filter(r => r.operation_type?.startsWith('interbank'))
+  const rampOnFees = feesConfig.filter(r => r.operation_type?.startsWith('ramp_on'))
+  const rampOffFees = feesConfig.filter(r => r.operation_type?.startsWith('ramp_off') || r.operation_type === 'wallet_to_fiat_off')
+  const otherFees = feesConfig.filter(r => !r.operation_type?.startsWith('interbank') && !r.operation_type?.startsWith('ramp_on') && !r.operation_type?.startsWith('ramp_off') && r.operation_type !== 'wallet_to_fiat_off')
+
   return (
     <div className="grid gap-6 xl:grid-cols-2">
       <Card className="overflow-hidden border-border/60 bg-background/95 shadow-sm">
@@ -2057,113 +2193,74 @@ function ConfigPanel({
         </CardHeader>
         <CardContent className="p-0">
           {!isPrivileged ? <div className="p-6"><AdminOnlyNotice /></div> : null}
-          {/* Móvil */}
-          <div className="space-y-3 p-4 md:hidden">
-            {feesConfig.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-center text-sm text-muted-foreground">
-                No hay comisiones configuradas.
-              </div>
-            ) : (
-              feesConfig.map((record) => (
-                <Card key={record.id} className="border-border/70 bg-card/95 shadow-sm">
-                  <CardContent className="space-y-4 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="font-semibold text-foreground/90">
-                          {record.operation_type ? (OPERATION_LABELS[record.operation_type] || record.operation_type) : record.type}
-                        </div>
-                        <div className="mt-1 flex items-center gap-2">
-                          <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-wider">{record.payment_rail || 'N/A'}</Badge>
-                          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                            {record.fee_type === 'percent' ? 'Porcentual' : record.fee_type === 'fixed' ? 'Monto Fijo' : 'Mixto'}
-                          </span>
-                          {!record.is_active && (
-                            <Badge variant="destructive" className="bg-destructive/20 text-destructive text-[9px] px-1 py-0">Descativado</Badge>
-                          )}
-                        </div>
-                      </div>
-                      <div className="shrink-0 flex flex-col items-end gap-1">
-                        <span className="inline-flex items-center rounded-md border border-border/40 bg-muted/60 px-2.5 py-1 text-xs font-bold">
-                          {feeDisplay(record)}
-                        </span>
-                        {(Number(record.min_fee) > 0 || Number(record.max_fee) > 0) && (
-                          <span className="text-[9px] text-muted-foreground mr-1">
-                            {Number(record.min_fee) > 0 ? `Min $${record.min_fee}` : ''}
-                            {Number(record.min_fee) > 0 && Number(record.max_fee) > 0 ? ' • ' : ''}
-                            {Number(record.max_fee) > 0 ? `Max $${record.max_fee}` : ''}
-                          </span>
-                        )}
-                      </div>
+          
+          <div className="p-4 md:p-6 w-full">
+            <Carousel className="w-full">
+              <CarouselContent>
+                <CarouselItem>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold tracking-tight">Flujos Interbank</h3>
+                      <Badge variant="secondary">{interbankFees.length}</Badge>
                     </div>
-                    {isPrivileged && (
-                      <div className="flex justify-end pt-1">
-                        <FeeConfigDialog actor={actor} onUpdated={onUpdateFeeConfig} record={record} />
+                    <p className="text-sm text-muted-foreground">Comisiones para operaciones entre bancos y de/hacia cuentas en el exterior.</p>
+                    <Accordion type="single" collapsible className="w-full mt-4">
+                      <AccordionItem value="interbank">
+                        <AccordionTrigger className="text-sm font-medium">Ver Configuraciones</AccordionTrigger>
+                        <AccordionContent>
+                          <FeeTableView fees={interbankFees} actor={actor} isPrivileged={isPrivileged} onUpdateFeeConfig={onUpdateFeeConfig} />
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                  </div>
+                </CarouselItem>
+                <CarouselItem>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold tracking-tight">Flujos Bridge Wallet</h3>
+                      <Badge variant="secondary">{rampOnFees.length + rampOffFees.length}</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Comisiones para operaciones on-ramp (depósitos) y off-ramp (retiros).</p>
+                    <Accordion type="multiple" className="w-full mt-4">
+                      <AccordionItem value="deposits">
+                        <AccordionTrigger className="text-sm font-medium">Depósitos (On-Ramp)</AccordionTrigger>
+                        <AccordionContent>
+                          <FeeTableView fees={rampOnFees} actor={actor} isPrivileged={isPrivileged} onUpdateFeeConfig={onUpdateFeeConfig} />
+                        </AccordionContent>
+                      </AccordionItem>
+                      <AccordionItem value="withdrawals">
+                        <AccordionTrigger className="text-sm font-medium">Retiros (Off-Ramp)</AccordionTrigger>
+                        <AccordionContent>
+                          <FeeTableView fees={rampOffFees} actor={actor} isPrivileged={isPrivileged} onUpdateFeeConfig={onUpdateFeeConfig} />
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                  </div>
+                </CarouselItem>
+                {otherFees.length > 0 && (
+                  <CarouselItem>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold tracking-tight">Otras Comisiones</h3>
+                        <Badge variant="secondary">{otherFees.length}</Badge>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
-
-          {/* Desktop */}
-          <div className="hidden md:block">
-            <Table>
-              <TableHeader className="bg-muted/30">
-                <TableRow className="border-none hover:bg-transparent">
-                  <TableHead className="py-3 pl-6 text-[11px] font-bold uppercase tracking-wider">Concepto / Tipo</TableHead>
-                  <TableHead className="py-3 text-center text-[11px] font-bold uppercase tracking-wider">Valor</TableHead>
-                  <TableHead className="py-3 pr-6 text-right"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {feesConfig.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={3} className="py-8 text-center text-sm italic text-muted-foreground">
-                      No hay comisiones configuradas.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  feesConfig.map((record) => (
-                    <TableRow key={record.id} className={cn('group', interactiveCardClassName, 'hover:bg-muted/30')}>
-                      <TableCell className="py-4 pl-6">
-                        <div className="text-sm font-semibold text-foreground/90 flex items-center gap-2">
-                          {record.operation_type ? (OPERATION_LABELS[record.operation_type] || record.operation_type) : record.type}
-                          {!record.is_active && (
-                            <Badge variant="destructive" className="bg-destructive/20 text-destructive text-[9px] px-1 py-0">Inactivo</Badge>
-                          )}
-                        </div>
-                        <div className="mt-1 flex items-center gap-2">
-                          <Badge variant="outline" className="text-[9px] uppercase font-bold tracking-wider py-0 rounded-sm">{record.payment_rail || 'N/A'}</Badge>
-                          <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
-                            {record.fee_type === 'percent' ? 'Porcentual' : record.fee_type === 'fixed' ? 'Monto Fijo' : 'Mixto'}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-4 text-center">
-                        <div className="flex flex-col items-center gap-1">
-                          <span className="inline-flex items-center rounded-md border border-border/40 bg-muted/60 px-2.5 py-1 text-xs font-bold">
-                            {feeDisplay(record)}
-                          </span>
-                          {(Number(record.min_fee) > 0 || Number(record.max_fee) > 0) && (
-                            <span className="text-[9px] text-muted-foreground">
-                              {Number(record.min_fee) > 0 ? `Min $${record.min_fee}` : ''}
-                              {Number(record.min_fee) > 0 && Number(record.max_fee) > 0 ? ' • ' : ''}
-                              {Number(record.max_fee) > 0 ? `Max $${record.max_fee}` : ''}
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-4 pr-6 text-right">
-                        <div className={tableActionClassName}>
-                          {isPrivileged ? <FeeConfigDialog actor={actor} onUpdated={onUpdateFeeConfig} record={record} /> : null}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                      <Accordion type="single" collapsible className="w-full mt-4">
+                        <AccordionItem value="others">
+                          <AccordionTrigger className="text-sm font-medium">Ver Configuraciones</AccordionTrigger>
+                          <AccordionContent>
+                            <FeeTableView fees={otherFees} actor={actor} isPrivileged={isPrivileged} onUpdateFeeConfig={onUpdateFeeConfig} />
+                          </AccordionContent>
+                        </AccordionItem>
+                      </Accordion>
+                    </div>
+                  </CarouselItem>
                 )}
-              </TableBody>
-            </Table>
+              </CarouselContent>
+              <div className="flex justify-center gap-2 mt-4">
+                <CarouselPrevious className="static translate-y-0 translate-x-0" />
+                <CarouselNext className="static translate-y-0 translate-x-0" />
+              </div>
+            </Carousel>
           </div>
         </CardContent>
       </Card>
