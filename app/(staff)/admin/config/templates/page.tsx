@@ -93,7 +93,7 @@ export default function TemplatesPage() {
       {/* ── Filtro por categoría ── */}
       <div className="flex items-center gap-3">
         <Label className="text-sm font-medium">Categoría:</Label>
-        <Select value={filterCategory} onValueChange={setFilterCategory}>
+        <Select value={filterCategory} onValueChange={(val) => setFilterCategory(val ?? 'ALL')}>
           <SelectTrigger className="w-[280px]">
             <SelectValue placeholder="Todas las categorías" />
           </SelectTrigger>
@@ -225,7 +225,7 @@ function CreateTemplateDialog({ onCreated }: { onCreated: () => void }) {
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-2">
             <Label>Categoría</Label>
-            <Select value={form.category} onValueChange={(v) => setForm(p => ({ ...p, category: v }))}>
+            <Select value={form.category} onValueChange={(v) => setForm(p => ({ ...p, category: v ?? 'DEFAULT' }))}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>

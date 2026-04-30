@@ -64,6 +64,7 @@ import { WalletRampDetailStep } from '@/features/payments/components/wallet-ramp
 import { WalletWithdrawDetailStep } from '@/features/payments/components/wallet-withdraw-detail-step'
 import { WalletToFiatDetailStep } from '@/features/payments/components/wallet-to-fiat-detail-step'
 import { ACTIVE_CRYPTO_NETWORKS, CRYPTO_NETWORK_LABELS, resolveCryptoNetwork } from '@/features/payments/lib/crypto-networks'
+import { getSupportedSourceCrypto } from '@/features/payments/lib/supported-crypto-rails'
 import {
   paymentOrderSchema,
   type PaymentOrderFormValues,
@@ -247,10 +248,30 @@ export function CreatePaymentOrderForm({
   const supplierAchDetails = useMemo(() => getSupplierAchDetails(selectedSupplier), [selectedSupplier])
   const supplierSwiftDetails = useMemo(() => getSupplierSwiftDetails(selectedSupplier), [selectedSupplier])
   const supplierHasCrypto = Boolean(selectedSupplier?.bank_details?.wallet_address)
+  
+  const supportedSourceRails = useMemo(() => {
+    if (route !== 'crypto_to_crypto' || !selectedSupplier?.bank_details) return []
+    const destNet = String(selectedSupplier.bank_details.wallet_network || '')
+    const destCur = String(selectedSupplier.bank_details.wallet_currency || '')
+    if (!destNet || !destCur) return []
+    return getSupportedSourceCrypto(destNet, destCur)
+  }, [route, selectedSupplier])
+
+  const supportedSourceNetworks = useMemo(() => {
+    return Array.from(new Set(supportedSourceRails.map((r) => r.network)))
+  }, [supportedSourceRails])
+
+  const supportedSourceCurrencies = useMemo(() => {
+    return Array.from(new Set(supportedSourceRails.map((r) => r.currency))).map(c => ({
+      value: c,
+      label: c
+    }))
+  }, [supportedSourceRails])
+
   const isDepositRouteActive = isDepositRoute(currentRoute.key)
   const routeCopy = ROUTE_STAGE_COPY[currentRoute.key]
-  const shouldHideSupplier = currentRoute.key === 'us_to_wallet' || currentRoute.key === 'world_to_bolivia' || currentRoute.key === 'crypto_to_crypto' || (currentRoute.key === 'wallet_ramp_withdraw' && walletRampWithdrawMethod !== 'fiat_us')
-  const requiresSupplierSelection = currentRoute.key === 'bolivia_to_exterior'
+  const shouldHideSupplier = currentRoute.key === 'us_to_wallet' || currentRoute.key === 'world_to_bolivia' || (currentRoute.key === 'wallet_ramp_withdraw' && walletRampWithdrawMethod !== 'fiat_us')
+  const requiresSupplierSelection = currentRoute.key === 'bolivia_to_exterior' || currentRoute.key === 'crypto_to_crypto'
   const hasSupplierSelected = Boolean(selectedSupplier)
   const showSupportUpload = (currentRoute.key === 'world_to_bolivia' || !isDepositRouteActive) && currentRoute.key !== 'wallet_to_fiat'
 
@@ -261,6 +282,9 @@ export function CreatePaymentOrderForm({
       currentRoute.key === 'wallet_to_fiat'
     ) {
       return suppliers.filter((s) => s.bridge_external_account_id)
+    }
+    if (currentRoute.key === 'crypto_to_crypto') {
+      return suppliers.filter((s) => s.bank_details?.wallet_address && s.bank_details?.wallet_network && s.bank_details?.wallet_currency)
     }
     return suppliers
   }, [suppliers, currentRoute.key, walletRampWithdrawMethod])
@@ -522,6 +546,12 @@ export function CreatePaymentOrderForm({
       form.setValue('destination_address', String(selectedSupplier.bank_details.wallet_address))
       form.setValue('crypto_address', String(selectedSupplier.bank_details.wallet_address))
       form.setValue('crypto_network', String(selectedSupplier.bank_details.wallet_network || 'Polygon'))
+      if (route === 'crypto_to_crypto' && selectedSupplier.bank_details.wallet_currency) {
+        form.setValue('destination_currency', String(selectedSupplier.bank_details.wallet_currency).toUpperCase() as PaymentOrderFormValues['destination_currency'])
+        // Resetear selecciones de origen al cambiar proveedor
+        form.setValue('source_crypto_network', '' as any)
+        form.setValue('origin_currency', '' as any)
+      }
     }
   }, [deliveryMethod, form, route, selectedSupplier, supplierAchDetails, supplierSwiftDetails])
 
@@ -1119,7 +1149,9 @@ export function CreatePaymentOrderForm({
                                     ? 'Solo se muestran proveedores con cuenta bancaria externa registrada en Bridge (ACH/Wire).'
                                     : currentRoute.key === 'wallet_to_fiat'
                                       ? 'Solo se muestran proveedores con cuenta bancaria externa registrada en Bridge (ACH/Wire).'
-                                      : 'Debes crear un proveedor con los datos correctos antes de usar esta opcion.'}
+                                      : currentRoute.key === 'crypto_to_crypto'
+                                        ? 'Solo se muestran proveedores con wallet crypto configurada. La red y moneda de origen se filtran segun el destino del proveedor.'
+                                        : 'Debes crear un proveedor con los datos correctos antes de usar esta opcion.'}
                                 </p>
                               )}
                               <div className="flex flex-wrap items-center gap-3">
@@ -1271,22 +1303,38 @@ export function CreatePaymentOrderForm({
                                 <>
                                   {route === 'crypto_to_crypto' ? (
                                     <>
-                                      <div className="grid gap-4 lg:grid-cols-2 mt-4">
-                                        <CurrencySelectField control={form.control} disabled={disabled} label="Moneda de origen" name="origin_currency" placeholder="Selecciona moneda" />
-                                        <CurrencySelectField control={form.control} disabled={disabled} label="Moneda de destino" name="destination_currency" placeholder="Selecciona moneda" />
-                                      </div>
                                       <div className="grid gap-4 mt-4 px-4 py-4 border rounded-md bg-muted/20">
                                         <div className="col-span-full mb-2">
                                           <h4 className="text-sm font-semibold">Datos de Fondeo (Desde dónde envías)</h4>
                                         </div>
+                                        <div className="grid gap-4 lg:grid-cols-2">
+                                          <NetworkSelectField 
+                                            control={form.control} 
+                                            disabled={disabled || !hasSupplierSelected || supportedSourceNetworks.length === 0} 
+                                            label="Red de Origen" 
+                                            name="source_crypto_network" 
+                                            placeholder="Selecciona la red" 
+                                            options={supportedSourceNetworks}
+                                          />
+                                          <CurrencySelectField 
+                                            control={form.control} 
+                                            disabled={disabled || !hasSupplierSelected || supportedSourceCurrencies.length === 0} 
+                                            label="Moneda de origen" 
+                                            name="origin_currency" 
+                                            placeholder="Selecciona moneda" 
+                                            options={supportedSourceCurrencies}
+                                          />
+                                        </div>
                                         <TextField control={form.control} disabled={disabled} label="Wallet de Origen (Externa)" name="source_crypto_address" />
-                                        <NetworkSelectField control={form.control} disabled={disabled} label="Red de Origen" name="source_crypto_network" placeholder="Selecciona la red" />
                                       </div>
                                     </>
                                   ) : null}
-                                  <div className="grid gap-4 lg:grid-cols-2 mt-4">
-                                    <TextField control={form.control} disabled={disabled || hasSupplierSelected} label="Wallet destino" name="crypto_address" />
-                                    <NetworkSelectField control={form.control} disabled={disabled || hasSupplierSelected} label="Red destino" name="crypto_network" placeholder="Selecciona la red" />
+                                  <div className="grid gap-4 lg:grid-cols-3 mt-4">
+                                    <TextField control={form.control} disabled={true} label="Wallet destino" name="crypto_address" />
+                                    <NetworkSelectField control={form.control} disabled={true} label="Red destino" name="crypto_network" placeholder="Selecciona la red" />
+                                    {route === 'crypto_to_crypto' ? (
+                                      <CurrencySelectField control={form.control} disabled={true} label="Moneda destino" name="destination_currency" placeholder="Selecciona moneda" />
+                                    ) : null}
                                   </div>
                                 </>
                               ) : null}
@@ -1874,13 +1922,16 @@ function NetworkSelectField({
   label,
   placeholder,
   disabled,
+  options,
 }: {
   control: Control<PaymentOrderFormValues>
   name: FieldPath<PaymentOrderFormValues>
   label: string
   placeholder: string
   disabled?: boolean
+  options?: string[]
 }) {
+  const renderedOptions = options ?? ACTIVE_CRYPTO_NETWORKS
   return (
     <FormField
       control={control}
@@ -1898,14 +1949,15 @@ function NetworkSelectField({
                 <SelectValue placeholder={placeholder} />
               </SelectTrigger>
               <SelectContent>
-                {ACTIVE_CRYPTO_NETWORKS.map((network) => (
+                {renderedOptions.map((network) => (
                   <SelectItem key={network} value={network}>
-                    {CRYPTO_NETWORK_LABELS[network]}
+                    {CRYPTO_NETWORK_LABELS[network] ?? network}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </FormControl>
+
           <FormMessage />
         </FormItem>
       )}
@@ -1917,6 +1969,9 @@ const CRYPTO_CURRENCY_OPTIONS = [
   { value: 'USDC', label: 'USDC' },
   { value: 'USDT', label: 'USDT (Tether)' },
   { value: 'ETH', label: 'ETH (Ethereum)' },
+  { value: 'EURC', label: 'EURC' },
+  { value: 'PYUSD', label: 'PYUSD' },
+  { value: 'USDB', label: 'USDB' },
 ] as const
 
 function CurrencySelectField({
@@ -1925,13 +1980,16 @@ function CurrencySelectField({
   label,
   placeholder,
   disabled,
+  options,
 }: {
   control: Control<PaymentOrderFormValues>
   name: FieldPath<PaymentOrderFormValues>
   label: string
   placeholder: string
   disabled?: boolean
+  options?: { value: string, label: string }[]
 }) {
+  const renderedOptions = options ?? CRYPTO_CURRENCY_OPTIONS
   return (
     <FormField
       control={control}
@@ -1949,7 +2007,7 @@ function CurrencySelectField({
                 <SelectValue placeholder={placeholder} />
               </SelectTrigger>
               <SelectContent>
-                {CRYPTO_CURRENCY_OPTIONS.map((opt) => (
+                {renderedOptions.map((opt) => (
                   <SelectItem key={opt.value} value={opt.value}>
                     {opt.label}
                   </SelectItem>
@@ -2161,7 +2219,7 @@ function getDetailStepFields({
     ]
   }
 
-  if (route === 'bolivia_to_exterior') {
+  if (route === 'bolivia_to_exterior' || route === 'crypto_to_crypto') {
     fields.push('supplier_id')
   }
 
@@ -2193,6 +2251,11 @@ function getDetailStepFields({
 
   if (deliveryMethod === 'crypto') {
     fields.push('crypto_address', 'crypto_network')
+  }
+
+  // Para crypto_to_crypto los datos de ORIGEN son obligatorios
+  if (route === 'crypto_to_crypto') {
+    fields.push('source_crypto_network', 'source_crypto_address')
   }
 
   return fields

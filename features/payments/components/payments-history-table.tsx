@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import { format } from 'date-fns'
 import { motion } from 'framer-motion'
-import { ChevronDown, Download, Search, ShieldAlert, XCircle } from 'lucide-react'
+import { ChevronDown, Download, FileSpreadsheet, FileText, Loader2, Search, ShieldAlert, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { DocumentUploadCard } from '@/components/shared/document-upload-card'
@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { DepositInstructionCard } from '@/features/payments/components/deposit-instruction-card'
 import { buildDepositInstructionsFromOrder } from '@/features/payments/lib/deposit-instructions'
 import { api } from '@/lib/api'
@@ -188,6 +189,41 @@ export function PaymentsHistoryTable({
     }
   }
 
+  async function handleExport(exportFormat: 'excel' | 'pdf') {
+    setBusyKey(`export-${exportFormat}`)
+    try {
+      const params = new URLSearchParams({ format: exportFormat })
+      if (statusFilter !== 'all') params.set('status', statusFilter)
+
+      const response = await api.get(`/payment-orders/export?${params.toString()}`, {
+        responseType: 'blob',
+      })
+
+      const mimeType = exportFormat === 'excel'
+        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        : 'application/pdf'
+      const ext = exportFormat === 'excel' ? 'xlsx' : 'pdf'
+      const dateStr = new Date().toISOString().slice(0, 10)
+
+      const blob = new Blob([response.data as BlobPart], { type: mimeType })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `expedientes-${dateStr}.${ext}`)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      toast.success(`Reporte ${exportFormat === 'excel' ? 'Excel' : 'PDF'} descargado.`)
+    } catch (error: unknown) {
+      console.error('Export failed', error)
+      toast.error(`No se pudo generar el reporte: ${getErrorMessage(error)}`)
+    } finally {
+      setBusyKey(null)
+    }
+  }
+
   return (
     <div className="space-y-4 ">
       <section className="overflow-hidden rounded-[28px]  ">
@@ -211,7 +247,7 @@ export function PaymentsHistoryTable({
           </div>
         </div>
 
-        <div className="grid gap-3 px-4 py-4 sm:px-6 md:grid-cols-[1fr_240px]">
+        <div className="grid gap-3 px-4 py-4 sm:px-6 md:grid-cols-[1fr_240px_auto]">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -238,6 +274,42 @@ export function PaymentsHistoryTable({
               <SelectItem value="swept_external">Swept external</SelectItem>
             </SelectContent>
           </Select>
+
+          {/* Exportar */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                className="h-11 gap-2 border-border/60 bg-background/80 text-sm font-medium"
+                disabled={!!busyKey?.startsWith('export-')}
+                type="button"
+                variant="outline"
+              >
+                {busyKey?.startsWith('export-') ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Download className="size-4" />
+                )}
+                <span className="hidden sm:inline">Exportar</span>
+                <ChevronDown className="size-3.5 text-muted-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem
+                className="cursor-pointer gap-2"
+                onClick={() => handleExport('excel')}
+              >
+                <FileSpreadsheet className="size-4 text-emerald-500" />
+                Descargar Excel (.xlsx)
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="cursor-pointer gap-2"
+                onClick={() => handleExport('pdf')}
+              >
+                <FileText className="size-4 text-red-400" />
+                Descargar PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </section>
 
@@ -326,17 +398,19 @@ export function PaymentsHistoryTable({
                     <ChevronDown className={`size-4 sm:size-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                     <span className="hidden sm:inline">{isExpanded ? 'Colapsar' : 'Expandir'}</span>
                   </Button>
-                  <Button
-                    className="flex-1 lg:flex-none text-xs sm:text-sm h-9 sm:h-10"
-                    disabled={disabled || busyKey === `${order.id}-pdf`}
-                    onClick={() => handleDownloadPdf(order)}
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    <Download className="size-4 sm:size-5" />
-                    <span className="hidden sm:inline">PDF</span>
-                  </Button>
+                  {order.status === 'completed' || order.status === 'cancelled' ? (
+                    <Button
+                      className="flex-1 lg:flex-none text-xs sm:text-sm h-9 sm:h-10"
+                      disabled={disabled || busyKey === `${order.id}-pdf`}
+                      onClick={() => handleDownloadPdf(order)}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      <Download className="size-4 sm:size-5" />
+                      <span className="hidden sm:inline">PDF</span>
+                    </Button>
+                  ) : null}
                   {canCancel ? (
                     <Button
                       className="flex-1 lg:flex-none text-xs sm:text-sm h-9 sm:h-10"

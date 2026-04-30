@@ -247,11 +247,12 @@ export const paymentOrderSchema = z
       ctx.addIssue({ code: 'custom', message: 'Selecciona un método de entrega.', path: ['delivery_method'] })
     }
 
-    if (!value.destination_address || value.destination_address.length < 3) {
+    // Para crypto_to_crypto la destination_address viene del supplier (backend la resuelve).
+    if (value.route !== 'crypto_to_crypto' && (!value.destination_address || value.destination_address.length < 3)) {
       ctx.addIssue({ code: 'custom', message: 'Ingresa el destino.', path: ['destination_address'] })
     }
 
-    if (value.route === 'bolivia_to_exterior' && !value.supplier_id) {
+    if ((value.route === 'bolivia_to_exterior' || value.route === 'crypto_to_crypto') && !value.supplier_id) {
       ctx.addIssue({
         code: 'custom',
         message: 'Selecciona un proveedor o beneficiario antes de continuar.',
@@ -299,7 +300,8 @@ export const paymentOrderSchema = z
       })
     }
 
-    if (value.delivery_method === 'crypto') {
+    // Para crypto_to_crypto el crypto_address y crypto_network son autocompletados del supplier (read-only).
+    if (value.delivery_method === 'crypto' && value.route !== 'crypto_to_crypto') {
       if (!value.crypto_address) {
         ctx.addIssue({
           code: 'custom',
@@ -324,13 +326,8 @@ export const paymentOrderSchema = z
           path: ['source_crypto_network'],
         })
       }
-      if (!value.source_crypto_address) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'La dirección cripto de origen es obligatoria.',
-          path: ['source_crypto_address'],
-        })
-      }
+      // source_crypto_address es opcional: Bridge acepta fondos de cualquier
+      // dirección (allow_any_from_address). Se guarda como referencia interna.
     }
   })
 

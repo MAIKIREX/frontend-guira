@@ -148,14 +148,12 @@ export function buildPaymentOrderPayload(
       payload.destination_currency = values.destination_currency
       break
     case 'wallet_to_wallet':
-      // 1.2 Crypto to Crypto
-      payload.source_network = values.source_crypto_network
-      payload.source_address = values.source_crypto_address
-      payload.source_currency = values.origin_currency 
-      
-      payload.destination_address = values.crypto_address || supplier?.bank_details?.wallet_address
-      payload.destination_network = values.crypto_network || supplier?.bank_details?.wallet_network
-      payload.destination_currency = values.destination_currency
+      // 1.2 Crypto to Crypto — destino resuelto en backend desde supplier_id
+      payload.source_network = values.source_crypto_network?.toLowerCase()
+      payload.source_address = values.source_crypto_address?.trim()
+      payload.source_currency = values.origin_currency?.toLowerCase()
+      // destination_address, destination_network, destination_currency los resuelve
+      // el backend directamente desde el supplier seleccionado.
       break
     case 'world_to_bolivia':
       // 1.4 Fiat Depósito a Bolivia
