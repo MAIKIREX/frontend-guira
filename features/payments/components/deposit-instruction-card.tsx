@@ -213,7 +213,7 @@ export function DepositInstructionCard({ instruction }: { instruction: DepositIn
               <div className="flex flex-1 items-center justify-center py-6">
                 <div className="relative h-12 w-[90px] opacity-80">
                   <Image
-                    src="/logo.png"
+                    src="/asdsadsa.svg"
                     alt="Guira"
                     fill
                     className="object-contain"

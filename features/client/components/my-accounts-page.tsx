@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   Copy,
   ExternalLink,
@@ -23,6 +23,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useProfileStore } from '@/stores/profile-store'
 import { WalletService, type WalletBalance } from '@/services/wallet.service'
+import { createClient } from '@/lib/supabase/browser'
 import { VirtualAccountsSection } from './virtual-accounts-section'
 
 const NETWORK_LABELS: Record<string, string> = {
@@ -296,6 +297,32 @@ function WalletsSection({ isApproved }: { isApproved: boolean }) {
   useEffect(() => {
     void load()
   }, [load])
+
+  // ── Supabase Realtime: auto-refresh when balance changes ──
+  const { profile } = useProfileStore()
+  const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
+
+  useEffect(() => {
+    const userId = profile?.id
+    if (!userId) return
+
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`wallets-live:${userId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'balances', filter: `user_id=eq.${userId}` },
+        () => { void load() }
+      )
+      .subscribe()
+
+    channelRef.current = channel
+
+    return () => {
+      supabase.removeChannel(channel)
+      channelRef.current = null
+    }
+  }, [profile?.id, load])
 
   return (
     <div className="space-y-5">

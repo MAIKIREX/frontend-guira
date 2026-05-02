@@ -8,7 +8,7 @@ export default function HomePage() {
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-10">
         <header className="flex items-center justify-between">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.28em] text-blue-800 dark:text-cyan-300">Guira</div>
+            <img src="/asdsadsa.svg" alt="Guira" className="h-8 w-auto" />
             <h1 className="mt-2 text-2xl font-semibold tracking-tight">Operaciones globales con trazabilidad local</h1>
           </div>
           <Link

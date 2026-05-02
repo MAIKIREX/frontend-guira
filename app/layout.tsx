@@ -8,6 +8,9 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'Guira - Transacciones Seguras',
   description: 'Plataforma para operaciones y pagos',
+  icons: {
+    icon: '/asdsadsa.svg',
+  },
 }
 
 export default function RootLayout({

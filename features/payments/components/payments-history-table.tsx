@@ -22,7 +22,7 @@ import type { ActivityLog } from '@/types/activity-log'
 import type { OrderFileField, PaymentOrder } from '@/types/payment-order'
 import type { Supplier } from '@/types/supplier'
 
-const TERMINAL_STATUSES = new Set(['cancelled', 'failed', 'swept_external'])
+const TERMINAL_STATUSES = new Set(['cancelled', 'failed', 'swept_external', 'refunded'])
 
 /** Stages for interbank / deposit-based flows (PSAV, Virtual Accounts, etc.) */
 const DEPOSIT_FLOW_STAGES: Array<{ key: PaymentOrder['status']; label: string }> = [
@@ -34,6 +34,25 @@ const DEPOSIT_FLOW_STAGES: Array<{ key: PaymentOrder['status']; label: string }>
   { key: 'completed', label: 'Completado' },
 ]
 
+/** Stages for VA deposit flows (Bridge virtual account → ledger credit) */
+const VA_DEPOSIT_FLOW_STAGES: Array<{ key: PaymentOrder['status']; label: string }> = [
+  { key: 'pending', label: 'Fondos recibidos' },
+  { key: 'processing', label: 'Procesando pago' },
+  { key: 'completed', label: 'Acreditado' },
+]
+
+/** Visual config for va_deposit_status badges */
+const VA_STATUS_CONFIG: Record<string, { label: string; badgeClass: string }> = {
+  funds_received:    { label: 'Fondos Recibidos',       badgeClass: 'border-amber-400/35 bg-amber-400/10 text-amber-700 dark:text-amber-300' },
+  funds_scheduled:   { label: 'ACH en Tránsito',        badgeClass: 'border-sky-400/35 bg-sky-400/10 text-sky-700 dark:text-sky-300' },
+  payment_submitted: { label: 'Procesando Pago',        badgeClass: 'border-violet-400/35 bg-violet-400/10 text-violet-700 dark:text-violet-300' },
+  payment_processed: { label: 'Confirmado',             badgeClass: 'border-emerald-400/35 bg-emerald-400/10 text-emerald-700 dark:text-emerald-300' },
+  in_review:         { label: 'En Revisión',            badgeClass: 'border-orange-400/35 bg-orange-400/10 text-orange-700 dark:text-orange-300' },
+  refund_in_flight:  { label: 'Reembolso en Proceso',   badgeClass: 'border-rose-400/35 bg-rose-400/10 text-rose-700 dark:text-rose-300' },
+  refunded:          { label: 'Reembolsado',            badgeClass: 'border-destructive/35 bg-destructive/10 text-destructive' },
+  refund_failed:     { label: 'Reembolso Fallido',      badgeClass: 'border-destructive/35 bg-destructive/10 text-destructive' },
+}
+
 /** Stages for wallet-withdraw flows (Bridge wallet to fiat/crypto — no external deposit needed) */
 const WALLET_WITHDRAW_FLOW_STAGES: Array<{ key: PaymentOrder['status']; label: string }> = [
   { key: 'created', label: 'Orden creada' },
@@ -44,6 +63,7 @@ const WALLET_WITHDRAW_FLOW_STAGES: Array<{ key: PaymentOrder['status']; label: s
 
 /** Returns the correct flow stages for a given order based on its service type */
 function getFlowStages(order: PaymentOrder) {
+  if (order.flow_type === 'va_deposit') return VA_DEPOSIT_FLOW_STAGES
   return isDepositOrder(order) ? DEPOSIT_FLOW_STAGES : WALLET_WITHDRAW_FLOW_STAGES
 }
 
@@ -67,6 +87,8 @@ const STATUS_FILTER_LABELS: Record<string, string> = {
   sent: 'Enviado',
   completed: 'Completado',
   swept_external: 'Liquidado externo',
+  pending: 'Pendiente (VA)',
+  refunded: 'Reembolsado',
 }
 
 interface PaymentsHistoryTableProps {
@@ -298,6 +320,8 @@ export function PaymentsHistoryTable({
               <SelectItem value="sent">Enviado</SelectItem>
               <SelectItem value="completed">Completado</SelectItem>
               <SelectItem value="swept_external">Swept external</SelectItem>
+              <SelectItem value="pending">Pendiente (VA)</SelectItem>
+              <SelectItem value="refunded">Reembolsado</SelectItem>
             </SelectContent>
           </Select>
 
@@ -381,8 +405,18 @@ export function PaymentsHistoryTable({
                     <Badge className={cn("text-xs", statusMeta.badgeClass)} variant={getStatusVariant(order.status)}>
                       {statusMeta.label}
                     </Badge>
+                    {/* VA deposit lifecycle badge */}
+                    {order.flow_type === 'va_deposit' && order.va_deposit_status && VA_STATUS_CONFIG[order.va_deposit_status] && (
+                      <Badge className={cn('text-xs', VA_STATUS_CONFIG[order.va_deposit_status].badgeClass)} variant="outline">
+                        {VA_STATUS_CONFIG[order.va_deposit_status].label}
+                      </Badge>
+                    )}
                     <Badge className="text-xs" variant="outline">{humanizeOrderType(order)}</Badge>
                     <Badge className="text-xs" variant="outline">{humanizeRail(order)}</Badge>
+                    {/* VA sender name */}
+                    {order.sender_name && (
+                      <Badge className="text-xs border-border/40" variant="outline">De: {order.sender_name}</Badge>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <CardTitle className="text-xl sm:text-2xl md:text-[1.65rem] tracking-[-0.03em]">Expediente #{order.id.slice(0, 8)}</CardTitle>
@@ -1040,6 +1074,10 @@ function getStatusMeta(status: PaymentOrder['status']) {
       return { badgeClass: 'border-orange-400/35 bg-orange-400/10 text-orange-700 dark:text-orange-300', eyebrow: 'Anulacion', label: 'Cancelado' }
     case 'swept_external':
       return { badgeClass: 'border-teal-400/35 bg-teal-400/10 text-teal-700 dark:text-teal-300', eyebrow: 'Liquidacion externa', label: 'Liquidado externo' }
+    case 'pending':
+      return { badgeClass: 'border-amber-400/35 bg-amber-400/10 text-amber-700 dark:text-amber-300', eyebrow: 'Cuenta Virtual', label: 'Pendiente Bridge' }
+    case 'refunded':
+      return { badgeClass: 'border-destructive/35 bg-destructive/10 text-destructive', eyebrow: 'Reembolso', label: 'Reembolsado' }
     default:
       return { badgeClass: 'border-border/30 bg-muted/10 text-muted-foreground', eyebrow: 'Desconocido', label: status ?? 'Sin estado' }
   }
@@ -1099,6 +1137,10 @@ function getUrgencyLabel(status: PaymentOrder['status']) {
       return 'Cancelado'
     case 'swept_external':
       return 'Liquidado'
+    case 'pending':
+      return 'En proceso'
+    case 'refunded':
+      return 'Reembolsado'
     default:
       return 'Sin estado'
   }
@@ -1143,6 +1185,8 @@ function humanizeOrderType(order: PaymentOrder) {
       case 'bridge_wallet_to_fiat_bo': return 'Retirar fondos de mi Wallet'
       case 'bridge_wallet_to_crypto': return 'Bridge a crypto'
       case 'bridge_wallet_to_fiat_us': return 'Bridge a US'
+      case 'va_deposit': return 'Depósito Cuenta Virtual'
+      case 'wallet_to_fiat': return 'Retiro a Cuenta Bancaria'
       default: return order.flow_type
     }
   }

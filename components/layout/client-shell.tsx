@@ -36,7 +36,7 @@ export function ClientShell({
           isMobileOpen ? "translate-x-0" : "-translate-x-full"
         )}>
           <div className="flex items-center justify-between border-b px-5 py-4">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.34em] text-muted-foreground/80">Guira</div>
+            <img src="/asdsadsa.svg" alt="Guira" className="h-6 w-auto" />
             <Button variant="ghost" size="icon" onClick={() => setIsMobileOpen(false)}>
               <X className="size-5" />
             </Button>
@@ -55,7 +55,7 @@ export function ClientShell({
             <div className="border-b border-border/55 px-5 py-6">
               <div className={`flex items-start ${isCollapsed ? 'justify-center' : 'justify-between gap-3'}`}>
                 <div className={isCollapsed ? 'hidden' : 'min-w-0'}>
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.34em] text-muted-foreground/80">Guira</div>
+                  <img src="/asdsadsa.svg" alt="Guira" className="h-6 w-auto" />
                   <div className="mt-3 text-lg font-semibold uppercase tracking-[0.18em] text-foreground/92">
                     Navegacion
                   </div>

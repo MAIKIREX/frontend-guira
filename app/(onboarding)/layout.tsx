@@ -13,9 +13,7 @@ export default function OnboardingLayout({
       <header className="border-b border-border/60 bg-background/90 backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.34em] text-muted-foreground/80">
-              Guira
-            </span>
+            <img src="/asdsadsa.svg" alt="Guira" className="h-6 w-auto" />
             <span className="text-muted-foreground/40">·</span>
             <span className="text-xs text-muted-foreground/60">Configuración de cuenta</span>
           </div>
