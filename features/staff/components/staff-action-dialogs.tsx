@@ -226,7 +226,7 @@ function OnboardingActionDialog({ actor, defaultStatus, onUpdated, record }: { a
 
             {/* ── Observaciones por campo (solo para "Solicitar Correcciones") ── */}
             {isRequestChanges && (
-              <div className="space-y-3 rounded-lg border p-4 bg-amber-50/50 dark:bg-amber-950/20">
+              <div className="space-y-3 rounded-lg border p-4 bg-warning/5">
                 <Label className="text-sm font-semibold">Observaciones por campo (opcional)</Label>
                 <p className="text-xs text-muted-foreground">
                   Marca campos específicos que necesitan corrección. El cliente los verá resaltados en su formulario.
@@ -236,7 +236,7 @@ function OnboardingActionDialog({ actor, defaultStatus, onUpdated, record }: { a
                 {Object.entries(fieldObservations).length > 0 && (
                   <div className="space-y-2">
                     {Object.entries(fieldObservations).map(([key, msg]) => (
-                      <div key={key} className="flex items-center gap-2 rounded border bg-white dark:bg-zinc-900 px-3 py-2 text-sm">
+                      <div key={key} className="flex items-center gap-2 rounded border bg-card px-3 py-2 text-sm">
                         <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">{key}</code>
                         <span className="flex-1 truncate text-muted-foreground">{msg}</span>
                         <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive" onClick={() => removeFieldObservation(key)}>×</Button>
@@ -531,7 +531,7 @@ export function OrderDetailDialog({ actor, onUpdated, order }: { actor: StaffAct
                     </p>
                   </div>
                   {/* QR contiene solo la dirección limpia — compatible con escáneres de exchanges (Binance, OKX, etc.) */}
-                  <div className="rounded-xl bg-white p-3 shadow-sm">
+                  <div className="rounded-xl bg-card p-3 shadow-sm">
                     <QRCodeSVG
                       value={liquidationQR.address}
                       size={180}

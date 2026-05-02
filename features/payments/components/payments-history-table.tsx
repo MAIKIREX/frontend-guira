@@ -45,7 +45,7 @@ const VA_DEPOSIT_FLOW_STAGES: Array<{ key: PaymentOrder['status']; label: string
 const VA_STATUS_CONFIG: Record<string, { label: string; badgeClass: string }> = {
   funds_received:    { label: 'Fondos Recibidos',       badgeClass: 'border-amber-400/35 bg-amber-400/10 text-amber-700 dark:text-amber-300' },
   funds_scheduled:   { label: 'ACH en Tránsito',        badgeClass: 'border-sky-400/35 bg-sky-400/10 text-sky-700 dark:text-sky-300' },
-  payment_submitted: { label: 'Procesando Pago',        badgeClass: 'border-violet-400/35 bg-violet-400/10 text-violet-700 dark:text-violet-300' },
+  payment_submitted: { label: 'Procesando Pago',        badgeClass: 'border-cyan-400/35 bg-cyan-400/10 text-cyan-700 dark:text-cyan-300' },
   payment_processed: { label: 'Confirmado',             badgeClass: 'border-emerald-400/35 bg-emerald-400/10 text-emerald-700 dark:text-emerald-300' },
   in_review:         { label: 'En Revisión',            badgeClass: 'border-orange-400/35 bg-orange-400/10 text-orange-700 dark:text-orange-300' },
   refund_in_flight:  { label: 'Reembolso en Proceso',   badgeClass: 'border-rose-400/35 bg-rose-400/10 text-rose-700 dark:text-rose-300' },
@@ -1065,7 +1065,7 @@ function getStatusMeta(status: PaymentOrder['status']) {
     case 'processing':
       return { badgeClass: 'border-sky-400/35 bg-sky-400/10 text-sky-700 dark:text-sky-300', eyebrow: 'Ejecucion', label: 'Procesando' }
     case 'sent':
-      return { badgeClass: 'border-violet-400/35 bg-violet-400/10 text-violet-700 dark:text-violet-300', eyebrow: 'Liquidacion', label: 'Enviado' }
+      return { badgeClass: 'border-cyan-400/35 bg-cyan-400/10 text-cyan-700 dark:text-cyan-300', eyebrow: 'Liquidacion', label: 'Enviado' }
     case 'completed':
       return { badgeClass: 'border-emerald-400/35 bg-emerald-400/10 text-emerald-700 dark:text-emerald-300', eyebrow: 'Cierre', label: 'Completado' }
     case 'failed':
@@ -1156,7 +1156,7 @@ function getUrgencyBadgeClass(status: PaymentOrder['status']) {
       return 'border-sky-400/35 bg-sky-400/10 text-sky-700 dark:text-sky-300'
     case 'processing':
     case 'sent':
-      return 'border-violet-400/35 bg-violet-400/10 text-violet-700 dark:text-violet-300'
+      return 'border-cyan-400/35 bg-cyan-400/10 text-cyan-700 dark:text-cyan-300'
     case 'completed':
       return 'border-emerald-400/35 bg-emerald-400/10 text-emerald-700 dark:text-emerald-300'
     case 'failed':

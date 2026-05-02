@@ -222,7 +222,7 @@ const CURRENCY_ACCENT: Record<string, { from: string; to: string; text: string }
   eur: { from: 'from-indigo-500/10', to: 'to-blue-500/5', text: 'text-indigo-500' },
   mxn: { from: 'from-emerald-500/10', to: 'to-red-500/5', text: 'text-emerald-600' },
   brl: { from: 'from-yellow-500/10', to: 'to-green-500/5', text: 'text-yellow-600' },
-  gbp: { from: 'from-purple-500/10', to: 'to-pink-500/5', text: 'text-purple-500' },
+  gbp: { from: 'from-teal-500/10', to: 'to-cyan-500/5', text: 'text-teal-500' },
   cop: { from: 'from-amber-500/10', to: 'to-blue-500/5', text: 'text-amber-600' },
 }
 

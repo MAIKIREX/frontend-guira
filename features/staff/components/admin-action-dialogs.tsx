@@ -1243,18 +1243,18 @@ export function ChangeRoleDialog({ actor, onUpdated, user }: { actor: StaffActor
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger render={
-        <Button size="sm" variant="ghost" className="h-8 px-2 border border-transparent bg-violet-500/8 text-violet-700 hover:bg-violet-500/14 hover:text-violet-800 dark:text-violet-300 dark:hover:text-violet-200 font-bold text-[10px] uppercase tracking-wider transition-all" />
+        <Button size="sm" variant="ghost" className="h-8 px-2 border border-transparent bg-primary/8 text-primary hover:bg-primary/14 hover:text-primary font-bold text-[10px] uppercase tracking-wider transition-all" />
       }>
         Cambiar rol
       </DialogTrigger>
       <DialogContent className="sm:max-w-[450px] w-[95vw] sm:w-full gap-0 p-0 max-h-[92vh] overflow-y-auto border-border/40 shadow-2xl">
-        <div className="bg-violet-500/5 border-b border-violet-500/10 p-6 flex items-center gap-4">
-          <div className="size-12 rounded-2xl bg-violet-500/10 flex items-center justify-center text-violet-700 shadow-sm dark:text-violet-300">
+        <div className="bg-primary/5 border-b border-primary/10 p-6 flex items-center gap-4">
+          <div className="size-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-sm">
             <ShieldCheck className="size-6" />
           </div>
           <div className="space-y-0.5">
             <DialogTitle className="text-lg font-bold">Cambiar Rol</DialogTitle>
-            <DialogDescription className="text-xs text-violet-700/80 font-medium dark:text-violet-300/80">
+            <DialogDescription className="text-xs text-primary/80 font-medium">
               {user.full_name || user.email}
             </DialogDescription>
           </div>
@@ -1313,7 +1313,7 @@ export function ChangeRoleDialog({ actor, onUpdated, user }: { actor: StaffActor
                 <Button
                   disabled={form.formState.isSubmitting || form.watch('role') === user.role}
                   type="submit"
-                  className="w-full font-bold bg-violet-500 text-white hover:bg-violet-400 h-10 rounded-full shadow-lg shadow-violet-500/10 transition-all flex items-center justify-center gap-2"
+                  className="w-full font-bold bg-primary text-primary-foreground hover:bg-primary/90 h-10 rounded-full shadow-lg shadow-primary/10 transition-all flex items-center justify-center gap-2"
                 >
                   {form.formState.isSubmitting ? <><div className="size-3 border-2 border-white/30 border-t-white animate-spin rounded-full" /> Procesando...</> : 'Confirmar Cambio de Rol'}
                 </Button>
@@ -2005,7 +2005,7 @@ function PsavUpsertDialog({ actor, label, onUpdated, record }: { actor: StaffAct
             <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground w-full text-center">Previsualización</div>
             
             <div className="w-full max-w-[240px] md:max-w-none aspect-square rounded-2xl bg-card shadow-xl shadow-black/10 border border-border/50 flex flex-col items-center justify-center p-6 space-y-4 relative overflow-hidden group mx-auto">
-              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-400/50 via-cyan-400/50 to-violet-400/50" />
+              <div className="absolute inset-x-0 top-0 h-1 bg-accent" />
               
               {previewUrl ? (
                 <>

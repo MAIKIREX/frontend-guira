@@ -22,7 +22,7 @@ const COLORS = {
   key: '#7dd3fc',      // sky-300
   string: '#86efac',   // green-300
   number: '#fdba74',   // orange-300
-  boolean: '#c4b5fd',  // violet-300
+  boolean: '#67e8f9',  // cyan-300
   null: '#6b7280',     // gray-500
   bracket: '#9ca3af',  // gray-400
   punctuation: '#6b7280',

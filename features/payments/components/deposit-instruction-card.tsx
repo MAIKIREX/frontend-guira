@@ -57,7 +57,7 @@ export function DepositInstructionCard({ instruction }: { instruction: DepositIn
     ? `${visiblePrimaryValue.slice(0, 14)}...` 
     : visiblePrimaryValue
 
-  const cardBaseBg = "bg-[linear-gradient(150deg,#0b1020_0%,#151c35_45%,#26104c_100%)]"
+  const cardBaseBg = "bg-[oklch(0.14_0.025_240)]"
 
   return (
     <div className="relative group [perspective:1400px] h-[260px] sm:h-[280px]">
@@ -81,7 +81,7 @@ export function DepositInstructionCard({ instruction }: { instruction: DepositIn
               pointerEvents: isFlipped ? 'none' : 'auto'
             }}
           >
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.18),transparent_40%),radial-gradient(circle_at_bottom_right,rgba(250,204,21,0.12),transparent_35%)]" />
+            <div className="pointer-events-none absolute inset-0 bg-white/[0.03]" />
             <div className="relative flex h-full flex-col p-6 sm:p-7">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
@@ -157,7 +157,7 @@ export function DepositInstructionCard({ instruction }: { instruction: DepositIn
                             Escanea este codigo para completar el deposito del expediente.
                           </DialogDescription>
                         </DialogHeader>
-                        <div className="mx-auto w-full max-w-[360px] overflow-hidden rounded-[28px] border border-border/70 bg-white p-4 shadow-sm dark:bg-slate-950">
+                        <div className="mx-auto w-full max-w-[360px] overflow-hidden rounded-[28px] border border-border/70 bg-card p-4 shadow-sm">
                           <Image
                             src={instruction.qrUrl}
                             alt={`QR ampliado ${instruction.title}`}
@@ -182,7 +182,7 @@ export function DepositInstructionCard({ instruction }: { instruction: DepositIn
           {/* Back Face */}
           <div
             className={cn(
-              "absolute inset-0 h-full w-full overflow-hidden rounded-[28px] border border-violet-400/20 p-6 sm:p-7 text-white shadow-[0_24px_50px_-20px_rgba(0,0,0,0.5)]",
+              "absolute inset-0 h-full w-full overflow-hidden rounded-[28px] border border-white/10 p-6 sm:p-7 text-white shadow-[0_24px_50px_-20px_rgba(0,0,0,0.5)]",
               cardBaseBg,
               !isFlipped && "opacity-0 pointer-events-none"
             )}
@@ -192,10 +192,10 @@ export function DepositInstructionCard({ instruction }: { instruction: DepositIn
               opacity: isFlipped ? 1 : 0
             }}
           >
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.12),transparent_40%)]" />
+            <div className="pointer-events-none absolute inset-0 bg-white/[0.02]" />
             <div className="relative flex h-full flex-col justify-between">
               <div className="flex items-center justify-between">
-                <div className="text-[10px] uppercase tracking-[0.3em] text-violet-100/60">Guira Finance</div>
+                <div className="text-[10px] uppercase tracking-[0.3em] text-white/50">Guira Finance</div>
                 <div className="flex items-center gap-2">
                   <Button
                     aria-label="Volver al frente"
@@ -223,7 +223,7 @@ export function DepositInstructionCard({ instruction }: { instruction: DepositIn
               </div>
 
               <div className="space-y-3">
-                <div className="text-center text-[11px] leading-relaxed text-violet-100/60">
+                <div className="text-center text-[11px] leading-relaxed text-white/50">
                   Operación validada y asegurada por el protocolo de cumplimiento de Guira.
                 </div>
               </div>
@@ -240,10 +240,10 @@ function getInstructionFrontClass(instruction: DepositInstruction) {
     'absolute inset-0 overflow-hidden rounded-[28px] border p-5 text-white shadow-[0_24px_60px_-28px_rgba(8,25,49,0.75)]'
 
   if (instruction.kind === 'wallet') {
-    return `${baseClass} border-emerald-400/30 bg-[linear-gradient(145deg,#081a18_0%,#0f3f39_48%,#0b2c27_100%)]`
+    return `${baseClass} border-emerald-400/30 bg-[oklch(0.13_0.04_180)]`
   }
 
-  return `${baseClass} border-cyan-400/30 bg-[linear-gradient(145deg,#0b1020_0%,#0c2740_45%,#12345b_100%)]`
+  return `${baseClass} border-cyan-400/30 bg-[oklch(0.14_0.04_235)]`
 }
 
 function getInstructionEyebrow(instruction: DepositInstruction) {

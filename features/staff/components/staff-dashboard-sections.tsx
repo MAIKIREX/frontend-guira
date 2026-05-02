@@ -1794,7 +1794,7 @@ function AdminBridgeTransfersTable({
             </div>
           </DialogHeader>
           <div className="flex-1 overflow-auto px-6 py-4" style={{ maxHeight: 'calc(90vh - 140px)' }}>
-            <div className="rounded-xl border border-border/40 bg-[#0d1117] p-5">
+            <div className="rounded-xl border border-border/40 bg-card p-5">
               {rawModalData ? (
                 <JsonSyntaxHighlight data={rawModalData.data} />
               ) : null}
@@ -1902,7 +1902,7 @@ function AdminBridgePayoutsTable({
                         <Button 
                           variant="outline" 
                           size="sm" 
-                          className="flex-1 bg-green-50 text-green-700 hover:bg-green-100 border-green-200"
+                          className="flex-1 bg-success/10 text-success hover:bg-success/15 border-success/20"
                           onClick={() => handleApprove(payout)}
                           disabled={!!processingId}
                         >
@@ -1911,7 +1911,7 @@ function AdminBridgePayoutsTable({
                         <Button 
                           variant="outline" 
                           size="sm" 
-                          className="flex-1 bg-red-50 text-red-700 hover:bg-red-100 border-red-200"
+                          className="flex-1 bg-destructive/10 text-destructive hover:bg-destructive/15 border-destructive/20"
                           onClick={() => handleReject(payout)}
                           disabled={!!processingId}
                         >
@@ -1961,7 +1961,7 @@ function AdminBridgePayoutsTable({
                           <Button 
                             variant="default" 
                             size="sm" 
-                            className="bg-green-600 hover:bg-green-700 h-8 text-xs px-3"
+                            className="bg-success hover:bg-success/90 text-success-foreground h-8 text-xs px-3"
                             onClick={() => handleApprove(payout)}
                             disabled={!!processingId}
                           >
@@ -3098,14 +3098,14 @@ function VaFeeDefaultsCard({ isPrivileged }: { isPrivileged: boolean }) {
                       </div>
                     ) : (
                       <div className="flex items-center justify-between">
-                        <div className="text-2xl font-black tracking-tight text-indigo-950 dark:text-indigo-100">
+                        <div className="text-2xl font-black tracking-tight text-foreground">
                           {record.fee_percent}%
                         </div>
                         {isPrivileged && (
                           <Button 
                             variant="outline" 
                             size="sm" 
-                            className="text-[11px] h-7 px-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950/50"
+                            className="text-[11px] h-7 px-2 border-primary/20 text-primary hover:bg-primary/5"
                             onClick={() => {
                               setEditValue(record.fee_percent.toString())
                               setEditingId(record.id)
@@ -3120,7 +3120,7 @@ function VaFeeDefaultsCard({ isPrivileged }: { isPrivileged: boolean }) {
                 </div>
               ))}
             </div>
-            <div className="mt-4 flex items-start gap-2 rounded-lg bg-indigo-500/5 p-3 text-xs text-indigo-800 dark:text-indigo-300">
+            <div className="mt-4 flex items-start gap-2 rounded-lg bg-primary/5 p-3 text-xs text-muted-foreground">
                <ShieldCheck className="mt-0.5 size-4 shrink-0 opacity-80" />
                <p className="leading-relaxed">
                  Estos porcentajes se aplican automáticamente a todas las cuentas virtuales. 

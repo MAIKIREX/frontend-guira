@@ -38,7 +38,7 @@ const NETWORK_LABELS: Record<string, string> = {
 
 const NETWORK_COLORS: Record<string, string> = {
   ethereum:  'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  polygon:   'bg-purple-500/10 text-purple-400 border-purple-500/20',
+  polygon:   'bg-blue-500/10 text-blue-400 border-blue-500/20',
   stellar:   'bg-sky-500/10 text-sky-400 border-sky-500/20',
   solana:    'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
   tron:      'bg-red-500/10 text-red-400 border-red-500/20',
@@ -48,7 +48,7 @@ const NETWORK_COLORS: Record<string, string> = {
 
 const NETWORK_GRADIENTS: Record<string, string> = {
   ethereum:  'from-blue-500/15 via-background to-background',
-  polygon:   'from-purple-500/15 via-background to-background',
+  polygon:   'from-blue-500/15 via-background to-background',
   stellar:   'from-sky-500/15 via-background to-background',
   solana:    'from-emerald-500/15 via-background to-background',
   tron:      'from-red-500/15 via-background to-background',
@@ -100,7 +100,7 @@ const TOKEN_LABELS: Record<string, string> = {
 const TOKEN_COLORS: Record<string, string> = {
   USDC: 'bg-blue-500',
   USDT: 'bg-emerald-500',
-  USDB: 'bg-violet-500',
+  USDB: 'bg-blue-500',
   PYUSD: 'bg-sky-500',
   EURC: 'bg-amber-500',
   USD: 'bg-green-500',
