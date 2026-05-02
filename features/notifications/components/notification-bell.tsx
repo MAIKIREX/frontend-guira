@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { useNotificationsStore } from '@/stores/notifications-store'
 import { NotificationsService } from '@/services/notifications.service'
 import { useAuthStore } from '@/stores/auth-store'
+import { isApiError } from '@/lib/api/types'
 
 const NOTIFICATIONS_POLL_INTERVAL_MS = 30000
 
@@ -27,6 +28,10 @@ export function NotificationBell() {
         const data = await NotificationsService.getLatest()
         if (mounted) setNotifications(data)
       } catch (err) {
+        if (isApiError(err) && err.code === 'NETWORK_ERROR') {
+          // Fallo silencioso en caso de error de red (e.g. cold start del backend)
+          return
+        }
         console.error('Error loading notifications', err)
       }
     }
