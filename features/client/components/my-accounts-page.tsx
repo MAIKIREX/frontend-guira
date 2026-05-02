@@ -86,7 +86,7 @@ function TokenRow({
                 : currency === "PYUSD"
                   ? "bg-[#0079c1]"
                   : currency === "UERC"
-                    ? "bg-[#5b32a8]"
+                    ? "bg-[#5574c2]"
                     : "bg-primary";
 
     return (
@@ -410,7 +410,7 @@ export function MyAccountsPage() {
         <div className="mx-auto w-full max-w-5xl space-y-6">
             {/* Header */}
             <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-[oklch(0.72_0.12_195)]">
+                <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-[oklch(0.58_0.10_210)]">
                     Mis Cuentas
                 </p>
                 <h1 className="mt-1.5 text-2xl sm:text-4xl font-semibold tracking-tight text-foreground">

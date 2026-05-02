@@ -57,7 +57,7 @@ export function DepositInstructionCard({ instruction }: { instruction: DepositIn
     ? `${visiblePrimaryValue.slice(0, 14)}...` 
     : visiblePrimaryValue
 
-  const cardBaseBg = "bg-[oklch(0.14_0.025_240)]"
+  const cardBaseBg = "bg-[oklch(0.15_0.02_250)]"
 
   return (
     <div className="relative group [perspective:1400px] h-[260px] sm:h-[280px]">
@@ -240,10 +240,10 @@ function getInstructionFrontClass(instruction: DepositInstruction) {
     'absolute inset-0 overflow-hidden rounded-[28px] border p-5 text-white shadow-[0_24px_60px_-28px_rgba(8,25,49,0.75)]'
 
   if (instruction.kind === 'wallet') {
-    return `${baseClass} border-emerald-400/30 bg-[oklch(0.13_0.04_180)]`
+    return `${baseClass} border-emerald-400/30 bg-[oklch(0.14_0.03_185)]`
   }
 
-  return `${baseClass} border-cyan-400/30 bg-[oklch(0.14_0.04_235)]`
+  return `${baseClass} border-sky-400/30 bg-[oklch(0.15_0.03_248)]`
 }
 
 function getInstructionEyebrow(instruction: DepositInstruction) {

@@ -175,7 +175,7 @@ export function StaffNavigation({
                       <span
                         className={cn(
                           'relative z-10 flex shrink-0 items-center justify-center text-muted-foreground transition-colors duration-200',
-                          active && 'text-accent-foreground'
+                          active && 'text-accent'
                         )}
                       >
                         <ItemIcon className="size-4" />

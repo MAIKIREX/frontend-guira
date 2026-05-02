@@ -3013,7 +3013,7 @@ function VaFeeDefaultsCard({ isPrivileged }: { isPrivileged: boolean }) {
     <Card className="overflow-hidden border-border/60 bg-background/95 shadow-sm">
       <CardHeader className="border-b border-border/40 pb-6">
         <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-700 dark:text-indigo-400">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-700 dark:text-blue-400">
             <Percent className="size-5" />
           </div>
           <div className="space-y-1">

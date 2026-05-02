@@ -219,7 +219,7 @@ function generateShareText(va: VirtualAccount, depositInstructions: {label: stri
 
 const CURRENCY_ACCENT: Record<string, { from: string; to: string; text: string }> = {
   usd: { from: 'from-blue-500/10', to: 'to-emerald-500/5', text: 'text-blue-500' },
-  eur: { from: 'from-indigo-500/10', to: 'to-blue-500/5', text: 'text-indigo-500' },
+  eur: { from: 'from-blue-500/10', to: 'to-sky-500/5', text: 'text-blue-600' },
   mxn: { from: 'from-emerald-500/10', to: 'to-red-500/5', text: 'text-emerald-600' },
   brl: { from: 'from-yellow-500/10', to: 'to-green-500/5', text: 'text-yellow-600' },
   gbp: { from: 'from-teal-500/10', to: 'to-cyan-500/5', text: 'text-teal-500' },

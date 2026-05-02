@@ -160,18 +160,18 @@ export function OnboardingWizard() {
           {/* Tarjeta Personal (Indigo accent) */}
           <button
             type="button"
-            className="group relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-br from-indigo-50/50 to-background p-6 text-left shadow-sm transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30 hover:-translate-y-1 hover:border-indigo-300/60 hover:shadow-md dark:from-indigo-500/10 dark:hover:border-indigo-500/40"
+            className="group relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-br from-blue-50/50 to-background p-6 text-left shadow-sm transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30 hover:-translate-y-1 hover:border-blue-300/60 hover:shadow-md dark:from-blue-500/10 dark:hover:border-blue-500/40"
             onClick={() => { setType('personal'); setStep(2) }}
           >
-            <div className="absolute -bottom-8 -right-8 size-40 text-indigo-500 opacity-[0.03] transition-transform duration-500 group-hover:-rotate-12 group-hover:scale-110 dark:text-indigo-400">
+            <div className="absolute -bottom-8 -right-8 size-40 text-blue-500 opacity-[0.03] transition-transform duration-500 group-hover:-rotate-12 group-hover:scale-110 dark:text-blue-400">
               <User className="h-full w-full" />
             </div>
 
-            <div className="mb-5 flex size-12 items-center justify-center rounded-xl bg-indigo-100/80 text-indigo-700 shadow-sm transition-colors group-hover:bg-indigo-100 dark:bg-indigo-500/20 dark:text-indigo-400">
+            <div className="mb-5 flex size-12 items-center justify-center rounded-xl bg-blue-100/80 text-blue-700 shadow-sm transition-colors group-hover:bg-blue-100 dark:bg-blue-500/20 dark:text-blue-400">
               <User className="size-6" />
             </div>
             <div className="space-y-2 relative z-10">
-              <h3 className="text-xl font-bold tracking-tight text-foreground transition-colors group-hover:text-indigo-700 dark:group-hover:text-indigo-400">
+              <h3 className="text-xl font-bold tracking-tight text-foreground transition-colors group-hover:text-blue-700 dark:group-hover:text-blue-400">
                 Personal
               </h3>
               <p className="text-sm font-medium leading-relaxed text-muted-foreground">

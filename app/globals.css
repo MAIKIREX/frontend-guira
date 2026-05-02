@@ -4,230 +4,234 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+  ╔══════════════════════════════════════════════════════╗
+  ║  GUIRA — "Oceanic Trust" palette                    ║
+  ║  Derivada del punto medio del gradiente del logo:   ║
+  ║    Logo gradient: #0788FF → #01C5FF                 ║
+  ║    Logo solid:    #0150F2  (azul royal)              ║
+  ║    Logo text:     #050036  (navy ink)                ║
+  ║                                                      ║
+  ║  Primary = punto medio del gradiente (azul profundo) ║
+  ║  Accent  = teal sofisticado (complemento cálido)     ║
+  ║  Light: fondos blancos cálidos, azul institucional   ║
+  ║  Dark:  superficies con wash navy, luminosidad baja  ║
+  ╚══════════════════════════════════════════════════════╝
+*/
+
 @theme inline {
-    --color-background: var(--background);
-    --color-foreground: var(--foreground);
-    --font-sans: var(--font-sans);
-    --font-mono: var(--font-geist-mono);
-    --color-sidebar-ring: var(--sidebar-ring);
-    --color-sidebar-border: var(--sidebar-border);
-    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-    --color-sidebar-accent: var(--sidebar-accent);
-    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-    --color-sidebar-primary: var(--sidebar-primary);
-    --color-sidebar-foreground: var(--sidebar-foreground);
-    --color-sidebar: var(--sidebar);
-    --color-chart-5: var(--chart-5);
-    --color-chart-4: var(--chart-4);
-    --color-chart-3: var(--chart-3);
-    --color-chart-2: var(--chart-2);
-    --color-chart-1: var(--chart-1);
-    --color-ring: var(--ring);
-    --color-input: var(--input);
-    --color-border: var(--border);
-    --color-destructive: var(--destructive);
-    --color-destructive-foreground: var(--destructive-foreground);
-    --color-success: var(--success);
-    --color-success-foreground: var(--success-foreground);
-    --color-warning: var(--warning);
-    --color-warning-foreground: var(--warning-foreground);
-    --color-accent-foreground: var(--accent-foreground);
-    --color-accent: var(--accent);
-    --color-muted-foreground: var(--muted-foreground);
-    --color-muted: var(--muted);
-    --color-secondary-foreground: var(--secondary-foreground);
-    --color-secondary: var(--secondary);
-    --color-primary-foreground: var(--primary-foreground);
-    --color-primary: var(--primary);
-    --color-popover-foreground: var(--popover-foreground);
-    --color-popover: var(--popover);
-    --color-card-foreground: var(--card-foreground);
-    --color-card: var(--card);
-    --radius-sm: calc(var(--radius) * 0.6);
-    --radius-md: calc(var(--radius) * 0.8);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
-    --radius-2xl: calc(var(--radius) * 1.8);
-    --radius-3xl: calc(var(--radius) * 2.2);
-    --radius-4xl: calc(var(--radius) * 2.6);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* ─────────────────────────────────────────────
-   LIGHT MODE  — Paleta de azules de la imagen
-   #00D6FF  →  cyan vibrante   (oklch ~0.82 0.17 207)
-   #0055FF  →  azul eléctrico  (oklch ~0.50 0.26 264)
-   #050036  →  navy profundo   (oklch ~0.12 0.09 272)
-   Intermedios y slates completados armónicamente.
-───────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────
+   LIGHT MODE — "Oceanic Trust"
+   Filosofía: fondos blancos con calidez sutil.
+   El primary es el azul intermedio del gradiente del
+   logo — confiable, institucional, no agresivo.
+   El accent es un teal profundo que complementa
+   sin competir con el primary.
+───────────────────────────────────────────────────── */
 :root {
-    /* Surfaces */
-    --background: oklch(0.985 0.006 220); /* blanco con tinte azul muy sutil */
-    --foreground: oklch(0.13 0.07 270); /* navy oscuro — texto principal */
+  /* Surfaces — blanco con calidez mínima */
+  --background:          oklch(0.995 0.002 250);
+  --foreground:          oklch(0.15 0.04 260);     /* Navy profundo, chroma reducida */
 
-    --card: oklch(1 0.004 220);
-    --card-foreground: oklch(0.13 0.07 270);
+  --card:                oklch(0.99 0.003 248);
+  --card-foreground:     oklch(0.15 0.04 260);
 
-    --popover: oklch(0.99 0.004 220);
-    --popover-foreground: oklch(0.13 0.07 270);
+  --popover:             oklch(0.995 0.002 250);
+  --popover-foreground:  oklch(0.15 0.04 260);
 
-    /* Primary — azul eléctrico #0055FF */
-    --primary: oklch(0.5 0.26 264);
-    --primary-foreground: oklch(0.99 0.004 220);
+  /* Primary — punto medio del gradiente del logo (#0788FF → #01C5FF) */
+  --primary:             oklch(0.52 0.22 252);
+  --primary-foreground:  oklch(1 0 0);
 
-    /* Secondary — cyan suave derivado de #00D6FF */
-    --secondary: oklch(0.92 0.06 207);
-    --secondary-foreground: oklch(0.25 0.1 264);
+  /* Secondary — derivado claro del primary, desaturado */
+  --secondary:           oklch(0.95 0.02 248);
+  --secondary-foreground: oklch(0.22 0.06 255);
 
-    /* Muted — slate azulado claro */
-    --muted: oklch(0.94 0.03 215);
-    --muted-foreground: oklch(0.48 0.09 250);
+  /* Muted — gris con wash azul ultraligero */
+  --muted:               oklch(0.96 0.006 250);
+  --muted-foreground:    oklch(0.52 0.03 252);
 
-    /* Accent — cyan vibrante #00D6FF */
-    --accent: oklch(0.82 0.17 207);
-    --accent-foreground: oklch(0.13 0.07 270);
+  /* Accent — teal sofisticado, complemento cálido del primary */
+  --accent:              oklch(0.72 0.11 210);
+  --accent-foreground:   oklch(0.15 0.04 260);
 
-    /* Semantic */
-    --destructive: oklch(0.62 0.22 28);
-    --destructive-foreground: oklch(0.985 0.004 220);
+  /* Semantic */
+  --destructive:         oklch(0.58 0.22 22);
+  --destructive-foreground: oklch(1 0 0);
 
-    --success: oklch(0.62 0.14 160);
-    --success-foreground: oklch(0.985 0.004 220);
+  --success:             oklch(0.65 0.18 158);
+  --success-foreground:  oklch(1 0 0);
 
-    --warning: oklch(0.72 0.17 65);
-    --warning-foreground: oklch(0.985 0.004 220);
+  --warning:             oklch(0.72 0.17 62);
+  --warning-foreground:  oklch(1 0 0);
 
-    /* Chrome */
-    --border: oklch(0.87 0.05 220);
-    --input: oklch(0.91 0.04 218);
-    --ring: oklch(0.82 0.17 207 / 70%); /* cyan para focus rings */
+  /* Chrome */
+  --border:              oklch(0.91 0.010 248);
+  --input:               oklch(0.94 0.008 248);
+  --ring:                oklch(0.52 0.22 252 / 50%);    /* primary translúcido para focus */
 
-    /* Charts — todos de la familia azul */
-    --chart-1: oklch(0.5 0.26 264); /* azul eléctrico */
-    --chart-2: oklch(0.82 0.17 207); /* cyan */
-    --chart-3: oklch(0.12 0.09 272); /* navy */
-    --chart-4: oklch(0.64 0.2 240); /* azul medio */
-    --chart-5: oklch(0.72 0.13 196); /* cyan suave */
+  /* Charts — espectro del logo + complementos */
+  --chart-1:             oklch(0.52 0.22 252);     /* primary — azul intermedio */
+  --chart-2:             oklch(0.72 0.11 210);     /* accent — teal */
+  --chart-3:             oklch(0.47 0.26 266);     /* azul royal sólido del logo */
+  --chart-4:             oklch(0.78 0.14 220);     /* cyan del gradiente fin */
+  --chart-5:             oklch(0.62 0.21 240);     /* azul medio del espectro */
 
-    --radius: 0.625rem;
+  --radius: 0.625rem;
 
-    /* Sidebar */
-    --sidebar: oklch(0.965 0.025 215);
-    --sidebar-foreground: oklch(0.13 0.07 270);
-    --sidebar-primary: oklch(0.5 0.26 264);
-    --sidebar-primary-foreground: oklch(0.99 0.004 220);
-    --sidebar-accent: oklch(0.9 0.06 210);
-    --sidebar-accent-foreground: oklch(0.25 0.1 264);
-    --sidebar-border: oklch(0.87 0.05 220);
-    --sidebar-ring: oklch(0.82 0.17 207 / 65%);
+  /* Sidebar — wash azul ultraligero */
+  --sidebar:                    oklch(0.98 0.008 250);
+  --sidebar-foreground:         oklch(0.15 0.04 260);
+  --sidebar-primary:            oklch(0.52 0.22 252);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent:             oklch(0.94 0.02 248);
+  --sidebar-accent-foreground:  oklch(0.22 0.06 255);
+  --sidebar-border:             oklch(0.91 0.010 248);
+  --sidebar-ring:               oklch(0.52 0.22 252 / 45%);
 }
 
-/* ─────────────────────────────────────────────
-   DARK MODE  — Colores fuertes y saturados
-   Primary conservado: oklch(0.78 0.15 226)  ✓
-   Accent: morado/índigo vibrante para contraste
-   Backgrounds: navy profundo inspirado en #050036
-───────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────
+   DARK MODE — "Oceanic Trust"
+   Filosofía: superficies con wash navy sutil del logo
+   (no negro puro). El primary brilla limpiamente.
+   El accent teal se ilumina como contrapunto.
+───────────────────────────────────────────────────── */
 .dark {
-    /* Surfaces — negro profundo y neutro, sin tinte azul */
-    --background: oklch(0.11 0 0); /* negro puro */
-    --foreground: oklch(0.93 0.01 240); /* blanco casi puro, levísimo tinte */
+  /* Surfaces — negro con wash navy del logo */
+  --background:          oklch(0.12 0.02 250);
+  --foreground:          oklch(0.93 0.005 248);
 
-    --card: oklch(0.15 0 0); /* negro ligeramente elevado */
-    --card-foreground: oklch(0.93 0.01 240);
+  --card:                oklch(0.16 0.02 250);
+  --card-foreground:     oklch(0.93 0.005 248);
 
-    --popover: oklch(0.14 0 0);
-    --popover-foreground: oklch(0.93 0.01 240);
+  --popover:             oklch(0.15 0.02 250);
+  --popover-foreground:  oklch(0.93 0.005 248);
 
-    /* Primary — azul cielo vibrante (conservado tal cual) */
-    --primary: oklch(0.78 0.15 226);
-    --primary-foreground: oklch(0.1 0 0);
+  /* Primary — azul del gradiente, luminoso contra el navy */
+  --primary:             oklch(0.70 0.17 240);
+  --primary-foreground:  oklch(0.10 0.02 250);
 
-    /* Secondary — gris oscuro neutro */
-    --secondary: oklch(0.2 0 0);
-    --secondary-foreground: oklch(0.9 0.01 240);
+  /* Secondary — gris oscuro con wash navy */
+  --secondary:           oklch(0.21 0.015 252);
+  --secondary-foreground: oklch(0.90 0.005 248);
 
-    /* Muted — gris muy oscuro, sin color */
-    --muted: oklch(0.18 0 0);
-    --muted-foreground: oklch(0.6 0.01 240);
+  /* Muted — gris navy oscuro */
+  --muted:               oklch(0.19 0.015 250);
+  --muted-foreground:    oklch(0.60 0.015 248);
 
-    /* Accent — cyan eléctrico fuerte (complementa el primary) */
-    --accent: oklch(0.72 0.2 207); /* cyan intenso — único color de acento */
-    --accent-foreground: oklch(0.1 0 0);
+  /* Accent — teal luminoso, contrapunto del primary */
+  --accent:              oklch(0.74 0.12 200);
+  --accent-foreground:   oklch(0.10 0.02 250);
 
-    /* Semantic */
-    --destructive: oklch(0.64 0.24 24);
-    --destructive-foreground: oklch(0.93 0.01 240);
+  /* Semantic */
+  --destructive:         oklch(0.63 0.22 24);
+  --destructive-foreground: oklch(0.93 0.005 248);
 
-    --success: oklch(0.72 0.18 160);
-    --success-foreground: oklch(0.1 0 0);
+  --success:             oklch(0.68 0.18 158);
+  --success-foreground:  oklch(0.10 0.02 250);
 
-    --warning: oklch(0.72 0.2 55);
-    --warning-foreground: oklch(0.1 0 0);
+  --warning:             oklch(0.74 0.18 56);
+  --warning-foreground:  oklch(0.10 0.02 250);
 
-    /* Chrome — bordes neutros sin tinte */
-    --border: oklch(0.28 0 0 / 80%);
-    --input: oklch(0.24 0 0);
-    --ring: oklch(0.78 0.15 226 / 70%);
+  /* Chrome — bordes con tinte navy */
+  --border:              oklch(0.28 0.015 250 / 85%);
+  --input:               oklch(0.24 0.015 250);
+  --ring:                oklch(0.70 0.17 240 / 55%);
 
-    /* Charts */
-    --chart-1: oklch(0.78 0.15 226); /* primary azul cielo */
-    --chart-2: oklch(0.72 0.2 207); /* cyan */
-    --chart-3: oklch(0.68 0.22 292); /* violeta-indigo */
-    --chart-4: oklch(0.72 0.18 160); /* verde-teal */
-    --chart-5: oklch(0.72 0.2 55); /* ámbar */
+  /* Charts */
+  --chart-1:             oklch(0.70 0.17 240);     /* primary */
+  --chart-2:             oklch(0.74 0.12 200);     /* accent teal */
+  --chart-3:             oklch(0.60 0.22 262);     /* azul royal */
+  --chart-4:             oklch(0.68 0.18 158);     /* success green */
+  --chart-5:             oklch(0.74 0.18 56);      /* warning amber */
 
-    /* Sidebar — negro profundo neutro */
-    --sidebar: oklch(0.12 0 0);
-    --sidebar-foreground: oklch(0.93 0.01 240);
-    --sidebar-primary: oklch(0.78 0.15 226);
-    --sidebar-primary-foreground: oklch(0.1 0 0);
-    --sidebar-accent: oklch(0.2 0 0);
-    --sidebar-accent-foreground: oklch(0.9 0.01 240);
-    --sidebar-border: oklch(0.26 0 0 / 80%);
-    --sidebar-ring: oklch(0.78 0.15 226 / 70%);
+  /* Sidebar */
+  --sidebar:                    oklch(0.13 0.02 252);
+  --sidebar-foreground:         oklch(0.93 0.005 248);
+  --sidebar-primary:            oklch(0.70 0.17 240);
+  --sidebar-primary-foreground: oklch(0.10 0.02 250);
+  --sidebar-accent:             oklch(0.21 0.015 252);
+  --sidebar-accent-foreground:  oklch(0.90 0.005 248);
+  --sidebar-border:             oklch(0.26 0.015 250 / 85%);
+  --sidebar-ring:               oklch(0.70 0.17 240 / 55%);
 }
 
 @layer base {
-    * {
-        @apply border-border outline-ring/50;
-    }
+  * {
+    @apply border-border outline-ring/50;
+  }
 
-    body {
-        @apply bg-background text-foreground;
-    }
+  body {
+    @apply bg-background text-foreground;
+  }
 
-    html {
-        @apply font-sans;
-    }
+  html {
+    @apply font-sans;
+  }
 }
 
 /* Collapsible (Base UI) — animación de apertura y cierre */
 [data-slot="collapsible-content"] {
-    overflow: hidden;
+  overflow: hidden;
 }
 [data-slot="collapsible-content"]:not([hidden]) {
-    animation: collapsible-open 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: collapsible-open 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 [data-slot="collapsible-content"][data-closed] {
-    animation: collapsible-close 0.2s ease-in forwards;
+  animation: collapsible-close 0.2s ease-in forwards;
 }
 @keyframes collapsible-open {
-    from {
-        height: 0;
-        opacity: 0;
-    }
-    to {
-        height: var(--collapsible-panel-height);
-        opacity: 1;
-    }
+  from { height: 0; opacity: 0; }
+  to   { height: var(--collapsible-panel-height); opacity: 1; }
 }
 @keyframes collapsible-close {
-    from {
-        height: var(--collapsible-panel-height);
-        opacity: 1;
-    }
-    to {
-        height: 0;
-        opacity: 0;
-    }
+  from { height: var(--collapsible-panel-height); opacity: 1; }
+  to   { height: 0; opacity: 0; }
 }
