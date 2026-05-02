@@ -1,12 +1,23 @@
 import type { Metadata } from 'next'
-import { Plus_Jakarta_Sans } from 'next/font/google'
+import localFont from 'next/font/local'
 import './globals.css'
 import { Providers } from '@/components/providers'
 
-const plusJakarta = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700', '800'],
+const gilroy = localFont({
+  src: [
+    {
+      path: '../public/fonts/Gilroy-Light.otf',
+      weight: '300',
+      style: 'normal',
+    },
+    {
+      path: '../public/fonts/Gilroy-ExtraBold.otf',
+      weight: '800',
+      style: 'normal',
+    },
+  ],
   variable: '--font-sans',
+  display: 'swap',
 })
 
 export const metadata: Metadata = {
@@ -24,7 +35,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className={plusJakarta.variable} suppressHydrationWarning>
+      <body className={gilroy.variable} suppressHydrationWarning>
         <Providers>
           {children}
         </Providers>
