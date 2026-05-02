@@ -56,13 +56,12 @@ export function DocumentUploadCard({
   return (
     <div
       className={cn(
-        'rounded-[24px] border border-border/60 bg-background/75 p-4 text-left transition duration-200',
-        !disabled && !uploading && 'hover:border-primary/40 hover:bg-background hover:shadow-sm',
+        'p-4 text-left transition duration-200',
         className
       )}
     >
       <div className="mb-3 flex items-start gap-3">
-        <div className="rounded-xl border border-border/60 bg-muted/20 p-2 text-muted-foreground">
+        <div className="text-muted-foreground">
           <Upload className="size-4" />
         </div>
         <div>
@@ -87,7 +86,7 @@ export function DocumentUploadCard({
       ) : null}
 
       {!isImage || !file ? (
-        <div className="mt-3 rounded-2xl border border-dashed border-border/60 bg-muted/10 p-3">
+        <div className="mt-3 space-y-3">
           {file ? (
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
@@ -109,7 +108,7 @@ export function DocumentUploadCard({
                   width={640}
                 />
               ) : (
-                <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-background/80 px-3 py-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2 rounded-lg bg-muted/10 px-3 py-2 text-sm text-muted-foreground">
                   <FileText className="size-4" />
                   Vista previa disponible en una pestaña nueva.
                 </div>

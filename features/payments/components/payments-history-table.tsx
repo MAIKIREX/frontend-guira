@@ -810,7 +810,7 @@ function QuoteCard({ order, quotePreparedAt }: { order: PaymentOrder; quotePrepa
           {quotePreparedAt ? <Badge variant="outline">Lista {format(new Date(quotePreparedAt), 'dd/MM HH:mm')}</Badge> : null}
         </div>
       </div>
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid md:grid-cols-3 divide-x divide-border/20">
         <InfoBlock
           highlight={quoteChanges.includes('exchange_rate_applied')}
           label="Tipo de cambio"
@@ -830,7 +830,7 @@ function QuoteCard({ order, quotePreparedAt }: { order: PaymentOrder; quotePrepa
           value={`${order.fee_total ?? order.fee_amount ?? 0} ${order.origin_currency ?? order.currency ?? ''}`}
         />
       </div>
-      <div className="rounded-2xl border border-dashed border-border/70 px-4 py-3 text-sm text-muted-foreground">
+      <div className="mt-1 text-xs text-muted-foreground/70">
         {quotePreparedAt && (order.status === 'processing' || order.status === 'sent' || order.status === 'completed')
           ? 'La cotizacion final ya fue publicada por staff y la orden siguio su curso.'
           : quotePreparedAt
@@ -926,18 +926,21 @@ function ActivityPanel({ orderActivity }: { orderActivity: ActivityLog[] }) {
   return (
     <div>
       {orderActivity.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border/70 p-4 text-sm text-muted-foreground">
+        <div className="py-3 text-sm text-muted-foreground/70">
           Aun no hay eventos registrados para esta orden.
         </div>
       ) : (
         <div className="space-y-2">
           {visibleActivity.map((entry) => (
-            <div key={entry.id} className="flex items-start justify-between gap-4 rounded-2xl border border-border/60 bg-background/70 px-4 py-3 text-sm">
-              <div className="space-y-1">
-                <div className="font-medium text-foreground">{humanizeActivity(entry.action)}</div>
-                <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Evento visible</div>
+            <div key={entry.id} className="flex items-start justify-between gap-4 border-b border-border/20 px-1 py-3 text-sm last:border-b-0">
+              <div className="flex items-start gap-3">
+                <div className="mt-1.5 size-1.5 shrink-0 rounded-full bg-muted-foreground/40" />
+                <div className="space-y-0.5">
+                  <div className="font-medium text-foreground">{humanizeActivity(entry.action)}</div>
+                  <div className="text-[10px] text-muted-foreground/60">Evento visible</div>
+                </div>
               </div>
-              <div className="text-right text-xs text-muted-foreground">{format(new Date(entry.created_at), 'dd/MM/yyyy HH:mm')}</div>
+              <div className="shrink-0 text-right text-xs text-muted-foreground/70">{format(new Date(entry.created_at), 'dd/MM/yyyy HH:mm')}</div>
             </div>
           ))}
           {orderActivity.length > 6 ? (
@@ -987,17 +990,15 @@ function ActionDesk({
         </div>
       </div>
 
-      <div className="rounded-[26px] border border-border/70 bg-background/88 p-4">
-        <AttachmentPanel
-          busy={busy}
-          disabled={disabled}
-          files={files}
-          onFileChange={onFileChange}
-          onUpload={onUpload}
-          openUploads={openUploads}
-          order={order}
-        />
-      </div>
+      <AttachmentPanel
+        busy={busy}
+        disabled={disabled}
+        files={files}
+        onFileChange={onFileChange}
+        onUpload={onUpload}
+        openUploads={openUploads}
+        order={order}
+      />
 
       {order.status === 'deposit_received' && !getMetadataDate(order.metadata, 'quote_prepared_at') ? (
         <NoticeCard
@@ -1027,14 +1028,14 @@ function ActionDesk({
 
 function NoticeCard({ icon: Icon, title, description }: { icon: typeof ShieldAlert; title: string; description: string }) {
   return (
-    <div className="rounded-[24px] border border-dashed border-border/70 bg-background/60 p-4">
+    <div className="rounded-xl bg-warning/[0.06] px-4 py-3">
       <div className="flex items-start gap-3">
-        <div className="rounded-2xl border border-border/60 bg-background/80 p-2 text-muted-foreground">
+        <div className="mt-0.5 text-warning">
           <Icon className="size-4" />
         </div>
         <div>
-          <div className="font-medium text-foreground">{title}</div>
-          <div className="mt-1 text-sm text-muted-foreground">{description}</div>
+          <div className="text-sm font-medium text-foreground">{title}</div>
+          <div className="mt-0.5 text-xs text-muted-foreground">{description}</div>
         </div>
       </div>
     </div>
@@ -1045,16 +1046,16 @@ function AttachmentStatus({ label, url }: { label: string; url?: string | null }
   const resolvedUrl = useSignedUrl(url)
 
   return (
-    <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-background/70 px-4 py-3">
+    <div className="flex items-center justify-between border-b border-border/20 px-1 py-2.5 last:border-b-0">
       <span className="text-sm text-muted-foreground">{label}</span>
       {resolvedUrl ? (
         <a className="text-sm font-medium text-primary underline-offset-4 hover:underline" href={resolvedUrl} rel="noreferrer" target="_blank">
           Ver archivo
         </a>
       ) : url ? (
-        <span className="text-sm text-muted-foreground">Obteniendo enlace...</span>
+        <span className="text-xs text-muted-foreground/70">Obteniendo enlace...</span>
       ) : (
-        <span className="text-sm text-muted-foreground">Pendiente</span>
+        <span className="text-xs text-muted-foreground/50">Pendiente</span>
       )}
     </div>
   )
@@ -1103,19 +1104,19 @@ function AttachmentUploader({
 
 function InfoBlock({ label, value, highlight, subtitle }: { label: string; value: string; highlight?: boolean; subtitle?: string | null }) {
   return (
-    <div className={cn('rounded-2xl border px-4 py-4', highlight ? 'border-cyan-400/45 bg-cyan-400/10' : 'border-border/60 bg-background/70')}>
-      <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
-      <div className="mt-2 text-base font-medium text-foreground">{value}</div>
-      {subtitle ? <div className="mt-1 text-xs text-muted-foreground">Antes: {subtitle}</div> : null}
+    <div className={cn('px-4 py-3', highlight ? 'rounded-lg bg-cyan-400/[0.06]' : '')}>
+      <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70">{label}</div>
+      <div className="mt-1.5 text-base font-semibold tabular-nums text-foreground">{value}</div>
+      {subtitle ? <div className="mt-1 text-xs text-muted-foreground/60">Antes: {subtitle}</div> : null}
     </div>
   )
 }
 
 function ComplianceNote({ order, quotePreparedAt }: { order: PaymentOrder; quotePreparedAt: string | null }) {
   return (
-    <div className="rounded-[24px] border border-border/70 bg-muted/[0.14] p-5">
+    <div>
       <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Estado y proximos pasos</div>
-      <div className="mt-3 max-w-3xl border-l-2 border-cyan-500/35 pl-4 text-sm leading-7 text-muted-foreground">
+      <div className="mt-3 max-w-3xl border-l-2 border-primary/30 pl-4 text-sm leading-7 text-muted-foreground">
         {getConsolidatedStatusMessage(order, quotePreparedAt)}
       </div>
     </div>
