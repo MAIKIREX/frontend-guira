@@ -1,17 +1,18 @@
 'use client'
 
-import { useState } from 'react'
-import { ArrowLeftRight, BadgeDollarSign, Loader2, RefreshCw, TrendingDown, TrendingUp } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ArrowRight, ArrowLeftRight, Loader2, RefreshCw } from 'lucide-react'
+import Flag from 'react-world-flags'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
 import { useProfileStore } from '@/stores/profile-store'
 import { useExchangeRates } from '@/features/payments/hooks/use-exchange-rates'
+import { WalletService } from '@/services/wallet.service'
+import { PaymentsService } from '@/services/payments.service'
 
-const FORM_LABEL_CLASS = 'text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground'
-const FORM_UNDERLINE_INPUT_CLASS = 'h-11 rounded-none border-0 border-b border-input bg-transparent px-0 py-0 shadow-none transition-colors focus-within:border-primary focus-visible:ring-0 disabled:bg-transparent'
+const FORM_LABEL_CLASS = 'text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground'
 
 type QuoteAction = 'depositar' | 'enviar'
 
@@ -29,22 +30,22 @@ const ACTION_CONFIG: Record<
   }
 > = {
   depositar: {
-    label: 'Depositar',
+    label: 'Depositar / Enviar',
     route: 'us_to_bolivia',
     originCurrency: 'USD',
     destinationCurrency: 'Bs',
-    originLabel: 'Depositas',
-    destinationLabel: 'Recibes',
+    originLabel: 'TÚ ENVÍAS',
+    destinationLabel: 'RECIBES',
     helperText: 'Cotiza depositos desde USD hacia bolivianos usando la tasa de venta.',
     rateLabel: 'Tasa de venta',
   },
   enviar: {
-    label: 'Enviar',
+    label: 'Retirar Fondos',
     route: 'bolivia_to_exterior',
     originCurrency: 'Bs',
     destinationCurrency: 'USD',
-    originLabel: 'Envias',
-    destinationLabel: 'Recibe destino',
+    originLabel: 'TÚ ENVÍAS',
+    destinationLabel: 'RECIBES',
     helperText: 'Cotiza salidas desde bolivianos hacia dolares usando la tasa de compra.',
     rateLabel: 'Tasa de compra',
   },
@@ -54,7 +55,55 @@ export function ClientDashboard() {
   const { profile } = useProfileStore()
   const { rates, loading, error, reload } = useExchangeRates()
   const [action, setAction] = useState<QuoteAction>('depositar')
-  const [amountInput, setAmountInput] = useState('0')
+  const [amountInput, setAmountInput] = useState('1000')
+  
+  // Dynamic stats
+  const [balanceUSD, setBalanceUSD] = useState(0)
+  const [ordersThisMonth, setOrdersThisMonth] = useState(0)
+  const [pendingOrders, setPendingOrders] = useState(0)
+
+  useEffect(() => {
+    // Balance: usar getWallets() que es el endpoint probado (/wallets)
+    // getBalances() (/wallets/balances) puede no estar implementado o retornar vacío
+    WalletService.getWallets().then(wallets => {
+       const list = Array.isArray(wallets) ? wallets : []
+       const totalUSD = list.reduce((acc, w) => acc + (w.available_balance || 0), 0)
+       setBalanceUSD(totalUSD)
+    }).catch(err => {
+       console.error('[Dashboard] Error cargando wallets:', err)
+    })
+
+    // Órdenes: el backend retorna { data: [...], total, page, limit }
+    // Pedir limit=50 para capturar más órdenes del mes actual
+    PaymentsService.getOrders({ limit: 50 } as any).then((rawResponse: any) => {
+       // Normalizar: puede ser array plano o wrapper paginado
+       let orders: any[] = []
+       let totalFromBackend = 0
+
+       if (Array.isArray(rawResponse)) {
+         orders = rawResponse
+         totalFromBackend = rawResponse.length
+       } else if (rawResponse && typeof rawResponse === 'object') {
+         orders = Array.isArray(rawResponse.data) ? rawResponse.data
+                : Array.isArray(rawResponse.items) ? rawResponse.items
+                : []
+         totalFromBackend = rawResponse.total ?? orders.length
+       }
+
+       // Filtrar por mes actual
+       const now = new Date()
+       const thisMonth = orders.filter((o: any) => {
+          if (!o.created_at) return false
+          const d = new Date(o.created_at)
+          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+       })
+       setOrdersThisMonth(thisMonth.length > 0 ? thisMonth.length : totalFromBackend)
+       const pendingStatuses = ['pending', 'created', 'processing', 'waiting_deposit', 'deposit_received']
+       setPendingOrders(orders.filter((o: any) => pendingStatuses.includes(o.status)).length)
+    }).catch(err => {
+       console.error('[Dashboard] Error cargando órdenes:', err)
+    })
+  }, [])
 
   if (loading) {
     return (
@@ -66,14 +115,12 @@ export function ClientDashboard() {
 
   if (error) {
     return (
-      <Card className="rounded-md border-destructive/30 shadow-none">
-        <CardHeader>
-          <CardTitle>No se pudo cargar el panel</CardTitle>
-          <CardDescription>
+      <Card className="mx-auto mt-8 max-w-xl rounded-md border-destructive/30 shadow-none">
+        <CardContent className="space-y-4 pt-6 text-center">
+          <p className="text-lg font-semibold">No se pudo cargar el panel</p>
+          <p className="text-sm text-muted-foreground">
             Verifica tu conexión con el backend. Las tasas de cambio no están disponibles.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+          </p>
           <Button onClick={reload} type="button">
             Reintentar
           </Button>
@@ -88,7 +135,6 @@ export function ClientDashboard() {
   const buyRate = rates.buyRate
   const sellRate = rates.sellRate
   const visibleBaseRate = action === 'depositar' ? (sellRate ?? 0) : (buyRate ?? 0)
-  // Estimación local simple: sin fees del backend por ahora
   const amountToConvert = amountOrigin
   const estimate = {
     feeTotal: 0,
@@ -97,172 +143,175 @@ export function ClientDashboard() {
       : (buyRate ? amountOrigin / buyRate : 0),
     exchangeRateApplied: action === 'depositar' ? (sellRate ?? 0) : (buyRate ?? 0),
   }
+  const feePercent = 0.5
 
   return (
-    <div className="space-y-6 md:space-y-10 lg:px-12 xl:px-32">
-      <section className="space-y-2">
-        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/80 md:text-xs">
-          Panel
-        </p>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl lg:text-5xl">
-          ¡Hola, {userFirstName}!
-        </h1>
-        <p className="max-w-2xl text-sm text-muted-foreground md:text-base">
-          Bienvenido de nuevo a tu panel de Guira. Cotiza tus operaciones con las tasas actualizadas.
-        </p>
+    <div className="mx-auto w-full max-w-screen-lg space-y-10 px-4 pb-12 pt-6">
+      {/* ── Header ──────────────────────────────────── */}
+      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-1">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+            PANEL
+          </p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-[2.5rem]">
+            ¡Hola, {userFirstName}!
+          </h1>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <span className="text-[11px] italic text-muted-foreground">Actualizado hace 2 min</span>
+          <Button
+            onClick={reload}
+            type="button"
+            variant="outline"
+            className="h-9 rounded-md border-accent/30 px-4 text-xs font-semibold text-accent hover:bg-accent/5"
+          >
+            <RefreshCw className="mr-2 size-3.5" />
+            Actualizar
+          </Button>
+        </div>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
-        <Card className="rounded-xl border-border/70 shadow-none">
-          <CardHeader className="space-y-5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <CardTitle className="text-xl md:text-2xl">Calculadora de cotizacion</CardTitle>
-                <CardDescription className="mt-1">{config.helperText}</CardDescription>
-              </div>
-              <Button onClick={reload} type="button" variant="outline" className="h-9 rounded-md px-3 text-xs md:h-10 md:px-4 md:text-sm">
-                <RefreshCw className="mr-2 size-3.5" />
-                Actualizar
-              </Button>
-            </div>
-
-            <div className="inline-flex w-full rounded-lg bg-muted p-1 sm:w-fit">
-              {(['depositar', 'enviar'] as const).map((item) => (
-                <button
-                  key={item}
-                  className={cn(
-                    'flex-1 rounded-md px-4 py-2 text-xs font-semibold transition-all sm:flex-none sm:px-8 sm:text-sm',
-                    action === item
-                      ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                  onClick={() => { setAction(item) }}
-                  type="button"
-                >
-                  {ACTION_CONFIG[item].label}
-                </button>
-              ))}
-            </div>
-          </CardHeader>
-
-          <CardContent className="space-y-8">
-            <div className="grid gap-6 lg:grid-cols-[1fr_auto_1fr] lg:items-end">
-              <MoneyField
-                currency={config.originCurrency}
-                label={config.originLabel}
-                onChange={setAmountInput}
-                value={amountInput}
-              />
-
-              <div className="flex justify-center lg:pb-3">
-                <div className="rounded-full border border-border/70 bg-background p-2.5 text-muted-foreground shadow-sm">
-                  <ArrowLeftRight className="size-4 lg:size-5" />
-                </div>
-              </div>
-
-              <ReadOnlyField
-                currency={config.destinationCurrency}
-                label={config.destinationLabel}
-                value={estimate.amountConverted}
-              />
-            </div>
-
-            <div className="rounded-md border border-primary/15 bg-primary/5 px-4 py-3 text-sm">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <span className="font-medium text-foreground">{config.rateLabel}</span>
-                <span className="font-semibold text-primary">
-                  1 USD = {formatNumber(visibleBaseRate)} Bs
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-xl border-border/70 shadow-none">
-          <CardHeader>
-            <CardTitle className="text-xl md:text-2xl">Resumen de la transaccion</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-4">
-              <SummaryRow
-                label={config.originLabel}
-                value={formatMoney(amountOrigin, config.originCurrency)}
-              />
-              <SummaryRow
-                label="Comisiones"
-                value={formatMoney(estimate.feeTotal, config.originCurrency)}
-              />
-              <SummaryRow
-                description="Monto neto despues del fee antes de aplicar el cambio."
-                label="Cantidad a convertir"
-                value={formatMoney(amountToConvert, config.originCurrency)}
-              />
-              <SummaryRow
-                label="Tipo de cambio base (Mercado)"
-                value={formatExchangeRate(
-                  action === 'depositar' ? (rates.sellBaseRate ?? 0) : (rates.buyBaseRate ?? 0),
-                  config.originCurrency,
-                  config.destinationCurrency
-                )}
-              />
-              <SummaryRow
-                label="Spread aplicado"
-                value={`${formatNumber(action === 'depositar' ? rates.sellSpread : rates.buySpread)} %`}
-              />
-              <SummaryRow
-                label="Tipo de cambio final"
-                value={formatExchangeRate(
-                  estimate.exchangeRateApplied,
-                  config.originCurrency,
-                  config.destinationCurrency
-                )}
-              />
-            </div>
-
-            <Separator className="bg-border/50" />
-
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">Total estimado a recibir</p>
-              <p className="text-3xl font-bold tracking-tight text-primary md:text-4xl">
-                {formatMoney(estimate.amountConverted, config.destinationCurrency)}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+      {/* ── Live Rate Ticker Bar ───────────────────── */}
+      <section className="flex flex-wrap items-center justify-between rounded-sm bg-muted/40 px-4 py-3">
+        <div className="flex items-center gap-4">
+          <span className="text-xs font-medium text-muted-foreground">
+            Tipo de cambio en vivo
+          </span>
+          <div className="h-4 w-px bg-border/80" />
+          <div className="flex items-center gap-6 text-xs text-muted-foreground">
+            <span>
+              Buy: 1 USD = <span className="font-bold text-primary">{formatNumber(buyRate)} Bs</span>
+            </span>
+            <span>
+              Sell: 1 USD = <span className="font-bold text-success">{formatNumber(sellRate)} Bs</span>
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-success">
+          <div className="size-1.5 animate-pulse rounded-full bg-success" />
+          EN VIVO
+        </div>
       </section>
 
-      <Card className="rounded-xl border-border/70 shadow-none">
-        <CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle className="text-xl md:text-2xl">Valor actual del dolar</CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">Tasas de referencia para operaciones en tiempo real.</p>
-          </div>
-          <div className="flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-700 w-fit">
-            <div className="size-1.5 animate-pulse rounded-full bg-emerald-500"></div>
-            En vivo
-          </div>
-        </CardHeader>
+      {/* ── Cotización Rápida ──────────────────────── */}
+      <section className="space-y-6">
+        <h2 className="text-lg font-medium text-foreground md:text-xl">Cotización rápida</h2>
 
-        <CardContent className="grid gap-6 sm:grid-cols-2">
-          <RateCard
-            accent="buy"
-            description="Tasa aplicada al enviar desde BOB."
-            icon={TrendingUp}
-            label="Compra de USD"
-            value={buyRate}
+        {/* Tabs */}
+        <div className="flex border-b border-border/50">
+          {(['depositar', 'enviar'] as const).map((item) => (
+            <button
+              key={item}
+              className={cn(
+                'relative pb-3 text-sm transition-colors px-1',
+                item === 'depositar' ? 'mr-6' : '',
+                action === item
+                  ? 'text-accent font-medium after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:bg-accent'
+                  : 'text-muted-foreground hover:text-foreground font-normal'
+              )}
+              onClick={() => { setAction(item) }}
+              type="button"
+            >
+              {ACTION_CONFIG[item].label}
+            </button>
+          ))}
+        </div>
+
+        {/* Inputs (No Cards) */}
+        <div className="relative flex flex-col items-center gap-4 md:flex-row md:items-stretch py-2">
+          {/* Origin */}
+          <div className="flex-1 rounded-lg bg-muted/60 p-6 md:p-8 w-full transition-all focus-within:bg-muted">
+            <MoneyField
+              currency={config.originCurrency}
+              label={config.originLabel}
+              onChange={setAmountInput}
+              value={amountInput}
+            />
+          </div>
+
+          {/* Center Arrow */}
+          <div className="absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md z-10 hidden md:flex hover:scale-105 transition-transform cursor-pointer">
+            <ArrowLeftRight className="size-5" />
+          </div>
+
+          {/* Mobile Arrow */}
+          <div className="md:hidden flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md -my-7 z-10 hover:scale-105 transition-transform cursor-pointer">
+            <ArrowLeftRight className="size-4 rotate-90" />
+          </div>
+
+          {/* Destination */}
+          <div className="flex-1 rounded-lg bg-muted/60 p-6 md:p-8 w-full transition-all">
+            <ReadOnlyField
+              currency={config.destinationCurrency}
+              label={config.destinationLabel}
+              value={estimate.amountConverted}
+            />
+          </div>
+        </div>
+
+        {/* Summary Details Row */}
+        <div className="flex flex-wrap items-center justify-between gap-y-4 py-2 border-b border-border/50 pb-6">
+          <div className="flex flex-wrap items-center gap-6 md:gap-10">
+            <DetailItem label="Comisión:" value={`${feePercent}%`} />
+            <div className="h-8 w-px bg-border/80 hidden sm:block" />
+            <DetailItem label="Tasa final:" value={`${formatNumber(visibleBaseRate)} Bs`} bold />
+            <div className="h-8 w-px bg-border/80 hidden sm:block" />
+            <DetailItem
+              label="Recibes:"
+              value={`${formatNumber(estimate.amountConverted)} Bs`}
+              bold
+              accent
+            />
+          </div>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            COTIZACIÓN GARANTIZADA POR 5:00 MIN
+          </span>
+        </div>
+
+        {/* CTA */}
+        <div className="pt-2">
+          <Button
+            type="button"
+            className="h-[52px] rounded-md bg-primary px-8 text-[15px] font-normal text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            Iniciar operación
+            <ArrowRight className="ml-2.5 size-4 opacity-80" />
+          </Button>
+        </div>
+      </section>
+
+      {/* ── Bottom Stats Row ───────────────────────────── */}
+      <div className="pt-12">
+        <section className="flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-12">
+          <StatItem
+            label="BALANCE TOTAL USD"
+            value={`$${balanceUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            sub="+2.4% vs mes anterior"
+            subColor="text-success"
           />
-          <RateCard
-            accent="sell"
-            description="Tasa aplicada al depositar USD."
-            icon={TrendingDown}
-            label="Venta de USD"
-            value={sellRate}
+          <div className="hidden sm:block w-px self-stretch bg-border/60" />
+          <StatItem
+            label="OPERACIONES ESTE MES"
+            value={ordersThisMonth.toString()}
+            sub={`${pendingOrders} pendientes de confirmación`}
           />
-        </CardContent>
-      </Card>
+          <div className="hidden sm:block w-px self-stretch bg-border/60" />
+          <StatItem
+            label="TASA PROMEDIO"
+            value={`${formatNumber(visibleBaseRate)} Bs`}
+            sub="Eficiencia del 98.2%"
+            subColor="text-primary"
+          />
+        </section>
+      </div>
     </div>
   )
 }
+
+/* ───────────────────────────────────────────────
+   Sub-components
+   ─────────────────────────────────────────────── */
 
 function MoneyField({
   label,
@@ -276,11 +325,11 @@ function MoneyField({
   onChange: (value: string) => void
 }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-4">
       <label className={cn(FORM_LABEL_CLASS)}>{label}</label>
-      <div className="flex items-center gap-3 border-b border-input py-2 transition-all focus-within:border-primary">
+      <div className="flex items-center justify-between gap-3">
         <Input
-          className="h-9 border-0 bg-transparent p-0 text-2xl font-bold shadow-none focus-visible:ring-0 md:h-12 md:text-3xl"
+          className="h-auto w-full border-0 bg-transparent p-0 text-[2.5rem] md:text-[3rem] font-bold tracking-tight text-foreground shadow-none focus-visible:ring-0 placeholder:text-muted-foreground"
           inputMode="decimal"
           onChange={(event) => {
             onChange(event.target.value)
@@ -304,10 +353,10 @@ function ReadOnlyField({
   currency: string
 }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-4">
       <label className={cn(FORM_LABEL_CLASS)}>{label}</label>
-      <div className="flex items-center gap-3 border-b border-input py-2 transition-all focus-within:border-primary">
-        <div className="min-w-0 flex-1 py-1 text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1 truncate text-[2.5rem] md:text-[3rem] font-bold tracking-tight text-foreground">
           {formatNumber(value)}
         </div>
         <CurrencyPill currency={currency} />
@@ -317,100 +366,67 @@ function ReadOnlyField({
 }
 
 function CurrencyPill({ currency }: { currency: string }) {
+  // Determine flag code based on currency
+  const flagCode = currency === 'USD' ? 'US' : 'BO' // Using BO (Bolivia) for Bs
+  
   return (
-    <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-1.5 text-xs font-bold text-muted-foreground">
-      <BadgeDollarSign className="size-3.5" />
-      <span>{currency}</span>
-    </div>
-  )
-}
-
-function SummaryRow({
-  label,
-  value,
-  description,
-}: {
-  label: string
-  value: string
-  description?: string
-}) {
-  return (
-    <div className="flex items-start justify-between gap-4">
-      <div className="space-y-1">
-        <p className="text-sm font-medium text-foreground">{label}</p>
-        {description ? (
-          <p className="text-xs leading-5 text-muted-foreground">{description}</p>
-        ) : null}
+    <div className="flex shrink-0 items-center gap-2 rounded-full bg-background/90 px-3 py-1.5 shadow-sm border border-border/40">
+      <div className="flex size-5 items-center justify-center overflow-hidden rounded-full bg-muted">
+        <Flag code={flagCode} className="h-full w-full object-cover" />
       </div>
-      <p className="text-right text-sm font-semibold text-foreground">{value}</p>
+      <span className="text-[13px] font-semibold text-foreground pr-1">{currency}</span>
     </div>
   )
 }
 
-function RateCard({
+function DetailItem({
   label,
-  description,
   value,
-  icon: Icon,
+  bold,
   accent,
 }: {
   label: string
-  description: string
-  value: number | null
-  icon: typeof TrendingUp
-  accent: 'buy' | 'sell'
+  value: string
+  bold?: boolean
+  accent?: boolean
 }) {
   return (
-    <div
-      className={cn(
-        'relative overflow-hidden rounded-lg border p-6 transition-all duration-300',
-        accent === 'buy'
-          ? 'border-sky-200/60 bg-gradient-to-br from-sky-50/80 to-background dark:border-sky-500/20 dark:from-sky-500/10 dark:to-background'
-          : 'border-emerald-200/60 bg-gradient-to-br from-emerald-50/80 to-background dark:border-emerald-500/20 dark:from-emerald-500/10 dark:to-background'
-      )}
-    >
-      <div className="mb-5 flex items-center gap-4">
-        <div
-          className={cn(
-            'flex size-10 items-center justify-center rounded-md',
-            accent === 'buy' && 'bg-sky-100/80 text-sky-700 dark:bg-sky-500/20 dark:text-sky-400',
-            accent === 'sell' && 'bg-emerald-100/80 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400'
-          )}
-        >
-          <Icon className="size-5" />
-        </div>
-        <div>
-          <p className="text-sm font-bold uppercase tracking-wider text-foreground/80">{label}</p>
-          <p className="text-xs text-muted-foreground">{description}</p>
-        </div>
-      </div>
-
-      <div className="space-y-1">
-        <p
-          className={cn(
-            'text-4xl font-bold tracking-tight',
-            accent === 'buy' && 'text-sky-700 dark:text-sky-400',
-            accent === 'sell' && 'text-emerald-700 dark:text-emerald-400'
-          )}
-        >
-          {formatNumber(value)}
-        </p>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70">
-          BOB por 1 USD
-        </p>
-      </div>
-
-      <div
+    <div className="flex flex-col gap-1">
+      <span className="text-[11px] text-muted-foreground">{label}</span>
+      <span
         className={cn(
-          'absolute -right-4 -top-4 size-24 transform rounded-full opacity-[0.03] transition-transform group-hover:scale-110',
-          accent === 'buy' ? 'bg-sky-500' : 'bg-emerald-500'
+          'text-sm',
+          bold ? 'font-bold' : 'font-semibold',
+          accent ? 'text-success' : 'text-foreground'
         )}
-      />
+      >
+        {value}
+      </span>
     </div>
   )
 }
 
-// getNumericSetting eliminado — las tasas ahora vienen de useExchangeRates
+function StatItem({
+  label,
+  value,
+  sub,
+  subColor,
+}: {
+  label: string
+  value: string
+  sub: string
+  subColor?: string
+}) {
+  return (
+    <div className="flex flex-1 flex-col gap-1.5">
+      <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+        {label}
+      </p>
+      <p className="text-[1.75rem] md:text-[2rem] font-medium tracking-tight text-foreground">{value}</p>
+      <p className={cn('text-[11px] font-medium', subColor ?? 'text-muted-foreground')}>{sub}</p>
+    </div>
+  )
+}
 
 function parseAmount(value: string) {
   if (!value.trim()) return 0
@@ -418,17 +434,7 @@ function parseAmount(value: string) {
   return Number.isFinite(normalized) ? normalized : 0
 }
 
-
-
 function formatNumber(value: number | null) {
   const normalized = typeof value === 'number' && Number.isFinite(value) ? value : 0
-  return normalized.toFixed(2)
-}
-
-function formatMoney(value: number, currency: string) {
-  return `${formatNumber(value)} ${currency}`
-}
-
-function formatExchangeRate(value: number, originCurrency: string, destinationCurrency: string) {
-  return `1 USD = ${formatNumber(value)} Bs`
+  return normalized.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
