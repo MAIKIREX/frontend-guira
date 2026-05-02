@@ -22,8 +22,10 @@ import type { ActivityLog } from '@/types/activity-log'
 import type { OrderFileField, PaymentOrder } from '@/types/payment-order'
 import type { Supplier } from '@/types/supplier'
 
-const OPEN_ORDER_STATUSES = new Set(['created', 'waiting_deposit'])
-const FLOW_STAGES: Array<{ key: PaymentOrder['status']; label: string }> = [
+const TERMINAL_STATUSES = new Set(['cancelled', 'failed', 'swept_external'])
+
+/** Stages for interbank / deposit-based flows (PSAV, Virtual Accounts, etc.) */
+const DEPOSIT_FLOW_STAGES: Array<{ key: PaymentOrder['status']; label: string }> = [
   { key: 'created', label: 'Orden creada' },
   { key: 'waiting_deposit', label: 'Esperando deposito' },
   { key: 'deposit_received', label: 'Deposito validado' },
@@ -31,6 +33,30 @@ const FLOW_STAGES: Array<{ key: PaymentOrder['status']; label: string }> = [
   { key: 'sent', label: 'Enviado' },
   { key: 'completed', label: 'Completado' },
 ]
+
+/** Stages for wallet-withdraw flows (Bridge wallet to fiat/crypto — no external deposit needed) */
+const WALLET_WITHDRAW_FLOW_STAGES: Array<{ key: PaymentOrder['status']; label: string }> = [
+  { key: 'created', label: 'Orden creada' },
+  { key: 'processing', label: 'Procesando' },
+  { key: 'sent', label: 'Enviado' },
+  { key: 'completed', label: 'Completado' },
+]
+
+/** Returns the correct flow stages for a given order based on its service type */
+function getFlowStages(order: PaymentOrder) {
+  return isDepositOrder(order) ? DEPOSIT_FLOW_STAGES : WALLET_WITHDRAW_FLOW_STAGES
+}
+
+/** Returns whether the order is in a state that allows uploads and cancellation */
+function isOpenForActions(order: PaymentOrder) {
+  if (TERMINAL_STATUSES.has(order.status) || order.status === 'completed') return false
+  // Deposit flows: only open in created / waiting_deposit
+  if (isDepositOrder(order)) {
+    return order.status === 'created' || order.status === 'waiting_deposit'
+  }
+  // Wallet-withdraw flows: open while not yet sent/completed (allow in created & processing)
+  return order.status === 'created' || order.status === 'processing'
+}
 
 const STATUS_FILTER_LABELS: Record<string, string> = {
   all: 'Todos los estados',
@@ -40,7 +66,7 @@ const STATUS_FILTER_LABELS: Record<string, string> = {
   processing: 'Procesando',
   sent: 'Enviado',
   completed: 'Completado',
-  swept_external: 'Swept external',
+  swept_external: 'Liquidado externo',
 }
 
 interface PaymentsHistoryTableProps {
@@ -242,7 +268,7 @@ export function PaymentsHistoryTable({
             <ToolbarMetric label="Visibles" value={String(filteredOrders.length).padStart(2, '0')} />
             <ToolbarMetric
               label="En curso"
-              value={String(filteredOrders.filter((order) => OPEN_ORDER_STATUSES.has(order.status)).length).padStart(2, '0')}
+              value={String(filteredOrders.filter((order) => isOpenForActions(order)).length).padStart(2, '0')}
             />
           </div>
         </div>
@@ -324,8 +350,8 @@ export function PaymentsHistoryTable({
 
       {filteredOrders.map((order) => {
         const supplier = order.supplier_id ? (suppliersById.get(order.supplier_id) ?? null) : null
-        const canCancel = OPEN_ORDER_STATUSES.has(order.status)
-        const openUploads = OPEN_ORDER_STATUSES.has(order.status)
+        const canCancel = isOpenForActions(order)
+        const openUploads = isOpenForActions(order)
         const orderActivity = activityByOrderId.get(order.id) ?? []
         const quotePreparedAt = getMetadataDate(order.metadata, 'quote_prepared_at')
         const isExpanded = expandedOrders[order.id] ?? true
@@ -334,7 +360,7 @@ export function PaymentsHistoryTable({
         const primaryDepositInstructions = depositInstructions.filter((instruction) => instruction.kind !== 'note')
         const noteDepositInstructions = depositInstructions.filter((instruction) => instruction.kind === 'note')
         const hasEvidence = Boolean(order.deposit_proof_url || order.evidence_url)
-        const showFundingInstructions = depositInstructions.length > 0 && OPEN_ORDER_STATUSES.has(order.status) && !hasEvidence
+        const showFundingInstructions = depositInstructions.length > 0 && isOpenForActions(order) && !hasEvidence
         const statusMeta = getStatusMeta(order.status)
 
         return (
@@ -366,11 +392,13 @@ export function PaymentsHistoryTable({
                   </div>
                   
                   {/* Responsive Grid for Order Details */}
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-4 mt-2">
-                    <div className="flex flex-col gap-1 rounded-xl bg-muted/40 p-3 border border-border/40">
-                      <span className="text-[10px] sm:text-[11px] uppercase tracking-wider text-muted-foreground">Proveedor</span>
-                      <span className="text-xs sm:text-sm font-medium text-foreground truncate">{supplier?.name ?? 'Sin proveedor'}</span>
-                    </div>
+                  <div className={cn("grid gap-2 sm:gap-4 mt-2", supplier ? "grid-cols-2 md:grid-cols-3" : "grid-cols-2")}>
+                    {supplier ? (
+                      <div className="flex flex-col gap-1 rounded-xl bg-muted/40 p-3 border border-border/40">
+                        <span className="text-[10px] sm:text-[11px] uppercase tracking-wider text-muted-foreground">Proveedor</span>
+                        <span className="text-xs sm:text-sm font-medium text-foreground truncate">{supplier.name}</span>
+                      </div>
+                    ) : null}
                     <div className="flex flex-col gap-1 rounded-xl bg-muted/40 p-3 border border-border/40">
                       <span className="text-[10px] sm:text-[11px] uppercase tracking-wider text-muted-foreground">Origen</span>
                       <span className="text-xs sm:text-sm font-medium text-foreground truncate">{order.amount_origin ?? order.amount} {order.origin_currency ?? order.currency}</span>
@@ -496,35 +524,35 @@ export function PaymentsHistoryTable({
 }
 
 function StatusRail({ order }: { order: PaymentOrder }) {
-  const isTerminal = order.status === 'cancelled' || order.status === 'failed'
-  const currentIndex = FLOW_STAGES.findIndex((stage) => stage.key === order.status)
+  const stages = getFlowStages(order)
+  const isTerminal = TERMINAL_STATUSES.has(order.status)
+  const currentIndex = stages.findIndex((stage) => stage.key === order.status)
 
   // For terminal states (cancelled, failed), show a dedicated banner instead of the rail
   if (isTerminal) {
     const meta = getStatusMeta(order.status)
+    const bannerStyle = order.status === 'cancelled'
+      ? { border: 'border-orange-400/30 bg-orange-400/5', circle: 'border-orange-400/50 bg-orange-400/10 text-orange-400' }
+      : order.status === 'swept_external'
+        ? { border: 'border-teal-400/30 bg-teal-400/5', circle: 'border-teal-400/50 bg-teal-400/10 text-teal-400' }
+        : { border: 'border-destructive/30 bg-destructive/5', circle: 'border-destructive/50 bg-destructive/10 text-destructive' }
+    const bannerMessage = order.status === 'cancelled'
+      ? 'Este expediente fue anulado y no continuará en el flujo operativo.'
+      : order.status === 'swept_external'
+        ? 'Los fondos de esta operación fueron liquidados externamente. El expediente queda cerrado.'
+        : 'Este expediente fue marcado como fallido. Consulta la bitácora para más detalles.'
     return (
       <div className="py-2">
-        <div className={cn(
-          "flex items-center gap-3 rounded-2xl border p-4",
-          order.status === 'cancelled'
-            ? "border-orange-400/30 bg-orange-400/5"
-            : "border-destructive/30 bg-destructive/5"
-        )}>
+        <div className={cn("flex items-center gap-3 rounded-2xl border p-4", bannerStyle.border)}>
           <div className={cn(
             "flex size-10 shrink-0 items-center justify-center rounded-full border text-sm font-bold",
-            order.status === 'cancelled'
-              ? "border-orange-400/50 bg-orange-400/10 text-orange-400"
-              : "border-destructive/50 bg-destructive/10 text-destructive"
+            bannerStyle.circle
           )}>
-            ✕
+            {order.status === 'swept_external' ? '↗' : '✕'}
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-sm font-semibold text-foreground">{meta.label}</div>
-            <div className="text-xs text-muted-foreground">
-              {order.status === 'cancelled'
-                ? 'Este expediente fue anulado y no continuará en el flujo operativo.'
-                : 'Este expediente fue marcado como fallido. Consulta la bitácora para más detalles.'}
-            </div>
+            <div className="text-xs text-muted-foreground">{bannerMessage}</div>
           </div>
         </div>
       </div>
@@ -535,7 +563,7 @@ function StatusRail({ order }: { order: PaymentOrder }) {
     <div className="py-2">
       {/* Mobile view: compact vertical list */}
       <div className="flex flex-col gap-2 md:hidden">
-        {FLOW_STAGES.map((stage, index) => {
+        {stages.map((stage, index) => {
           const isCurrent = stage.key === order.status
           const isReached = currentIndex >= index
 
@@ -569,7 +597,7 @@ function StatusRail({ order }: { order: PaymentOrder }) {
       {/* Desktop view: full horizontal rail */}
       <div className="hidden md:block overflow-x-auto py-2 pb-4">
         <div className="flex min-w-max items-start justify-center gap-3 md:gap-4 px-2">
-          {FLOW_STAGES.map((stage, index) => {
+          {stages.map((stage, index) => {
             const isCurrent = stage.key === order.status
             const isReached = currentIndex >= index
             const isComplete = currentIndex > index
@@ -580,7 +608,7 @@ function StatusRail({ order }: { order: PaymentOrder }) {
                 key={stage.key}
                 className={cn(
                   'relative flex min-w-[120px] flex-col items-center text-center sm:min-w-[132px] md:min-w-[144px]',
-                  index < FLOW_STAGES.length - 1 && 'md:pr-4 lg:pr-6'
+                  index < stages.length - 1 && 'md:pr-4 lg:pr-6'
                 )}
               >
                 <motion.div
@@ -620,7 +648,7 @@ function StatusRail({ order }: { order: PaymentOrder }) {
                   {stage.label}
                 </motion.div>
 
-                {index < FLOW_STAGES.length - 1 ? (
+                {index < stages.length - 1 ? (
                   <div className="absolute left-[calc(50%+2rem)] top-6 hidden w-[calc(100%-4rem)] -translate-y-1/2 md:block">
                     <div className="relative h-px w-full rounded-full bg-border/70">
                       <motion.div
@@ -987,7 +1015,7 @@ function ToolbarMetric({ label, value }: { label: string; value: string }) {
 
 function getStatusVariant(status: PaymentOrder['status']) {
   if (status === 'failed') return 'destructive' as const
-  if (status === 'completed') return 'default' as const
+  if (status === 'completed' || status === 'swept_external') return 'default' as const
   if (status === 'cancelled') return 'outline' as const
   return 'outline' as const
 }
@@ -1010,6 +1038,8 @@ function getStatusMeta(status: PaymentOrder['status']) {
       return { badgeClass: 'border-destructive/35 bg-destructive/10', eyebrow: 'Incidencia', label: 'Fallido' }
     case 'cancelled':
       return { badgeClass: 'border-orange-400/35 bg-orange-400/10 text-orange-700 dark:text-orange-300', eyebrow: 'Anulacion', label: 'Cancelado' }
+    case 'swept_external':
+      return { badgeClass: 'border-teal-400/35 bg-teal-400/10 text-teal-700 dark:text-teal-300', eyebrow: 'Liquidacion externa', label: 'Liquidado externo' }
     default:
       return { badgeClass: 'border-border/30 bg-muted/10 text-muted-foreground', eyebrow: 'Desconocido', label: status ?? 'Sin estado' }
   }
@@ -1043,6 +1073,8 @@ function getConsolidatedStatusMessage(order: PaymentOrder, quotePreparedAt: stri
       return 'El expediente fue marcado como fallido y la orden ha sido cerrada. Revisa la razon registrada en la metadata o en la bitacora de actividad.'
     case 'cancelled':
       return 'Este expediente fue cancelado. La operacion no se ejecuto y los fondos asociados (si los hubiera) seran devueltos segun la politica operativa vigente.'
+    case 'swept_external':
+      return 'Los fondos de esta operacion fueron liquidados en una cuenta o red externa. El expediente queda cerrado con trazabilidad completa.'
     default:
       return 'Estado no reconocido. Contacta a soporte si necesitas mas informacion sobre este expediente.'
   }
@@ -1065,6 +1097,8 @@ function getUrgencyLabel(status: PaymentOrder['status']) {
       return 'Incidencia'
     case 'cancelled':
       return 'Cancelado'
+    case 'swept_external':
+      return 'Liquidado'
     default:
       return 'Sin estado'
   }
@@ -1087,6 +1121,8 @@ function getUrgencyBadgeClass(status: PaymentOrder['status']) {
       return 'border-destructive/35 bg-destructive/10 text-destructive'
     case 'cancelled':
       return 'border-orange-400/35 bg-orange-400/10 text-orange-700 dark:text-orange-300'
+    case 'swept_external':
+      return 'border-teal-400/35 bg-teal-400/10 text-teal-700 dark:text-teal-300'
     default:
       return 'border-border/35 bg-muted/10 text-muted-foreground'
   }

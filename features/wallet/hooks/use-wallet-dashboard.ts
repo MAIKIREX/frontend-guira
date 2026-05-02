@@ -2,14 +2,18 @@
 
 /**
  * use-wallet-dashboard.ts
- * 
- * MIGRADO: WalletService.getDashboardSnapshot(userId) eliminado.
- * Ahora carga wallets, balances y rutas de payin de forma independiente.
+ *
+ * Carga wallets, balances y rutas de payin desde el backend REST.
+ * Suscribe a Supabase Realtime para refrescar automáticamente
+ * cuando el balance del usuario cambia (e.g. depósito VA confirmado).
+ *
  * El userId ya NO se pasa — el backend lo obtiene del JWT.
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { WalletService } from '@/services/wallet.service'
 import type { WalletBalance, PayinRoute, LedgerEntry } from '@/services/wallet.service'
+import { createClient } from '@/lib/supabase/browser'
+import { useProfileStore } from '@/stores/profile-store'
 
 export interface WalletDashboardState {
   wallets: WalletBalance[]
@@ -24,6 +28,8 @@ export function useWalletDashboard() {
   const [state, setState] = useState<WalletDashboardState | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { profile } = useProfileStore()
+  const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -37,7 +43,6 @@ export function useWalletDashboard() {
         WalletService.getLedger({ limit: 20 }),
       ])
 
-      // getBalances() retorna filas de la tabla balances que no tienen is_active.
       // Seleccionar USDC directamente; si no existe, tomar el primero disponible.
       const primaryBalance = balances.find((b) => b.currency === 'USDC') ?? balances[0] ?? null
 
@@ -50,6 +55,55 @@ export function useWalletDashboard() {
     }
   }, [])
 
+  // ── Supabase Realtime: escuchar cambios en balances y ledger_entries ──
+  useEffect(() => {
+    const userId = profile?.id
+    if (!userId) return
+
+    const supabase = createClient()
+
+    // Canal único para este usuario — escucha 2 tablas
+    const channel = supabase
+      .channel(`wallet-live:${userId}`)
+      // Cuando cambia la tabla balances para este usuario → refrescar datos
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'balances',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          // Refrescar todo el dashboard para mantener consistencia
+          load()
+        }
+      )
+      // Cuando se inserta un nuevo ledger_entry → refrescar para mostrar movimiento
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          // Al recibir una notificación financiera, también refrescar
+          load()
+        }
+      )
+      .subscribe()
+
+    channelRef.current = channel
+
+    return () => {
+      supabase.removeChannel(channel)
+      channelRef.current = null
+    }
+  }, [profile?.id, load])
+
+  // ── Carga inicial ──
   useEffect(() => {
     load()
   }, [load])

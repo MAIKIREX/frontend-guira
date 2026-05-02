@@ -41,6 +41,8 @@ export const uboSchema = z.object({
   is_pep: z.boolean({ error: 'Requerido' }),
   // F9: has_control — indica si el UBO también tiene control operacional (no solo ownership)
   has_control: z.boolean().optional(),
+  // P2-A: Bridge requires `title` (mapped from position) when has_control=true
+  position: z.string().optional(),
   // Doc
   doc_id: z.any().optional(),
 })
@@ -66,6 +68,8 @@ const companyOnboardingBase = z.object({
   business_industry: z.array(z.string()).min(1, 'Selecciona al menos una industria'),
   // P2-D: primary_website mejora la aprobación KYB
   primary_website: z.string().url('URL inválida').optional().or(z.literal('')),
+  // P3-A: Bridge accepts is_dao boolean for DAO businesses
+  is_dao: z.boolean().optional(),
 
   // Contacto empresa
   email: z.string().email('Email inválido'),
@@ -161,6 +165,18 @@ const companyWithSuperRefine = companyOnboardingBase.superRefine((data, ctx) => 
       code: z.ZodIssueCode.custom,
       message: 'Debes describir los servicios de dinero que ofrece la empresa',
       path: ['conducts_money_services_description'],
+    })
+  }
+  // P2-A: Bridge requires `title` (position) when has_control=true for UBOs
+  if (data.ubos?.length) {
+    data.ubos.forEach((ubo, idx) => {
+      if (ubo.has_control && !ubo.position?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'El cargo es obligatorio cuando el UBO tiene control operacional',
+          path: ['ubos', idx, 'position'],
+        })
+      }
     })
   }
 })

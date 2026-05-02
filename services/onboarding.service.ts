@@ -156,6 +156,8 @@ export interface CreateBusinessDto {
   acting_as_intermediary?: boolean
   /** Does the business operate in any Bridge-prohibited countries? */
   operates_in_prohibited_countries?: boolean
+  /** P3-A — Bridge is_dao boolean for DAO businesses */
+  is_dao?: boolean
   /** Array of Bridge high-risk activity codes */
   high_risk_activities?: string[]
   /**
@@ -218,6 +220,8 @@ export interface CreateUboDto {
   is_pep: boolean
   /** Fuga A — Control prong: UBO with operational control (FinCEN Control Prong) */
   has_control?: boolean
+  /** P2-A — Bridge requires `title` when has_control is true; mapped from position */
+  position?: string
 }
 
 // ─────────────────────────────────────────────────────────────────

@@ -1041,7 +1041,7 @@ export function CompanyForm({
                   first_name: '', last_name: '', ownership_percent: 0,
                   // FIX N-05: date_of_birth required by Bridge AssociatedPerson schema
                   date_of_birth: '', email: '',
-                  is_pep: false, has_control: false, nationality: undefined,
+                  is_pep: false, has_control: false, position: '', nationality: undefined,
                   address1: '', city: '', country: undefined as any
                 })}
               >
@@ -1195,6 +1195,18 @@ export function CompanyForm({
                       </div>
                     </FormItem>
                   )} />
+                  {/* P2-A: position/title — required by Bridge when has_control is true */}
+                  {form.watch(`ubos.${index}.has_control`) && (
+                    <FormField control={form.control as any} name={`ubos.${index}.position`} render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cargo en la empresa *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ej: CFO, Director General" {...field} value={field.value ?? ''} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  )}
                 </div>
                 <div className="pt-2 space-y-4">
                   <h5 className="text-sm font-medium text-muted-foreground border-b pb-1 mb-2">Documentos del Socio</h5>

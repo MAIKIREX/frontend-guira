@@ -10,6 +10,8 @@ export type OrderStatus =
   | 'failed'
   | 'cancelled'
   | 'swept_external'
+  | 'refunded'
+  | 'pending'
 
 export type DeliveryMethod = 'swift' | 'ach' | 'crypto'
 export type FundingMethod = 'bs' | 'crypto' | 'ach' | 'wallet'
@@ -164,6 +166,10 @@ export interface PaymentOrder {
   notes?: string
   failure_reason?: string
   completed_at?: string
+  // ── Virtual Account (VA) deposit fields ──
+  deposit_id?: string
+  va_deposit_status?: string
+  sender_name?: string
 }
 
 export interface FeeConfigRow {
