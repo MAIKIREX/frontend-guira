@@ -37,6 +37,8 @@ const FORM_TEXT_CLASS = 'tracking-[0.01em]'
 const FORM_UNDERLINE_INPUT_CLASS = 'h-11 rounded-none border-0 border-b border-input bg-transparent px-0 py-0 shadow-none transition-colors focus-visible:border-primary focus-visible:ring-0 disabled:bg-transparent'
 const FORM_UNDERLINE_SELECT_CLASS = 'h-11 w-full rounded-none border-0 border-b border-input bg-transparent px-0 py-0 shadow-none transition-colors focus-visible:border-primary focus-visible:ring-0'
 
+export type WithdrawSubStep = 'wallet' | 'bank' | 'dest_wallet' | 'reason' | 'amount'
+
 interface WalletWithdrawDetailStepProps {
   form: any
   method?: string
@@ -45,6 +47,7 @@ interface WalletWithdrawDetailStepProps {
   feesConfig: FeeConfigRow[]
   psavConfigs?: PsavConfigRow[]
   disabled?: boolean
+  subStep?: WithdrawSubStep
 }
 
 export function WalletWithdrawDetailStep({
@@ -55,6 +58,7 @@ export function WalletWithdrawDetailStep({
   feesConfig,
   psavConfigs = [],
   disabled,
+  subStep,
 }: WalletWithdrawDetailStepProps) {
   const prevEstimateRef = useRef<{ feeTotal: number; exchangeRateApplied: number; amountConverted: number } | null>(null)
 
@@ -435,6 +439,199 @@ export function WalletWithdrawDetailStep({
     </Collapsible>
   )
 
+  const bankSection = method === 'fiat_bo' ? (
+    <>
+      {bankLoading ? (
+        <div className="flex items-center justify-center py-6">
+          <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-sm text-muted-foreground">Cargando cuenta bancaria...</span>
+        </div>
+      ) : bankAccount ? (
+        <div className="rounded-xl border border-border/40 bg-muted/10 p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="size-4 text-emerald-500" />
+            <p className={cn(LABEL_CLASS, 'text-foreground !text-xs')}>
+              Tu cuenta bancaria destino
+            </p>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Los fondos convertidos a bolivianos serán depositados automáticamente en esta cuenta.
+            Si necesitas cambiarla, ve a{' '}
+            <Link href="/perfil" className="text-primary underline underline-offset-2 hover:text-primary/80">
+              Perfil → Cuenta bancaria
+            </Link>.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-3 pt-1">
+            <div className="rounded-lg border border-border/50 bg-background/60 p-3">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Banco</span>
+              <p className="mt-0.5 text-sm font-medium">{bankAccount.bank_name}</p>
+            </div>
+            <div className="rounded-lg border border-border/50 bg-background/60 p-3">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Cuenta</span>
+              <p className="mt-0.5 text-sm font-medium font-mono tracking-wide">{bankAccount.account_number}</p>
+            </div>
+            <div className="rounded-lg border border-border/50 bg-background/60 p-3">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Titular</span>
+              <p className="mt-0.5 text-sm font-medium">{bankAccount.account_holder}</p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-xl border-l-4 border-amber-500/60 bg-amber-500/5 p-5 space-y-2">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="size-4 text-amber-600" />
+            <p className="font-semibold text-sm text-amber-700 dark:text-amber-400">
+              Cuenta bancaria no registrada
+            </p>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Para retirar fondos a Bolivia, primero debes registrar tu cuenta bancaria personal en tu perfil.
+            Esta medida es parte del control de seguridad de la plataforma y asegura que los fondos solo se
+            depositen en tu propia cuenta.
+          </p>
+          <Link
+            href="/perfil"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline mt-1"
+          >
+            Ir a mi Perfil →
+          </Link>
+        </div>
+      )}
+    </>
+  ) : null
+
+  const cryptoDestSection = method === 'crypto' ? (
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <FormField
+          control={form.control}
+          name="crypto_network"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className={LABEL_CLASS}>Red de destino</FormLabel>
+              <Select
+                value={field.value || null}
+                onValueChange={(v) => handleCryptoNetworkChange(v, field.onChange)}
+                disabled={disabled || availableNetworks.length === 0}
+              >
+                <FormControl>
+                  <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
+                    <SelectValue placeholder={selectedOriginCurrency ? 'Seleccionar red' : 'Selecciona token primero'} />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {availableNetworks.map((net) => (
+                    <SelectItem key={net} value={net}>
+                      {NETWORK_LABELS[net as keyof typeof NETWORK_LABELS] ?? net}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="destination_currency"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className={LABEL_CLASS}>Token de destino</FormLabel>
+              <Select
+                value={field.value || null}
+                onValueChange={field.onChange}
+                disabled={disabled || availableDestCurrencies.length === 0}
+              >
+                <FormControl>
+                  <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
+                    <SelectValue placeholder={selectedCryptoNetwork ? 'Seleccionar token' : 'Selecciona red primero'} />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {availableDestCurrencies.map((cur) => (
+                    <SelectItem key={cur} value={cur}>
+                      {CRYPTO_CURRENCY_LABELS[cur as keyof typeof CRYPTO_CURRENCY_LABELS] ?? cur.toUpperCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedCryptoNetwork && availableDestCurrencies.length === 0 && (
+                <p className="text-[10px] text-amber-500 mt-1">
+                  No hay tokens destino disponibles para esta combinación.
+                </p>
+              )}
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </div>
+
+      <FormField
+        control={form.control}
+        name="crypto_address"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel className={LABEL_CLASS}>Dirección cripto destino</FormLabel>
+            <FormControl>
+              <Input
+                {...field}
+                value={field.value ?? ''}
+                placeholder="Ej: 0x... / T... / G..."
+                disabled={disabled}
+                className={cn(FORM_UNDERLINE_INPUT_CLASS, FORM_TEXT_CLASS, 'font-mono text-xs')}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      {offRampMinAmount > 0 && selectedDestCurrency && (
+        <p className="text-[10px] text-muted-foreground mt-1">
+          Mínimo: {offRampMinAmount} {(selectedOriginCurrency || '').toUpperCase()}
+        </p>
+      )}
+    </div>
+  ) : null
+
+  // ── Partial renders for sub-step mode ────────────────────────────────────
+  if (subStep === 'wallet') {
+    return (
+      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+        {walletField}
+        {tokenField}
+      </div>
+    )
+  }
+
+  if (subStep === 'bank') {
+    return (
+      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+        {bankSection}
+      </div>
+    )
+  }
+
+  if (subStep === 'dest_wallet') {
+    return (
+      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+        {cryptoDestSection}
+      </div>
+    )
+  }
+
+  if (subStep === 'amount') {
+    return (
+      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <div>
+          {amountField}
+          {estimationBlock}
+        </div>
+      </div>
+    )
+  }
+
   // ── Render ────────────────────────────────────────────────────────
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -452,66 +649,7 @@ export function WalletWithdrawDetailStep({
       </div>
 
       {/* 5. Campos específicos por método */}
-      {method === 'fiat_bo' && (
-        <>
-          {bankLoading ? (
-            <div className="flex items-center justify-center py-6">
-              <Loader2 className="size-5 animate-spin text-muted-foreground" />
-              <span className="ml-2 text-sm text-muted-foreground">Cargando cuenta bancaria...</span>
-            </div>
-          ) : bankAccount ? (
-            <div className="rounded-xl border border-border/40 bg-muted/10 p-5 space-y-3">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="size-4 text-emerald-500" />
-                <p className={cn(LABEL_CLASS, 'text-foreground !text-xs')}>
-                  Tu cuenta bancaria destino
-                </p>
-              </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Los fondos convertidos a bolivianos serán depositados automáticamente en esta cuenta.
-                Si necesitas cambiarla, ve a{' '}
-                <Link href="/perfil" className="text-primary underline underline-offset-2 hover:text-primary/80">
-                  Perfil → Cuenta bancaria
-                </Link>.
-              </p>
-              <div className="grid gap-3 sm:grid-cols-3 pt-1">
-                <div className="rounded-lg border border-border/50 bg-background/60 p-3">
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Banco</span>
-                  <p className="mt-0.5 text-sm font-medium">{bankAccount.bank_name}</p>
-                </div>
-                <div className="rounded-lg border border-border/50 bg-background/60 p-3">
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Cuenta</span>
-                  <p className="mt-0.5 text-sm font-medium font-mono tracking-wide">{bankAccount.account_number}</p>
-                </div>
-                <div className="rounded-lg border border-border/50 bg-background/60 p-3">
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Titular</span>
-                  <p className="mt-0.5 text-sm font-medium">{bankAccount.account_holder}</p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-xl border-l-4 border-amber-500/60 bg-amber-500/5 p-5 space-y-2">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="size-4 text-amber-600" />
-                <p className="font-semibold text-sm text-amber-700 dark:text-amber-400">
-                  Cuenta bancaria no registrada
-                </p>
-              </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Para retirar fondos a Bolivia, primero debes registrar tu cuenta bancaria personal en tu perfil.
-                Esta medida es parte del control de seguridad de la plataforma y asegura que los fondos solo se
-                depositen en tu propia cuenta.
-              </p>
-              <Link
-                href="/perfil"
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline mt-1"
-              >
-                Ir a mi Perfil →
-              </Link>
-            </div>
-          )}
-        </>
-      )}
+      {bankSection}
 
       {method === 'crypto' && (
         <>

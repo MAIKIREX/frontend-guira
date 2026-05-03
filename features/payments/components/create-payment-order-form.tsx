@@ -185,6 +185,21 @@ export function CreatePaymentOrderForm({
   type DetailSubStep = 'supplier' | 'funding' | 'reason' | 'amount'
   const [detailSubStep, setDetailSubStep] = useState<DetailSubStep>('supplier')
 
+  // Sub-pasos para bridge_wallet_to_fiat_bo
+  type FiatBoSubStep = 'wallet' | 'bank' | 'reason' | 'amount'
+  const FIAT_BO_SUB_ORDER: FiatBoSubStep[] = ['wallet', 'bank', 'reason', 'amount']
+  const [fiatBoSubStep, setFiatBoSubStep] = useState<FiatBoSubStep>('wallet')
+
+  // Sub-pasos para bridge_wallet_to_crypto
+  type CryptoWithdrawSubStep = 'wallet' | 'dest_wallet' | 'reason' | 'amount'
+  const CRYPTO_WITHDRAW_SUB_ORDER: CryptoWithdrawSubStep[] = ['wallet', 'dest_wallet', 'reason', 'amount']
+  const [cryptoWithdrawSubStep, setCryptoWithdrawSubStep] = useState<CryptoWithdrawSubStep>('wallet')
+
+  // Sub-pasos para bridge_wallet_to_fiat_us
+  type FiatUsSubStep = 'wallet' | 'supplier' | 'reason' | 'amount'
+  const FIAT_US_SUB_ORDER: FiatUsSubStep[] = ['wallet', 'supplier', 'reason', 'amount']
+  const [fiatUsSubStep, setFiatUsSubStep] = useState<FiatUsSubStep>('wallet')
+
   const [bridgeWallets, setBridgeWallets] = useState<WalletBalance[]>([])
   const [loadingWallets, setLoadingWallets] = useState(false)
   const [virtualAccounts, setVirtualAccounts] = useState<VirtualAccount[]>([])
@@ -281,6 +296,9 @@ export function CreatePaymentOrderForm({
   const isBoliviaToExterior = route === 'bolivia_to_exterior'
   const isCryptoToCrypto = route === 'crypto_to_crypto'
   const hasSubStepFlow = isBoliviaToExterior || isCryptoToCrypto
+  const isFiatBoWithdraw = route === 'wallet_ramp_withdraw' && walletRampWithdrawMethod === 'fiat_bo'
+  const isCryptoWithdraw = route === 'wallet_ramp_withdraw' && walletRampWithdrawMethod === 'crypto'
+  const isFiatUsWithdraw = route === 'wallet_ramp_withdraw' && walletRampWithdrawMethod === 'fiat_us'
   const DETAIL_SUB_ORDER: DetailSubStep[] = isCryptoToCrypto
     ? ['supplier', 'funding', 'reason', 'amount']
     : ['supplier', 'reason', 'amount']
@@ -425,6 +443,9 @@ export function CreatePaymentOrderForm({
     setEvidenceFile(null)
     setStep('route')
     setDetailSubStep('supplier')
+    setFiatBoSubStep('wallet')
+    setCryptoWithdrawSubStep('wallet')
+    setFiatUsSubStep('wallet')
   }, [form, resolvedDefaultRoute])
 
   useEffect(() => {
@@ -639,24 +660,96 @@ export function CreatePaymentOrderForm({
 
     if (step === 'detail') {
       if (route === 'wallet_ramp_withdraw') {
-        const isValidWithdraw = await form.trigger([
-          'amount_origin',
-          'wallet_ramp_wallet_id',
-          'withdraw_bank_name',
-          'withdraw_account_number',
-          'withdraw_account_holder',
-          'crypto_address',
-          'crypto_network',
-          'supplier_id',
-          'payment_reason',
-        ], { shouldFocus: true })
-        if (!isValidWithdraw) return
-        if (!supportFile) {
-          setShowSupportFileError(true)
-          toast.error('Debes adjuntar el documento de respaldo para continuar.')
-          return
+        if (isFiatBoWithdraw) {
+          if (fiatBoSubStep === 'wallet') {
+            const isValid = await form.trigger(['wallet_ramp_wallet_id', 'origin_currency'], { shouldFocus: true })
+            if (!isValid) return
+            setFiatBoSubStep('bank')
+            return
+          }
+          if (fiatBoSubStep === 'bank') {
+            setFiatBoSubStep('reason')
+            return
+          }
+          if (fiatBoSubStep === 'reason') {
+            const isValid = await form.trigger(['payment_reason'], { shouldFocus: true })
+            if (!isValid) return
+            if (!supportFile) {
+              setShowSupportFileError(true)
+              toast.error('Debes adjuntar el documento de respaldo para continuar.')
+              return
+            }
+            setShowSupportFileError(false)
+            setFiatBoSubStep('amount')
+            return
+          }
+          if (fiatBoSubStep === 'amount') {
+            const isValid = await form.trigger(['amount_origin'], { shouldFocus: true })
+            if (!isValid) return
+          }
+        } else if (isCryptoWithdraw) {
+          if (cryptoWithdrawSubStep === 'wallet') {
+            const isValid = await form.trigger(['wallet_ramp_wallet_id', 'origin_currency'], { shouldFocus: true })
+            if (!isValid) return
+            setCryptoWithdrawSubStep('dest_wallet')
+            return
+          }
+          if (cryptoWithdrawSubStep === 'dest_wallet') {
+            const isValid = await form.trigger(['crypto_network', 'destination_currency', 'crypto_address'], { shouldFocus: true })
+            if (!isValid) return
+            setCryptoWithdrawSubStep('reason')
+            return
+          }
+          if (cryptoWithdrawSubStep === 'reason') {
+            const isValid = await form.trigger(['payment_reason'], { shouldFocus: true })
+            if (!isValid) return
+            if (!supportFile) {
+              setShowSupportFileError(true)
+              toast.error('Debes adjuntar el documento de respaldo para continuar.')
+              return
+            }
+            setShowSupportFileError(false)
+            setCryptoWithdrawSubStep('amount')
+            return
+          }
+          if (cryptoWithdrawSubStep === 'amount') {
+            const isValid = await form.trigger(['amount_origin'], { shouldFocus: true })
+            if (!isValid) return
+          }
+        } else if (isFiatUsWithdraw) {
+          if (fiatUsSubStep === 'wallet') {
+            const isValid = await form.trigger(['wallet_ramp_wallet_id', 'origin_currency'], { shouldFocus: true })
+            if (!isValid) return
+            setFiatUsSubStep('supplier')
+            return
+          }
+          if (fiatUsSubStep === 'supplier') {
+            if (supplierValidationMessage) {
+              toast.error(supplierValidationMessage)
+              return
+            }
+            const isValid = await form.trigger(['supplier_id'], { shouldFocus: true })
+            if (!isValid) return
+            setFiatUsSubStep('reason')
+            return
+          }
+          if (fiatUsSubStep === 'reason') {
+            const isValid = await form.trigger(['payment_reason'], { shouldFocus: true })
+            if (!isValid) return
+            if (!supportFile) {
+              setShowSupportFileError(true)
+              toast.error('Debes adjuntar el documento de respaldo para continuar.')
+              return
+            }
+            setShowSupportFileError(false)
+            setFiatUsSubStep('amount')
+            return
+          }
+          if (fiatUsSubStep === 'amount') {
+            const isValid = await form.trigger(['amount_origin'], { shouldFocus: true })
+            if (!isValid) return
+          }
         }
-        setShowSupportFileError(false)
       } else if (route === 'wallet_ramp_deposit') {
         const isValidWalletRamp = await form.trigger([
           'amount_origin',
@@ -778,6 +871,30 @@ export function CreatePaymentOrderForm({
     // Al volver de review a detail en ruta con sub-pasos, caer en el último sub-paso
     if (step === 'review' && hasSubStepFlow) {
       setDetailSubStep('amount')
+    }
+    // Sub-paso navigation para fiat_bo
+    if (step === 'detail' && isFiatBoWithdraw && fiatBoSubStep !== 'wallet') {
+      const idx = FIAT_BO_SUB_ORDER.indexOf(fiatBoSubStep)
+      if (idx > 0) { setFiatBoSubStep(FIAT_BO_SUB_ORDER[idx - 1]); return }
+    }
+    if (step === 'review' && isFiatBoWithdraw) {
+      setFiatBoSubStep('amount')
+    }
+    // Sub-paso navigation para crypto withdraw
+    if (step === 'detail' && isCryptoWithdraw && cryptoWithdrawSubStep !== 'wallet') {
+      const idx = CRYPTO_WITHDRAW_SUB_ORDER.indexOf(cryptoWithdrawSubStep)
+      if (idx > 0) { setCryptoWithdrawSubStep(CRYPTO_WITHDRAW_SUB_ORDER[idx - 1]); return }
+    }
+    if (step === 'review' && isCryptoWithdraw) {
+      setCryptoWithdrawSubStep('amount')
+    }
+    // Sub-paso navigation para fiat_us withdraw
+    if (step === 'detail' && isFiatUsWithdraw && fiatUsSubStep !== 'wallet') {
+      const idx = FIAT_US_SUB_ORDER.indexOf(fiatUsSubStep)
+      if (idx > 0) { setFiatUsSubStep(FIAT_US_SUB_ORDER[idx - 1]); return }
+    }
+    if (step === 'review' && isFiatUsWithdraw) {
+      setFiatUsSubStep('amount')
     }
     const currentIndex = STEP_ORDER.indexOf(step)
     const previousStep = STEP_ORDER[currentIndex - 1]
@@ -1107,7 +1224,7 @@ export function CreatePaymentOrderForm({
 
                 {step === 'detail' ? (
                   <>
-                  {!hasSubStepFlow && (
+                  {!hasSubStepFlow && !isFiatBoWithdraw && !isCryptoWithdraw && !isFiatUsWithdraw && (
                   <AnimatedStepPanel key="detail">
                     <SectionHeading
                       icon={currentRoute.key === 'crypto_to_crypto' ? Network : Wallet}
@@ -1696,6 +1813,385 @@ export function CreatePaymentOrderForm({
                         </AnimatedBackButton>
                         <AnimatedNextButton disabled={disabled} onClick={handleNext}>
                           {detailSubStep === 'amount' ? 'Revisar expediente' : 'Siguiente'}
+                        </AnimatedNextButton>
+                      </div>
+                    </AnimatedStepPanel>
+                  )}
+
+                  {isFiatBoWithdraw && (
+                    <AnimatedStepPanel key={`detail-fiatbo-${fiatBoSubStep}`}>
+                      {/* Indicador de sub-pasos */}
+                      <div className="flex items-center gap-2 mb-6 px-1">
+                        {FIAT_BO_SUB_ORDER.map((sub, i) => (
+                          <div key={sub} className="flex items-center gap-2">
+                            <div className={cn(
+                              'size-2 rounded-full transition-colors',
+                              fiatBoSubStep === sub ? 'bg-primary' :
+                              FIAT_BO_SUB_ORDER.indexOf(fiatBoSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
+                            )} />
+                            {i < FIAT_BO_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="grid gap-4">
+                        {fiatBoSubStep === 'wallet' && (
+                          <>
+                            <SectionHeading
+                              icon={Wallet}
+                              eyebrow="Etapa 3 — Paso 1 de 4"
+                              title="Wallet y Token de Origen"
+                              description="Selecciona la wallet Bridge y el token que deseas retirar a Bolivia."
+                            />
+                            <WalletWithdrawDetailStep
+                              form={form}
+                              method="fiat_bo"
+                              wallets={bridgeWallets}
+                              exchangeRates={exchangeRates}
+                              feesConfig={feesConfig}
+                              psavConfigs={psavConfigs}
+                              disabled={disabled}
+                              subStep="wallet"
+                            />
+                          </>
+                        )}
+
+                        {fiatBoSubStep === 'bank' && (
+                          <>
+                            <SectionHeading
+                              icon={Landmark}
+                              eyebrow="Etapa 3 — Paso 2 de 4"
+                              title="Tu Cuenta Bancaria Destino"
+                              description="Los fondos convertidos a bolivianos serán depositados en esta cuenta bancaria."
+                            />
+                            <WalletWithdrawDetailStep
+                              form={form}
+                              method="fiat_bo"
+                              wallets={bridgeWallets}
+                              exchangeRates={exchangeRates}
+                              feesConfig={feesConfig}
+                              psavConfigs={psavConfigs}
+                              disabled={disabled}
+                              subStep="bank"
+                            />
+                          </>
+                        )}
+
+                        {fiatBoSubStep === 'reason' && (
+                          <>
+                            <SectionHeading
+                              icon={FileText}
+                              eyebrow="Etapa 3 — Paso 3 de 4"
+                              title="Motivo del Retiro"
+                              description="Indica el motivo del retiro y adjunta el documento de respaldo obligatorio."
+                            />
+                            <TextField control={form.control} disabled={disabled} label="Motivo del retiro" name="payment_reason" />
+                            <DocumentInputCard
+                              className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
+                              file={supportFile}
+                              label="Documento de respaldo"
+                              description="Obligatorio en esta ruta. Se guardará como support_document_url al crear la orden."
+                              onFileChange={(f) => {
+                                setSupportFile(f)
+                                if (f) setShowSupportFileError(false)
+                              }}
+                            />
+                          </>
+                        )}
+
+                        {fiatBoSubStep === 'amount' && (
+                          <>
+                            <SectionHeading
+                              icon={Banknote}
+                              eyebrow="Etapa 3 — Paso 4 de 4"
+                              title="Monto a Retirar (Token)"
+                              description="Ingresa el monto en tokens que deseas convertir y depositar en bolivianos."
+                            />
+                            <WalletWithdrawDetailStep
+                              form={form}
+                              method="fiat_bo"
+                              wallets={bridgeWallets}
+                              exchangeRates={exchangeRates}
+                              feesConfig={feesConfig}
+                              psavConfigs={psavConfigs}
+                              disabled={disabled}
+                              subStep="amount"
+                            />
+                          </>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between mt-8">
+                        <AnimatedBackButton onClick={handleBack}>
+                          {fiatBoSubStep === 'wallet' ? 'Volver' : 'Anterior'}
+                        </AnimatedBackButton>
+                        <AnimatedNextButton disabled={disabled} onClick={handleNext}>
+                          {fiatBoSubStep === 'amount' ? 'Revisar expediente' : 'Siguiente'}
+                        </AnimatedNextButton>
+                      </div>
+                    </AnimatedStepPanel>
+                  )}
+
+                  {isCryptoWithdraw && (
+                    <AnimatedStepPanel key={`detail-crypto-${cryptoWithdrawSubStep}`}>
+                      <div className="flex items-center gap-2 mb-6 px-1">
+                        {CRYPTO_WITHDRAW_SUB_ORDER.map((sub, i) => (
+                          <div key={sub} className="flex items-center gap-2">
+                            <div className={cn(
+                              'size-2 rounded-full transition-colors',
+                              cryptoWithdrawSubStep === sub ? 'bg-primary' :
+                              CRYPTO_WITHDRAW_SUB_ORDER.indexOf(cryptoWithdrawSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
+                            )} />
+                            {i < CRYPTO_WITHDRAW_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="grid gap-4">
+                        {cryptoWithdrawSubStep === 'wallet' && (
+                          <>
+                            <SectionHeading
+                              icon={Wallet}
+                              eyebrow="Etapa 3 — Paso 1 de 4"
+                              title="Wallet y Token de Origen"
+                              description="Selecciona la wallet Bridge y el token que deseas retirar a una wallet externa."
+                            />
+                            <WalletWithdrawDetailStep
+                              form={form}
+                              method="crypto"
+                              wallets={bridgeWallets}
+                              exchangeRates={exchangeRates}
+                              feesConfig={feesConfig}
+                              psavConfigs={psavConfigs}
+                              disabled={disabled}
+                              subStep="wallet"
+                            />
+                          </>
+                        )}
+
+                        {cryptoWithdrawSubStep === 'dest_wallet' && (
+                          <>
+                            <SectionHeading
+                              icon={Network}
+                              eyebrow="Etapa 3 — Paso 2 de 4"
+                              title="Wallet Externa Destino"
+                              description="Selecciona la red y token de destino, luego ingresa la dirección cripto donde recibirás los fondos."
+                            />
+                            <WalletWithdrawDetailStep
+                              form={form}
+                              method="crypto"
+                              wallets={bridgeWallets}
+                              exchangeRates={exchangeRates}
+                              feesConfig={feesConfig}
+                              psavConfigs={psavConfigs}
+                              disabled={disabled}
+                              subStep="dest_wallet"
+                            />
+                          </>
+                        )}
+
+                        {cryptoWithdrawSubStep === 'reason' && (
+                          <>
+                            <SectionHeading
+                              icon={FileText}
+                              eyebrow="Etapa 3 — Paso 3 de 4"
+                              title="Motivo del Retiro"
+                              description="Indica el motivo del retiro y adjunta el documento de respaldo obligatorio."
+                            />
+                            <TextField control={form.control} disabled={disabled} label="Motivo del retiro" name="payment_reason" />
+                            <DocumentInputCard
+                              className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
+                              file={supportFile}
+                              label="Documento de respaldo"
+                              description="Obligatorio en esta ruta. Se guardará como support_document_url al crear la orden."
+                              onFileChange={(f) => { setSupportFile(f); if (f) setShowSupportFileError(false) }}
+                            />
+                          </>
+                        )}
+
+                        {cryptoWithdrawSubStep === 'amount' && (
+                          <>
+                            <SectionHeading
+                              icon={Banknote}
+                              eyebrow="Etapa 3 — Paso 4 de 4"
+                              title="Monto a Retirar (Crypto)"
+                              description="Ingresa el monto en tokens que deseas enviar a la wallet destino."
+                            />
+                            <WalletWithdrawDetailStep
+                              form={form}
+                              method="crypto"
+                              wallets={bridgeWallets}
+                              exchangeRates={exchangeRates}
+                              feesConfig={feesConfig}
+                              psavConfigs={psavConfigs}
+                              disabled={disabled}
+                              subStep="amount"
+                            />
+                          </>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between mt-8">
+                        <AnimatedBackButton onClick={handleBack}>
+                          {cryptoWithdrawSubStep === 'wallet' ? 'Volver' : 'Anterior'}
+                        </AnimatedBackButton>
+                        <AnimatedNextButton disabled={disabled} onClick={handleNext}>
+                          {cryptoWithdrawSubStep === 'amount' ? 'Revisar expediente' : 'Siguiente'}
+                        </AnimatedNextButton>
+                      </div>
+                    </AnimatedStepPanel>
+                  )}
+
+                  {isFiatUsWithdraw && (
+                    <AnimatedStepPanel key={`detail-fiatus-${fiatUsSubStep}`}>
+                      <div className="flex items-center gap-2 mb-6 px-1">
+                        {FIAT_US_SUB_ORDER.map((sub, i) => (
+                          <div key={sub} className="flex items-center gap-2">
+                            <div className={cn(
+                              'size-2 rounded-full transition-colors',
+                              fiatUsSubStep === sub ? 'bg-primary' :
+                              FIAT_US_SUB_ORDER.indexOf(fiatUsSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
+                            )} />
+                            {i < FIAT_US_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="grid gap-4">
+                        {fiatUsSubStep === 'wallet' && (
+                          <>
+                            <SectionHeading
+                              icon={Wallet}
+                              eyebrow="Etapa 3 — Paso 1 de 4"
+                              title="Wallet y Token de Origen"
+                              description="Selecciona la wallet Bridge y el token que deseas retirar a tu cuenta bancaria en EE.UU."
+                            />
+                            <WalletWithdrawDetailStep
+                              form={form}
+                              method="fiat_us"
+                              wallets={bridgeWallets}
+                              exchangeRates={exchangeRates}
+                              feesConfig={feesConfig}
+                              psavConfigs={psavConfigs}
+                              disabled={disabled}
+                              subStep="wallet"
+                            />
+                          </>
+                        )}
+
+                        {fiatUsSubStep === 'supplier' && (
+                          <>
+                            <SectionHeading
+                              icon={Landmark}
+                              eyebrow="Etapa 3 — Paso 2 de 4"
+                              title="Proveedor o Beneficiario"
+                              description="Selecciona el proveedor con cuenta bancaria externa (ACH/Wire) registrada en Bridge."
+                            />
+                            <FormField
+                              control={form.control}
+                              name="supplier_id"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className={FORM_LABEL_CLASS}>Proveedor o beneficiario</FormLabel>
+                                  <FormControl>
+                                    <Select
+                                      value={field.value || 'none'}
+                                      onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
+                                      disabled={disabled}
+                                    >
+                                      <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
+                                        <SelectValue placeholder="Selecciona uno guardado">
+                                          {selectedSupplier?.name ?? (field.value ? field.value : undefined)}
+                                        </SelectValue>
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="none">Sin proveedor cargado</SelectItem>
+                                        {filteredSuppliers.map((supplier) => (
+                                          <SelectItem key={supplier.id} value={supplier.id ?? supplier.name}>
+                                            <span>{supplier.name}</span>
+                                            {supplier.bridge_external_account_id ? (
+                                              <span className="ml-1.5 text-xs text-muted-foreground">
+                                                ({supplier.payment_rail?.toUpperCase() ?? 'BANK'} · External Account)
+                                              </span>
+                                            ) : null}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </FormControl>
+                                  {filteredSuppliers.length === 0 ? (
+                                    <p className="text-xs text-amber-500">
+                                      No tienes proveedores con cuenta bancaria externa (ACH/Wire) registrada en Bridge. Crea uno en la sección Proveedores.
+                                    </p>
+                                  ) : (
+                                    <p className="text-xs text-muted-foreground">
+                                      Solo se muestran proveedores con cuenta bancaria externa registrada en Bridge (ACH/Wire).
+                                    </p>
+                                  )}
+                                  <div className="flex flex-wrap items-center gap-3">
+                                    <Link
+                                      className="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium transition-colors hover:bg-muted"
+                                      href="/proveedores"
+                                    >
+                                      Ir a Proveedores
+                                    </Link>
+                                    <span className="text-xs text-muted-foreground">Crea o completa el proveedor y vuelve a esta operacion.</span>
+                                  </div>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            {supplierValidationMessage && hasSupplierSelected ? <ValidationNotice message={supplierValidationMessage} /> : null}
+                          </>
+                        )}
+
+                        {fiatUsSubStep === 'reason' && (
+                          <>
+                            <SectionHeading
+                              icon={FileText}
+                              eyebrow="Etapa 3 — Paso 3 de 4"
+                              title="Motivo del Retiro"
+                              description="Indica el motivo del retiro y adjunta el documento de respaldo obligatorio."
+                            />
+                            <TextField control={form.control} disabled={disabled} label="Motivo del retiro" name="payment_reason" />
+                            <DocumentInputCard
+                              className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
+                              file={supportFile}
+                              label="Documento de respaldo"
+                              description="Obligatorio en esta ruta. Se guardará como support_document_url al crear la orden."
+                              onFileChange={(f) => { setSupportFile(f); if (f) setShowSupportFileError(false) }}
+                            />
+                          </>
+                        )}
+
+                        {fiatUsSubStep === 'amount' && (
+                          <>
+                            <SectionHeading
+                              icon={Banknote}
+                              eyebrow="Etapa 3 — Paso 4 de 4"
+                              title="Monto del Retiro"
+                              description="Ingresa el monto en tokens que deseas retirar a tu cuenta bancaria estadounidense."
+                            />
+                            <WalletWithdrawDetailStep
+                              form={form}
+                              method="fiat_us"
+                              wallets={bridgeWallets}
+                              exchangeRates={exchangeRates}
+                              feesConfig={feesConfig}
+                              psavConfigs={psavConfigs}
+                              disabled={disabled}
+                              subStep="amount"
+                            />
+                          </>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between mt-8">
+                        <AnimatedBackButton onClick={handleBack}>
+                          {fiatUsSubStep === 'wallet' ? 'Volver' : 'Anterior'}
+                        </AnimatedBackButton>
+                        <AnimatedNextButton disabled={disabled} onClick={handleNext}>
+                          {fiatUsSubStep === 'amount' ? 'Revisar expediente' : 'Siguiente'}
                         </AnimatedNextButton>
                       </div>
                     </AnimatedStepPanel>
