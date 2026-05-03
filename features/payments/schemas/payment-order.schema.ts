@@ -234,9 +234,11 @@ export const paymentOrderSchema = z
         if (!value.supplier_id) {
           ctx.addIssue({ code: 'custom', message: 'Selecciona una cuenta bancaria de destino.', path: ['supplier_id'] })
         }
-        if (!value.payment_reason || value.payment_reason.trim().length < 5) {
-          ctx.addIssue({ code: 'custom', message: 'El motivo del retiro es obligatorio (mín. 5 caracteres).', path: ['payment_reason'] })
-        }
+      }
+
+      // Motivo obligatorio para TODOS los métodos de retiro
+      if (!value.payment_reason || value.payment_reason.trim().length < 5) {
+        ctx.addIssue({ code: 'custom', message: 'El motivo del retiro es obligatorio (mín. 5 caracteres).', path: ['payment_reason'] })
       }
       
       return
@@ -326,8 +328,28 @@ export const paymentOrderSchema = z
           path: ['source_crypto_network'],
         })
       }
-      // source_crypto_address es opcional: Bridge acepta fondos de cualquier
-      // dirección (allow_any_from_address). Se guarda como referencia interna.
+      // source_crypto_address es obligatoria para crypto_to_crypto
+      if (!value.source_crypto_address || value.source_crypto_address.trim().length === 0) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'La wallet de origen es obligatoria.',
+          path: ['source_crypto_address'],
+        })
+      } else if (
+        value.source_crypto_network &&
+        (ALLOWED_NETWORKS as readonly string[]).includes(value.source_crypto_network)
+      ) {
+        // Validar formato según la red seleccionada
+        const network = value.source_crypto_network as AllowedNetwork
+        if (!validateCryptoAddress(value.source_crypto_address, network)) {
+          const validator = ADDRESS_VALIDATORS[network]
+          ctx.addIssue({
+            code: 'custom',
+            message: `Dirección de origen inválida para ${network}. Formato esperado: ${validator?.description ?? 'desconocido'}`,
+            path: ['source_crypto_address'],
+          })
+        }
+      }
     }
   })
 

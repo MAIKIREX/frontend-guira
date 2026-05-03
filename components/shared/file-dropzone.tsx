@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useRef, useMemo } from 'react'
 import Image from 'next/image'
 import { useDropzone } from 'react-dropzone'
 import { FileImage, FileText, UploadCloud } from 'lucide-react'
@@ -21,12 +21,15 @@ export function FileDropzone({
   helperText,
   onFileSelect,
 }: FileDropzoneProps) {
+  const prevUrlRef = useRef<string | null>(null)
   const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file])
 
+  // Solo revocar la URL anterior cuando el archivo cambia, no al desmontar
   useEffect(() => {
-    return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl)
+    if (prevUrlRef.current && prevUrlRef.current !== previewUrl) {
+      URL.revokeObjectURL(prevUrlRef.current)
     }
+    prevUrlRef.current = previewUrl
   }, [previewUrl])
 
   const dropzone = useDropzone({

@@ -181,6 +181,10 @@ export function CreatePaymentOrderForm({
   const [creatingOrder, setCreatingOrder] = useState(false)
   const [uploadingEvidence, setUploadingEvidence] = useState(false)
 
+  // Sub-pasos del detalle para rutas con flujo guiado
+  type DetailSubStep = 'supplier' | 'funding' | 'reason' | 'amount'
+  const [detailSubStep, setDetailSubStep] = useState<DetailSubStep>('supplier')
+
   const [bridgeWallets, setBridgeWallets] = useState<WalletBalance[]>([])
   const [loadingWallets, setLoadingWallets] = useState(false)
   const [virtualAccounts, setVirtualAccounts] = useState<VirtualAccount[]>([])
@@ -273,7 +277,13 @@ export function CreatePaymentOrderForm({
   const shouldHideSupplier = currentRoute.key === 'us_to_wallet' || currentRoute.key === 'world_to_bolivia' || (currentRoute.key === 'wallet_ramp_withdraw' && walletRampWithdrawMethod !== 'fiat_us')
   const requiresSupplierSelection = currentRoute.key === 'bolivia_to_exterior' || currentRoute.key === 'crypto_to_crypto'
   const hasSupplierSelected = Boolean(selectedSupplier)
-  const showSupportUpload = (currentRoute.key === 'world_to_bolivia' || !isDepositRouteActive) && currentRoute.key !== 'wallet_to_fiat'
+  const showSupportUpload = (currentRoute.key === 'world_to_bolivia' || currentRoute.key === 'wallet_ramp_withdraw' || !isDepositRouteActive) && currentRoute.key !== 'wallet_to_fiat'
+  const isBoliviaToExterior = route === 'bolivia_to_exterior'
+  const isCryptoToCrypto = route === 'crypto_to_crypto'
+  const hasSubStepFlow = isBoliviaToExterior || isCryptoToCrypto
+  const DETAIL_SUB_ORDER: DetailSubStep[] = isCryptoToCrypto
+    ? ['supplier', 'funding', 'reason', 'amount']
+    : ['supplier', 'reason', 'amount']
 
   // Para retiros a cuenta bancaria US y wallet_to_fiat, solo mostrar proveedores con external account registrada en Bridge
   const filteredSuppliers = useMemo(() => {
@@ -414,6 +424,7 @@ export function CreatePaymentOrderForm({
     setSupportFile(null)
     setEvidenceFile(null)
     setStep('route')
+    setDetailSubStep('supplier')
   }, [form, resolvedDefaultRoute])
 
   useEffect(() => {
@@ -640,6 +651,12 @@ export function CreatePaymentOrderForm({
           'payment_reason',
         ], { shouldFocus: true })
         if (!isValidWithdraw) return
+        if (!supportFile) {
+          setShowSupportFileError(true)
+          toast.error('Debes adjuntar el documento de respaldo para continuar.')
+          return
+        }
+        setShowSupportFileError(false)
       } else if (route === 'wallet_ramp_deposit') {
         const isValidWalletRamp = await form.trigger([
           'amount_origin',
@@ -650,15 +667,73 @@ export function CreatePaymentOrderForm({
         ], { shouldFocus: true })
 
         if (!isValidWalletRamp) return
+      } else if (hasSubStepFlow) {
+        // ── Sub-pasos para bolivia_to_exterior y crypto_to_crypto ──
+        if (detailSubStep === 'supplier') {
+          if (supplierValidationMessage) {
+            toast.error(supplierValidationMessage)
+            return
+          }
+          const supplierFields: FieldPath<PaymentOrderFormValues>[] = ['supplier_id', 'delivery_method']
+          if (isBoliviaToExterior) supplierFields.push('funding_method')
+          if (isBoliviaToExterior && uiMethodGroup !== 'crypto') supplierFields.push('destination_address')
+          if (deliveryMethod === 'ach') supplierFields.push('ach_routing_number', 'ach_account_number', 'ach_bank_name')
+          if (deliveryMethod === 'swift') supplierFields.push('swift_bank_name', 'swift_code', 'swift_iban', 'swift_bank_address', 'swift_country')
+          if (deliveryMethod === 'crypto') supplierFields.push('crypto_address', 'crypto_network')
+          if (isCryptoToCrypto) supplierFields.push('destination_currency')
+          
+          const isValid = await form.trigger(supplierFields, { shouldFocus: true })
+          if (!isValid) return
+          // crypto_to_crypto va a 'funding', bolivia_to_exterior salta a 'reason'
+          setDetailSubStep(isCryptoToCrypto ? 'funding' : 'reason')
+          return
+        }
+        if (detailSubStep === 'funding') {
+          // Solo aplica a crypto_to_crypto
+          const fundingFields: FieldPath<PaymentOrderFormValues>[] = ['source_crypto_network', 'origin_currency', 'source_crypto_address']
+          const isValid = await form.trigger(fundingFields, { shouldFocus: true })
+          if (!isValid) return
+          setDetailSubStep('reason')
+          return
+        }
+        if (detailSubStep === 'reason') {
+          const isValid = await form.trigger(['payment_reason'], { shouldFocus: true })
+          if (!isValid) return
+          if (!supportFile) {
+            setShowSupportFileError(true)
+            toast.error('Debes adjuntar el documento de respaldo para continuar.')
+            return
+          }
+          setShowSupportFileError(false)
+          setDetailSubStep('amount')
+          return
+        }
+        if (detailSubStep === 'amount') {
+          const isValid = await form.trigger(['amount_origin'], { shouldFocus: true })
+          if (!isValid) return
+          if (isBoliviaToExterior) {
+            const minSetting = appSettings.find(s => s.key === 'MIN_INTERBANK_USD')?.value ?? '0'
+            const maxSetting = appSettings.find(s => s.key === 'MAX_INTERBANK_USD')?.value ?? '999999'
+            const minUsd = parseFloat(String(minSetting))
+            const maxUsd = parseFloat(String(maxSetting))
+            const rateData = exchangeRates.find(r => r.pair === 'BOB_USD')
+            const rate = (rateData as any)?.effective_rate ?? rateData?.rate ?? 1
+            const amountInUsd = Number(amountOrigin) / rate
+            if (amountInUsd < minUsd) {
+              toast.error(`El monto mínimo interbancario es $${minUsd} USD (tu monto de envío equivale a ~$${amountInUsd.toFixed(2)} USD).`)
+              return
+            }
+            if (amountInUsd > maxUsd) {
+              toast.error(`El monto máximo interbancario es $${maxUsd} USD (tu monto de envío equivale a ~$${amountInUsd.toFixed(2)} USD).`)
+              return
+            }
+          }
+          setStep('review')
+          return
+        }
       } else {
         if (supplierValidationMessage) {
           toast.error(supplierValidationMessage)
-          return
-        }
-
-        if (route === 'crypto_to_crypto' && !supportFile) {
-          setShowSupportFileError(true)
-          toast.error('Debes adjuntar el documento de respaldo antes de continuar.')
           return
         }
 
@@ -668,33 +743,8 @@ export function CreatePaymentOrderForm({
           return
         }
 
-        if (route === 'bolivia_to_exterior' && !supportFile) {
-          setShowSupportFileError(true)
-          toast.error('Debes adjuntar el documento de respaldo para continuar.')
-          return
-        }
-
         setShowSupportFileError(false)
 
-        if (route === 'bolivia_to_exterior') {
-          const minSetting = appSettings.find(s => s.key === 'MIN_INTERBANK_USD')?.value ?? '0'
-          const maxSetting = appSettings.find(s => s.key === 'MAX_INTERBANK_USD')?.value ?? '999999'
-          const minUsd = parseFloat(String(minSetting))
-          const maxUsd = parseFloat(String(maxSetting))
-          
-          const rateData = exchangeRates.find(r => r.pair === 'BOB_USD')
-          const rate = (rateData as any)?.effective_rate ?? rateData?.rate ?? 1
-          const amountInUsd = Number(amountOrigin) / rate
-          
-          if (amountInUsd < minUsd) {
-            toast.error(`El monto mínimo interbancario es $${minUsd} USD (tu monto de envío equivale a ~$${amountInUsd.toFixed(2)} USD).`)
-            return
-          }
-          if (amountInUsd > maxUsd) {
-            toast.error(`El monto máximo interbancario es $${maxUsd} USD (tu monto de envío equivale a ~$${amountInUsd.toFixed(2)} USD).`)
-            return
-          }
-        }
 
         const isValidDetail = await form.trigger(getDetailStepFields({
           route,
@@ -720,6 +770,15 @@ export function CreatePaymentOrderForm({
   }
 
   function handleBack() {
+    // Sub-paso navigation para rutas con sub-pasos
+    if (step === 'detail' && hasSubStepFlow && detailSubStep !== 'supplier') {
+      const idx = DETAIL_SUB_ORDER.indexOf(detailSubStep)
+      if (idx > 0) { setDetailSubStep(DETAIL_SUB_ORDER[idx - 1]); return }
+    }
+    // Al volver de review a detail en ruta con sub-pasos, caer en el último sub-paso
+    if (step === 'review' && hasSubStepFlow) {
+      setDetailSubStep('amount')
+    }
     const currentIndex = STEP_ORDER.indexOf(step)
     const previousStep = STEP_ORDER[currentIndex - 1]
     if (!previousStep) return
@@ -1047,6 +1106,8 @@ export function CreatePaymentOrderForm({
                 ) : null}
 
                 {step === 'detail' ? (
+                  <>
+                  {!hasSubStepFlow && (
                   <AnimatedStepPanel key="detail">
                     <SectionHeading
                       icon={currentRoute.key === 'crypto_to_crypto' ? Network : Wallet}
@@ -1097,7 +1158,7 @@ export function CreatePaymentOrderForm({
                             amountOrigin={summaryStats.amountOrigin}
                             equivalentUsdValue={(Number(form.watch('amount_origin') || 0)) / ((exchangeRates.find(r => r.pair === 'BOB_USD') as any)?.effective_rate ?? exchangeRates.find(r => r.pair === 'BOB_USD')?.rate ?? 1)}
                             minUsdLimit={parseFloat(String(appSettings.find(s => s.key === 'MIN_INTERBANK_USD')?.value ?? '0'))}
-                            showValidation={route === 'bolivia_to_exterior'}
+                            showValidation={false}
                           />
                         </>
                       )}
@@ -1172,7 +1233,7 @@ export function CreatePaymentOrderForm({
                       {supplierValidationMessage && hasSupplierSelected ? <ValidationNotice message={supplierValidationMessage} /> : null}
 
                       {/* Motivo obligatorio para retiro fiat US */}
-                      {currentRoute.key === 'wallet_ramp_withdraw' && walletRampWithdrawMethod === 'fiat_us' ? (
+                      {currentRoute.key === 'wallet_ramp_withdraw' ? (
                         <TextField control={form.control} disabled={disabled} label="Motivo del retiro" name="payment_reason" />
                       ) : null}
 
@@ -1191,7 +1252,7 @@ export function CreatePaymentOrderForm({
                                     <Select
                                       value={field.value}
                                       onValueChange={field.onChange}
-                                      disabled={disabled || route === 'crypto_to_crypto' || (route === 'bolivia_to_exterior' && uiMethodGroup === 'crypto') || availableTechnicalMethods.length <= 1}
+                                      disabled={disabled || availableTechnicalMethods.length <= 1}
                                     >
                                       <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
                                         <SelectValue />
@@ -1248,13 +1309,14 @@ export function CreatePaymentOrderForm({
                             </>
                           ) : null}
 
-                          {currentRoute.key !== 'us_to_wallet' && currentRoute.key !== 'world_to_bolivia' && currentRoute.key !== 'wallet_ramp_withdraw' && currentRoute.key !== 'wallet_to_fiat' ? (
+                          {/* Legacy detail block — these routes now go through hasSubStepFlow; kept for safety */}
+                          {(() => { const r = route as string; return currentRoute.key !== 'us_to_wallet' && currentRoute.key !== 'world_to_bolivia' && currentRoute.key !== 'wallet_ramp_withdraw' && currentRoute.key !== 'wallet_to_fiat' ? (
                             <>
-                              <div className={`grid gap-4 ${(route === 'bolivia_to_exterior' && uiMethodGroup !== 'crypto') ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
-                                {!(route === 'bolivia_to_exterior' && uiMethodGroup === 'crypto') && route !== 'crypto_to_crypto' ? (
+                              <div className={`grid gap-4 ${(r === 'bolivia_to_exterior' && uiMethodGroup !== 'crypto') ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
+                                {!(r === 'bolivia_to_exterior' && uiMethodGroup === 'crypto') && r !== 'crypto_to_crypto' ? (
                                   <TextField control={form.control} disabled={disabled} label={getDestinationLabel(currentRoute.key)} name="destination_address" />
                                 ) : null}
-                                {route === 'bolivia_to_exterior' ? (
+                                {r === 'bolivia_to_exterior' ? (
                                   <FormField
                                     control={form.control}
                                     name="funding_method"
@@ -1281,7 +1343,7 @@ export function CreatePaymentOrderForm({
                                 ) : null}
                               </div>
 
-                              {deliveryMethod === 'swift' && route === 'bolivia_to_exterior' ? (
+                              {deliveryMethod === 'swift' && r === 'bolivia_to_exterior' ? (
                                 <div className="grid gap-4 lg:grid-cols-2">
                                   <TextField control={form.control} disabled={disabled} label="Banco" name="swift_bank_name" />
                                   <TextField control={form.control} disabled={disabled} label="Codigo SWIFT" name="swift_code" />
@@ -1291,7 +1353,7 @@ export function CreatePaymentOrderForm({
                                 </div>
                               ) : null}
 
-                              {deliveryMethod === 'ach' && route === 'bolivia_to_exterior' ? (
+                              {deliveryMethod === 'ach' && r === 'bolivia_to_exterior' ? (
                                 <div className="grid gap-4 lg:grid-cols-3">
                                   <TextField control={form.control} disabled={disabled} label="Routing number" name="ach_routing_number" />
                                   <TextField control={form.control} disabled={disabled} label="Account number" name="ach_account_number" />
@@ -1301,7 +1363,7 @@ export function CreatePaymentOrderForm({
 
                               {deliveryMethod === 'crypto' ? (
                                 <>
-                                  {route === 'crypto_to_crypto' ? (
+                                  {r === 'crypto_to_crypto' ? (
                                     <>
                                       <div className="grid gap-4 mt-4 px-4 py-4 border rounded-md bg-muted/20">
                                         <div className="col-span-full mb-2">
@@ -1332,7 +1394,7 @@ export function CreatePaymentOrderForm({
                                   <div className="grid gap-4 lg:grid-cols-3 mt-4">
                                     <TextField control={form.control} disabled={true} label="Wallet destino" name="crypto_address" />
                                     <NetworkSelectField control={form.control} disabled={true} label="Red destino" name="crypto_network" placeholder="Selecciona la red" />
-                                    {route === 'crypto_to_crypto' ? (
+                                    {r === 'crypto_to_crypto' ? (
                                       <CurrencySelectField control={form.control} disabled={true} label="Moneda destino" name="destination_currency" placeholder="Selecciona moneda" />
                                     ) : null}
                                   </div>
@@ -1352,7 +1414,7 @@ export function CreatePaymentOrderForm({
                             />
                             */}
                             </>
-                          ) : null}
+                          ) : null; })()}
 
                           {currentRoute.key !== 'us_to_wallet' && !isDepositRouteActive ? (
                             <TextField control={form.control} disabled={disabled} label="Motivo del pago" name="payment_reason" />
@@ -1365,8 +1427,8 @@ export function CreatePaymentOrderForm({
                               file={supportFile}
                               label="Documento de respaldo"
                               description={
-                                route === 'bolivia_to_exterior' || route === 'crypto_to_crypto' || route === 'world_to_bolivia'
-                                  ? 'Obligatorio en esta ruta. Se guardara como support_document_url al crear la orden.'
+                                currentRoute.key === 'bolivia_to_exterior' || currentRoute.key === 'crypto_to_crypto' || currentRoute.key === 'world_to_bolivia' || currentRoute.key === 'wallet_ramp_withdraw'
+                                  ? 'Obligatorio en esta ruta. Se guardará como support_document_url al crear la orden.'
                                   : 'Documento Opcional.'
                               }
                               onFileChange={(f) => {
@@ -1396,6 +1458,249 @@ export function CreatePaymentOrderForm({
                       </AnimatedNextButton>
                     </div>
                   </AnimatedStepPanel>
+                  )}
+
+                  {hasSubStepFlow && (
+                    <AnimatedStepPanel key={`detail-${detailSubStep}`}>
+                      {/* Sub-pasos indicados visualmente */}
+                      <div className="flex items-center gap-2 mb-6 px-1">
+                        {DETAIL_SUB_ORDER.map((sub, i) => (
+                          <div key={sub} className="flex items-center gap-2">
+                            <div className={cn(
+                              'size-2 rounded-full transition-colors',
+                              detailSubStep === sub ? 'bg-primary' :
+                              DETAIL_SUB_ORDER.indexOf(detailSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
+                            )} />
+                            {i < DETAIL_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="grid gap-4">
+                        {detailSubStep === 'supplier' && (
+                          <>
+                            <SectionHeading
+                              icon={Wallet}
+                              eyebrow={`Etapa 3 — Paso 1 de ${DETAIL_SUB_ORDER.length}`}
+                              title="Proveedor y Beneficiario"
+                              description={isCryptoToCrypto
+                                ? 'Selecciona el proveedor. Los datos de la wallet destino se autocompletarán.'
+                                : 'Selecciona el proveedor y el sistema autocompletará la información correspondiente.'
+                              }
+                            />
+                            
+                            <FormField
+                              control={form.control}
+                              name="supplier_id"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className={FORM_LABEL_CLASS}>Proveedor o beneficiario</FormLabel>
+                                  <FormControl>
+                                    <Select
+                                      value={field.value || 'none'}
+                                      onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
+                                      disabled={disabled}
+                                    >
+                                      <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
+                                        <SelectValue placeholder="Selecciona uno guardado o crea uno nuevo">
+                                          {selectedSupplier?.name ?? (field.value ? field.value : undefined)}
+                                        </SelectValue>
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="none">Sin proveedor cargado</SelectItem>
+                                        {filteredSuppliers.map((supplier) => (
+                                          <SelectItem key={supplier.id} value={supplier.id ?? supplier.name}>
+                                            <span>{supplier.name}</span>
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </FormControl>
+                                  <p className="text-xs text-muted-foreground">
+                                    {isCryptoToCrypto
+                                      ? 'Solo se muestran proveedores con wallet crypto configurada.'
+                                      : 'Debes crear un proveedor con los datos correctos antes de usar esta opcion.'}
+                                  </p>
+                                  <div className="flex flex-wrap items-center gap-3">
+                                    <Link className="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium transition-colors hover:bg-muted" href="/proveedores">Ir a Proveedores</Link>
+                                    <span className="text-xs text-muted-foreground">Crea o completa el proveedor y vuelve a esta operacion.</span>
+                                  </div>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            {supplierValidationMessage && hasSupplierSelected ? <ValidationNotice message={supplierValidationMessage} /> : null}
+
+                            {shouldShowExpandedDetail && (
+                              <>
+                                <FormField
+                                  control={form.control}
+                                  name="delivery_method"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel className={FORM_LABEL_CLASS}>Metodo tecnico final</FormLabel>
+                                      <FormControl>
+                                        <Select value={field.value} onValueChange={field.onChange} disabled={disabled || isCryptoToCrypto || uiMethodGroup === 'crypto' || availableTechnicalMethods.length <= 1}>
+                                          <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
+                                            <SelectValue />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {availableTechnicalMethods.map((method) => (
+                                              <SelectItem key={method} value={method}>{method}</SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                
+                                {isBoliviaToExterior && (
+                                  <div className={`grid gap-4 ${uiMethodGroup !== 'crypto' ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
+                                    {uiMethodGroup !== 'crypto' && (
+                                      <TextField control={form.control} disabled={disabled} label="Cuenta o destino" name="destination_address" />
+                                    )}
+                                    <FormField control={form.control} name="funding_method" render={({ field }) => (
+                                      <FormItem>
+                                        <FormLabel className={FORM_LABEL_CLASS}>Funding method</FormLabel>
+                                        <FormControl>
+                                          <Select value={field.value} onValueChange={field.onChange} disabled={true}>
+                                            <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                              <SelectItem value="bs">bs</SelectItem>
+                                              <SelectItem value="crypto">crypto</SelectItem>
+                                            </SelectContent>
+                                          </Select>
+                                        </FormControl>
+                                      </FormItem>
+                                    )} />
+                                  </div>
+                                )}
+
+                                {deliveryMethod === 'swift' && isBoliviaToExterior && (
+                                  <div className="grid gap-4 lg:grid-cols-2">
+                                    <TextField control={form.control} disabled={disabled} label="Banco" name="swift_bank_name" />
+                                    <TextField control={form.control} disabled={disabled} label="Codigo SWIFT" name="swift_code" />
+                                    <TextField control={form.control} disabled={disabled} label="IBAN o cuenta" name="swift_iban" />
+                                    <TextField control={form.control} disabled={disabled} label="Direccion del banco" name="swift_bank_address" />
+                                    <TextField control={form.control} disabled={disabled} label="Pais del banco" name="swift_country" />
+                                  </div>
+                                )}
+
+                                {deliveryMethod === 'ach' && isBoliviaToExterior && (
+                                  <div className="grid gap-4 lg:grid-cols-3">
+                                    <TextField control={form.control} disabled={disabled} label="Routing number" name="ach_routing_number" />
+                                    <TextField control={form.control} disabled={disabled} label="Account number" name="ach_account_number" />
+                                    <TextField control={form.control} disabled={disabled} label="Bank name" name="ach_bank_name" />
+                                  </div>
+                                )}
+
+                                {deliveryMethod === 'crypto' && (
+                                  <div className="grid gap-4 lg:grid-cols-2 mt-4">
+                                    <TextField control={form.control} disabled={true} label="Wallet destino" name="crypto_address" />
+                                    <NetworkSelectField control={form.control} disabled={true} label="Red destino" name="crypto_network" placeholder="Selecciona la red" />
+                                    {isCryptoToCrypto && (
+                                      <CurrencySelectField control={form.control} disabled={true} label="Moneda destino" name="destination_currency" placeholder="Selecciona moneda" />
+                                    )}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </>
+                        )}
+
+                        {detailSubStep === 'funding' && isCryptoToCrypto && (
+                          <>
+                            <SectionHeading
+                              icon={Network}
+                              eyebrow={`Etapa 3 — Paso 2 de ${DETAIL_SUB_ORDER.length}`}
+                              title="Datos de Fondeo"
+                              description="Configura desde qué red y moneda enviarás, e indica tu wallet de origen."
+                            />
+                            <div className="grid gap-4 lg:grid-cols-2">
+                              <NetworkSelectField 
+                                control={form.control} 
+                                disabled={disabled || !hasSupplierSelected || supportedSourceNetworks.length === 0} 
+                                label="Red de Origen" 
+                                name="source_crypto_network" 
+                                placeholder="Selecciona la red" 
+                                options={supportedSourceNetworks}
+                              />
+                              <CurrencySelectField 
+                                control={form.control} 
+                                disabled={disabled || !hasSupplierSelected || supportedSourceCurrencies.length === 0} 
+                                label="Moneda de origen" 
+                                name="origin_currency" 
+                                placeholder="Selecciona moneda" 
+                                options={supportedSourceCurrencies}
+                              />
+                            </div>
+                            <TextField control={form.control} disabled={disabled} label="Wallet de Origen (Externa)" name="source_crypto_address" />
+                          </>
+                        )}
+
+                        {detailSubStep === 'reason' && (
+                          <>
+                            <SectionHeading
+                              icon={FileText}
+                              eyebrow={`Etapa 3 — Paso ${isCryptoToCrypto ? '3' : '2'} de ${DETAIL_SUB_ORDER.length}`}
+                              title="Motivo y Respaldo"
+                              description="Ingresa el motivo del envío y adjunta el documento de respaldo obligatorio."
+                            />
+                            <TextField control={form.control} disabled={disabled} label="Motivo del pago" name="payment_reason" />
+                            <DocumentInputCard
+                              className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
+                              file={supportFile}
+                              label="Documento de respaldo"
+                              description="Obligatorio en esta ruta. Se guardara como support_document_url al crear la orden."
+                              onFileChange={(f) => {
+                                setSupportFile(f)
+                                if (f) setShowSupportFileError(false)
+                              }}
+                            />
+                          </>
+                        )}
+
+                        {detailSubStep === 'amount' && (
+                          <>
+                            <SectionHeading
+                              icon={Banknote}
+                              eyebrow={`Etapa 3 — Paso ${DETAIL_SUB_ORDER.length} de ${DETAIL_SUB_ORDER.length}`}
+                              title="Define el monto a enviar"
+                              description={isBoliviaToExterior
+                                ? 'Ingresa el monto en bolivianos. Verás el tipo de cambio y la comisión aplicados.'
+                                : 'Ingresa el monto de la operación.'
+                              }
+                            />
+                            <NumericField control={form.control} disabled={disabled} label={getAmountLabel(currentRoute.key)} name="amount_origin" />
+                            <InlineSummaryBar
+                              exchangeRate={summaryStats.exchangeRate}
+                              feeTotal={summaryStats.feeTotal}
+                              netAmountDestination={summaryStats.netAmountDestination}
+                              originCurrency={summaryStats.originCurrency}
+                              destinationCurrency={summaryStats.destinationCurrency}
+                              amountOrigin={summaryStats.amountOrigin}
+                              equivalentUsdValue={(Number(form.watch('amount_origin') || 0)) / ((exchangeRates.find(r => r.pair === 'BOB_USD') as any)?.effective_rate ?? exchangeRates.find(r => r.pair === 'BOB_USD')?.rate ?? 1)}
+                              minUsdLimit={parseFloat(String(appSettings.find(s => s.key === 'MIN_INTERBANK_USD')?.value ?? '0'))}
+                              showValidation={isBoliviaToExterior}
+                            />
+                          </>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between mt-8">
+                        <AnimatedBackButton onClick={handleBack}>
+                          {detailSubStep === 'supplier' ? 'Volver' : 'Anterior'}
+                        </AnimatedBackButton>
+                        <AnimatedNextButton disabled={disabled} onClick={handleNext}>
+                          {detailSubStep === 'amount' ? 'Revisar expediente' : 'Siguiente'}
+                        </AnimatedNextButton>
+                      </div>
+                    </AnimatedStepPanel>
+                  )}
+                  </>
                 ) : null}
 
                 {step === 'review' ? (
@@ -1951,7 +2256,7 @@ function NetworkSelectField({
               <SelectContent>
                 {renderedOptions.map((network) => (
                   <SelectItem key={network} value={network}>
-                    {CRYPTO_NETWORK_LABELS[network] ?? network}
+                    {(CRYPTO_NETWORK_LABELS as Record<string, string>)[network] ?? network}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -2115,6 +2420,8 @@ function getMethodTitle(route: SupportedPaymentRoute) {
       return 'Elige tu cuenta de origen'
     case 'wallet_ramp_withdraw':
       return 'Retiro de fondos'
+    case 'wallet_to_fiat':
+      return 'Envío desde wallet on-chain'
   }
 }
 
@@ -2132,6 +2439,8 @@ function getMethodDescription(route: SupportedPaymentRoute) {
       return 'Tus opciones para depositar a tu saldo en base a tu procedencia.'
     case 'wallet_ramp_withdraw':
       return 'Los fondos USDC se enviarán al PSAV. El PSAV los convertirá y depositará BOB en tu cuenta bancaria.'
+    case 'wallet_to_fiat':
+      return 'Selecciona la red, token y dirección de origen. Bridge realizará la conversión y acreditará al proveedor.'
   }
 }
 
@@ -2149,6 +2458,8 @@ function getAmountLabel(route: SupportedPaymentRoute) {
       return 'Monto'
     case 'wallet_ramp_withdraw':
       return 'Monto a retirar (USDC)'
+    case 'wallet_to_fiat':
+      return 'Monto a enviar'
   }
 }
 
@@ -2166,6 +2477,8 @@ function getDestinationLabel(route: SupportedPaymentRoute) {
       return 'Direccion'
     case 'wallet_ramp_withdraw':
       return 'Cuenta bancaria destino'
+    case 'wallet_to_fiat':
+      return 'Proveedor fiat destino'
   }
 }
 

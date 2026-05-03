@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useRef, useMemo } from 'react'
 import Image from 'next/image'
 import { FileText, FileUp, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -44,13 +44,16 @@ export function DocumentUploadCard({
   uploading,
   uploadLabel,
 }: DocumentUploadCardProps) {
+  const prevUrlRef = useRef<string | null>(null)
   const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file])
   const isImage = Boolean(file?.type.startsWith('image/'))
 
+  // Solo revocar la URL anterior cuando el archivo cambia, no al desmontar
   useEffect(() => {
-    return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl)
+    if (prevUrlRef.current && prevUrlRef.current !== previewUrl) {
+      URL.revokeObjectURL(prevUrlRef.current)
     }
+    prevUrlRef.current = previewUrl
   }, [previewUrl])
 
   return (

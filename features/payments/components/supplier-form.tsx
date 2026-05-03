@@ -435,7 +435,7 @@ export function SupplierForm({
       payload.account_number = values.co_account_number
       payload.bank_code = values.bank_code
       payload.checking_or_savings = values.co_account_type
-      payload.document_type = values.document_type
+      payload.document_type = values.document_type || undefined
       payload.document_number = values.co_document_number
       payload.phone_number = values.phone_number
       if (values.account_owner_type) {
