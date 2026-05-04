@@ -2,14 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ArrowDownToLine, ArrowUpFromLine, Headset, LayoutDashboard, Settings, UsersRound, Wallet, Waypoints } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, Headset, LayoutDashboard, Settings, UsersRound, Wallet, Waypoints } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const clientLinks = [
   { href: '/panel', label: 'Panel', icon: LayoutDashboard },
   { href: '/cuentas', label: 'Mis Cuentas', icon: Wallet },
-  { href: '/depositar', label: 'Depositar', icon: ArrowDownToLine },
-  { href: '/enviar', label: 'Enviar / Retirar', icon: ArrowUpFromLine },
+  { href: '/depositar', label: 'Depositar', icon: ArrowDownLeft },
+  { href: '/enviar', label: 'Enviar / Retirar', icon: ArrowUpRight },
   { href: '/proveedores', label: 'Proveedores', icon: UsersRound },
   { href: '/transacciones', label: 'Transacciones', icon: Waypoints },
   { href: '/configuracion', label: 'Configuracion', icon: Settings },
@@ -37,7 +37,7 @@ export function ClientNavigation({
             aria-label={link.label}
             className={cn(
               'group relative flex overflow-hidden  text-sm transition-all duration-200',
-              collapsed ? 'justify-center px-3 py-3.5' : 'items-center gap-3 px-4 py-3.5',
+              collapsed ? 'justify-center px-3 py-4' : 'items-center gap-3.5 px-4 py-4',
               active
                 ? 'bg-primary/12 text-foreground shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-primary)_24%,transparent)]'
                 : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
@@ -55,10 +55,10 @@ export function ClientNavigation({
                 active && 'text-primary'
               )}
             >
-              <Icon className={cn('size-4', !collapsed && 'size-[1.05rem]')} />
+              <Icon strokeWidth={2.5} className={cn('size-7', !collapsed && 'size-[1.6rem]')} />
             </span>
             {!collapsed ? (
-              <span className="relative z-10 text-[0.82rem] font-medium">
+              <span className="relative z-10 text-[1.05rem] font-bold">
                 {link.label}
               </span>
             ) : null}

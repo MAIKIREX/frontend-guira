@@ -19,8 +19,8 @@ export function StepProgressRail<T extends string>({ currentStep, steps, getStep
       <div className="mb-6 md:hidden">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-primary/80">Progreso del flujo</span>
-            <h4 className="text-sm font-semibold text-foreground">
+            <span className="text-xs font-bold uppercase tracking-widest text-primary/80">Progreso del flujo</span>
+            <h4 className="text-base font-semibold text-foreground">
               Paso {currentIndex + 1} de {steps.length}: <span className="text-muted-foreground">{getStepLabel(currentStep)}</span>
             </h4>
           </div>
@@ -100,7 +100,7 @@ export function StepProgressRail<T extends string>({ currentStep, steps, getStep
                 <motion.div
                   animate={{ opacity: isCurrent ? 1 : isReached ? 0.9 : 0.65 }}
                   className={cn(
-                    "mt-4 w-full px-2 text-center text-xs font-semibold tracking-tight transition-colors",
+                    "mt-4 w-full px-2 text-center text-sm font-semibold tracking-tight transition-colors",
                     isCurrent ? "text-foreground" : "text-muted-foreground"
                   )}
                   initial={false}

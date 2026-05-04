@@ -120,6 +120,7 @@ export function ClientOperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
           psavConfigs={payments.snapshot?.psavConfigs ?? []}
           suppliers={payments.snapshot?.suppliers ?? []}
           userId={user!.id}
+          mode={mode}
         />
       ) : null}
 

@@ -36,7 +36,10 @@ export function ClientShell({
           isMobileOpen ? "translate-x-0" : "-translate-x-full"
         )}>
           <div className="flex items-center justify-between border-b px-5 py-4">
-            <img src="/asdsadsa.svg" alt="Guira" className="h-6 w-auto" />
+            <div className="flex items-center gap-2.5 min-w-0">
+              <img src="/LOGO GUIRRA ISOTIPO.svg" alt="Guira Logo" className="h-7 w-auto" />
+              <span className="text-[1.35rem] font-bold tracking-tight text-foreground/90">Guira</span>
+            </div>
             <Button variant="ghost" size="icon" onClick={() => setIsMobileOpen(false)}>
               <X className="size-5" />
             </Button>
@@ -53,24 +56,23 @@ export function ClientShell({
         <aside className="relative hidden border-r border-border/60  md:block">
           <div className="sticky top-0 flex min-h-screen flex-col">
             <div className="border-b border-border/55 px-5 py-6">
-              <div className={`flex items-start ${isCollapsed ? 'justify-center' : 'justify-between gap-3'}`}>
-                <div className={isCollapsed ? 'hidden' : 'min-w-0'}>
-                  <img src="/asdsadsa.svg" alt="Guira" className="h-6 w-auto" />
-                  <div className="mt-3 text-lg font-semibold uppercase tracking-[0.18em] text-foreground/92">
-                    Navegacion
+              <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between gap-3'}`}>
+                {!isCollapsed && (
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <img src="/LOGO GUIRRA ISOTIPO.svg" alt="Guira Logo" className="h-7 w-auto" />
+                    <span className="text-[1.35rem] font-bold tracking-tight text-foreground/90">Guira</span>
                   </div>
-                </div>
+                )}
 
                 <Button
                   type="button"
                   variant="ghost"
-                  size="icon-sm"
-                  className="shrink-0 rounded-full border border-border/70 bg-background/70 text-muted-foreground hover:bg-background hover:text-foreground"
+                  className="shrink-0 rounded-full border border-border/70 bg-background/70 text-muted-foreground hover:bg-background hover:text-foreground h-10 w-10 p-0 flex items-center justify-center"
                   onClick={() => setIsCollapsed((value) => !value)}
                   aria-label={isCollapsed ? 'Expandir menu lateral' : 'Colapsar menu lateral'}
                   title={isCollapsed ? 'Expandir menu lateral' : 'Colapsar menu lateral'}
                 >
-                  {isCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+                  {isCollapsed ? <PanelLeftOpen strokeWidth={2.5} className="size-6" /> : <PanelLeftClose strokeWidth={2.5} className="size-6" />}
                 </Button>
               </div>
             </div>

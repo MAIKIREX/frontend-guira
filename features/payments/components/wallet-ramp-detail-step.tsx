@@ -31,6 +31,7 @@ import { resolveFeeTotal, type ExchangeRateRecord } from '@/features/payments/li
 import type { WalletBalance } from '@/services/wallet.service'
 import type { VirtualAccount } from '@/services/bridge.service'
 import type { FeeConfigRow } from '@/types/payment-order'
+import { EstimationSummary } from '@/components/shared/estimation-summary'
 
 const LABEL_CLASS = 'text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground'
 const FORM_TEXT_CLASS = 'tracking-[0.01em]'
@@ -353,10 +354,10 @@ export function WalletRampDetailStep({
           control={form.control}
           name="amount_origin"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel className={LABEL_CLASS}>Monto inicial en {displayOriginCurrency}</FormLabel>
+            <FormItem className="flex flex-col items-center justify-center space-y-2 pb-2 pt-4">
+              <FormLabel className={cn(LABEL_CLASS, 'text-center')}>Monto inicial en {displayOriginCurrency}</FormLabel>
               <FormControl>
-                <div className="relative">
+                <div className="relative flex w-full max-w-[240px] md:max-w-[320px] mx-auto items-center justify-center">
                   <Input
                     {...field}
                     value={field.value ?? ''}
@@ -365,41 +366,29 @@ export function WalletRampDetailStep({
                     step="any"
                     placeholder="0.00"
                     disabled={disabled}
-                    className={cn(FORM_UNDERLINE_INPUT_CLASS, 'text-lg font-medium tracking-[-0.02em] pr-16')}
+                    className="h-auto w-full p-0 border-none bg-transparent text-center text-5xl font-semibold tracking-[-0.04em] shadow-none focus-visible:ring-0 md:text-6xl [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
-                  <span className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
+                  <span className="absolute left-full ml-2 md:ml-4 bottom-2 md:bottom-3 text-xl md:text-2xl font-medium text-muted-foreground">
                     {displayOriginCurrency}
                   </span>
                 </div>
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-center" />
             </FormItem>
           )}
         />
         {Number(amount) > 0 && (
-          <div className="rounded-2xl border border-border/40 bg-muted/20 p-5">
-            <p className={cn(LABEL_CLASS, 'mb-4')}>Estimación</p>
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Fee estimado</p>
-                <p className="mt-1 text-base font-semibold">
-                  {estimate.feeTotal.toFixed(2)} <span className="text-xs text-muted-foreground">{displayOriginCurrency}</span>
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Tipo de cambio</p>
-                <p className="mt-1 text-base font-semibold">
-                  {estimate.exchangeRateApplied.toFixed(4)} <span className="text-xs text-muted-foreground">BOB/{displayDestCurrency}</span>
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Recibirás aprox.</p>
-                <p className="mt-1 text-base font-semibold text-emerald-500">
-                  {estimate.amountConverted.toFixed(2)} <span className="text-xs">{displayDestCurrency}</span>
-                </p>
-              </div>
-            </div>
-          </div>
+          <EstimationSummary
+            amountOrigin={Number(amount) || 0}
+            originCurrency={displayOriginCurrency}
+            feeTotal={estimate.feeTotal}
+            exchangeRate={method === 'fiat_bo' ? estimate.exchangeRateApplied : undefined}
+            exchangeRateLabel={method === 'fiat_bo' ? `BOB/${displayDestCurrency}` : undefined}
+            exchangeRatePrecision={4}
+            receivesApprox={estimate.amountConverted}
+            receivesCurrency={displayDestCurrency}
+            showAmountOrigin
+          />
         )}
       </div>
     )
@@ -413,12 +402,12 @@ export function WalletRampDetailStep({
           control={form.control}
           name="amount_origin"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel className={LABEL_CLASS}>
+            <FormItem className="flex flex-col items-center justify-center space-y-2 pb-2 pt-4">
+              <FormLabel className={cn(LABEL_CLASS, 'text-center')}>
                 Monto inicial en {displayOriginCurrency}
               </FormLabel>
               <FormControl>
-                <div className="relative">
+                <div className="relative flex w-full max-w-[240px] md:max-w-[320px] mx-auto items-center justify-center">
                   <Input
                     {...field}
                     value={field.value ?? ''}
@@ -427,14 +416,14 @@ export function WalletRampDetailStep({
                     step="any"
                     placeholder={`0.00`}
                     disabled={disabled}
-                    className={cn(FORM_UNDERLINE_INPUT_CLASS, 'text-lg font-medium tracking-[-0.02em] pr-16')}
+                    className="h-auto w-full p-0 border-none bg-transparent text-center text-5xl font-semibold tracking-[-0.04em] shadow-none focus-visible:ring-0 md:text-6xl [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
-                  <span className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
+                  <span className="absolute left-full ml-2 md:ml-4 bottom-2 md:bottom-3 text-xl md:text-2xl font-medium text-muted-foreground">
                     {displayOriginCurrency}
                   </span>
                 </div>
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-center" />
             </FormItem>
           )}
         />
@@ -666,31 +655,17 @@ export function WalletRampDetailStep({
       )}
 
       {Number(amount) > 0 && (
-        <div className="rounded-2xl border border-border/40 bg-muted/20 p-5">
-          <p className={cn(LABEL_CLASS, 'mb-4')}>Estimación</p>
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Fee estimado</p>
-              <p className="mt-1 text-base font-semibold">
-                {estimate.feeTotal.toFixed(2)} <span className="text-xs text-muted-foreground">{displayOriginCurrency}</span>
-              </p>
-            </div>
-            {method === 'fiat_bo' && (
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Tipo de cambio</p>
-                <p className="mt-1 text-base font-semibold">
-                  {estimate.exchangeRateApplied.toFixed(4)} <span className="text-xs text-muted-foreground">BOB/{displayDestCurrency}</span>
-                </p>
-              </div>
-            )}
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Recibirás aprox.</p>
-              <p className="mt-1 text-base font-semibold text-emerald-500">
-                {estimate.amountConverted.toFixed(2)} <span className="text-xs">{displayDestCurrency}</span>
-              </p>
-            </div>
-          </div>
-        </div>
+        <EstimationSummary
+          amountOrigin={Number(amount) || 0}
+          originCurrency={displayOriginCurrency}
+          feeTotal={estimate.feeTotal}
+          exchangeRate={method === 'fiat_bo' ? estimate.exchangeRateApplied : undefined}
+          exchangeRateLabel={method === 'fiat_bo' ? `BOB/${displayDestCurrency}` : undefined}
+          exchangeRatePrecision={4}
+          receivesApprox={estimate.amountConverted}
+          receivesCurrency={displayDestCurrency}
+          showAmountOrigin
+        />
       )}
     </div>
   )

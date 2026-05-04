@@ -46,8 +46,8 @@ export function UserMenu() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="relative inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
-        <Avatar className="h-8 w-8">
+      <DropdownMenuTrigger className="relative inline-flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+        <Avatar className="h-10 w-10">
           <AvatarImage src={avatarUrl} alt={profile.full_name || 'Avatar del usuario'} />
           <AvatarFallback>{getInitials(profile.full_name)}</AvatarFallback>
         </Avatar>

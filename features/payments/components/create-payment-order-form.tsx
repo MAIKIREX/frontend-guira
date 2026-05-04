@@ -63,6 +63,7 @@ import { StepProgressRail } from '@/features/payments/components/step-progress-r
 import { WalletRampDetailStep } from '@/features/payments/components/wallet-ramp-detail-step'
 import { WalletWithdrawDetailStep } from '@/features/payments/components/wallet-withdraw-detail-step'
 import { WalletToFiatDetailStep } from '@/features/payments/components/wallet-to-fiat-detail-step'
+import { EstimationSummary } from '@/components/shared/estimation-summary'
 import { ACTIVE_CRYPTO_NETWORKS, CRYPTO_NETWORK_LABELS, resolveCryptoNetwork } from '@/features/payments/lib/crypto-networks'
 import { getSupportedSourceCrypto } from '@/features/payments/lib/supported-crypto-rails'
 import {
@@ -90,6 +91,7 @@ interface CreatePaymentOrderFormProps {
   defaultRoute: SupportedPaymentRoute
   allowedRoutes?: SupportedPaymentRoute[]
   disabled?: boolean
+  mode?: 'depositar' | 'enviar'
   onCreateOrder: (
     input: CreatePaymentOrderInput,
     supportFile?: File | null,
@@ -104,7 +106,7 @@ interface CreatePaymentOrderFormProps {
 
 const STEP_ORDER: StepKey[] = ['route', 'method', 'detail', 'review', 'finish']
 const DEPOSIT_ROUTES: SupportedPaymentRoute[] = ['world_to_bolivia', 'us_to_wallet', 'wallet_ramp_deposit', 'wallet_ramp_withdraw']
-const FORM_LABEL_CLASS = 'text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground'
+const FORM_LABEL_CLASS = 'text-[13px] font-semibold uppercase tracking-[0.18em] text-muted-foreground'
 const FORM_TEXT_CLASS = 'tracking-[0.01em]'
 const FORM_UNDERLINE_INPUT_CLASS = 'h-11 rounded-none border-0 border-b border-input bg-transparent px-0 py-0 shadow-none transition-colors focus-visible:border-primary focus-visible:ring-0 disabled:bg-transparent'
 const FORM_UNDERLINE_SELECT_CLASS = 'h-11 w-full rounded-none border-0 border-b border-input bg-transparent px-0 py-0 shadow-none transition-colors focus-visible:border-primary focus-visible:ring-0'
@@ -165,6 +167,7 @@ export function CreatePaymentOrderForm({
   defaultRoute,
   allowedRoutes,
   disabled,
+  mode,
   onCreateOrder,
   onUploadOrderFile,
   feesConfig,
@@ -209,6 +212,11 @@ export function CreatePaymentOrderForm({
   type RampDepositSubStep = 'wallet' | 'network' | 'reason'
   const RAMP_DEPOSIT_SUB_ORDER: RampDepositSubStep[] = ['wallet', 'network', 'reason']
   const [rampDepositSubStep, setRampDepositSubStep] = useState<RampDepositSubStep>('wallet')
+
+  // Sub-pasos para world_to_bolivia (3 pasos guiados)
+  type WorldBoliviaSubStep = 'bank' | 'reason' | 'amount'
+  const WORLD_BOLIVIA_SUB_ORDER: WorldBoliviaSubStep[] = ['bank', 'reason', 'amount']
+  const [worldBoliviaSubStep, setWorldBoliviaSubStep] = useState<WorldBoliviaSubStep>('bank')
 
   const [bridgeWallets, setBridgeWallets] = useState<WalletBalance[]>([])
   const [loadingWallets, setLoadingWallets] = useState(false)
@@ -312,6 +320,7 @@ export function CreatePaymentOrderForm({
   const walletRampMethod = form.watch('wallet_ramp_method')
   const isFiatBoDeposit = route === 'wallet_ramp_deposit' && walletRampMethod === 'fiat_bo'
   const isRampDepositWithSubSteps = route === 'wallet_ramp_deposit' && walletRampMethod === 'crypto'
+  const isWorldToBolivia = route === 'world_to_bolivia'
   const DETAIL_SUB_ORDER: DetailSubStep[] = isCryptoToCrypto
     ? ['supplier', 'funding', 'reason', 'amount']
     : ['supplier', 'reason', 'amount']
@@ -461,6 +470,7 @@ export function CreatePaymentOrderForm({
     setFiatUsSubStep('wallet')
     setFiatBoDepositSubStep('wallet')
     setRampDepositSubStep('wallet')
+    setWorldBoliviaSubStep('bank')
   }, [form, resolvedDefaultRoute])
 
   useEffect(() => {
@@ -891,15 +901,33 @@ export function CreatePaymentOrderForm({
           setStep('review')
           return
         }
+      } else if (isWorldToBolivia) {
+        // ── Sub-pasos para world_to_bolivia (3 pasos) ──
+        if (worldBoliviaSubStep === 'bank') {
+          const isValid = await form.trigger(['ach_bank_name', 'ach_account_number', 'destination_account_holder'], { shouldFocus: true })
+          if (!isValid) return
+          setWorldBoliviaSubStep('reason')
+          return
+        }
+        if (worldBoliviaSubStep === 'reason') {
+          const isValid = await form.trigger(['payment_reason'], { shouldFocus: true })
+          if (!isValid) return
+          if (!supportFile) {
+            setShowSupportFileError(true)
+            toast.error('Debes adjuntar el documento de respaldo para continuar.')
+            return
+          }
+          setShowSupportFileError(false)
+          setWorldBoliviaSubStep('amount')
+          return
+        }
+        if (worldBoliviaSubStep === 'amount') {
+          const isValid = await form.trigger(['amount_origin'], { shouldFocus: true })
+          if (!isValid) return
+        }
       } else {
         if (supplierValidationMessage) {
           toast.error(supplierValidationMessage)
-          return
-        }
-
-        if (route === 'world_to_bolivia' && !supportFile) {
-          setShowSupportFileError(true)
-          toast.error('Debes adjuntar el documento de respaldo para continuar.')
           return
         }
 
@@ -979,6 +1007,14 @@ export function CreatePaymentOrderForm({
     if (step === 'review' && isRampDepositWithSubSteps) {
       setRampDepositSubStep('reason')
     }
+    // Sub-paso navigation para world_to_bolivia
+    if (step === 'detail' && isWorldToBolivia && worldBoliviaSubStep !== 'bank') {
+      const idx = WORLD_BOLIVIA_SUB_ORDER.indexOf(worldBoliviaSubStep)
+      if (idx > 0) { setWorldBoliviaSubStep(WORLD_BOLIVIA_SUB_ORDER[idx - 1]); return }
+    }
+    if (step === 'review' && isWorldToBolivia) {
+      setWorldBoliviaSubStep('amount')
+    }
     const currentIndex = STEP_ORDER.indexOf(step)
     const previousStep = STEP_ORDER[currentIndex - 1]
     if (!previousStep) return
@@ -992,7 +1028,7 @@ export function CreatePaymentOrderForm({
           <CardTitle className="text-xl sm:text-2xl font-semibold tracking-[-0.03em]">
             {isDepositRouteActive ? 'Depositar por expediente' : 'Enviar por expediente'}
           </CardTitle>
-          <CardDescription className="text-xs sm:text-sm leading-relaxed sm:leading-6 tracking-[0.01em]">
+          <CardDescription className="text-sm sm:text-base leading-relaxed sm:leading-6 tracking-[0.01em]">
             El flujo separa ruta, metodo, detalle, revision y finalizacion para una mejor experiencia.
           </CardDescription>
         </CardHeader>
@@ -1024,7 +1060,9 @@ export function CreatePaymentOrderForm({
                               <div className="space-y-6">
                                 {interbankRoutes.length > 0 && (
                                   <div className="space-y-3">
-                                    <h3 className="text-sm font-medium text-foreground">Interbank</h3>
+                                    <h3 className="text-lg font-semibold text-foreground">
+                                      {mode === 'depositar' ? 'Recepción Interbancaria' : 'Envíos Interbancarios'}
+                                    </h3>
                                     <div className="grid gap-3 sm:grid-cols-2">
                                       {interbankRoutes.map((entry) => (
                                         <SelectionCard
@@ -1047,7 +1085,9 @@ export function CreatePaymentOrderForm({
                                 )}
                                 {rampRoutes.length > 0 && (
                                   <div className="space-y-3">
-                                    <h3 className="text-sm font-medium text-foreground">Ramp</h3>
+                                    <h3 className="text-lg font-semibold text-foreground">
+                                      {mode === 'depositar' ? 'Fondeo de Billetera (Ramp)' : 'Retiros de Billetera (Ramp)'}
+                                    </h3>
                                     <div className="grid gap-3 sm:grid-cols-2">
                                       {rampRoutes.map((entry) => (
                                         <SelectionCard
@@ -1102,22 +1142,22 @@ export function CreatePaymentOrderForm({
                             <FormControl>
                               <div className="grid gap-3 md:grid-cols-2">
                                 <SelectionCard
-                                  description="Usa un proveedor con cuenta bancaria local y autocompleta la recepcion."
+                                  description="Recibe los fondos directamente en tu cuenta de banco local."
                                   disabled={disabled}
                                   icon={Landmark}
                                   isSelected={field.value === 'bank_account'}
                                   onClick={() => field.onChange('bank_account')}
-                                  title="Recibir en cuenta bancaria"
+                                  title="Cuenta Bancaria"
                                 />
                                 {/* Hidden from UI — set to true to re-enable */}
                                 {false && (
                                 <SelectionCard
-                                  description="Adjunta el QR bancario o respaldo y crea el expediente sin proveedor. (Próximamente)"
+                                  description="Próximamente: escanea y paga directamente usando un QR bancario."
                                   disabled={true} // Inhabilitado temporalmente a petición
                                   icon={FileText}
                                   isSelected={field.value === 'bank_qr'}
                                   onClick={() => field.onChange('bank_qr')}
-                                  title="Recibir por QR"
+                                  title="Pago con QR"
                                 />
                                 )}
                               </div>
@@ -1138,20 +1178,20 @@ export function CreatePaymentOrderForm({
                             <FormControl>
                               <div className="grid gap-3 md:grid-cols-2">
                                 <SelectionCard
-                                  description="Entrega bancaria usando ACH o SWIFT segun los datos del proveedor."
+                                  description="Transfiere a cuentas bancarias internacionales vía ACH o SWIFT."
                                   disabled={disabled}
                                   icon={Landmark}
                                   isSelected={field.value === 'bank'}
                                   onClick={() => field.onChange('bank')}
-                                  title="ACH o SWIFT"
+                                  title="Transferencia Bancaria"
                                 />
                                 <SelectionCard
-                                  description="Entrega a wallet o direccion crypto del proveedor."
+                                  description="Envía los fondos directamente a una billetera digital."
                                   disabled={disabled}
                                   icon={Network}
                                   isSelected={field.value === 'crypto'}
                                   onClick={() => field.onChange('crypto')}
-                                  title="Crypto"
+                                  title="Billetera Crypto"
                                 />
                               </div>
                             </FormControl>
@@ -1163,23 +1203,23 @@ export function CreatePaymentOrderForm({
 
                     {currentRoute.key === 'us_to_wallet' ? (
                       <SelectionCard
-                        description="El fondeo tecnico sigue por PSAV y el destino final sera tu wallet."
+                        description="Recibe directamente en tu billetera digital asegurando rapidez."
                         disabled={disabled}
                         icon={Wallet}
                         isSelected
                         onClick={() => form.setValue('receive_variant', 'wallet')}
-                        title="Recibir en tu billetera cripto"
+                        title="Directo a tu Billetera"
                       />
                     ) : null}
 
                     {currentRoute.key === 'crypto_to_crypto' ? (
                       <SelectionCard
-                        description="La salida es digital y el destino final se toma del proveedor cripto."
+                        description="Transfiere activos entre billeteras de manera inmediata."
                         disabled={disabled}
                         icon={Network}
                         isSelected
                         onClick={() => form.setValue('ui_method_group', 'crypto')}
-                        title="Enviar a wallet cripto"
+                        title="A Billetera Digital"
                       />
                     ) : null}
 
@@ -1193,7 +1233,7 @@ export function CreatePaymentOrderForm({
                             <FormControl>
                               <div className="grid gap-3 sm:grid-cols-2">
                                 <SelectionCard
-                                  description="Deposita bolivianos y recibe USDC al tipo de cambio del día."
+                                  description="Convierte tus Bolivianos a dólares digitales (USDC)."
                                   disabled={disabled}
                                   icon={Banknote}
                                   isSelected={field.value === 'fiat_bo'}
@@ -1202,10 +1242,10 @@ export function CreatePaymentOrderForm({
                                     form.setValue('origin_currency', 'BOB')
                                     form.setValue('destination_currency', 'USDC')
                                   }}
-                                  title="Desde bolivianos (BOB)"
+                                  title="Con Bolivianos (BOB)"
                                 />
                                 <SelectionCard
-                                  description="Envía cripto desde una wallet externa y recibe USDC."
+                                  description="Fondea usando tus activos digitales de otras billeteras."
                                   disabled={disabled}
                                   icon={Network}
                                   isSelected={field.value === 'crypto'}
@@ -1214,12 +1254,12 @@ export function CreatePaymentOrderForm({
                                     form.setValue('origin_currency', 'USDT')
                                     form.setValue('destination_currency', 'USDC')
                                   }}
-                                  title="Desde crypto externo"
+                                  title="Con Crypto"
                                 />
                                 {/* Hidden from UI — set to true to re-enable */}
                                 {false && (
                                 <SelectionCard
-                                  description="Tu Virtual Account fondea tu wallet automáticamente. No necesitas crear un expediente."
+                                  description="Fondeo automático usando tu cuenta bancaria en EE.UU."
                                   disabled={true}
                                   icon={Landmark}
                                   isSelected={field.value === 'fiat_us'}
@@ -1228,7 +1268,7 @@ export function CreatePaymentOrderForm({
                                     form.setValue('origin_currency', 'USD')
                                     form.setValue('destination_currency', 'USDC')
                                   }}
-                                  title="Desde cuenta USD (EEUU) — Automático"
+                                  title="Con Dólares (USD)"
                                 />
                                 )}
                               </div>
@@ -1247,9 +1287,9 @@ export function CreatePaymentOrderForm({
                           <FormItem>
                             <FormLabel className={FORM_LABEL_CLASS}>¿Hacia dónde retiras?</FormLabel>
                             <FormControl>
-                              <div className="grid gap-3 md:grid-cols-3">
+                              <div className="grid gap-3 md:grid-cols-2">
                                 <SelectionCard
-                                  description="Recibe bolivianos automatizado en tu cuenta bancaria a través del PSAV local."
+                                  description="Recibe tu dinero directamente en tu cuenta local en Bolivianos."
                                   disabled={disabled}
                                   icon={Banknote}
                                   isSelected={field.value === 'fiat_bo'}
@@ -1258,10 +1298,10 @@ export function CreatePaymentOrderForm({
                                     form.setValue('origin_currency', '')
                                     form.setValue('destination_currency', 'BOB')
                                   }}
-                                  title="A cuenta bancaria en Bolivia"
+                                  title="A Banco en Bolivia"
                                 />
                                 <SelectionCard
-                                  description="Envía fondos de forma directa a una wallet cripto externa (on-chain)."
+                                  description="Transfiere el saldo a otra billetera digital de forma directa."
                                   disabled={disabled}
                                   icon={Network}
                                   isSelected={field.value === 'crypto'}
@@ -1272,10 +1312,10 @@ export function CreatePaymentOrderForm({
                                     form.setValue('crypto_network', '')
                                     form.setValue('crypto_address', '')
                                   }}
-                                  title="A wallet cripto externa"
+                                  title="A Billetera Crypto"
                                 />
                                 <SelectionCard
-                                  description="Retira fondos hacia una cuenta bancaria estadounidense vía ACH/Wire."
+                                  description="Envía los fondos a una cuenta bancaria en Estados Unidos."
                                   disabled={disabled}
                                   icon={Landmark}
                                   isSelected={field.value === 'fiat_us'}
@@ -1284,7 +1324,7 @@ export function CreatePaymentOrderForm({
                                     form.setValue('origin_currency', '')
                                     form.setValue('destination_currency', 'USD')
                                   }}
-                                  title="A cuenta bancaria (EE.UU.)"
+                                  title="A Banco en EE.UU."
                                 />
                               </div>
                             </FormControl>
@@ -1307,7 +1347,7 @@ export function CreatePaymentOrderForm({
 
                 {step === 'detail' ? (
                   <>
-                  {!hasSubStepFlow && !isFiatBoWithdraw && !isCryptoWithdraw && !isFiatUsWithdraw && !isFiatBoDeposit && !isRampDepositWithSubSteps && (
+                  {!hasSubStepFlow && !isFiatBoWithdraw && !isCryptoWithdraw && !isFiatUsWithdraw && !isFiatBoDeposit && !isRampDepositWithSubSteps && !isWorldToBolivia && (
                   <AnimatedStepPanel key="detail">
                     <SectionHeading
                       icon={currentRoute.key === 'crypto_to_crypto' ? Network : Wallet}
@@ -1349,16 +1389,21 @@ export function CreatePaymentOrderForm({
                       ) : (
                           <>
                           <NumericField control={form.control} disabled={disabled} label={getAmountLabel(currentRoute.key)} name="amount_origin" />
-                          <InlineSummaryBar
-                            exchangeRate={summaryStats.exchangeRate}
-                            feeTotal={summaryStats.feeTotal}
-                            netAmountDestination={summaryStats.netAmountDestination}
-                            originCurrency={summaryStats.originCurrency}
-                            destinationCurrency={summaryStats.destinationCurrency}
+                          <EstimationSummary
                             amountOrigin={summaryStats.amountOrigin}
-                            equivalentUsdValue={(Number(form.watch('amount_origin') || 0)) / ((exchangeRates.find(r => r.pair === 'BOB_USD') as any)?.effective_rate ?? exchangeRates.find(r => r.pair === 'BOB_USD')?.rate ?? 1)}
-                            minUsdLimit={parseFloat(String(appSettings.find(s => s.key === 'MIN_INTERBANK_USD')?.value ?? '0'))}
-                            showValidation={false}
+                            originCurrency={summaryStats.originCurrency}
+                            feeTotal={summaryStats.feeTotal}
+                            exchangeRate={exchangeRateApplied}
+                            exchangeRateLabel={`${summaryStats.destinationCurrency}/${summaryStats.originCurrency}`}
+                            exchangeRatePrecision={2}
+                            receivesApprox={summaryStats.netAmountDestination}
+                            receivesCurrency={summaryStats.destinationCurrency}
+                            showAmountOrigin
+                            receivesSubtext={
+                              summaryStats.originCurrency.trim().toUpperCase() !== summaryStats.destinationCurrency.trim().toUpperCase()
+                                ? `Después de comisión y conversión a ${summaryStats.destinationCurrency}`
+                                : 'Después de descontar la comisión'
+                            }
                           />
                         </>
                       )}
@@ -1387,7 +1432,7 @@ export function CreatePaymentOrderForm({
                                       <SelectItem key={supplier.id} value={supplier.id ?? supplier.name}>
                                         <span>{supplier.name}</span>
                                         {supplier.bridge_external_account_id ? (
-                                          <span className="ml-1.5 text-xs text-muted-foreground">
+                                          <span className="ml-1.5 text-sm text-muted-foreground">
                                             ({supplier.payment_rail?.toUpperCase() ?? 'BANK'} · External Account)
                                           </span>
                                         ) : null}
@@ -1397,15 +1442,15 @@ export function CreatePaymentOrderForm({
                                 </Select>
                               </FormControl>
                               {currentRoute.key === 'wallet_ramp_withdraw' && walletRampWithdrawMethod === 'fiat_us' && filteredSuppliers.length === 0 ? (
-                                <p className="text-xs text-amber-500">
+                                <p className="text-sm text-amber-500">
                                   No tienes proveedores con cuenta externa bancaria (ACH/Wire) registrada. Crea uno en la sección Proveedores para continuar.
                                 </p>
                               ) : currentRoute.key === 'wallet_to_fiat' && filteredSuppliers.length === 0 ? (
-                                <p className="text-xs text-amber-500">
+                                <p className="text-sm text-amber-500">
                                   No tienes proveedores con cuenta bancaria externa registrada en Bridge. Crea uno en la sección Proveedores.
                                 </p>
                               ) : (
-                                <p className="text-xs text-muted-foreground">
+                                <p className="text-sm text-muted-foreground">
                                   {currentRoute.key === 'wallet_ramp_withdraw' && walletRampWithdrawMethod === 'fiat_us'
                                     ? 'Solo se muestran proveedores con cuenta bancaria externa registrada en Bridge (ACH/Wire).'
                                     : currentRoute.key === 'wallet_to_fiat'
@@ -1422,7 +1467,7 @@ export function CreatePaymentOrderForm({
                                 >
                                   Ir a Proveedores
                                 </Link>
-                                <span className="text-xs text-muted-foreground">Crea o completa el proveedor y vuelve a esta operacion.</span>
+                                <span className="text-sm text-muted-foreground">Crea o completa el proveedor y vuelve a esta operacion.</span>
                               </div>
                               <FormMessage />
                             </FormItem>
@@ -1567,7 +1612,7 @@ export function CreatePaymentOrderForm({
                                     <>
                                       <div className="grid gap-4 mt-4 px-4 py-4 border rounded-md bg-muted/20">
                                         <div className="col-span-full mb-2">
-                                          <h4 className="text-sm font-semibold">Datos de Fondeo (Desde dónde envías)</h4>
+                                          <h4 className="text-base font-semibold">Datos de Fondeo (Desde dónde envías)</h4>
                                         </div>
                                         <div className="grid gap-4 lg:grid-cols-2">
                                           <NetworkSelectField 
@@ -1639,11 +1684,11 @@ export function CreatePaymentOrderForm({
                           ) : null}
                         </>
                       ) : hasSupplierObservation ? (
-                        <div className="border-l-2 border-amber-500/70 bg-amber-50/70 px-4 py-4 text-sm text-amber-950">
+                        <div className="border-l-2 border-amber-500/70 bg-amber-50/70 px-4 py-4 text-base text-amber-950">
                           Corrige primero la observacion del proveedor para habilitar los campos siguientes.
                         </div>
                       ) : (
-                        <div className="border-l-2 border-border/70 bg-muted/10 px-4 py-4 text-sm text-muted-foreground">
+                        <div className="border-l-2 border-border/70 bg-muted/10 px-4 py-4 text-base text-muted-foreground">
                           Selecciona primero un proveedor valido para mostrar metodo tecnico, monedas y metadata autocompletada.
                         </div>
                       )}
@@ -1716,14 +1761,14 @@ export function CreatePaymentOrderForm({
                                       </SelectContent>
                                     </Select>
                                   </FormControl>
-                                  <p className="text-xs text-muted-foreground">
+                                  <p className="text-sm text-muted-foreground">
                                     {isCryptoToCrypto
                                       ? 'Solo se muestran proveedores con wallet crypto configurada.'
                                       : 'Debes crear un proveedor con los datos correctos antes de usar esta opcion.'}
                                   </p>
                                   <div className="flex flex-wrap items-center gap-3">
                                     <Link className="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium transition-colors hover:bg-muted" href="/proveedores">Ir a Proveedores</Link>
-                                    <span className="text-xs text-muted-foreground">Crea o completa el proveedor y vuelve a esta operacion.</span>
+                                    <span className="text-sm text-muted-foreground">Crea o completa el proveedor y vuelve a esta operacion.</span>
                                   </div>
                                   <FormMessage />
                                 </FormItem>
@@ -1875,16 +1920,29 @@ export function CreatePaymentOrderForm({
                               }
                             />
                             <NumericField control={form.control} disabled={disabled} label={getAmountLabel(currentRoute.key)} name="amount_origin" />
-                            <InlineSummaryBar
-                              exchangeRate={summaryStats.exchangeRate}
-                              feeTotal={summaryStats.feeTotal}
-                              netAmountDestination={summaryStats.netAmountDestination}
-                              originCurrency={summaryStats.originCurrency}
-                              destinationCurrency={summaryStats.destinationCurrency}
+                            <EstimationSummary
                               amountOrigin={summaryStats.amountOrigin}
-                              equivalentUsdValue={(Number(form.watch('amount_origin') || 0)) / ((exchangeRates.find(r => r.pair === 'BOB_USD') as any)?.effective_rate ?? exchangeRates.find(r => r.pair === 'BOB_USD')?.rate ?? 1)}
-                              minUsdLimit={parseFloat(String(appSettings.find(s => s.key === 'MIN_INTERBANK_USD')?.value ?? '0'))}
-                              showValidation={isBoliviaToExterior}
+                              originCurrency={summaryStats.originCurrency}
+                              feeTotal={summaryStats.feeTotal}
+                              exchangeRate={exchangeRateApplied}
+                              exchangeRateLabel={`${summaryStats.destinationCurrency}/${summaryStats.originCurrency}`}
+                              exchangeRatePrecision={2}
+                              receivesApprox={summaryStats.netAmountDestination}
+                              receivesCurrency={summaryStats.destinationCurrency}
+                              showAmountOrigin
+                              receivesSubtext={
+                                summaryStats.originCurrency.trim().toUpperCase() !== summaryStats.destinationCurrency.trim().toUpperCase()
+                                  ? `Después de comisión y conversión a ${summaryStats.destinationCurrency}`
+                                  : 'Después de descontar la comisión'
+                              }
+                              validationError={
+                                isBoliviaToExterior &&
+                                summaryStats.amountOrigin > 0 &&
+                                ((Number(form.watch('amount_origin') || 0)) / ((exchangeRates.find(r => r.pair === 'BOB_USD') as any)?.effective_rate ?? exchangeRates.find(r => r.pair === 'BOB_USD')?.rate ?? 1)) <
+                                  parseFloat(String(appSettings.find(s => s.key === 'MIN_INTERBANK_USD')?.value ?? '0'))
+                                  ? `El envío equivale a ~$${((Number(form.watch('amount_origin') || 0)) / ((exchangeRates.find(r => r.pair === 'BOB_USD') as any)?.effective_rate ?? exchangeRates.find(r => r.pair === 'BOB_USD')?.rate ?? 1)).toFixed(2)} USD. El sistema interbancario exige un mínimo de $${parseFloat(String(appSettings.find(s => s.key === 'MIN_INTERBANK_USD')?.value ?? '0')).toFixed(2)} USD. Ajusta tu monto para continuar.`
+                                  : undefined
+                              }
                             />
                           </>
                         )}
@@ -2193,7 +2251,7 @@ export function CreatePaymentOrderForm({
                                           <SelectItem key={supplier.id} value={supplier.id ?? supplier.name}>
                                             <span>{supplier.name}</span>
                                             {supplier.bridge_external_account_id ? (
-                                              <span className="ml-1.5 text-xs text-muted-foreground">
+                                              <span className="ml-1.5 text-sm text-muted-foreground">
                                                 ({supplier.payment_rail?.toUpperCase() ?? 'BANK'} · External Account)
                                               </span>
                                             ) : null}
@@ -2203,11 +2261,11 @@ export function CreatePaymentOrderForm({
                                     </Select>
                                   </FormControl>
                                   {filteredSuppliers.length === 0 ? (
-                                    <p className="text-xs text-amber-500">
+                                    <p className="text-sm text-amber-500">
                                       No tienes proveedores con cuenta bancaria externa (ACH/Wire) registrada en Bridge. Crea uno en la sección Proveedores.
                                     </p>
                                   ) : (
-                                    <p className="text-xs text-muted-foreground">
+                                    <p className="text-sm text-muted-foreground">
                                       Solo se muestran proveedores con cuenta bancaria externa registrada en Bridge (ACH/Wire).
                                     </p>
                                   )}
@@ -2218,7 +2276,7 @@ export function CreatePaymentOrderForm({
                                     >
                                       Ir a Proveedores
                                     </Link>
-                                    <span className="text-xs text-muted-foreground">Crea o completa el proveedor y vuelve a esta operacion.</span>
+                                    <span className="text-sm text-muted-foreground">Crea o completa el proveedor y vuelve a esta operacion.</span>
                                   </div>
                                   <FormMessage />
                                 </FormItem>
@@ -2473,6 +2531,101 @@ export function CreatePaymentOrderForm({
                       </div>
                     </AnimatedStepPanel>
                   )}
+
+                  {isWorldToBolivia && (
+                    <AnimatedStepPanel key={`detail-world-bolivia-${worldBoliviaSubStep}`}>
+                      {/* Indicador de sub-pasos */}
+                      <div className="flex items-center gap-2 mb-6 px-1">
+                        {WORLD_BOLIVIA_SUB_ORDER.map((sub, i) => (
+                          <div key={sub} className="flex items-center gap-2">
+                            <div className={cn(
+                              'size-2 rounded-full transition-colors',
+                              worldBoliviaSubStep === sub ? 'bg-primary' :
+                              WORLD_BOLIVIA_SUB_ORDER.indexOf(worldBoliviaSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
+                            )} />
+                            {i < WORLD_BOLIVIA_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="grid gap-4">
+                        {worldBoliviaSubStep === 'bank' && (
+                          <>
+                            <SectionHeading
+                              icon={Landmark}
+                              eyebrow="Etapa 3 — Paso 1 de 3"
+                              title="Datos Bancarios"
+                              description="Ingresa el banco, número de cuenta y el nombre del titular donde se realizará el depósito en Bolivia."
+                            />
+                            <div className="grid gap-4 lg:grid-cols-2">
+                              <TextField control={form.control} disabled={disabled} label="Banco" name="ach_bank_name" />
+                              <TextField control={form.control} disabled={disabled} label="Cuenta bancaria" name="ach_account_number" />
+                            </div>
+                            <TextField control={form.control} disabled={disabled} label="Nombre del titular de la cuenta" name="destination_account_holder" />
+                          </>
+                        )}
+
+                        {worldBoliviaSubStep === 'reason' && (
+                          <>
+                            <SectionHeading
+                              icon={FileText}
+                              eyebrow="Etapa 3 — Paso 2 de 3"
+                              title="Motivo y Respaldo"
+                              description="Ingresa el motivo del pago y adjunta el documento de respaldo obligatorio."
+                            />
+                            <TextField control={form.control} disabled={disabled} label="Motivo del pago" name="payment_reason" />
+                            <DocumentInputCard
+                              className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
+                              file={supportFile}
+                              label="Documento de respaldo"
+                              description="Obligatorio en esta ruta. Se guardará como support_document_url al crear la orden."
+                              onFileChange={(f) => {
+                                setSupportFile(f)
+                                if (f) setShowSupportFileError(false)
+                              }}
+                            />
+                          </>
+                        )}
+
+                        {worldBoliviaSubStep === 'amount' && (
+                          <>
+                            <SectionHeading
+                              icon={Banknote}
+                              eyebrow="Etapa 3 — Paso 3 de 3"
+                              title="Monto a Depositar"
+                              description="Ingresa el monto en USD que deseas depositar. Se mostrará la conversión estimada."
+                            />
+                            <NumericField control={form.control} disabled={disabled} label={getAmountLabel(currentRoute.key)} name="amount_origin" />
+                            <EstimationSummary
+                              amountOrigin={summaryStats.amountOrigin}
+                              originCurrency={summaryStats.originCurrency}
+                              feeTotal={summaryStats.feeTotal}
+                              exchangeRate={exchangeRateApplied}
+                              exchangeRateLabel={`${summaryStats.destinationCurrency}/${summaryStats.originCurrency}`}
+                              exchangeRatePrecision={2}
+                              receivesApprox={summaryStats.netAmountDestination}
+                              receivesCurrency={summaryStats.destinationCurrency}
+                              showAmountOrigin
+                              receivesSubtext={
+                                summaryStats.originCurrency.trim().toUpperCase() !== summaryStats.destinationCurrency.trim().toUpperCase()
+                                  ? `Después de comisión y conversión a ${summaryStats.destinationCurrency}`
+                                  : 'Después de descontar la comisión'
+                              }
+                            />
+                          </>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between mt-8">
+                        <AnimatedBackButton onClick={handleBack}>
+                          {worldBoliviaSubStep === 'bank' ? 'Volver' : 'Anterior'}
+                        </AnimatedBackButton>
+                        <AnimatedNextButton disabled={disabled} onClick={handleNext}>
+                          {worldBoliviaSubStep === 'amount' ? 'Revisar expediente' : 'Siguiente'}
+                        </AnimatedNextButton>
+                      </div>
+                    </AnimatedStepPanel>
+                  )}
                   </>
                 ) : null}
 
@@ -2513,7 +2666,7 @@ export function CreatePaymentOrderForm({
 
                     {route === 'wallet_ramp_withdraw' ? (
                       <>
-                        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-6 text-sm space-y-3">
+                        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-6 text-base space-y-3">
                           <div className="flex items-center gap-2 font-medium text-emerald-400">
                             <Loader2 className="size-4 animate-spin" />
                             Tu retiro está siendo procesado…
@@ -2525,7 +2678,7 @@ export function CreatePaymentOrderForm({
                                 ? 'Tu retiro fue iniciado desde tu wallet Bridge hacia tu cuenta bancaria estadounidense. Bridge procesará la transferencia vía ACH/Wire automáticamente.'
                                 : 'La transferencia cripto ya fue iniciada desde tu wallet Bridge hacia el PSAV. Una vez que el PSAV reciba los fondos, los convertirá a bolivianos y los depositará en tu cuenta bancaria. El staff confirmará cada etapa.'}
                           </p>
-                          <div className="mt-4 grid gap-2 text-xs text-muted-foreground">
+                          <div className="mt-4 grid gap-2 text-sm text-muted-foreground">
                             <div className="flex justify-between rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
                               <span>Estado actual</span>
                               <span className="font-medium text-amber-400">En proceso</span>
@@ -2534,7 +2687,7 @@ export function CreatePaymentOrderForm({
                               <>
                                 <div className="flex justify-between rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
                                   <span>Dirección destino</span>
-                                  <span className="font-medium text-foreground font-mono text-[11px]">{form.getValues('crypto_address')?.slice(0, 10)}…{form.getValues('crypto_address')?.slice(-6)}</span>
+                                  <span className="font-medium text-foreground font-mono text-xs">{form.getValues('crypto_address')?.slice(0, 10)}…{form.getValues('crypto_address')?.slice(-6)}</span>
                                 </div>
                                 <div className="flex justify-between rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
                                   <span>Red</span>
@@ -2561,7 +2714,7 @@ export function CreatePaymentOrderForm({
                           </div>
                         </div>
 
-                        <div className="border-l-2 border-border/70 bg-muted/10 px-4 py-4 text-sm text-muted-foreground">
+                        <div className="border-l-2 border-border/70 bg-muted/10 px-4 py-4 text-base text-muted-foreground">
                           {walletRampWithdrawMethod === 'fiat_bo'
                             ? 'Puedes dar seguimiento a esta orden desde el tab "Seguimiento". No es necesario subir comprobante; el proceso es automático en la primera etapa.'
                             : 'Tu retiro es procesado automáticamente por Bridge. El estado se actualizará cuando se complete. Puedes dar seguimiento desde el tab "Seguimiento".'}
@@ -2584,7 +2737,7 @@ export function CreatePaymentOrderForm({
                           ))}
                         </div>
 
-                        <div className="border-l-2 border-emerald-400/45 bg-emerald-400/10 px-4 py-4 text-sm text-emerald-100">
+                        <div className="border-l-2 border-emerald-400/45 bg-emerald-400/10 px-4 py-4 text-base text-emerald-100">
                           El expediente ya fue creado con estado `waiting_deposit`. Desde aqui puedes dejar el comprobante final o subirlo despues desde Seguimiento.
                         </div>
 
@@ -2595,7 +2748,7 @@ export function CreatePaymentOrderForm({
                           onFileChange={setEvidenceFile}
                         />
 
-                        <div className="border-l-2 border-border/70 bg-muted/10 px-4 py-4 text-sm text-muted-foreground">
+                        <div className="border-l-2 border-border/70 bg-muted/10 px-4 py-4 text-base text-muted-foreground">
                           Cuando el comprobante final quede adjunto y la orden siga en `waiting_deposit`, el sistema la movera a `deposit_received`.
                         </div>
 
@@ -2812,124 +2965,20 @@ function DocumentInputCard({
 function SectionHeading({ icon: Icon, eyebrow, title, description }: { icon: typeof Landmark; eyebrow: string; title: string; description: string }) {
   return (
     <div className="flex items-start gap-3 border-b border-border/60 pb-4 sm:pb-5">
-      <div className="shrink-0 rounded-xl border border-border/60 bg-muted/20 p-2 text-muted-foreground">
-        <Icon className="size-3.5 sm:size-4" />
+      <div className="shrink-0 rounded-xl border border-border/60 bg-muted/20 p-2.5 text-muted-foreground">
+        <Icon className="size-5 sm:size-5" />
       </div>
       <div className="min-w-0">
-        <div className={cn(FORM_LABEL_CLASS, 'text-[10px] sm:text-[11px]')}>{eyebrow}</div>
-        <div className="mt-0.5 sm:mt-1 text-lg sm:text-xl font-semibold tracking-[-0.03em] text-foreground leading-tight sm:leading-normal">{title}</div>
-        <div className="mt-1 text-xs sm:text-sm leading-relaxed sm:leading-6 tracking-[0.01em] text-muted-foreground line-clamp-2 sm:line-clamp-none">{description}</div>
+        <div className={cn(FORM_LABEL_CLASS, 'text-xs')}>{eyebrow}</div>
+        <div className="mt-0.5 sm:mt-1 text-xl sm:text-2xl font-semibold tracking-[-0.03em] text-foreground leading-tight sm:leading-normal">{title}</div>
+        <div className="mt-1 text-sm sm:text-base leading-relaxed sm:leading-6 tracking-[0.01em] text-muted-foreground line-clamp-2 sm:line-clamp-none">{description}</div>
       </div>
     </div>
   )
 }
 
-function InlineSummaryBar({
-  exchangeRate,
-  feeTotal,
-  netAmountDestination,
-  originCurrency,
-  destinationCurrency,
-  amountOrigin,
-  equivalentUsdValue,
-  minUsdLimit,
-  showValidation,
-}: {
-  exchangeRate: string
-  feeTotal: number
-  netAmountDestination: number
-  originCurrency: string
-  destinationCurrency: string
-  amountOrigin: number
-  equivalentUsdValue?: number
-  minUsdLimit?: number
-  showValidation?: boolean
-}) {
-  const hasAmount = amountOrigin > 0
-  const hasCurrencyChange = originCurrency.trim().toUpperCase() !== destinationCurrency.trim().toUpperCase()
 
-  const isBelowMinLimit = showValidation && equivalentUsdValue !== undefined && minUsdLimit !== undefined && hasAmount && equivalentUsdValue < minUsdLimit
 
-  return (
-    <div className="rounded-xl border border-border/60 bg-muted/10 divide-y divide-border/40 overflow-hidden">
-      {/* Tipo de cambio */}
-      <div className="flex flex-col px-4 py-3">
-        <div className="flex items-center justify-between">
-          <span className={FORM_LABEL_CLASS}>Tipo de cambio</span>
-          <span className="text-sm font-semibold tracking-[0.01em] text-foreground">{exchangeRate}</span>
-        </div>
-        {hasAmount && equivalentUsdValue !== undefined && showValidation && originCurrency.toUpperCase() === 'BS' ? (
-          <div className="flex justify-end mt-1">
-            <span className="text-xs text-muted-foreground/80 font-medium">
-              Valor de envío: ~${equivalentUsdValue.toFixed(2)} USD
-            </span>
-          </div>
-        ) : null}
-      </div>
-
-      {/* Conversión bruta (solo si hay monto ingresado) */}
-      {hasAmount ? (
-        <>
-          <div className="flex items-center justify-between px-4 py-3">
-            <span className={FORM_LABEL_CLASS}>Monto ingresado</span>
-            <span className="text-sm font-medium text-foreground">
-              {amountOrigin.toFixed(2)} {originCurrency}
-            </span>
-          </div>
-
-          {/* Comisión */}
-          <div className="flex items-center justify-between px-4 py-3">
-            <div>
-              <span className={FORM_LABEL_CLASS}>Comisión estimada</span>
-              <p className="mt-0.5 text-[10px] text-muted-foreground/70 tracking-wider">
-                Calculada según tarifa de la ruta
-              </p>
-            </div>
-            <span className="text-sm font-medium text-destructive/80">
-              − {feeTotal.toFixed(2)} {originCurrency}
-            </span>
-          </div>
-
-          {/* Banner de Validación (Semáforo) */}
-          {isBelowMinLimit && (
-            <div className="px-4 py-3 bg-destructive/10 border-l-4 border-destructive/80">
-              <div className="flex items-start gap-2">
-                <span className="text-destructive/90 text-sm mt-0.5">⚠️</span>
-                <div>
-                  <p className="text-[13px] font-medium text-destructive/90">Monto mínimo no alcanzado</p>
-                  <p className="text-[11px] text-destructive/80 mt-0.5 leading-snug">
-                    El envío equivale a ~${equivalentUsdValue.toFixed(2)} USD. El sistema interbancario exige un mínimo de ${minUsdLimit?.toFixed(2)} USD. Ajusta tu monto para continuar.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Monto neto al destino — el dato clave de transparencia */}
-          <div className={cn("flex items-center justify-between px-4 py-3.5", isBelowMinLimit ? "bg-muted/30 opacity-60 grayscale" : "bg-primary/5")}>
-            <div>
-              <span className={cn(FORM_LABEL_CLASS, isBelowMinLimit ? 'text-muted-foreground' : 'text-primary/80')}>Monto que llegará al destino</span>
-              <p className="mt-0.5 text-[10px] text-muted-foreground/70 tracking-wider">
-                {hasCurrencyChange
-                  ? `Después de comisión y conversión a ${destinationCurrency}`
-                  : 'Después de descontar la comisión'}
-              </p>
-            </div>
-            <span className={cn("text-lg font-bold", isBelowMinLimit ? "text-muted-foreground" : "text-primary tracking-tight")}>
-              {netAmountDestination.toFixed(2)} {destinationCurrency}
-            </span>
-          </div>
-        </>
-      ) : (
-        <div className="px-4 py-3">
-          <span className="text-xs text-muted-foreground/70 tracking-wider">
-            Ingresa el monto para ver el estimado de comisión y lo que llegará al destino.
-          </span>
-        </div>
-      )}
-    </div>
-  )
-}
 
 function NumericField({
   control,
@@ -2942,24 +2991,36 @@ function NumericField({
   label: string
   disabled?: boolean
 }) {
+  // Extract currency symbol/name from the label if it's in parentheses, e.g., "(USD)"
+  const currencyMatch = label.match(/\((.*?)\)/);
+  const currency = currencyMatch ? currencyMatch[1] : '';
+
   return (
     <FormField
       control={control}
       name={name}
       render={({ field }) => (
-        <FormItem>
-          <FormLabel className={FORM_LABEL_CLASS}>{label}</FormLabel>
+        <FormItem className="flex flex-col items-center justify-center space-y-2 pb-2 pt-4">
+          <FormLabel className={cn(FORM_LABEL_CLASS, "text-center")}>{label}</FormLabel>
           <FormControl>
-            <Input
-              {...field}
-              className={cn(FORM_UNDERLINE_INPUT_CLASS, 'text-lg font-medium tracking-[-0.02em]')}
-              disabled={disabled}
-              min={0.01}
-              step="0.01"
-              type="number"
-            />
+            <div className="relative flex w-full max-w-[240px] md:max-w-[320px] mx-auto items-center justify-center">
+              <Input
+                {...field}
+                className="h-auto w-full p-0 border-none bg-transparent text-center text-5xl font-semibold tracking-[-0.04em] shadow-none focus-visible:ring-0 md:text-6xl [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                disabled={disabled}
+                min={0.01}
+                step="0.01"
+                type="number"
+                placeholder="0.00"
+              />
+              {currency && (
+                <span className="absolute left-full ml-2 md:ml-4 bottom-2 md:bottom-3 text-xl md:text-2xl font-medium text-muted-foreground">
+                  {currency}
+                </span>
+              )}
+            </div>
           </FormControl>
-          <FormMessage />
+          <FormMessage className="text-center" />
         </FormItem>
       )}
     />
@@ -3132,21 +3193,21 @@ function SelectionCard({
     >
       <div className="flex items-center gap-4">
         <div className={cn(
-          'flex size-10 shrink-0 items-center justify-center rounded-xl transition-all duration-300',
+          'flex size-12 shrink-0 items-center justify-center rounded-xl transition-all duration-300',
           isSelected 
             ? 'bg-primary/15 text-primary scale-110' 
             : 'bg-muted/20 text-muted-foreground group-hover:bg-muted/30 group-hover:text-foreground'
         )}>
-          <Icon className="size-5" />
+          <Icon className="size-6" />
         </div>
         <div className="min-w-0 flex-1">
           <div className={cn(
-            "text-sm font-semibold tracking-tight transition-colors",
+            "text-xl font-semibold tracking-tight transition-colors",
             isSelected ? "text-foreground" : "text-foreground/90"
           )}>
             {title}
           </div>
-          <div className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+          <div className="mt-1 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
             {description}
           </div>
         </div>
@@ -3159,7 +3220,7 @@ function InfoBlock({ label, value }: { label: string; value: string }) {
   return (
     <div className="border-b border-border/50 px-1 py-3">
       <div className={FORM_LABEL_CLASS}>{label}</div>
-      <div className="mt-1 text-sm font-medium tracking-[0.01em] text-foreground">{value}</div>
+      <div className="mt-1 text-base font-medium tracking-[0.01em] text-foreground">{value}</div>
     </div>
   )
 }
@@ -3439,7 +3500,7 @@ function buildReviewItems(args: {
     items.push({ label: 'Método de Fondeo', value: args.values.wallet_ramp_method === 'fiat_bo' ? 'Fiat BO' : args.values.wallet_ramp_method === 'fiat_us' ? 'Fiat US' : 'Crypto' })
     
     if (args.values.fee_total !== undefined) {
-      items.push({ label: 'Fee estimado', value: formatMoney(args.values.fee_total, args.values.origin_currency) })
+      items.push({ label: 'Comisión', value: formatMoney(args.values.fee_total, args.values.origin_currency) })
     }
     
     if (args.values.exchange_rate_applied !== undefined && args.values.exchange_rate_applied !== 0 && args.values.wallet_ramp_method === 'fiat_bo') {
@@ -3447,7 +3508,7 @@ function buildReviewItems(args: {
     }
     
     if (args.values.amount_converted !== undefined) {
-      items.push({ label: 'Recibirás aprox.', value: formatMoney(args.values.amount_converted, args.values.destination_currency) })
+      items.push({ label: 'Recibirás', value: formatMoney(args.values.amount_converted, args.values.destination_currency) })
     }
 
     if (args.values.wallet_ramp_method === 'fiat_bo' || args.values.wallet_ramp_method === 'crypto') {
@@ -3481,27 +3542,27 @@ function buildReviewItems(args: {
     items.push({ label: 'Método Destino', value: method === 'fiat_bo' ? 'Cuenta bancaria (BOB)' : method === 'crypto' ? 'Wallet cripto externa' : 'Cuenta bancaria (USD)' })
 
     if (args.values.fee_total !== undefined && args.values.fee_total > 0) {
-      items.push({ label: 'Fee estimado', value: formatMoney(args.values.fee_total, 'USDC') })
+      items.push({ label: 'Comisión', value: formatMoney(args.values.fee_total, 'USDC') })
     }
 
     if (method === 'fiat_bo') {
       items.push({ label: 'Tipo de cambio', value: formatExchangeRate(args.values.exchange_rate_applied, 'USDC', 'BOB') })
       if (args.values.amount_converted !== undefined) {
-        items.push({ label: 'Recibirás aprox.', value: formatMoney(args.values.amount_converted, 'BOB') })
+        items.push({ label: 'Recibirás', value: formatMoney(args.values.amount_converted, 'BOB') })
       }
       items.push({ label: 'Banco destino', value: (args.values as any).withdraw_bank_name || 'Pendiente' })
       items.push({ label: 'Cuenta destino', value: (args.values as any).withdraw_account_number || 'Pendiente' })
       items.push({ label: 'Titular', value: (args.values as any).withdraw_account_holder || 'Pendiente' })
     } else if (method === 'crypto') {
       if (args.values.amount_converted !== undefined) {
-        items.push({ label: 'Recibirás aprox.', value: formatMoney(args.values.amount_converted, 'USDC') })
+        items.push({ label: 'Recibirás', value: formatMoney(args.values.amount_converted, 'USDC') })
       }
       items.push({ label: 'Cripto destino', value: args.values.crypto_address || 'Pendiente' })
       items.push({ label: 'Red destino', value: args.values.crypto_network || 'Pendiente' })
     } else if (method === 'fiat_us') {
       items.push({ label: 'Token de origen', value: (args.values.origin_currency || 'Pendiente').toUpperCase() })
       if (args.values.amount_converted !== undefined) {
-        items.push({ label: 'Recibirás aprox.', value: formatMoney(args.values.amount_converted, 'USD') })
+        items.push({ label: 'Recibirás', value: formatMoney(args.values.amount_converted, 'USD') })
       }
       items.push({ label: 'Proveedor', value: args.supplierName || 'Pendiente' })
     }
@@ -3530,7 +3591,7 @@ function getDeliveryMethodsForRoute(
 
 function ValidationNotice({ message }: { message: string }) {
   return (
-    <div className="flex items-start gap-3 border-l-2 border-amber-500/70 bg-amber-50/70 px-4 py-3 text-sm text-amber-950">
+    <div className="flex items-start gap-3 border-l-2 border-amber-500/70 bg-amber-50/70 px-4 py-3 text-base text-amber-950">
       <CircleAlert className="mt-0.5 size-4 shrink-0" />
       <p>{message}</p>
     </div>

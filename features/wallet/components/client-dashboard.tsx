@@ -12,7 +12,7 @@ import { useExchangeRates } from '@/features/payments/hooks/use-exchange-rates'
 import { WalletService } from '@/services/wallet.service'
 import { PaymentsService } from '@/services/payments.service'
 
-const FORM_LABEL_CLASS = 'text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground'
+const FORM_LABEL_CLASS = 'text-xs font-extrabold uppercase tracking-[0.1em] text-muted-foreground'
 
 type QuoteAction = 'depositar' | 'enviar'
 
@@ -150,21 +150,21 @@ export function ClientDashboard() {
       {/* ── Header ──────────────────────────────────── */}
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
             PANEL
           </p>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-[2.5rem]">
+          <h1 className="text-4xl font-extrabold tracking-tight text-foreground md:text-[3rem]">
             ¡Hola, {userFirstName}!
           </h1>
         </div>
 
         <div className="flex items-center gap-4">
-          <span className="text-[11px] italic text-muted-foreground">Actualizado hace 2 min</span>
+          <span className="text-sm italic text-muted-foreground">Actualizado hace 2 min</span>
           <Button
             onClick={reload}
             type="button"
             variant="outline"
-            className="h-9 rounded-md border-accent/30 px-4 text-xs font-semibold text-accent hover:bg-accent/5"
+            className="h-9 rounded-md border-accent/30 px-4 text-sm font-bold text-accent hover:bg-accent/5"
           >
             <RefreshCw className="mr-2 size-3.5" />
             Actualizar
@@ -173,30 +173,30 @@ export function ClientDashboard() {
       </section>
 
       {/* ── Live Rate Ticker Bar ───────────────────── */}
-      <section className="flex flex-wrap items-center justify-between rounded-sm bg-muted/40 px-4 py-3">
-        <div className="flex items-center gap-4">
-          <span className="text-xs font-medium text-muted-foreground">
+      <section className="flex flex-wrap items-center justify-between rounded-md bg-muted/40 px-6 py-4">
+        <div className="flex flex-wrap items-center gap-4 md:gap-6">
+          <span className="text-base md:text-lg font-bold text-muted-foreground">
             Tipo de cambio en vivo
           </span>
-          <div className="h-4 w-px bg-border/80" />
-          <div className="flex items-center gap-6 text-xs text-muted-foreground">
+          <div className="hidden h-6 w-px bg-border/80 sm:block" />
+          <div className="flex items-center gap-6 text-base md:text-lg text-muted-foreground">
             <span>
-              Buy: 1 USD = <span className="font-bold text-primary">{formatNumber(buyRate)} Bs</span>
+              Buy: 1 USD = <span className="font-extrabold text-primary">{formatNumber(buyRate)} Bs</span>
             </span>
             <span>
-              Sell: 1 USD = <span className="font-bold text-success">{formatNumber(sellRate)} Bs</span>
+              Sell: 1 USD = <span className="font-extrabold text-success">{formatNumber(sellRate)} Bs</span>
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-success">
-          <div className="size-1.5 animate-pulse rounded-full bg-success" />
+        <div className="mt-2 flex items-center gap-2 text-sm font-extrabold uppercase tracking-widest text-success sm:mt-0">
+          <div className="size-2 animate-pulse rounded-full bg-success" />
           EN VIVO
         </div>
       </section>
 
       {/* ── Cotización Rápida ──────────────────────── */}
       <section className="space-y-6">
-        <h2 className="text-lg font-medium text-foreground md:text-xl">Cotización rápida</h2>
+        <h2 className="text-xl font-bold text-foreground md:text-2xl">Cotización rápida</h2>
 
         {/* Tabs */}
         <div className="flex border-b border-border/50">
@@ -204,11 +204,11 @@ export function ClientDashboard() {
             <button
               key={item}
               className={cn(
-                'relative pb-3 text-sm transition-colors px-1',
+                'relative pb-3 text-base transition-colors px-1',
                 item === 'depositar' ? 'mr-6' : '',
                 action === item
-                  ? 'text-accent font-medium after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:bg-accent'
-                  : 'text-muted-foreground hover:text-foreground font-normal'
+                  ? 'text-accent font-bold after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:bg-accent'
+                  : 'text-muted-foreground hover:text-foreground font-medium'
               )}
               onClick={() => { setAction(item) }}
               type="button"
@@ -250,35 +250,7 @@ export function ClientDashboard() {
           </div>
         </div>
 
-        {/* Summary Details Row */}
-        <div className="flex flex-wrap items-center justify-between gap-y-4 py-2 border-b border-border/50 pb-6">
-          <div className="flex flex-wrap items-center gap-6 md:gap-10">
-            <DetailItem label="Comisión:" value={`${feePercent}%`} />
-            <div className="h-8 w-px bg-border/80 hidden sm:block" />
-            <DetailItem label="Tasa final:" value={`${formatNumber(visibleBaseRate)} Bs`} bold />
-            <div className="h-8 w-px bg-border/80 hidden sm:block" />
-            <DetailItem
-              label="Recibes:"
-              value={`${formatNumber(estimate.amountConverted)} Bs`}
-              bold
-              accent
-            />
-          </div>
-          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-            COTIZACIÓN GARANTIZADA POR 5:00 MIN
-          </span>
-        </div>
 
-        {/* CTA */}
-        <div className="pt-2">
-          <Button
-            type="button"
-            className="h-[52px] rounded-md bg-primary px-8 text-[15px] font-normal text-primary-foreground hover:bg-primary/90 transition-colors"
-          >
-            Iniciar operación
-            <ArrowRight className="ml-2.5 size-4 opacity-80" />
-          </Button>
-        </div>
       </section>
 
       {/* ── Bottom Stats Row ───────────────────────────── */}
@@ -329,7 +301,7 @@ function MoneyField({
       <label className={cn(FORM_LABEL_CLASS)}>{label}</label>
       <div className="flex items-center justify-between gap-3">
         <Input
-          className="h-auto w-full border-0 bg-transparent p-0 text-[2.5rem] md:text-[3rem] font-bold tracking-tight text-foreground shadow-none focus-visible:ring-0 placeholder:text-muted-foreground"
+          className="h-auto w-full border-0 bg-transparent p-0 text-[3rem] md:text-[4rem] font-extrabold tracking-tight text-foreground shadow-none focus-visible:ring-0 placeholder:text-muted-foreground"
           inputMode="decimal"
           onChange={(event) => {
             onChange(event.target.value)
@@ -356,7 +328,7 @@ function ReadOnlyField({
     <div className="space-y-4">
       <label className={cn(FORM_LABEL_CLASS)}>{label}</label>
       <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0 flex-1 truncate text-[2.5rem] md:text-[3rem] font-bold tracking-tight text-foreground">
+        <div className="min-w-0 flex-1 truncate text-[3rem] md:text-[4rem] font-extrabold tracking-tight text-foreground">
           {formatNumber(value)}
         </div>
         <CurrencyPill currency={currency} />
@@ -374,37 +346,11 @@ function CurrencyPill({ currency }: { currency: string }) {
       <div className="flex size-5 items-center justify-center overflow-hidden rounded-full bg-muted">
         <Flag code={flagCode} className="h-full w-full object-cover" />
       </div>
-      <span className="text-[13px] font-semibold text-foreground pr-1">{currency}</span>
+      <span className="text-sm font-bold text-foreground pr-1">{currency}</span>
     </div>
   )
 }
 
-function DetailItem({
-  label,
-  value,
-  bold,
-  accent,
-}: {
-  label: string
-  value: string
-  bold?: boolean
-  accent?: boolean
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-[11px] text-muted-foreground">{label}</span>
-      <span
-        className={cn(
-          'text-sm',
-          bold ? 'font-bold' : 'font-semibold',
-          accent ? 'text-success' : 'text-foreground'
-        )}
-      >
-        {value}
-      </span>
-    </div>
-  )
-}
 
 function StatItem({
   label,
@@ -419,11 +365,11 @@ function StatItem({
 }) {
   return (
     <div className="flex flex-1 flex-col gap-1.5">
-      <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+      <p className="text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">
         {label}
       </p>
-      <p className="text-[1.75rem] md:text-[2rem] font-medium tracking-tight text-foreground">{value}</p>
-      <p className={cn('text-[11px] font-medium', subColor ?? 'text-muted-foreground')}>{sub}</p>
+      <p className="text-[2rem] md:text-[2.5rem] font-bold tracking-tight text-foreground">{value}</p>
+      <p className={cn('text-sm font-medium', subColor ?? 'text-muted-foreground')}>{sub}</p>
     </div>
   )
 }

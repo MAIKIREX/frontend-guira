@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
+import { EstimationSummary } from '@/components/shared/estimation-summary'
 import { cn } from '@/lib/utils'
 import { resolveFeeTotal, type ExchangeRateRecord } from '@/features/payments/lib/deposit-instructions'
 import type { WalletBalance } from '@/services/wallet.service'
@@ -363,10 +363,10 @@ export function WalletWithdrawDetailStep({
       control={form.control}
       name="amount_origin"
       render={({ field }) => (
-        <FormItem>
-          <FormLabel className={LABEL_CLASS}>Monto a retirar ({displayWithdrawCurrency})</FormLabel>
+        <FormItem className="flex flex-col items-center justify-center space-y-2 pb-2 pt-4">
+          <FormLabel className={cn(LABEL_CLASS, 'text-center')}>Monto a retirar ({displayWithdrawCurrency})</FormLabel>
           <FormControl>
-            <div className="relative">
+            <div className="relative flex w-full max-w-[240px] md:max-w-[320px] mx-auto items-center justify-center">
               <Input
                 {...field}
                 type="number"
@@ -374,9 +374,9 @@ export function WalletWithdrawDetailStep({
                 step="any"
                 placeholder="0.00"
                 disabled={disabled || isFiatBoBlocked}
-                className={cn(FORM_UNDERLINE_INPUT_CLASS, 'text-lg font-medium tracking-[-0.02em] pr-16')}
+                className="h-auto w-full p-0 border-none bg-transparent text-center text-5xl font-semibold tracking-[-0.04em] shadow-none focus-visible:ring-0 md:text-6xl [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
-              <span className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
+              <span className="absolute left-full ml-2 md:ml-4 bottom-2 md:bottom-3 text-xl md:text-2xl font-medium text-muted-foreground">
                 {displayWithdrawCurrency}
               </span>
             </div>
@@ -392,7 +392,7 @@ export function WalletWithdrawDetailStep({
               para habilitar este campo.
             </p>
           )}
-          <FormMessage />
+          <FormMessage className="text-center" />
         </FormItem>
       )}
     />
@@ -401,42 +401,19 @@ export function WalletWithdrawDetailStep({
   const receiveCurrency = method === 'fiat_bo' ? 'BOB' : method === 'fiat_us' ? 'USD' : displayWithdrawCurrency
 
   const estimationBlock = (
-    <Collapsible open={Number(amount) > 0}>
-      <CollapsibleContent>
-        <div className="mt-3 rounded-xl border border-border/50 bg-muted/15 overflow-hidden text-sm">
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/30">
-            <span className="text-muted-foreground">Monto bruto</span>
-            <span className="font-medium tabular-nums">
-              {(Number(amount) || 0).toFixed(2)}{' '}
-              <span className="text-muted-foreground text-xs">{displayWithdrawCurrency}</span>
-            </span>
-          </div>
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/30">
-            <span className="text-muted-foreground">Fee estimado</span>
-            <span className="font-medium tabular-nums text-destructive/80">
-              − {estimate.feeTotal.toFixed(2)}{' '}
-              <span className="text-xs">{displayWithdrawCurrency}</span>
-            </span>
-          </div>
-          {method === 'fiat_bo' && (
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/30">
-              <span className="text-muted-foreground">Tipo de cambio</span>
-              <span className="font-medium tabular-nums">
-                × {estimate.exchangeRateApplied.toFixed(2)}{' '}
-                <span className="text-xs text-muted-foreground">BOB/{displayWithdrawCurrency}</span>
-              </span>
-            </div>
-          )}
-          <div className="flex items-center justify-between px-4 py-3 bg-muted/30">
-            <span className="font-semibold">Recibirás aprox.</span>
-            <span className="font-bold tabular-nums text-emerald-500">
-              {estimate.amountConverted.toFixed(2)}{' '}
-              <span className="text-xs font-medium">{receiveCurrency}</span>
-            </span>
-          </div>
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
+    <EstimationSummary
+      amountOrigin={Number(amount) || 0}
+      originCurrency={displayWithdrawCurrency}
+      feeTotal={estimate.feeTotal}
+      exchangeRate={method === 'fiat_bo' ? estimate.exchangeRateApplied : undefined}
+      exchangeRateLabel={method === 'fiat_bo' ? `BOB/${displayWithdrawCurrency}` : undefined}
+      exchangeRatePrecision={4}
+      receivesApprox={estimate.amountConverted}
+      receivesCurrency={receiveCurrency}
+      showAmountOrigin
+      useCollapsible
+      className="mt-3"
+    />
   )
 
   const bankSection = method === 'fiat_bo' ? (

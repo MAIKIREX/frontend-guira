@@ -26,21 +26,21 @@ export const supportedPaymentRoutes: Array<{
   {
     key: 'bolivia_to_exterior',
     label: 'Bolivia al exterior',
-    description: 'Expediente BO_TO_WORLD con entrega SWIFT, ACH o crypto.',
+    description: 'Envía dinero desde Bolivia hacia cualquier cuenta en el extranjero.',
     supportedDeliveryMethods: ['swift', 'ach', 'crypto'],
     category: 'interbank',
   },
   {
     key: 'world_to_bolivia',
     label: 'Exterior a Bolivia',
-    description: 'Recibe fondos desde una cuenta en el exterior y deposítalos directamente en tu cuenta bancaria en Bolivia.',
+    description: 'Recibe fondos del exterior directamente en tu cuenta bancaria local.',
     supportedDeliveryMethods: ['ach'],
     category: 'interbank',
   },
   {
     key: 'us_to_wallet',
     label: 'USA a wallet',
-    description: 'Expediente US_TO_WALLET para fondeo PSAV con entrega final a wallet.',
+    description: 'Recibe transferencias desde EE.UU. directamente en tu billetera crypto.',
     supportedDeliveryMethods: ['ach'],
     disabled: true,
     hidden: true,
@@ -49,29 +49,30 @@ export const supportedPaymentRoutes: Array<{
   {
     key: 'crypto_to_crypto',
     label: 'Crypto a crypto',
-    description: 'Expediente CRYPTO_TO_CRYPTO con DIGITAL_NETWORK.',
+    description: 'Transfiere activos digitales entre billeteras de forma rápida y segura.',
     supportedDeliveryMethods: ['crypto'],
     category: 'interbank',
   },
   {
     key: 'wallet_ramp_deposit',
     label: 'Deposita a tu wallet',
-    description: 'Fondea tu wallet Bridge desde bolivianos, crypto externo o USD (EE.UU.).',
+    description: 'Añade saldo a tu billetera virtual usando moneda local, dólares o cripto.',
     supportedDeliveryMethods: [], // no aplica delivery method técnico
     category: 'ramp',
   },
   {
     key: 'wallet_ramp_withdraw',
     label: 'Retirar fondos de mi Wallet',
-    description: 'Retira fondos de tu wallet a tu cuenta en Bolivia (BOB), cuenta en EE.UU. o a una wallet externa.',
+    description: 'Transfiere el saldo de tu billetera a tu cuenta bancaria o cuenta externa.',
     supportedDeliveryMethods: [], // no aplica delivery method técnico
     category: 'ramp',
   },
   {
     key: 'wallet_to_fiat',
     label: 'Wallet → Cuenta Bancaria',
-    description: 'Envía crypto desde tu wallet on-chain (Solana, Ethereum, Tron, Polygon, Stellar) directo a la cuenta bancaria fiat de un proveedor.',
+    description: 'Convierte y envía tus criptomonedas directo a una cuenta bancaria.',
     supportedDeliveryMethods: [],
+    hidden: true,
     category: 'interbank',
   },
 ]
