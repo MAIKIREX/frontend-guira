@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import {
   ArrowRight,
   Banknote,
+  CheckCircle2,
   Clock,
   Eye,
   FileCheck2,
@@ -98,7 +99,7 @@ export function OnboardingActions({ actor, record, onUpdated }: { actor: StaffAc
   if (availableStatuses.length === 0) return null
 
   return (
-    <div className="flex flex-wrap justify-end gap-2">
+    <div className="flex flex-wrap gap-3">
       {availableStatuses.map((status) => (
         <OnboardingActionDialog key={status} actor={actor} defaultStatus={status} onUpdated={onUpdated} record={record} />
       ))}
@@ -150,35 +151,12 @@ export function OnboardingDetailDialog({ actor, record, onUpdated }: { actor: St
 
 function OnboardingActionDialog({ actor, defaultStatus, onUpdated, record }: { actor: StaffActor; defaultStatus: StaffOnboardingActionValues['status']; onUpdated: (record: StaffOnboardingRecord) => Promise<void> | void; record: StaffOnboardingRecord }) {
   const [open, setOpen] = useState(false)
-  const [fieldObservations, setFieldObservations] = useState<Record<string, string>>({})
-  const [newFieldKey, setNewFieldKey] = useState('')
-  const [newFieldMessage, setNewFieldMessage] = useState('')
   const form = useForm<StaffOnboardingActionValues>({
     resolver: zodResolver(staffOnboardingActionSchema),
     defaultValues: { status: defaultStatus, reason: '' },
   })
 
-  const isRequestChanges = defaultStatus === 'in_review'
-
-  // Common field names for quick selection
-  const FIELD_OPTIONS = record.type === 'kyb'
-    ? ['legal_name', 'tax_id', 'entity_type', 'address1', 'city', 'country', 'email', 'legal_rep_first_name', 'legal_rep_last_name', 'legal_rep_id_number', 'incorporation_certificate', 'id_front', 'id_back', 'proof_of_address']
-    : ['first_name', 'last_name', 'date_of_birth', 'nationality', 'id_type', 'id_number', 'email', 'phone', 'address1', 'city', 'country', 'id_front', 'id_back', 'proof_of_address']
-
-  function addFieldObservation() {
-    if (!newFieldKey || !newFieldMessage.trim()) return
-    setFieldObservations(prev => ({ ...prev, [newFieldKey]: newFieldMessage.trim() }))
-    setNewFieldKey('')
-    setNewFieldMessage('')
-  }
-
-  function removeFieldObservation(key: string) {
-    setFieldObservations(prev => {
-      const next = { ...prev }
-      delete next[key]
-      return next
-    })
-  }
+  const quickComments = useDynamicQuickComments(defaultStatus)
 
   async function submit(values: StaffOnboardingActionValues) {
     try {
@@ -186,12 +164,10 @@ function OnboardingActionDialog({ actor, defaultStatus, onUpdated, record }: { a
         actor, record,
         status: values.status,
         reason: values.reason,
-        fieldObservations: isRequestChanges && Object.keys(fieldObservations).length > 0 ? fieldObservations : undefined,
       })
       toast.success('Onboarding actualizado.')
       setOpen(false)
       form.reset({ status: defaultStatus, reason: '' })
-      setFieldObservations({})
       await onUpdated(updatedRecord)
     } catch (error) {
       console.error('Failed to update onboarding status', error)
@@ -199,14 +175,19 @@ function OnboardingActionDialog({ actor, defaultStatus, onUpdated, record }: { a
     }
   }
 
-  const triggerVariant = defaultStatus === 'rejected' ? 'destructive' as const : 'outline' as const
-  const confirmVariant = defaultStatus === 'rejected' ? 'destructive' as const : 'default' as const
-  const quickComments = useDynamicQuickComments(defaultStatus)
+  const triggerVariant = defaultStatus === 'rejected' ? 'destructive' : defaultStatus === 'approved' ? 'default' : 'outline'
+  const confirmVariant = defaultStatus === 'rejected' ? 'destructive' : 'default'
+
+  const triggerClassName = defaultStatus === 'approved' 
+    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md' 
+    : defaultStatus === 'in_review'
+      ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 font-medium shadow-sm dark:text-amber-400 dark:hover:bg-amber-500/30'
+      : 'shadow-md font-medium'
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="sm" variant={triggerVariant} />}>{getOnboardingActionLabel(defaultStatus)}</DialogTrigger>
-      <DialogContent className={isRequestChanges ? 'max-w-2xl max-h-[85vh] overflow-y-auto' : undefined}>
+      <DialogTrigger render={<Button className={`h-10 px-5 text-sm ${triggerClassName}`} variant={triggerVariant} />}>{getOnboardingActionLabel(defaultStatus)}</DialogTrigger>
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>{getOnboardingActionLabel(defaultStatus)}</DialogTitle>
           <DialogDescription>{getOnboardingActionDescription(defaultStatus)}</DialogDescription>
@@ -223,53 +204,6 @@ function OnboardingActionDialog({ actor, defaultStatus, onUpdated, record }: { a
                 <FormMessage />
               </FormItem>
             )} />
-
-            {/* ── Observaciones por campo (solo para "Solicitar Correcciones") ── */}
-            {isRequestChanges && (
-              <div className="space-y-3 rounded-lg border p-4 bg-warning/5">
-                <Label className="text-sm font-semibold">Observaciones por campo (opcional)</Label>
-                <p className="text-xs text-muted-foreground">
-                  Marca campos específicos que necesitan corrección. El cliente los verá resaltados en su formulario.
-                </p>
-
-                {/* Lista de observaciones actuales */}
-                {Object.entries(fieldObservations).length > 0 && (
-                  <div className="space-y-2">
-                    {Object.entries(fieldObservations).map(([key, msg]) => (
-                      <div key={key} className="flex items-center gap-2 rounded border bg-card px-3 py-2 text-sm">
-                        <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">{key}</code>
-                        <span className="flex-1 truncate text-muted-foreground">{msg}</span>
-                        <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive" onClick={() => removeFieldObservation(key)}>×</Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Formulario para agregar nueva observación */}
-                <div className="flex gap-2">
-                  <Select value={newFieldKey} onValueChange={setNewFieldKey}>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Campo..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {FIELD_OPTIONS.filter(f => !fieldObservations[f]).map(f => (
-                        <SelectItem key={f} value={f}>{f}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    className="flex-1"
-                    placeholder="Mensaje de corrección..."
-                    value={newFieldMessage}
-                    onChange={(e) => setNewFieldMessage(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addFieldObservation() } }}
-                  />
-                  <Button type="button" variant="outline" size="sm" onClick={addFieldObservation} disabled={!newFieldKey || !newFieldMessage.trim()}>
-                    Agregar
-                  </Button>
-                </div>
-              </div>
-            )}
 
             <DialogFooter>
               <Button disabled={form.formState.isSubmitting} type="submit" variant={confirmVariant}>
@@ -354,11 +288,15 @@ export function OrderActions({ actor, onUpdated, order }: { actor: StaffActor; o
   if (actions.size === 0) return null
 
   return (
-    <div className="flex flex-wrap gap-3 xl:justify-end">
-      {actions.has('quote') ? <OrderQuoteDialog actor={actor} onUpdated={onUpdated} order={order} /> : null}
-      {actions.has('sent') ? <OrderSentDialog actor={actor} onUpdated={onUpdated} order={order} /> : null}
-      {actions.has('completed') ? <OrderCompletionDialog actor={actor} onUpdated={onUpdated} order={order} /> : null}
-      {actions.has('failed') ? <OrderReasonActionDialog actor={actor} action="failed" label="Marcar failed" onUpdated={onUpdated} order={order} /> : null}
+    <div className="flex w-full flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap gap-2">
+        {actions.has('failed') ? <OrderReasonActionDialog actor={actor} action="failed" label="Rechazar Orden" onUpdated={onUpdated} order={order} /> : null}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {actions.has('quote') ? <OrderQuoteDialog actor={actor} onUpdated={onUpdated} order={order} /> : null}
+        {actions.has('sent') ? <OrderSentDialog actor={actor} onUpdated={onUpdated} order={order} /> : null}
+        {actions.has('completed') ? <OrderCompletionDialog actor={actor} onUpdated={onUpdated} order={order} /> : null}
+      </div>
     </div>
   )
 }
@@ -410,202 +348,180 @@ export function OrderDetailDialog({ actor, onUpdated, order }: { actor: StaffAct
   return (
     <Dialog>
       <DialogTrigger render={<Button size="sm" variant="secondary" />}>Gestionar Orden</DialogTrigger>
-      <DialogContent className="max-h-[92vh] w-[calc(100vw-1rem)] max-w-none overflow-x-hidden overflow-y-auto border border-border bg-background p-0 shadow-xl sm:max-w-none sm:w-[min(95vw,1100px)] lg:w-[min(92vw,1240px)]">
-        <DialogHeader className="gap-4 border-b border-border bg-muted/10 px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
-          <div className="flex min-w-0 flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
-            <div className="flex min-w-0 items-start gap-4">
-              <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10 text-primary shadow-sm">
-                <ReceiptText className="size-5" />
+      <DialogContent className="max-h-[92vh] w-[calc(100vw-1rem)] max-w-none overflow-x-hidden overflow-y-auto border-0 bg-background p-0 shadow-2xl sm:max-w-none sm:w-[min(95vw,1100px)] lg:w-[min(92vw,1240px)] rounded-2xl">
+        {/* ── Header ── */}
+        <DialogHeader className="gap-0 border-b border-border/40 px-5 py-4 sm:px-7 sm:py-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <ReceiptText className="size-[18px]" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <DialogTitle className="text-base font-semibold tracking-tight sm:text-lg">
+                  OrderDetailDialog
+                </DialogTitle>
+                <span className={"rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] " + getPaymentStatusColor(order.status)}>
+                  {humanizeOrderStatus(order.status)}
+                </span>
               </div>
-              <div className="min-w-0 space-y-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <DialogTitle className="text-xl font-semibold tracking-tight sm:text-2xl">
-                    Gestion de Orden #{order.id.slice(0, 8)}
-                  </DialogTitle>
-                  <span className={"rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] " + getPaymentStatusColor(order.status)}>
-                    {humanizeOrderStatus(order.status)}
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
-                  <span>Creada: {formatOrderDate(order.created_at)}</span>
-                  <span>Actualizada: {formatOrderDate(order.updated_at)}</span>
-                  <span>Flujo: {order.flow_type ?? order.processing_rail}</span>
-                </div>
-              </div>
+              <DialogDescription className="mt-0.5 text-xs text-muted-foreground">
+                ORDEN ID: {order.id.slice(0, 8).toUpperCase()} · {humanizeFlowType(order.flow_type) || order.flow_type || order.processing_rail}
+              </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="grid gap-6 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 2xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,360px)]">
-          <div className="min-w-0 space-y-6">
-            <section className="space-y-4">
-              <SectionHeading
-                eyebrow="Detalle transaccional"
-                title="Estado operativo de la orden"
-                description="La informacion mostrada aqui sale de la orden actual y se mantiene sincronizada con las mismas transiciones ya definidas."
-              />
-              <div className="grid min-w-0 gap-3 md:grid-cols-2 2xl:grid-cols-3">
-                {summaryCards.map((card) => (
-                  <SummaryMetricCard
-                    key={card.label}
-                    accent={card.accent}
-                    icon={card.icon}
-                    label={card.label}
-                    value={card.value}
-                  />
+        {/* ── Body ── */}
+        <div className="grid gap-0 2xl:grid-cols-[minmax(0,1.5fr)_minmax(280px,340px)]">
+          {/* Left column */}
+          <div className="min-w-0 space-y-0">
+
+            {/* Metrics strip */}
+            <div className="grid grid-cols-2 gap-px border-b border-border/30 bg-border/30 sm:grid-cols-3">
+              {summaryCards.slice(0, 3).map((card) => (
+                <div key={card.label} className="bg-background px-5 py-4 sm:py-5">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{card.label}</div>
+                  <div className="mt-1.5 text-lg font-bold tracking-tight text-foreground">{card.value}</div>
+                </div>
+              ))}
+            </div>
+            {summaryCards.length > 3 && (
+              <div className="grid grid-cols-2 gap-px border-b border-border/30 bg-border/30 sm:grid-cols-3">
+                {summaryCards.slice(3).map((card) => (
+                  <div key={card.label} className="bg-background px-5 py-4 sm:py-5">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{card.label}</div>
+                    <div className="mt-1.5 text-lg font-bold tracking-tight text-foreground">{card.value}</div>
+                  </div>
                 ))}
               </div>
-            </section>
+            )}
 
-            <section className="space-y-4">
-              <SectionHeading
-                eyebrow="Destino"
-                title="Informacion de entrega"
-                description="Solo se muestran los campos de destino que esta orden ya tiene cargados en metadata."
-              />
+            {/* Originator row */}
+            <div className="flex items-center gap-x-8 gap-y-3 border-b border-border/30 px-5 py-4 sm:px-7 flex-wrap">
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Originador</div>
+                <div className="mt-1 text-sm font-medium text-foreground">{order.user_id?.slice(0, 12)}…</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Fecha de solicitud</div>
+                <div className="mt-1 text-sm font-medium text-foreground">{formatOrderDate(order.created_at)}</div>
+              </div>
+            </div>
+
+            {/* Destination info */}
+            <div className="px-5 py-5 sm:px-7 space-y-4">
+              <h3 className="text-sm font-semibold text-primary">Información de Destino</h3>
               {destinationInfo.length > 0 ? (
-                <div className="overflow-hidden rounded-[28px] border border-border bg-card shadow-sm">
+                <div className="space-y-0 divide-y divide-border/30">
                   {destinationInfo.map((item) => (
                     <div
                       key={item.label}
-                      className="flex flex-col gap-2 border-b border-border/55 px-4 py-4 last:border-b-0 sm:flex-row sm:items-start sm:justify-between sm:gap-6"
+                      className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-6"
                     >
-                      <span className="block shrink-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground sm:w-48">
+                      <span className="text-[11px] font-medium text-muted-foreground sm:w-44 shrink-0">
                         {item.label}
                       </span>
-                      <span className="block break-words text-sm font-medium leading-6 text-foreground sm:text-right">
+                      <span className="break-all text-sm font-medium text-foreground sm:text-right font-mono">
                         {item.value}
                       </span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <EmptyPanel message="Esta orden todavia no tiene informacion de destino registrada en metadata." />
+                <p className="text-sm text-muted-foreground">Sin información de destino registrada.</p>
               )}
-            </section>
+            </div>
 
+            {/* PSAV Instructions (conditional) */}
+            {boliviaToWorldInstr && (
+              <div className="border-t border-border/30 px-5 py-5 sm:px-7 space-y-3">
+                <h3 className="text-sm font-semibold text-primary">Instrucciones PSAV</h3>
+                <div className="flex items-center justify-between rounded-lg bg-blue-500/8 px-4 py-2.5">
+                  <span className="text-xs font-medium text-blue-700 dark:text-blue-300">Red · Moneda</span>
+                  <span className="text-sm font-bold text-blue-700 dark:text-blue-300">
+                    {boliviaToWorldInstr.network} · {boliviaToWorldInstr.currency}
+                  </span>
+                </div>
+                <div>
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground mb-1">Dirección destino</div>
+                  <p className="break-all rounded-lg bg-muted/50 px-3 py-2 font-mono text-[11px] text-foreground">
+                    {boliviaToWorldInstr.address}
+                  </p>
+                </div>
+                {boliviaToWorldInstr.bridgeTransferId && (
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground mb-1">Bridge Transfer ID</div>
+                    <p className="break-all rounded-lg bg-muted/50 px-3 py-2 font-mono text-[11px] text-foreground">
+                      {boliviaToWorldInstr.bridgeTransferId}
+                    </p>
+                  </div>
+                )}
+                {boliviaToWorldInstr.amountToDeposit ? (
+                  <div className="flex items-center justify-between rounded-lg bg-emerald-500/8 px-4 py-2.5">
+                    <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Monto a depositar</span>
+                    <span className="text-base font-bold text-emerald-700 dark:text-emerald-300">
+                      {boliviaToWorldInstr.amountToDeposit} {boliviaToWorldInstr.currency}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="rounded-lg bg-amber-500/8 px-4 py-2.5">
+                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                      Depositar el equivalente en {boliviaToWorldInstr.currency} según tipo de cambio.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          <aside className="min-w-0 space-y-4">
-            <section className="rounded-[28px] bg-transparent p-4">
-              <SectionHeading
-                eyebrow="Documentos"
-                title="Respaldo y comprobantes"
-              />
-              <div className="mt-4 space-y-3">
-                {documentItems.map((item) => (
-                  <DocumentStatusCard
-                    key={item.label}
-                    emptyMessage={item.emptyMessage}
-                    href={item.href}
-                    label={item.label}
-                    tone={item.tone}
-                  />
-                ))}
-              </div>
-            </section>
+          {/* Right sidebar */}
+          <aside className="min-w-0 border-l border-border/30 2xl:border-l">
 
-            <section className="rounded-[28px] bg-transparent p-4">
-              <SectionHeading
-                eyebrow="Paso actual"
-                title="Que se espera realizar"
-              />
-              <div className="mt-4 rounded-2xl border border-primary/15 bg-primary/[0.05] px-4 py-4">
-                <div className="text-sm font-medium text-foreground">
-                  {stepExpectation.title}
-                </div>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {stepExpectation.description}
-                </p>
+            {/* Step expectation */}
+            <div className="border-b border-border/30 px-5 py-4">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground flex items-center gap-1.5">
+                <CheckCircle2 className="size-3.5" />
+                Paso actual
               </div>
-            </section>
+              <div className="mt-2 text-sm font-medium text-foreground">{stepExpectation.title}</div>
+            </div>
 
+            {/* Documents */}
+            <div className="border-b border-border/30 px-5 py-4 space-y-3">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Documentos</div>
+              {documentItems.map((item) => (
+                <DocumentStatusCard
+                  key={item.label}
+                  emptyMessage={item.emptyMessage}
+                  href={item.href}
+                  label={item.label}
+                  tone={item.tone}
+                />
+              ))}
+            </div>
+
+            {/* QR (conditional) */}
             {liquidationQR && (
-              <section className="rounded-[28px] bg-transparent p-4">
-
-                <div className="mt-4 flex flex-col items-center gap-4 rounded-2xl border border-border bg-card p-5 shadow-sm">
-                  {/* Red destacada — el PSAV debe seleccionarla manualmente en el exchange antes de escanear */}
-                  <div className="w-full rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-center">
-                    <p className="mt-0.5 text-base font-bold tracking-tight text-amber-700 dark:text-amber-300">
+              <div className="border-b border-border/30 px-5 py-4">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-full rounded-lg bg-amber-500/8 px-3 py-2 text-center">
+                    <p className="text-sm font-bold tracking-tight text-amber-700 dark:text-amber-300">
                       {liquidationQR.network.toUpperCase()} · {liquidationQR.currency}
                     </p>
                   </div>
-                  {/* QR contiene solo la dirección limpia — compatible con escáneres de exchanges (Binance, OKX, etc.) */}
-                  <div className="rounded-xl bg-card p-3 shadow-sm">
-                    <QRCodeSVG
-                      value={liquidationQR.address}
-                      size={180}
-                      level="M"
-                      includeMargin={false}
-                    />
+                  <div className="rounded-xl bg-white p-2.5">
+                    <QRCodeSVG value={liquidationQR.address} size={160} level="M" includeMargin={false} />
                   </div>
-                  <p className="break-all text-center text-[11px] font-mono text-foreground/70">
-                    {liquidationQR.address}
-                  </p>
-                </div>
-              </section>
-            )}
-
-            {boliviaToWorldInstr && (
-              <section className="rounded-[28px] bg-transparent p-4">
-                <SectionHeading
-                  eyebrow="Instrucciones PSAV"
-                  title="Depósito USDC para Bridge"
-                  description="El PSAV debe convertir los BOB del cliente a USDC y enviarlos a esta dirección Solana. Bridge procesará el pago fiat al destino automáticamente."
-                />
-                <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-border bg-card p-5 shadow-sm">
-                  <div className="flex items-center justify-between rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3">
-                    <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">Red · Moneda</span>
-                    <span className="text-sm font-bold text-blue-700 dark:text-blue-300">
-                      {boliviaToWorldInstr.network} · {boliviaToWorldInstr.currency}
-                    </span>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Dirección destino (Solana)</p>
-                    <p className="break-all rounded-lg bg-muted px-3 py-2 font-mono text-[11px] text-foreground">
-                      {boliviaToWorldInstr.address}
-                    </p>
-                  </div>
-                  {boliviaToWorldInstr.bridgeTransferId && (
-                    <div className="space-y-1">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Bridge Transfer ID</p>
-                      <p className="break-all rounded-lg bg-muted px-3 py-2 font-mono text-[11px] text-foreground">
-                        {boliviaToWorldInstr.bridgeTransferId}
-                      </p>
-                    </div>
-                  )}
-                  {boliviaToWorldInstr.amountToDeposit ? (
-                    <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
-                      <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Monto a depositar</span>
-                      <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
-                        {boliviaToWorldInstr.amountToDeposit} {boliviaToWorldInstr.currency}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-                      <p className="text-xs text-amber-700 dark:text-amber-300">
-                        Monto no disponible en las instrucciones — depositar el equivalente en {boliviaToWorldInstr.currency} según tipo de cambio.
-                      </p>
-                    </div>
-                  )}
-                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-                    <p className="text-xs text-amber-700 dark:text-amber-300">
-                      El PSAV debe depositar el monto bruto indicado. Bridge descontará el fee automáticamente antes de enviar al banco destino.
-                    </p>
-                  </div>
-                </div>
-              </section>
-            )}
-
-            <section className="rounded-[28px] bg-transparent p-4">
-              <SectionHeading eyebrow="Acciones" title="Gestion operativa" />
-              <div className="mt-4">
-                <div className="flex flex-col gap-3">
-                  <OrderActions actor={actor} onUpdated={onUpdated} order={order} />
+                  <p className="break-all text-center text-[10px] font-mono text-muted-foreground">{liquidationQR.address}</p>
                 </div>
               </div>
-            </section>
+            )}
           </aside>
+        </div>
+
+        {/* ── Sticky bottom action bar ── */}
+        <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 border-t border-border/40 bg-background/95 backdrop-blur-sm px-5 py-3.5 sm:px-7">
+          <OrderActions actor={actor} onUpdated={onUpdated} order={order} />
         </div>
       </DialogContent>
     </Dialog>
@@ -738,12 +654,9 @@ function DocumentStatusCard({
             target={href.startsWith('http') ? '_blank' : undefined}
             rel="noopener noreferrer"
             onClick={href.startsWith('http') ? undefined : handleOpen}
-            className={`inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs font-semibold shadow-sm transition-colors ${tone === 'success'
-              ? 'bg-emerald-500 text-white hover:bg-emerald-600'
-              : 'bg-primary text-primary-foreground hover:bg-primary/90'
-              }`}
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
           >
-            {loading ? <Loader2 className="size-3.5 animate-spin" /> : 'Ver archivo'}
+            {loading ? <Loader2 className="size-4 animate-spin" /> : <Eye className="size-4" />}
           </a>
         ) : (
           <span
@@ -1196,7 +1109,7 @@ function OrderReasonActionDialog({ actor, action, blockedReason, label, onUpdate
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button className="min-h-12 w-full justify-center px-4 text-sm font-semibold sm:w-auto" disabled={Boolean(blockedReason)} variant="outline" />}>{label}</DialogTrigger>
+      <DialogTrigger render={<Button className="h-10 px-4 text-sm font-semibold text-destructive hover:text-destructive hover:bg-destructive/10" disabled={Boolean(blockedReason)} variant="ghost" />}>{label}</DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{label}</DialogTitle>
@@ -1271,7 +1184,7 @@ function OrderQuoteDialog({ actor, onUpdated, order }: { actor: StaffActor; onUp
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button className="min-h-12 w-full justify-center px-4 text-sm font-semibold sm:w-auto" variant="outline" />}>Preparar cotizacion</DialogTrigger>
+      <DialogTrigger render={<Button className="h-10 px-5 text-sm font-semibold" variant="default" />}>Aprobar Parcial</DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Confirmar cotizacion</DialogTitle>
@@ -1321,7 +1234,7 @@ function OrderSentDialog({ actor, onUpdated, order }: { actor: StaffActor; onUpd
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button className="min-h-12 w-full justify-center px-4 text-sm font-semibold sm:w-auto" variant="outline" />}>Registrar sent</DialogTrigger>
+      <DialogTrigger render={<Button className="h-10 px-5 text-sm font-semibold" variant="default" />}>Registrar sent</DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Registrar referencia</DialogTitle>
@@ -1384,7 +1297,7 @@ function OrderCompletionDialog({ actor, onUpdated, order }: { actor: StaffActor;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button className="min-h-12 w-full justify-center px-4 text-sm font-semibold sm:w-auto" variant="outline" />}>Completar orden</DialogTrigger>
+      <DialogTrigger render={<Button className="h-10 px-5 text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90" variant="default" />}>Completar Orden</DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Completar orden</DialogTitle>

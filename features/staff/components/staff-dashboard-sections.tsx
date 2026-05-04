@@ -1506,7 +1506,7 @@ function AdminBridgeTransfersTable({
   const colSpan = isSuperAdmin ? 9 : 8
 
   return (
-    <Card className="overflow-hidden">
+    <Card className={cn("overflow-hidden", !showHeader && "border-0 bg-background shadow-none ring-0")}>
       {showHeader ? (
         <CardHeader>
           <div className="flex items-center justify-between gap-4">
@@ -1520,7 +1520,7 @@ function AdminBridgeTransfersTable({
           </div>
         </CardHeader>
       ) : null}
-      <CardContent className="space-y-4">
+      <CardContent className={cn("space-y-4", !showHeader && "px-0 pb-0")}>
         {/* Filtros */}
         <div className="rounded-xl border border-border/70 bg-muted/15 p-4 overflow-hidden">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_repeat(auto-fit,minmax(120px,1fr))]">
@@ -2604,14 +2604,14 @@ function GenericRecordsCard({
   const keys = records.length > 0 ? Object.keys(records[0]).filter(k => k !== 'id').slice(0, 5) : []
 
   return (
-    <Card>
+    <Card className={cn("overflow-hidden", !showHeader && "border-0 bg-background shadow-none ring-0")}>
       {showHeader ? (
         <CardHeader>
           <CardTitle>{title}</CardTitle>
           <CardDescription>{description}</CardDescription>
         </CardHeader>
       ) : null}
-      <CardContent>
+      <CardContent className={cn("space-y-4", !showHeader && "px-0 pb-0")}>
         {/* Móvil */}
         <div className="space-y-3 md:hidden">
           {records.length === 0 ? (

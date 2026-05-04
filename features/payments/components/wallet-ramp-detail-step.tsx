@@ -23,6 +23,7 @@ import {
   getSourceCurrencies,
   getDestinationCurrencies,
   getMinAmount,
+  getAllCryptoDestCurrencies,
   FIAT_BO_ALLOWED_DESTINATION_CURRENCIES,
 } from '@/features/payments/lib/bridge-route-catalog'
 import { CreateVirtualAccountDialog } from '@/features/client/components/create-virtual-account-dialog'
@@ -49,6 +50,8 @@ const FLOW_TYPE_MAP: Record<string, string> = {
   fiat_us: 'fiat_us_to_bridge_wallet',
 }
 
+export type RampDepositSubStep = 'wallet' | 'network' | 'amount'
+
 interface WalletRampDetailStepProps {
   form: any
   method: 'fiat_bo' | 'crypto' | 'fiat_us'
@@ -59,6 +62,7 @@ interface WalletRampDetailStepProps {
   exchangeRates: ExchangeRateRecord[]
   feesConfig: FeeConfigRow[]
   disabled?: boolean
+  subStep?: RampDepositSubStep
 }
 
 export function WalletRampDetailStep({
@@ -70,7 +74,8 @@ export function WalletRampDetailStep({
   onVaCreated,
   exchangeRates,
   feesConfig,
-  disabled
+  disabled,
+  subStep,
 }: WalletRampDetailStepProps) {
   const [vaDialogOpen, setVaDialogOpen] = useState(false)
   const meta = METHOD_META[method]
@@ -95,6 +100,11 @@ export function WalletRampDetailStep({
     }
     if (method === 'crypto' && selectedSourceNetwork && selectedOriginCurrency) {
       return getDestinationCurrencies(selectedSourceNetwork, selectedOriginCurrency)
+    }
+    // When in crypto 'wallet' sub-step before network/currency are chosen,
+    // show all possible destination tokens so the user can make their selection.
+    if (method === 'crypto') {
+      return getAllCryptoDestCurrencies()
     }
     return []
   }, [method, selectedSourceNetwork, selectedOriginCurrency])
@@ -196,6 +206,204 @@ export function WalletRampDetailStep({
     form.setValue('exchange_rate_applied', estimate.exchangeRateApplied, { shouldValidate: false, shouldDirty: false, shouldTouch: false })
     form.setValue('amount_converted', estimate.amountConverted, { shouldValidate: false, shouldDirty: false, shouldTouch: false })
   }, [estimate, form])
+
+  // ── Partial renders for sub-step mode (fiat_bo_to_bridge_wallet) ────────────
+  if (subStep === 'wallet') {
+    return (
+      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <FormField
+          control={form.control}
+          name="wallet_ramp_wallet_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className={LABEL_CLASS}>Wallet Bridge destino</FormLabel>
+              <Select
+                value={field.value || null}
+                onValueChange={field.onChange}
+                disabled={disabled || wallets.length === 0}
+              >
+                <FormControl>
+                  <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
+                    <SelectValue placeholder="Seleccionar wallet" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {wallets.map((w) => (
+                    <SelectItem key={w.id} value={w.id}>
+                      <span className="font-medium">{w.label ?? `${w.currency.toUpperCase()} Wallet`}</span>
+                      <span className="ml-1.5 text-muted-foreground text-xs">
+                        ({w.currency.toUpperCase()} · {w.network ?? 'interna'} · {w.available_balance.toFixed(2)} disponible)
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="wallet_ramp_destination_currency"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className={LABEL_CLASS}>Token de destino</FormLabel>
+              <Select
+                value={field.value || null}
+                onValueChange={field.onChange}
+                disabled={disabled || availableDestCurrencies.length === 0}
+              >
+                <FormControl>
+                  <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
+                    <SelectValue placeholder="Seleccionar token destino" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {availableDestCurrencies.map((cur) => (
+                    <SelectItem key={cur} value={cur}>
+                      {CRYPTO_CURRENCY_LABELS[cur as keyof typeof CRYPTO_CURRENCY_LABELS] ?? cur.toUpperCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </div>
+    )
+  }
+
+  if (subStep === 'network') {
+    return (
+      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+        {method === 'crypto' && (
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              {/* Red de origen */}
+              <FormField
+                control={form.control}
+                name="wallet_ramp_source_network"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className={LABEL_CLASS}>Red de origen</FormLabel>
+                    <Select
+                      value={field.value || null}
+                      onValueChange={(v) => handleNetworkChange(v, field.onChange)}
+                      disabled={disabled}
+                    >
+                      <FormControl>
+                        <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
+                          <SelectValue placeholder="Seleccionar red" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {RAMP_ON_SOURCE_NETWORKS.map((net) => (
+                          <SelectItem key={net} value={net}>
+                            {CRYPTO_NETWORK_LABELS[net] ?? net}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Moneda de origen (filtrada por red) */}
+              <FormField
+                control={form.control}
+                name="origin_currency"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className={LABEL_CLASS}>Moneda de origen</FormLabel>
+                    <Select
+                      value={field.value || null}
+                      onValueChange={(v) => handleSourceCurrencyChange(v, field.onChange)}
+                      disabled={disabled || availableSourceCurrencies.length === 0}
+                    >
+                      <FormControl>
+                        <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
+                          <SelectValue placeholder={selectedSourceNetwork ? 'Seleccionar moneda' : 'Selecciona una red primero'} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {availableSourceCurrencies.map((cur) => (
+                          <SelectItem key={cur} value={cur}>
+                            {CRYPTO_CURRENCY_LABELS[cur as keyof typeof CRYPTO_CURRENCY_LABELS] ?? cur.toUpperCase()}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  if (subStep === 'amount') {
+    return (
+      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <FormField
+          control={form.control}
+          name="amount_origin"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className={LABEL_CLASS}>Monto inicial en {displayOriginCurrency}</FormLabel>
+              <FormControl>
+                <div className="relative">
+                  <Input
+                    {...field}
+                    value={field.value ?? ''}
+                    type="number"
+                    min={0}
+                    step="any"
+                    placeholder="0.00"
+                    disabled={disabled}
+                    className={cn(FORM_UNDERLINE_INPUT_CLASS, 'text-lg font-medium tracking-[-0.02em] pr-16')}
+                  />
+                  <span className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
+                    {displayOriginCurrency}
+                  </span>
+                </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        {Number(amount) > 0 && (
+          <div className="rounded-2xl border border-border/40 bg-muted/20 p-5">
+            <p className={cn(LABEL_CLASS, 'mb-4')}>Estimación</p>
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Fee estimado</p>
+                <p className="mt-1 text-base font-semibold">
+                  {estimate.feeTotal.toFixed(2)} <span className="text-xs text-muted-foreground">{displayOriginCurrency}</span>
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Tipo de cambio</p>
+                <p className="mt-1 text-base font-semibold">
+                  {estimate.exchangeRateApplied.toFixed(4)} <span className="text-xs text-muted-foreground">BOB/{displayDestCurrency}</span>
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Recibirás aprox.</p>
+                <p className="mt-1 text-base font-semibold text-emerald-500">
+                  {estimate.amountConverted.toFixed(2)} <span className="text-xs">{displayDestCurrency}</span>
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">

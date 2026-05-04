@@ -58,7 +58,7 @@ export function StepProgressRail<T extends string>({ currentStep, steps, getStep
                     <div className="relative h-[2px] w-full rounded-full bg-border/30">
                       <motion.div
                         animate={{ width: lineFilled }}
-                        className="absolute inset-y-0 left-0 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.4)]"
+                        className="absolute inset-y-0 left-0 rounded-full bg-primary shadow-[0_0_8px_oklch(var(--primary)/0.4)]"
                         initial={false}
                         transition={{ duration: 0.4, ease: 'easeInOut' }}
                       />
@@ -69,25 +69,21 @@ export function StepProgressRail<T extends string>({ currentStep, steps, getStep
                 <div className="relative">
                   {/* Pulse effect for current step */}
                   {isCurrent && (
-                    <div className="absolute inset-x-[-4px] inset-y-[-4px] rounded-full bg-cyan-400/20 animate-ping" />
+                    <div className="absolute inset-x-[-4px] inset-y-[-4px] rounded-full bg-primary/20 animate-ping" />
                   )}
                   
                   <motion.div
                     animate={{
-                      backgroundColor: isCurrent
-                        ? 'rgba(34,211,238,0.18)'
-                        : isComplete
-                          ? 'rgba(16,185,129,0.18)'
-                          : 'rgba(255,255,255,0.04)',
-                      borderColor: isCurrent
-                        ? 'rgba(34,211,238,0.55)'
-                        : isComplete
-                          ? 'rgba(16,185,129,0.45)'
-                          : 'rgba(148,163,184,0.22)',
                       scale: isCurrent ? 1.05 : 1,
-                      boxShadow: isCurrent ? '0 0 0 8px rgba(34,211,238,0.06)' : '0 0 0 0 rgba(0,0,0,0)',
                     }}
-                    className="relative z-10 flex size-12 items-center justify-center rounded-full border-[1.5px] text-sm font-bold text-foreground transition-all duration-300 shadow-sm"
+                    className={cn(
+                      "relative z-10 flex size-12 items-center justify-center rounded-full border-[1.5px] text-sm font-bold text-foreground transition-all duration-300 shadow-sm",
+                      isCurrent
+                        ? "bg-primary/20 border-primary/55 ring-8 ring-primary/10"
+                        : isComplete
+                          ? "bg-primary/20 border-primary/45"
+                          : "bg-white/5 border-slate-400/20"
+                    )}
                     initial={false}
                     transition={{ duration: 0.3, ease: 'easeOut' }}
                   >

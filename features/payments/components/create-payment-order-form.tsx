@@ -200,6 +200,16 @@ export function CreatePaymentOrderForm({
   const FIAT_US_SUB_ORDER: FiatUsSubStep[] = ['wallet', 'supplier', 'reason', 'amount']
   const [fiatUsSubStep, setFiatUsSubStep] = useState<FiatUsSubStep>('wallet')
 
+  // Sub-pasos para fiat_bo_to_bridge_wallet (wallet_ramp_deposit + fiat_bo)
+  type FiatBoDepositSubStep = 'wallet' | 'reason' | 'amount'
+  const FIAT_BO_DEPOSIT_SUB_ORDER: FiatBoDepositSubStep[] = ['wallet', 'reason', 'amount']
+  const [fiatBoDepositSubStep, setFiatBoDepositSubStep] = useState<FiatBoDepositSubStep>('wallet')
+
+  // Sub-pasos para wallet_ramp_deposit (crypto)
+  type RampDepositSubStep = 'wallet' | 'network' | 'reason'
+  const RAMP_DEPOSIT_SUB_ORDER: RampDepositSubStep[] = ['wallet', 'network', 'reason']
+  const [rampDepositSubStep, setRampDepositSubStep] = useState<RampDepositSubStep>('wallet')
+
   const [bridgeWallets, setBridgeWallets] = useState<WalletBalance[]>([])
   const [loadingWallets, setLoadingWallets] = useState(false)
   const [virtualAccounts, setVirtualAccounts] = useState<VirtualAccount[]>([])
@@ -299,6 +309,9 @@ export function CreatePaymentOrderForm({
   const isFiatBoWithdraw = route === 'wallet_ramp_withdraw' && walletRampWithdrawMethod === 'fiat_bo'
   const isCryptoWithdraw = route === 'wallet_ramp_withdraw' && walletRampWithdrawMethod === 'crypto'
   const isFiatUsWithdraw = route === 'wallet_ramp_withdraw' && walletRampWithdrawMethod === 'fiat_us'
+  const walletRampMethod = form.watch('wallet_ramp_method')
+  const isFiatBoDeposit = route === 'wallet_ramp_deposit' && walletRampMethod === 'fiat_bo'
+  const isRampDepositWithSubSteps = route === 'wallet_ramp_deposit' && walletRampMethod === 'crypto'
   const DETAIL_SUB_ORDER: DetailSubStep[] = isCryptoToCrypto
     ? ['supplier', 'funding', 'reason', 'amount']
     : ['supplier', 'reason', 'amount']
@@ -446,6 +459,8 @@ export function CreatePaymentOrderForm({
     setFiatBoSubStep('wallet')
     setCryptoWithdrawSubStep('wallet')
     setFiatUsSubStep('wallet')
+    setFiatBoDepositSubStep('wallet')
+    setRampDepositSubStep('wallet')
   }, [form, resolvedDefaultRoute])
 
   useEffect(() => {
@@ -751,15 +766,67 @@ export function CreatePaymentOrderForm({
           }
         }
       } else if (route === 'wallet_ramp_deposit') {
-        const isValidWalletRamp = await form.trigger([
-          'amount_origin',
-          'wallet_ramp_method',
-          'wallet_ramp_wallet_id',
-          'wallet_ramp_va_id',
-          'wallet_ramp_source_network',
-        ], { shouldFocus: true })
-
-        if (!isValidWalletRamp) return
+        if (isFiatBoDeposit) {
+          // ── Sub-pasos para fiat_bo_to_bridge_wallet (3 pasos) ──
+          if (fiatBoDepositSubStep === 'wallet') {
+            const isValid = await form.trigger(['wallet_ramp_wallet_id', 'wallet_ramp_destination_currency'], { shouldFocus: true })
+            if (!isValid) return
+            setFiatBoDepositSubStep('reason')
+            return
+          }
+          if (fiatBoDepositSubStep === 'reason') {
+            const isValid = await form.trigger(['payment_reason'], { shouldFocus: true })
+            if (!isValid) return
+            if (!supportFile) {
+              setShowSupportFileError(true)
+              toast.error('Debes adjuntar el documento de respaldo para continuar.')
+              return
+            }
+            setShowSupportFileError(false)
+            setFiatBoDepositSubStep('amount')
+            return
+          }
+          if (fiatBoDepositSubStep === 'amount') {
+            const isValid = await form.trigger(['amount_origin'], { shouldFocus: true })
+            if (!isValid) return
+          }
+        } else if (isRampDepositWithSubSteps) {
+          // ── Sub-pasos para crypto deposit (3 pasos) ──
+          if (rampDepositSubStep === 'wallet') {
+            const isValid = await form.trigger(['wallet_ramp_wallet_id', 'wallet_ramp_destination_currency'], { shouldFocus: true })
+            if (!isValid) return
+            setRampDepositSubStep('network')
+            return
+          }
+          if (rampDepositSubStep === 'network') {
+            const fieldsToValidate: FieldPath<PaymentOrderFormValues>[] = [
+              'wallet_ramp_source_network',
+              'origin_currency',
+            ]
+            const isValid = await form.trigger(fieldsToValidate, { shouldFocus: true })
+            if (!isValid) return
+            setRampDepositSubStep('reason')
+            return
+          }
+          if (rampDepositSubStep === 'reason') {
+            const isValid = await form.trigger(['payment_reason'], { shouldFocus: true })
+            if (!isValid) return
+            if (!supportFile) {
+              setShowSupportFileError(true)
+              toast.error('Debes adjuntar el documento de respaldo para continuar.')
+              return
+            }
+            setShowSupportFileError(false)
+          }
+        } else {
+          // fiat_us: flujo monolítico original
+          const isValidWalletRamp = await form.trigger([
+            'amount_origin',
+            'wallet_ramp_method',
+            'wallet_ramp_va_id',
+          ], { shouldFocus: true })
+          if (!isValidWalletRamp) return
+        }
       } else if (hasSubStepFlow) {
         // ── Sub-pasos para bolivia_to_exterior y crypto_to_crypto ──
         if (detailSubStep === 'supplier') {
@@ -895,6 +962,22 @@ export function CreatePaymentOrderForm({
     }
     if (step === 'review' && isFiatUsWithdraw) {
       setFiatUsSubStep('amount')
+    }
+    // Sub-paso navigation para fiat_bo_to_bridge_wallet deposit
+    if (step === 'detail' && isFiatBoDeposit && fiatBoDepositSubStep !== 'wallet') {
+      const idx = FIAT_BO_DEPOSIT_SUB_ORDER.indexOf(fiatBoDepositSubStep)
+      if (idx > 0) { setFiatBoDepositSubStep(FIAT_BO_DEPOSIT_SUB_ORDER[idx - 1]); return }
+    }
+    if (step === 'review' && isFiatBoDeposit) {
+      setFiatBoDepositSubStep('amount')
+    }
+    // Sub-paso navigation para wallet_ramp_deposit (crypto)
+    if (step === 'detail' && isRampDepositWithSubSteps && rampDepositSubStep !== 'wallet') {
+      const idx = RAMP_DEPOSIT_SUB_ORDER.indexOf(rampDepositSubStep)
+      if (idx > 0) { setRampDepositSubStep(RAMP_DEPOSIT_SUB_ORDER[idx - 1]); return }
+    }
+    if (step === 'review' && isRampDepositWithSubSteps) {
+      setRampDepositSubStep('reason')
     }
     const currentIndex = STEP_ORDER.indexOf(step)
     const previousStep = STEP_ORDER[currentIndex - 1]
@@ -1224,7 +1307,7 @@ export function CreatePaymentOrderForm({
 
                 {step === 'detail' ? (
                   <>
-                  {!hasSubStepFlow && !isFiatBoWithdraw && !isCryptoWithdraw && !isFiatUsWithdraw && (
+                  {!hasSubStepFlow && !isFiatBoWithdraw && !isCryptoWithdraw && !isFiatUsWithdraw && !isFiatBoDeposit && !isRampDepositWithSubSteps && (
                   <AnimatedStepPanel key="detail">
                     <SectionHeading
                       icon={currentRoute.key === 'crypto_to_crypto' ? Network : Wallet}
@@ -2196,6 +2279,200 @@ export function CreatePaymentOrderForm({
                       </div>
                     </AnimatedStepPanel>
                   )}
+
+                  {isFiatBoDeposit && (
+                    <AnimatedStepPanel key={`detail-fiat-bo-deposit-${fiatBoDepositSubStep}`}>
+                      {/* Indicador de sub-pasos */}
+                      <div className="flex items-center gap-2 mb-6 px-1">
+                        {FIAT_BO_DEPOSIT_SUB_ORDER.map((sub, i) => (
+                          <div key={sub} className="flex items-center gap-2">
+                            <div className={cn(
+                              'size-2 rounded-full transition-colors',
+                              fiatBoDepositSubStep === sub ? 'bg-primary' :
+                              FIAT_BO_DEPOSIT_SUB_ORDER.indexOf(fiatBoDepositSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
+                            )} />
+                            {i < FIAT_BO_DEPOSIT_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="grid gap-4">
+                        {fiatBoDepositSubStep === 'wallet' && (
+                          <>
+                            <SectionHeading
+                              icon={Wallet}
+                              eyebrow="Etapa 3 — Paso 1 de 3"
+                              title="Wallet Bridge Destino"
+                              description="Selecciona la wallet Bridge de destino y el token que recibirás."
+                            />
+                            <WalletRampDetailStep
+                              form={form}
+                              method="fiat_bo"
+                              wallets={bridgeWallets}
+                              virtualAccounts={virtualAccounts}
+                              loadingVirtualAccounts={loadingVirtualAccounts}
+                              onVaCreated={(va) => setVirtualAccounts(prev => [...prev, va])}
+                              exchangeRates={exchangeRates}
+                              feesConfig={feesConfig}
+                              disabled={disabled}
+                              subStep="wallet"
+                            />
+                          </>
+                        )}
+
+                        {fiatBoDepositSubStep === 'reason' && (
+                          <>
+                            <SectionHeading
+                              icon={FileText}
+                              eyebrow="Etapa 3 — Paso 2 de 3"
+                              title="Motivo y Respaldo"
+                              description="Ingresa el motivo del depósito y adjunta el documento de respaldo obligatorio."
+                            />
+                            <TextField control={form.control} disabled={disabled} label="Motivo del depósito" name="payment_reason" />
+                            <DocumentInputCard
+                              className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
+                              file={supportFile}
+                              label="Documento de respaldo"
+                              description="Obligatorio. Se guardará como support_document_url al crear la orden."
+                              onFileChange={(f) => {
+                                setSupportFile(f)
+                                if (f) setShowSupportFileError(false)
+                              }}
+                            />
+                          </>
+                        )}
+
+                        {fiatBoDepositSubStep === 'amount' && (
+                          <>
+                            <SectionHeading
+                              icon={Banknote}
+                              eyebrow="Etapa 3 — Paso 3 de 3"
+                              title="Monto Inicial en BOB"
+                              description="Ingresa el monto en bolivianos que deseas depositar a tu wallet Bridge."
+                            />
+                            <WalletRampDetailStep
+                              form={form}
+                              method="fiat_bo"
+                              wallets={bridgeWallets}
+                              virtualAccounts={virtualAccounts}
+                              loadingVirtualAccounts={loadingVirtualAccounts}
+                              onVaCreated={(va) => setVirtualAccounts(prev => [...prev, va])}
+                              exchangeRates={exchangeRates}
+                              feesConfig={feesConfig}
+                              disabled={disabled}
+                              subStep="amount"
+                            />
+                          </>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between mt-8">
+                        <AnimatedBackButton onClick={handleBack}>
+                          {fiatBoDepositSubStep === 'wallet' ? 'Volver' : 'Anterior'}
+                        </AnimatedBackButton>
+                        <AnimatedNextButton disabled={disabled} onClick={handleNext}>
+                          {fiatBoDepositSubStep === 'amount' ? 'Revisar expediente' : 'Siguiente'}
+                        </AnimatedNextButton>
+                      </div>
+                    </AnimatedStepPanel>
+                  )}
+
+                  {isRampDepositWithSubSteps && (
+                    <AnimatedStepPanel key={`detail-ramp-deposit-${rampDepositSubStep}`}>
+                      {/* Indicador de sub-pasos */}
+                      <div className="flex items-center gap-2 mb-6 px-1">
+                        {RAMP_DEPOSIT_SUB_ORDER.map((sub, i) => (
+                          <div key={sub} className="flex items-center gap-2">
+                            <div className={cn(
+                              'size-2 rounded-full transition-colors',
+                              rampDepositSubStep === sub ? 'bg-primary' :
+                              RAMP_DEPOSIT_SUB_ORDER.indexOf(rampDepositSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
+                            )} />
+                            {i < RAMP_DEPOSIT_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="grid gap-4">
+                        {rampDepositSubStep === 'wallet' && (
+                          <>
+                            <SectionHeading
+                              icon={Wallet}
+                              eyebrow="Etapa 3 — Paso 1 de 3"
+                              title="Wallet y Token Destino"
+                              description="Selecciona tu wallet Bridge destino y el token que deseas recibir."
+                            />
+                            <WalletRampDetailStep
+                              form={form}
+                              method={walletRampMethod || 'fiat_bo'}
+                              wallets={bridgeWallets}
+                              virtualAccounts={virtualAccounts}
+                              loadingVirtualAccounts={loadingVirtualAccounts}
+                              onVaCreated={(va) => setVirtualAccounts(prev => [...prev, va])}
+                              exchangeRates={exchangeRates}
+                              feesConfig={feesConfig}
+                              disabled={disabled}
+                              subStep="wallet"
+                            />
+                          </>
+                        )}
+
+                        {rampDepositSubStep === 'network' && (
+                          <>
+                            <SectionHeading
+                              icon={Network}
+                              eyebrow="Etapa 3 — Paso 2 de 3"
+                              title="Red y Moneda de Origen"
+                              description="Selecciona la red blockchain y la moneda desde la que enviarás los fondos."
+                            />
+                            <WalletRampDetailStep
+                              form={form}
+                              method={walletRampMethod || 'fiat_bo'}
+                              wallets={bridgeWallets}
+                              virtualAccounts={virtualAccounts}
+                              loadingVirtualAccounts={loadingVirtualAccounts}
+                              onVaCreated={(va) => setVirtualAccounts(prev => [...prev, va])}
+                              exchangeRates={exchangeRates}
+                              feesConfig={feesConfig}
+                              disabled={disabled}
+                              subStep="network"
+                            />
+                          </>
+                        )}
+
+                        {rampDepositSubStep === 'reason' && (
+                          <>
+                            <SectionHeading
+                              icon={FileText}
+                              eyebrow="Etapa 3 — Paso 3 de 3"
+                              title="Motivo y Respaldo"
+                              description="Ingresa el motivo del depósito y adjunta el documento de respaldo obligatorio."
+                            />
+                            <TextField control={form.control} disabled={disabled} label="Motivo del depósito" name="payment_reason" />
+                            <DocumentInputCard
+                              className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
+                              file={supportFile}
+                              label="Documento de respaldo"
+                              description="Obligatorio. Se guardará como support_document_url al crear la orden."
+                              onFileChange={(f) => {
+                                setSupportFile(f)
+                                if (f) setShowSupportFileError(false)
+                              }}
+                            />
+                          </>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between mt-8">
+                        <AnimatedBackButton onClick={handleBack}>
+                          {rampDepositSubStep === 'wallet' ? 'Volver' : 'Anterior'}
+                        </AnimatedBackButton>
+                        <AnimatedNextButton disabled={disabled} onClick={handleNext}>
+                          {rampDepositSubStep === 'reason' ? 'Revisar expediente' : 'Siguiente'}
+                        </AnimatedNextButton>
+                      </div>
+                    </AnimatedStepPanel>
+                  )}
                   </>
                 ) : null}
 
@@ -2436,7 +2713,7 @@ function getDefaultValues(route: SupportedPaymentRoute): PaymentOrderFormValues 
       origin_currency: 'BOB',
       destination_currency: 'USDC',
       delivery_method: 'ach', // Not really used but required by schema
-      payment_reason: 'Deposit to wallet',
+      payment_reason: '',
       intended_amount: 0,
       destination_address: '',
       stablecoin: 'USDC',
@@ -3187,6 +3464,12 @@ function buildReviewItems(args: {
         ? `${vaSelected.bank_name ?? 'Banco VA'} — ****${vaSelected.account_number?.slice(-4) ?? ''}`
         : (args.values.wallet_ramp_va_id || 'Pendiente')
       items.push({ label: 'Virtual Account Origen', value: vaReadable })
+    }
+
+    // Motivo y documento de respaldo para fiat_bo y crypto
+    if (args.values.wallet_ramp_method === 'fiat_bo' || args.values.wallet_ramp_method === 'crypto') {
+      items.push({ label: 'Motivo', value: args.values.payment_reason || 'Pendiente' })
+      items.push({ label: 'Respaldo', value: args.supportFileName ?? 'No adjuntado' })
     }
   }
 

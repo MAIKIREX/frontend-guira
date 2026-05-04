@@ -39,20 +39,20 @@ export function ClientNavigation({
               'group relative flex overflow-hidden  text-sm transition-all duration-200',
               collapsed ? 'justify-center px-3 py-3.5' : 'items-center gap-3 px-4 py-3.5',
               active
-                ? 'bg-accent/12 text-foreground shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent)_24%,transparent)]'
+                ? 'bg-primary/12 text-foreground shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-primary)_24%,transparent)]'
                 : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
             )}
           >
             <span
               className={cn(
                 'absolute right-0 top-0 bottom-0 w-1  bg-transparent transition-colors duration-200',
-                active && 'bg-accent'
+                active && 'bg-primary'
               )}
             />
             <span
               className={cn(
                 'relative z-10 flex shrink-0 items-center justify-center text-muted-foreground transition-colors duration-200',
-                active && 'text-accent'
+                active && 'text-primary'
               )}
             >
               <Icon className={cn('size-4', !collapsed && 'size-[1.05rem]')} />

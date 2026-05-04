@@ -149,6 +149,13 @@ export const paymentOrderSchema = z
         }
       }
 
+      // ── Motivo obligatorio para fiat_bo y crypto ──
+      if (value.wallet_ramp_method === 'fiat_bo' || value.wallet_ramp_method === 'crypto') {
+        if (!value.payment_reason || value.payment_reason.trim().length < 5) {
+          ctx.addIssue({ code: 'custom', message: 'El motivo del depósito es obligatorio (mín. 5 caracteres).', path: ['payment_reason'] })
+        }
+      }
+
       // Early return to avoid triggering interbank route validations
       return
     }

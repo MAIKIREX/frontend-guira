@@ -13,6 +13,7 @@ import {
   StaffTransfersPanel,
   StaffUsersTable,
 } from '@/features/staff/components/staff-dashboard-sections'
+import { StaffConfigPanelV2 } from '@/features/staff/components/staff-config-panel'
 
 export function StaffOverviewRoute() {
   return (
@@ -95,7 +96,7 @@ export function StaffConfigRoute() {
   return (
     <StaffDashboardPage>
       {({ snapshot, actor, isPrivileged, reload, replaceAppSetting, replaceFeeConfig }) => (
-        <StaffConfigPanel
+        <StaffConfigPanelV2
           snapshot={snapshot}
           actor={actor}
           isPrivileged={isPrivileged}

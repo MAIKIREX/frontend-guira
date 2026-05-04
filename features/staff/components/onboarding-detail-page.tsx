@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import {
+  AlertTriangle,
   ArrowLeft,
   CalendarDays,
   ExternalLink,
@@ -14,6 +15,7 @@ import {
   ScanSearch,
   Send,
   UserCheck,
+  X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -160,6 +162,47 @@ function OnboardingDetailScene({
   const sections = useMemo(() => buildStructuredSections(record, data), [record, data])
   const mergedDocuments = useMemo(() => mergeDocuments(documents, data, record.created_at), [documents, data, record.created_at])
 
+  // ── Audit Mode State ──
+  const [fieldObservations, setFieldObservations] = useState<Record<string, string>>({})
+  const [auditGlobalReason, setAuditGlobalReason] = useState('')
+  const [submittingAudit, setSubmittingAudit] = useState(false)
+  const auditCount = Object.keys(fieldObservations).length
+
+  const addObservation = useCallback((key: string, message: string) => {
+    setFieldObservations(prev => ({ ...prev, [key]: message }))
+  }, [])
+
+  const removeObservation = useCallback((key: string) => {
+    setFieldObservations(prev => {
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+  }, [])
+
+  async function submitCorrections() {
+    if (auditCount === 0) return
+    setSubmittingAudit(true)
+    try {
+      const updatedRecord = await ComplianceAdminService.updateOnboardingStatus({
+        actor,
+        record,
+        status: 'in_review',
+        reason: auditGlobalReason.trim() || 'Se solicitan correcciones en los campos marcados.',
+        fieldObservations,
+      })
+      toast.success('Solicitud de correcciones enviada.')
+      setFieldObservations({})
+      setAuditGlobalReason('')
+      onUpdated(updatedRecord)
+    } catch (err) {
+      console.error('Failed to submit corrections', err)
+      toast.error('No se pudo enviar la solicitud de correcciones.')
+    } finally {
+      setSubmittingAudit(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="space-y-3">
@@ -177,127 +220,98 @@ function OnboardingDetailScene({
             <TabsTrigger className="rounded-none px-4 py-3" value="diff-view">Cambios (Diff)</TabsTrigger>
           )}
           <TabsTrigger className="rounded-none px-4 py-3" value="documents">Documentos</TabsTrigger>
-          <TabsTrigger className="rounded-none px-4 py-3" value="activity">Actividad</TabsTrigger>
-          <TabsTrigger className="rounded-none px-4 py-3" value="decision">Decision</TabsTrigger>
+          <TabsTrigger className="rounded-none px-4 py-3" value="review">Revisión</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="form-data">
-          <div className="mx-auto max-w-5xl">
-            <Card className="border-border/70 bg-card/95">
-              <CardHeader>
-                <CardTitle>Formulario declarado</CardTitle>
-                <CardDescription>
-                  Lectura principal del expediente en formato mas ordenado. Recorre el formulario por secciones, con filas simples y sin cards repetidas por cada dato.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {sections.map((section) => (
-                  <SectionBlock key={section.title} section={section} />
-                ))}
-              </CardContent>
-            </Card>
+        <TabsContent value="form-data" className="pt-6">
+          <div className={`mx-auto max-w-4xl space-y-12 ${auditCount > 0 ? 'pb-40' : ''}`}>
+            {sections.map((section) => (
+              <SectionBlock
+                key={section.title}
+                section={section}
+                fieldObservations={fieldObservations}
+                onAddObservation={addObservation}
+                onRemoveObservation={removeObservation}
+              />
+            ))}
           </div>
         </TabsContent>
 
         {record.previous_data && (
-          <TabsContent value="diff-view">
-            <div className="mx-auto max-w-5xl">
-              <Card className="border-border/70 bg-card/95">
-                <CardHeader>
-                  <CardTitle>Análisis de Cambios (Diff)</CardTitle>
-                  <CardDescription>
-                    Comparación entre la información actual provista por el usuario y los datos previos a la solicitud de corrección. Los campos marcados en verde son los que el cliente ha modificado.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {buildDiffSections(record, record.previous_data, data).map((section) => (
-                    <SectionDiffBlock key={section.title} section={section} />
-                  ))}
-                </CardContent>
-              </Card>
+          <TabsContent value="diff-view" className="pt-6">
+            <div className="mx-auto max-w-4xl space-y-12">
+              {buildDiffSections(record, record.previous_data, data).map((section) => (
+                <SectionDiffBlock key={section.title} section={section} />
+              ))}
             </div>
           </TabsContent>
         )}
 
-        <TabsContent value="documents">
-          <div className="mx-auto max-w-6xl">
-            <Card className="border-border/70 bg-card/95">
-              <CardHeader>
-                <CardTitle>Evidencia documental</CardTitle>
-                <CardDescription>
-                  Cada documento aparece una sola vez con su metadata operativa, su origen y la vista previa cuando el sistema dispone de URL firmada.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {mergedDocuments.length === 0 ? (
-                  <EmptyState message="No se encontraron documentos asociados a este expediente." />
-                ) : (
-                  mergedDocuments.map((document, index) => (
-                    <div key={`${document.doc_type}-${document.storage_path}-${index}`} className="rounded-2xl border border-border/70 bg-muted/15 p-4">
-                      <div className="grid gap-4 xl:grid-cols-[1fr_260px]">
-                        <div className="space-y-3">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <div className="text-sm font-medium text-foreground">{formatDocumentLabel(document.doc_type)}</div>
-                            <Badge className="border-border/70 bg-background/70 text-muted-foreground" variant="outline">
-                              {document.source === 'documents' ? 'tabla documents' : 'payload onboarding'}
-                            </Badge>
-                          </div>
-                          <div className="grid gap-3 md:grid-cols-2">
-                            <MetaRow icon={FileText} label="Tipo de documento" value={formatDocumentLabel(document.doc_type)} />
-                            <MetaRow icon={CalendarDays} label="Fecha de carga" value={formatDate(document.created_at)} />
-                            <MetaRow icon={Mail} label="Mime / origen" value={document.mime_type ?? (document.source === 'documents' ? 'Registrado en documents' : 'Detectado desde payload')} />
-                            <MetaRow icon={ScanSearch} label="Caso asociado" value={summary.caseTypeLabel} />
-                          </div>
-                          <div className="rounded-2xl border border-border/70 bg-card/80 p-3 text-xs text-muted-foreground">
-                            <div className="mb-1 uppercase tracking-[0.18em] text-muted-foreground">Ruta</div>
-                            <div className="break-all">{document.storage_path}</div>
-                          </div>
-                        </div>
-
-                        <DocumentPreview document={document} />
-                      </div>
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        {/* C9: Tab de Actividad — historial de eventos, comentarios y asignación */}
-        <TabsContent value="activity">
-          <div className="mx-auto max-w-5xl">
-            <ActivityTab reviewId={reviewId} record={record} actor={actor} />
-          </div>
-        </TabsContent>
-
-        <TabsContent value="decision">
-          <div className="mx-auto max-w-4xl">
-            <Card className="border-border/70 bg-card/95">
-              <CardHeader>
-                <CardTitle>Estado y resolucion</CardTitle>
-                <CardDescription>
-                  Bloque formal para tomar la decision sin volver a recorrer todo el contenido del expediente.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <CompactInfoList
-                  rows={[
-                    { label: 'Estado KYC/KYB', value: record.status },
-                    { label: 'Fecha de envio', value: formatDate(record.created_at) },
-                    { label: 'Fecha de revision', value: formatDate(record.updated_at) },
-                    { label: 'Comentarios del revisor', value: record.observations || 'Sin comentarios registrados' },
-                    { label: 'Bridge customer id', value: record.bridge_customer_id || 'Pendiente' },
-                  ]}
+        <TabsContent value="documents" className="pt-6">
+          <div className={`mx-auto max-w-4xl space-y-12 ${auditCount > 0 ? 'pb-40' : ''}`}>
+            {mergedDocuments.length === 0 ? (
+              <EmptyState message="No se encontraron documentos asociados a este expediente." />
+            ) : (
+              mergedDocuments.map((document, index) => (
+                <DocumentBlock
+                  key={`${document.doc_type}-${document.storage_path}-${index}`}
+                  document={document}
+                  caseTypeLabel={summary.caseTypeLabel}
+                  fieldObservations={fieldObservations}
+                  onAddObservation={addObservation}
+                  onRemoveObservation={removeObservation}
                 />
-              </CardContent>
-            </Card>
-            <div className="mt-4 flex flex-wrap justify-end gap-2">
-              <OnboardingActions actor={actor} onUpdated={onUpdated} record={record} />
-            </div>
+              ))
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="review" className="pt-6">
+          <div className="mx-auto max-w-4xl">
+            <ActivityTab reviewId={reviewId} record={record} actor={actor} onUpdated={onUpdated} />
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* ── Sticky Audit Action Bar ── */}
+      {auditCount > 0 && (
+        <div className="sticky bottom-0 z-50 -mx-6 mt-6 border-t border-amber-500/30 bg-background/95 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] backdrop-blur-md sm:-mx-8">
+          <div className="mx-auto flex max-w-4xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:gap-4">
+            <div className="flex items-center gap-2 text-[13px] font-semibold text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="size-4" />
+              <span>{auditCount} {auditCount === 1 ? 'campo marcado' : 'campos marcados'}</span>
+            </div>
+            <input
+              className="h-9 flex-1 rounded-lg border border-border/50 bg-background/80 px-3 text-[13px] placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+              placeholder="Mensaje general al cliente (opcional)..."
+              value={auditGlobalReason}
+              onChange={(e) => setAuditGlobalReason(e.target.value)}
+            />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+                onClick={() => { setFieldObservations({}); setAuditGlobalReason('') }}
+              >
+                Descartar
+              </Button>
+              <Button
+                disabled={submittingAudit}
+                className="h-10 bg-amber-600 px-5 text-sm font-semibold text-white shadow-md hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600"
+                onClick={submitCorrections}
+              >
+                {submittingAudit ? (
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                ) : (
+                  <Send className="mr-2 size-4" />
+                )}
+                {submittingAudit ? 'Enviando...' : 'Solicitar Correcciones'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -325,10 +339,12 @@ function ActivityTab({
   reviewId,
   record,
   actor,
+  onUpdated,
 }: {
   reviewId: string
   record: StaffOnboardingRecord
   actor: StaffActor
+  onUpdated: (record: StaffOnboardingRecord) => void
 }) {
   const [events, setEvents] = useState<ActivityEvent[]>([])
   const [comments, setComments] = useState<ActivityComment[]>([])
@@ -378,166 +394,290 @@ function ActivityTab({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Timeline de eventos */}
-      <Card className="border-border/70 bg-card/95">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <UserCheck className="size-5 text-muted-foreground" />
-            Historial de decisiones
-          </CardTitle>
-          <CardDescription>
-            Registro inmutable de todas las acciones tomadas sobre este expediente.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {events.length === 0 ? (
-            <EmptyState message="No hay eventos registrados para este expediente." />
-          ) : (
-            <div className="space-y-3">
-              {events.map((event, idx) => (
-                <div
-                  key={event.id ?? idx}
-                  className="flex gap-3 rounded-2xl border border-border/70 bg-background/40 p-4"
-                >
-                  <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full border border-border/70 bg-muted/20">
-                    <span className="text-xs font-bold text-muted-foreground">{idx + 1}</span>
-                  </div>
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge
-                        variant="outline"
-                        className={
-                          event.decision === 'APPROVED'
-                            ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-700 dark:text-emerald-300'
-                            : event.decision === 'REJECTED'
-                              ? 'border-red-400/40 bg-red-400/10 text-red-700 dark:text-red-300'
-                              : 'border-amber-400/40 bg-amber-400/10 text-amber-700 dark:text-amber-300'
-                        }
-                      >
-                        {event.decision ?? 'UNKNOWN'}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(event.created_at)}
-                      </span>
-                    </div>
-                    {event.reason && (
-                      <p className="text-sm leading-relaxed text-foreground">{event.reason}</p>
-                    )}
-                    {event.metadata && Object.keys(event.metadata).length > 0 && (
-                      <pre className="mt-2 overflow-x-auto rounded-xl bg-muted/30 p-2 text-xs text-muted-foreground">
-                        {JSON.stringify(event.metadata, null, 2)}
-                      </pre>
-                    )}
-                    <div className="text-[11px] text-muted-foreground/60">
-                      Actor: {event.actor_id?.slice(0, 8) ?? 'Desconocido'}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+    <div className="space-y-12">
+      {/* ── Bloque 1: Estado del expediente ── */}
+      <div className="space-y-4">
+        <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-sky-800 dark:text-cyan-400/90">
+          Estado del expediente
+        </div>
+        <CompactInfoList
+          rows={[
+            { label: 'Estado KYC/KYB', value: record.status },
+            { label: 'Fecha de envío', value: formatDate(record.created_at) },
+            { label: 'Fecha de revisión', value: formatDate(record.updated_at) },
+            { label: 'Comentarios del revisor', value: record.observations || 'Sin comentarios registrados' },
+            { label: 'Bridge customer ID', value: record.bridge_customer_id || 'Pendiente' },
+          ]}
+        />
+      </div>
 
-      {/* Comentarios internos */}
-      <Card className="border-border/70 bg-card/95">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquarePlus className="size-5 text-muted-foreground" />
-            Comentarios internos
-          </CardTitle>
-          <CardDescription>
-            Notas del equipo visibles solo para staff. Útiles para coordinar la revisión del expediente.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {comments.length === 0 ? (
-            <EmptyState message="No hay comentarios registrados." />
-          ) : (
-            <div className="space-y-3">
-              {comments.map((comment, idx) => (
-                <div
-                  key={comment.id ?? idx}
-                  className="rounded-2xl border border-border/70 bg-background/40 p-4"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm leading-relaxed text-foreground">{comment.body}</p>
-                    {comment.is_internal && (
-                      <Badge variant="outline" className="shrink-0 border-border/70 bg-background/70 text-muted-foreground text-[10px]">
-                        Interno
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground/60">
-                    <span>Por: {comment.author_id?.slice(0, 8) ?? 'Desconocido'}</span>
-                    <span>{formatDate(comment.created_at)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+      {/* ── Bloque 2: Acciones ── */}
+      <div className="space-y-4">
+        <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-sky-800 dark:text-cyan-400/90">
+          Acciones
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <OnboardingActions actor={actor} onUpdated={onUpdated} record={record} />
+        </div>
+      </div>
 
-          {/* Form para agregar comentario */}
-          <div className="rounded-2xl border border-border/70 bg-muted/10 p-4">
-            <Textarea
-              className="mb-3 min-h-[80px] resize-none border-border/70 bg-background/60"
-              placeholder="Escribe un comentario interno..."
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-            />
-            <div className="flex justify-end">
-              <Button
-                disabled={!newComment.trim() || submitting}
-                size="sm"
-                onClick={handleAddComment}
+      {/* ── Bloque 3: Historial de decisiones ── */}
+      <div className="space-y-4">
+        <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-sky-800 dark:text-cyan-400/90">
+          Historial de decisiones
+        </div>
+        {events.length === 0 ? (
+          <EmptyState message="No hay eventos registrados para este expediente." />
+        ) : (
+          <div className="divide-y divide-border/50">
+            {events.map((event, idx) => (
+              <div
+                key={event.id ?? idx}
+                className="flex gap-4 py-5"
               >
-                {submitting ? (
-                  <Loader2 className="mr-2 size-3.5 animate-spin" />
-                ) : (
-                  <Send className="mr-2 size-3.5" />
-                )}
-                {submitting ? 'Enviando...' : 'Agregar comentario'}
-              </Button>
-            </div>
+                <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-sky-800/10 dark:bg-cyan-400/15">
+                  <span className="text-[11px] font-bold text-sky-800 dark:text-cyan-400">{idx + 1}</span>
+                </div>
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className={
+                        event.decision === 'APPROVED'
+                          ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-700 dark:text-emerald-300'
+                          : event.decision === 'REJECTED'
+                            ? 'border-red-400/40 bg-red-400/10 text-red-700 dark:text-red-300'
+                            : 'border-amber-400/40 bg-amber-400/10 text-amber-700 dark:text-amber-300'
+                      }
+                    >
+                      {event.decision ?? 'UNKNOWN'}
+                    </Badge>
+                    <span className="text-[12px] text-slate-500 dark:text-slate-400">
+                      {formatDate(event.created_at)}
+                    </span>
+                  </div>
+                  {event.reason && (
+                    <p className="text-[13.5px] leading-relaxed text-slate-900 dark:text-slate-100">{event.reason}</p>
+                  )}
+                  {event.metadata && Object.keys(event.metadata).length > 0 && (
+                    <pre className="mt-2 overflow-x-auto rounded-lg bg-slate-100 p-2.5 text-xs text-slate-600 dark:bg-slate-800/50 dark:text-slate-400">
+                      {JSON.stringify(event.metadata, null, 2)}
+                    </pre>
+                  )}
+                  <div className="text-[11px] text-slate-400 dark:text-slate-500">
+                    Actor: {event.actor_id?.slice(0, 8) ?? 'Desconocido'}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </div>
+
+      {/* ── Bloque 4: Comentarios internos ── */}
+      <div className="space-y-4">
+        <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-sky-800 dark:text-cyan-400/90">
+          Comentarios internos
+        </div>
+
+        {comments.length === 0 ? (
+          <EmptyState message="No hay comentarios registrados." />
+        ) : (
+          <div className="divide-y divide-border/50">
+            {comments.map((comment, idx) => (
+              <div
+                key={comment.id ?? idx}
+                className="py-5"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-[13.5px] leading-relaxed text-slate-900 dark:text-slate-100">{comment.body}</p>
+                  {comment.is_internal && (
+                    <Badge variant="outline" className="shrink-0 border-sky-800/20 bg-sky-800/5 text-sky-800 text-[10px] dark:border-cyan-400/20 dark:bg-cyan-400/10 dark:text-cyan-300">
+                      Interno
+                    </Badge>
+                  )}
+                </div>
+                <div className="mt-2 flex items-center gap-3 text-[11px] text-slate-400 dark:text-slate-500">
+                  <span>Por: {comment.author_id?.slice(0, 8) ?? 'Desconocido'}</span>
+                  <span>{formatDate(comment.created_at)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Form para agregar comentario */}
+        <div className="space-y-3 pt-2">
+          <Textarea
+            className="min-h-[80px] resize-none border-border/50 bg-background/60 focus-visible:ring-sky-800/30 dark:focus-visible:ring-cyan-400/30"
+            placeholder="Escribe un comentario interno..."
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+          />
+          <div className="flex justify-end">
+            <Button
+              disabled={!newComment.trim() || submitting}
+              size="sm"
+              className="bg-sky-800 text-white hover:bg-sky-900 dark:bg-cyan-500/20 dark:text-cyan-300 dark:hover:bg-cyan-500/30"
+              onClick={handleAddComment}
+            >
+              {submitting ? (
+                <Loader2 className="mr-2 size-3.5 animate-spin" />
+              ) : (
+                <Send className="mr-2 size-3.5" />
+              )}
+              {submitting ? 'Enviando...' : 'Agregar comentario'}
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
 
 // ── Section components ──────────────────────────────────────────────────────
 
-function SectionBlock({ section }: { section: DetailSection }) {
+type AuditProps = {
+  fieldObservations?: Record<string, string>
+  onAddObservation?: (key: string, message: string) => void
+  onRemoveObservation?: (key: string) => void
+}
+
+function SectionBlock({ section, fieldObservations, onAddObservation, onRemoveObservation }: { section: DetailSection } & AuditProps) {
   return (
-    <div className="rounded-2xl border border-border/70 bg-card/90 p-4">
-      <div className="border-b border-border/70 pb-3">
-        <div className="text-sm font-medium text-foreground">{section.title}</div>
-        <div className="mt-1 text-sm text-muted-foreground">{section.description}</div>
+    <div className="space-y-4">
+      <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-sky-800 dark:text-cyan-400/90">
+        {section.title}
       </div>
-      <div className="mt-3">
+      <div>
         {section.rows.length === 0 ? (
           <EmptyState message="No hay datos cargados en esta seccion." />
         ) : (
-          <CompactInfoList rows={section.rows} />
+          <CompactInfoList
+            rows={section.rows}
+            fieldObservations={fieldObservations}
+            onAddObservation={onAddObservation}
+            onRemoveObservation={onRemoveObservation}
+          />
         )}
       </div>
     </div>
   )
 }
 
-function CompactInfoList({ rows }: { rows: SummaryRow[] }) {
+function CompactInfoList({ rows, fieldObservations = {}, onAddObservation, onRemoveObservation }: { rows: SummaryRow[] } & AuditProps) {
   return (
-    <div className="divide-y divide-border/70 rounded-2xl border border-border/70 bg-background/40">
+    <div className="divide-y divide-border/50">
       {rows.map((row) => (
-        <div key={row.label} className="grid gap-2 px-4 py-3 md:grid-cols-[180px_1fr] md:items-start">
-          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-            {row.label}
-          </div>
-          <div className="text-sm leading-6 text-foreground">{row.value}</div>
-        </div>
+        <AuditableRow
+          key={row.label}
+          fieldKey={row.label}
+          label={row.label}
+          value={row.value}
+          observation={fieldObservations[row.label]}
+          onAdd={onAddObservation}
+          onRemove={onRemoveObservation}
+        />
       ))}
+    </div>
+  )
+}
+
+function AuditableRow({
+  fieldKey,
+  label,
+  value,
+  observation,
+  onAdd,
+  onRemove,
+}: {
+  fieldKey: string
+  label: string
+  value: string
+  observation?: string
+  onAdd?: (key: string, message: string) => void
+  onRemove?: (key: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const isRejected = observation !== undefined
+  const isAuditable = Boolean(onAdd && onRemove)
+
+  function handleConfirm() {
+    if (!draft.trim() || !onAdd) return
+    onAdd(fieldKey, draft.trim())
+    setDraft('')
+    setEditing(false)
+  }
+
+  function handleCancel() {
+    setDraft('')
+    setEditing(false)
+  }
+
+  function handleRemove() {
+    if (!onRemove) return
+    onRemove(fieldKey)
+    setEditing(false)
+    setDraft('')
+  }
+
+  return (
+    <div className={`group relative py-4 transition-colors ${isRejected ? 'rounded-lg bg-amber-500/5' : ''}`}>
+      <div className="grid gap-4 md:grid-cols-[260px_1fr] md:items-center">
+        <div className="text-[13.5px] font-medium text-slate-600 dark:text-slate-400">
+          {label}
+        </div>
+        <div className="flex items-center gap-3">
+          <div className={`flex-1 text-[13.5px] font-semibold ${isRejected ? 'text-amber-800 dark:text-amber-300' : 'text-slate-900 dark:text-slate-100'}`}>
+            {value}
+          </div>
+          {!isRejected && !editing && isAuditable && (
+            <button
+              type="button"
+              className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground/40 opacity-0 transition-all hover:bg-red-500/10 hover:text-red-600 group-hover:opacity-100 dark:hover:text-red-400"
+              title="Marcar error en este campo"
+              onClick={() => setEditing(true)}
+            >
+              <AlertTriangle className="size-3.5" />
+            </button>
+          )}
+          {isRejected && isAuditable && (
+            <button
+              type="button"
+              className="flex size-7 shrink-0 items-center justify-center rounded-md text-amber-600 transition-all hover:bg-red-500/10 hover:text-red-600 dark:text-amber-400"
+              title="Quitar observación"
+              onClick={handleRemove}
+            >
+              <X className="size-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Inline observation input */}
+      {editing && !isRejected && (
+        <div className="mt-3 flex items-center gap-2 pl-0 md:pl-[276px]">
+          <input
+            autoFocus
+            className="h-8 flex-1 rounded-md border border-amber-400/40 bg-amber-50/50 px-3 text-[12.5px] text-slate-800 placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-amber-500/30 dark:bg-amber-900/20 dark:text-slate-200"
+            placeholder="¿Por qué este campo necesita corrección?"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleConfirm() } if (e.key === 'Escape') handleCancel() }}
+          />
+          <Button size="sm" variant="ghost" className="h-8 text-[12px] text-muted-foreground" onClick={handleCancel}>Cancelar</Button>
+          <Button size="sm" className="h-8 bg-amber-600 text-[12px] text-white hover:bg-amber-700" disabled={!draft.trim()} onClick={handleConfirm}>Marcar</Button>
+        </div>
+      )}
+
+      {/* Show saved observation */}
+      {isRejected && (
+        <div className="mt-2 flex items-center gap-2 pl-0 md:pl-[276px]">
+          <AlertTriangle className="size-3 shrink-0 text-amber-600 dark:text-amber-400" />
+          <span className="text-[12.5px] text-amber-700 dark:text-amber-400">{observation}</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -561,11 +701,10 @@ function SectionDiffBlock({ section }: { section: DiffSection }) {
   const hasChanges = section.rows.some((row) => row.isChanged)
 
   return (
-    <div className="space-y-4 rounded-xl border border-border/50 bg-background/50 p-5">
+    <div className="space-y-4">
       <div className="flex items-start justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">{section.title}</h3>
-          <p className="mt-1 text-xs text-muted-foreground">{section.description}</p>
+        <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-sky-800 dark:text-cyan-400/90">
+          {section.title}
         </div>
         {hasChanges && (
           <Badge variant="outline" className="border-emerald-400/40 bg-emerald-400/10 text-emerald-700 dark:text-emerald-300">
@@ -574,24 +713,24 @@ function SectionDiffBlock({ section }: { section: DiffSection }) {
         )}
       </div>
 
-      <div className="mt-4 divide-y divide-border/70 rounded-2xl border border-border/70 bg-background/40">
+      <div className="divide-y divide-border/50">
         {section.rows.map((row) => (
-          <div key={row.label} className="grid gap-2 px-4 py-3 md:grid-cols-[180px_1fr] md:items-start">
-            <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+          <div key={row.label} className="grid gap-4 py-4 md:grid-cols-[260px_1fr] md:items-center">
+            <div className="text-[13.5px] font-medium text-slate-600 dark:text-slate-400">
               {row.label}
             </div>
-            <div className={`grid gap-2 ${row.isChanged ? 'md:grid-cols-2' : 'md:grid-cols-1'}`}>
+            <div className={`grid gap-4 ${row.isChanged ? 'md:grid-cols-2' : 'md:grid-cols-1'}`}>
               {row.isChanged ? (
                 <>
-                  <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-2 text-sm line-through text-muted-foreground">
-                    {row.oldValue || <span className="text-xs italic">Ninguno</span>}
+                  <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-[13.5px] font-medium line-through text-destructive/80">
+                    {row.oldValue || <span className="text-[12px] italic text-muted-foreground">Ninguno</span>}
                   </div>
-                  <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-2 text-sm text-foreground">
-                    {row.newValue || <span className="text-xs italic">Eliminado</span>}
+                  <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[13.5px] font-semibold text-emerald-800 dark:text-emerald-300">
+                    {row.newValue || <span className="text-[12px] italic text-muted-foreground">Eliminado</span>}
                   </div>
                 </>
               ) : (
-                <div className="text-sm leading-6 text-foreground">
+                <div className="text-[13.5px] font-semibold text-slate-900 dark:text-slate-100">
                   {row.newValue}
                 </div>
               )}
@@ -603,22 +742,124 @@ function SectionDiffBlock({ section }: { section: DiffSection }) {
   )
 }
 
+function DocumentBlock({
+  document,
+  caseTypeLabel,
+  fieldObservations,
+  onAddObservation,
+  onRemoveObservation,
+}: {
+  document: InlineDocument
+  caseTypeLabel: string
+} & AuditProps) {
+  const docKey = `doc:${document.doc_type}`
+  const observation = fieldObservations[docKey]
+  const isRejected = observation !== undefined
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+
+  function handleConfirm() {
+    if (!draft.trim()) return
+    onAddObservation(docKey, draft.trim())
+    setDraft('')
+    setEditing(false)
+  }
+
+  return (
+    <div className={`space-y-6 transition-colors ${isRejected ? 'rounded-xl bg-amber-500/5 p-4' : ''}`}>
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/50 pb-2">
+        <div className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isRejected ? 'text-amber-700 dark:text-amber-400' : 'text-sky-800 dark:text-cyan-400/90'}`}>
+          {formatDocumentLabel(document.doc_type)}
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge className="border-sky-800/20 bg-sky-800/5 text-sky-800 dark:border-cyan-400/20 dark:bg-cyan-400/10 dark:text-cyan-300" variant="outline">
+            {document.source === 'documents' ? 'Tabla Documents' : 'Payload Onboarding'}
+          </Badge>
+        </div>
+      </div>
+
+      <div className="grid gap-8 md:grid-cols-[1fr_260px]">
+        <div className="divide-y divide-border/50">
+          <MetaRow icon={FileText} label="Tipo de documento" value={formatDocumentLabel(document.doc_type)} />
+          <MetaRow icon={CalendarDays} label="Fecha de carga" value={formatDate(document.created_at)} />
+          <MetaRow icon={Mail} label="Mime / Origen" value={document.mime_type ?? (document.source === 'documents' ? 'Registrado en documents' : 'Detectado desde payload')} />
+          <MetaRow icon={ScanSearch} label="Caso asociado" value={caseTypeLabel} />
+          <MetaRow icon={FileText} label="Ruta de almacenamiento" value={document.storage_path} breakValue />
+        </div>
+
+        <div className="space-y-3">
+          <DocumentPreview document={document} />
+
+          {/* Reject document button */}
+          {!isRejected && !editing && (
+            <button
+              type="button"
+              className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 text-[13px] font-medium text-amber-700 transition-colors hover:bg-amber-500/15 dark:text-amber-400"
+              onClick={() => setEditing(true)}
+            >
+              <AlertTriangle className="size-3.5" />
+              Rechazar documento
+            </button>
+          )}
+
+          {editing && !isRejected && (
+            <div className="space-y-2">
+              <input
+                autoFocus
+                className="h-8 w-full rounded-md border border-amber-400/40 bg-amber-50/50 px-3 text-[12.5px] text-slate-800 placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-amber-500/30 dark:bg-amber-900/20 dark:text-slate-200"
+                placeholder="¿Por qué se rechaza este documento?"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleConfirm() } if (e.key === 'Escape') { setEditing(false); setDraft('') } }}
+              />
+              <div className="flex gap-2">
+                <Button size="sm" variant="ghost" className="h-7 flex-1 text-[12px] text-muted-foreground" onClick={() => { setEditing(false); setDraft('') }}>Cancelar</Button>
+                <Button size="sm" className="h-7 flex-1 bg-amber-600 text-[12px] text-white hover:bg-amber-700" disabled={!draft.trim()} onClick={handleConfirm}>Confirmar</Button>
+              </div>
+            </div>
+          )}
+
+          {isRejected && (
+            <div className="flex items-start gap-2 rounded-lg bg-amber-500/10 p-3">
+              <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+              <div className="flex-1">
+                <span className="text-[12.5px] text-amber-700 dark:text-amber-400">{observation}</span>
+              </div>
+              <button
+                type="button"
+                className="flex size-6 shrink-0 items-center justify-center rounded text-amber-600 hover:bg-red-500/10 hover:text-red-600 dark:text-amber-400"
+                onClick={() => onRemoveObservation(docKey)}
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function MetaRow({
   icon: Icon,
   label,
   value,
+  breakValue,
 }: {
   icon: typeof FileText
   label: string
   value: string
+  breakValue?: boolean
 }) {
   return (
-    <div className="rounded-2xl border border-border/70 bg-card/90 p-3">
-      <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-        <Icon className="size-3.5" />
-        {label}
+    <div className="grid gap-4 py-4 md:grid-cols-[220px_1fr] md:items-center">
+      <div className="flex items-center gap-2 text-[13.5px] font-medium text-slate-600 dark:text-slate-400">
+        <Icon className="size-4 opacity-70" />
+        <span>{label}</span>
       </div>
-      <div className="mt-2 text-sm text-foreground">{value}</div>
+      <div className={`text-[13.5px] font-semibold text-slate-900 dark:text-slate-100 ${breakValue ? 'break-all' : ''}`}>
+        {value}
+      </div>
     </div>
   )
 }
@@ -626,7 +867,7 @@ function MetaRow({
 function DocumentPreview({ document }: { document: InlineDocument }) {
   if (!document.signed_url) {
     return (
-      <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/15 p-4 text-center text-sm text-muted-foreground">
+      <div className="flex min-h-[160px] w-full items-center justify-center rounded-xl border border-dashed border-border/50 bg-muted/5 p-4 text-center text-[13.5px] text-muted-foreground">
         Sin vista previa disponible
       </div>
     )
@@ -638,24 +879,24 @@ function DocumentPreview({ document }: { document: InlineDocument }) {
 
   return (
     <div className="space-y-3">
-      <div className="overflow-hidden rounded-2xl border border-border/70 bg-card">
+      <div className="overflow-hidden rounded-xl border border-border/50 bg-background/50 shadow-sm transition-all hover:shadow-md">
         {isImage ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img alt={formatDocumentLabel(document.doc_type)} className="h-[220px] w-full object-cover" src={document.signed_url} />
+          <img alt={formatDocumentLabel(document.doc_type)} className="h-[180px] w-full object-cover" src={document.signed_url} />
         ) : isPdf ? (
-          <iframe className="h-[220px] w-full" src={document.signed_url} title={formatDocumentLabel(document.doc_type)} />
+          <iframe className="h-[180px] w-full" src={document.signed_url} title={formatDocumentLabel(document.doc_type)} />
         ) : (
-          <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">Vista previa no soportada</div>
+          <div className="flex h-[180px] items-center justify-center text-[13.5px] text-muted-foreground">Vista previa no soportada</div>
         )}
       </div>
       <a
-        className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-cyan-400/25 bg-cyan-400/10 px-3 text-sm font-medium text-sky-700 transition-colors hover:bg-cyan-400/16 dark:text-cyan-200"
+        className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-sky-800 px-3 text-[13.5px] font-medium text-white transition-colors hover:bg-sky-900 dark:bg-cyan-500/20 dark:text-cyan-300 dark:hover:bg-cyan-500/30"
         href={document.signed_url}
         rel="noreferrer"
         target="_blank"
       >
-        Abrir archivo
-        <ExternalLink className="size-4" />
+        Ver archivo original
+        <ExternalLink className="size-3.5" />
       </a>
     </div>
   )

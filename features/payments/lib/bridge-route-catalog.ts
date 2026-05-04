@@ -86,6 +86,17 @@ export function isValidFiatBoDestination(currency: string | null | undefined): b
   return (FIAT_BO_ALLOWED_DESTINATION_CURRENCIES as readonly string[]).includes(currency.toLowerCase())
 }
 
+/** Unión de todos los tokens destino posibles para crypto_to_bridge_wallet (independiente de red/origen) */
+export function getAllCryptoDestCurrencies(): string[] {
+  const set = new Set<string>()
+  for (const nets of Object.values(BRIDGE_RAMP_ON_ROUTES)) {
+    for (const route of Object.values(nets)) {
+      route.destinations.forEach((d) => set.add(d))
+    }
+  }
+  return [...set]
+}
+
 // ═══════════════════════════════════════════════════════════════════
 //  CATÁLOGO DE RUTAS OFF-RAMP (bridge_wallet_to_crypto)
 //  Fuente: lista_bridge_out.md (filtrada a tokens soportados)
