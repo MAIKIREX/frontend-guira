@@ -139,7 +139,7 @@ export function ClientOperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
         <div className="mx-auto w-full max-w-7xl space-y-6">
           <Card className='bg-background ring-0 shadow-none'>
             <CardHeader>
-              <CardTitle className='text-2xl font-semibold'>Expedientes</CardTitle>
+              <CardTitle className="text-4xl sm:text-[3rem] sm:leading-[1.1] font-extrabold tracking-tight text-foreground">Expedientes</CardTitle>
             </CardHeader>
             <CardContent className='bg-background'>
               <PaymentsHistoryTable

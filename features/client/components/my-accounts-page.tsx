@@ -413,7 +413,7 @@ export function MyAccountsPage() {
                 <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-[oklch(0.58_0.10_210)]">
                     Mis Cuentas
                 </p>
-                <h1 className="mt-1.5 text-2xl sm:text-4xl font-semibold tracking-tight text-foreground">
+                <h1 className="mt-1.5 text-4xl sm:text-[3rem] sm:leading-[1.1] font-extrabold tracking-tight text-foreground">
                     Wallets y Cuentas Virtuales
                 </h1>
             </div>

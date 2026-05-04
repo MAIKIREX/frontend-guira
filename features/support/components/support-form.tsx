@@ -1,18 +1,16 @@
 'use client'
 
-'use client'
-
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { supportSchema, type SupportValues } from '../schemas/support.schema'
-import { Button } from '@/components/ui/button'
+import { GuiraButton } from '@/components/shared/guira-button'
+import { Send } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { useAuthStore } from '@/stores/auth-store'
 import { SupportService } from '@/services/support.service'
 import { toast } from 'sonner'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 export function SupportForm({ onSuccess }: { onSuccess?: () => void }) {
   const { user } = useAuthStore()
@@ -42,47 +40,68 @@ export function SupportForm({ onSuccess }: { onSuccess?: () => void }) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Abrir Ticket de Soporte</CardTitle>
-        <CardDescription>¿Tienes dudas o enfrentas un problema? Estamos para ayudarte.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-             <FormField control={form.control} name="subject" render={({ field }) => (
-                <FormItem><FormLabel>Asunto</FormLabel><FormControl>
-                  <Input placeholder="Ej. Problema con Onboarding" {...field} />
-                </FormControl><FormMessage /></FormItem>
-              )} />
-              
-              <div className="grid grid-cols-2 gap-4">
-                <FormField control={form.control} name="contact_email" render={({ field }) => (
-                  <FormItem><FormLabel>Email de Contacto</FormLabel><FormControl>
-                    <Input type="email" {...field} />
-                  </FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={form.control} name="contact_phone" render={({ field }) => (
-                  <FormItem><FormLabel>Teléfono Alternativo (Opcional)</FormLabel><FormControl>
-                    <Input {...field} />
-                  </FormControl><FormMessage /></FormItem>
-                )} />
-              </div>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold tracking-tight text-foreground">
+          Abrir Ticket de Soporte
+        </h2>
+        <p className="text-sm text-muted-foreground mt-1.5">
+          ¿Tienes dudas o enfrentas un problema? Estamos para ayudarte.
+        </p>
+      </div>
 
-              <FormField control={form.control} name="message" render={({ field }) => (
-                <FormItem><FormLabel>Descripción</FormLabel><FormControl>
-                  <Textarea placeholder="Indícanos los detalles exactos del problema..." className="min-h-[120px]" {...field} />
-                </FormControl><FormMessage /></FormItem>
-              )} />
-              
-              <div className="flex justify-end pt-2">
-                 <Button type="submit" disabled={form.formState.isSubmitting}>
-                   {form.formState.isSubmitting ? 'Enviando...' : 'Enviar Ticket'}
-                 </Button>
-              </div>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+          <FormField control={form.control} name="subject" render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-muted-foreground">Asunto</FormLabel>
+              <FormControl>
+                <Input placeholder="Ej. Problema con Onboarding" className="bg-muted/30" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+          
+          <FormField control={form.control} name="contact_email" render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-muted-foreground">Email de Contacto</FormLabel>
+              <FormControl>
+                <Input type="email" className="bg-muted/30" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+          <FormField control={form.control} name="contact_phone" render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-muted-foreground">Teléfono Alternativo (Opcional)</FormLabel>
+              <FormControl>
+                <Input className="bg-muted/30" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+
+          <FormField control={form.control} name="message" render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-muted-foreground">Descripción</FormLabel>
+              <FormControl>
+                <Textarea 
+                  placeholder="Indícanos los detalles exactos del problema..." 
+                  className="min-h-[140px] resize-none bg-muted/30" 
+                  {...field} 
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+          
+          <div className="pt-2">
+            <GuiraButton type="submit" iconEnd={Send} className="w-full sm:w-auto" disabled={form.formState.isSubmitting}>
+              {form.formState.isSubmitting ? 'Enviando...' : 'Enviar Ticket'}
+            </GuiraButton>
+          </div>
+        </form>
+      </Form>
+    </div>
   )
 }

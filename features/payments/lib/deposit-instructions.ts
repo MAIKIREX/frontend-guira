@@ -22,6 +22,12 @@ export interface DepositInstruction {
   detail: string
   accent?: string
   qrUrl?: string
+  /** Valor para generar un QR en el cliente (ej. dirección cripto). */
+  qrValue?: string
+  /** Red blockchain (ej. Solana, Polygon, Tron). */
+  network?: string
+  /** Moneda de depósito (ej. USDC, USDT). */
+  currency?: string
   bankCard?: {
     bankName: string
     accountHolder: string
@@ -296,25 +302,18 @@ function convertBridgePayloadToInstructions(
   if (type === 'liquidation_address') {
     const address = str(payload, 'address') || 'Dirección no disponible'
     const chain = str(payload, 'chain') || ''
+    const depositCurrency = str(payload, 'currency') || str(payload, 'source_currency') || order.source_currency || order.currency || ''
     return [
       {
         id: `order-${order.id}-liq`,
         title: label,
-        kind: 'wallet',
+        kind: 'wallet' as const,
         detail: address,
         accent: 'emerald',
+        qrValue: address !== 'Dirección no disponible' ? address : undefined,
+        network: chain || undefined,
+        currency: depositCurrency || undefined,
       },
-      ...(chain
-        ? [
-            {
-              id: `order-${order.id}-liq-note`,
-              title: 'Red requerida',
-              kind: 'note' as const,
-              detail: `Deposita en la cadena ${chain}. El fondeo será acreditado automáticamente a tu wallet.`,
-              accent: 'amber',
-            },
-          ]
-        : []),
     ]
   }
 
@@ -357,14 +356,19 @@ function convertBridgePayloadToInstructions(
   const address = str(payload, 'address') || str(payload, 'to_address') || ''
 
   // Si tiene una address crypto, mostrar como wallet
+  const bridgeChain = str(payload, 'chain') || str(payload, 'network') || ''
+  const bridgeCurrency = str(payload, 'currency') || str(payload, 'source_currency') || order.source_currency || order.currency || ''
   if (address && !bankName && !accountNumber) {
     return [
       {
         id: `order-${order.id}-bridge-wallet`,
         title: label,
-        kind: 'wallet',
+        kind: 'wallet' as const,
         detail: address,
         accent: 'emerald',
+        qrValue: address,
+        network: bridgeChain || undefined,
+        currency: bridgeCurrency || undefined,
       },
       ...(depositMessage
         ? [

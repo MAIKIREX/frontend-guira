@@ -1025,7 +1025,7 @@ export function CreatePaymentOrderForm({
     <div className="mx-auto w-full max-w-6xl space-y-6">
       <Card className="ring-0 shadow-none bg-background">
         <CardHeader className="border-b border-border/60 bg-transparent px-4 py-5 sm:px-6">
-          <CardTitle className="text-xl sm:text-2xl font-semibold tracking-[-0.03em]">
+          <CardTitle className="text-4xl sm:text-[3rem] sm:leading-[1.1] font-extrabold tracking-tight text-foreground">
             {isDepositRouteActive ? 'Depositar por expediente' : 'Enviar por expediente'}
           </CardTitle>
           <CardDescription className="text-sm sm:text-base leading-relaxed sm:leading-6 tracking-[0.01em]">
@@ -1040,12 +1040,7 @@ export function CreatePaymentOrderForm({
               <AnimatePresence mode="wait">
                 {step === 'route' ? (
                   <AnimatedStepPanel key="route">
-                    <SectionHeading
-                      icon={Landmark}
-                      eyebrow="Etapa 1"
-                      title="Escoge la ruta del expediente"
-                      description="La ruta define el expediente tecnico, las monedas iniciales y el tipo de instrucciones que veras al final."
-                    />
+                    
                     <FormField
                       control={form.control}
                       name="route"
@@ -1126,12 +1121,7 @@ export function CreatePaymentOrderForm({
 
                 {step === 'method' ? (
                   <AnimatedStepPanel key="method">
-                    <SectionHeading
-                      icon={currentRoute.key === 'crypto_to_crypto' ? Network : Wallet}
-                      eyebrow="Etapa 2"
-                      title={getMethodTitle(currentRoute.key)}
-                      description={getMethodDescription(currentRoute.key)}
-                    />
+                    
                     {currentRoute.key === 'world_to_bolivia' ? (
                       <FormField
                         control={form.control}
@@ -1349,12 +1339,7 @@ export function CreatePaymentOrderForm({
                   <>
                   {!hasSubStepFlow && !isFiatBoWithdraw && !isCryptoWithdraw && !isFiatUsWithdraw && !isFiatBoDeposit && !isRampDepositWithSubSteps && !isWorldToBolivia && (
                   <AnimatedStepPanel key="detail">
-                    <SectionHeading
-                      icon={currentRoute.key === 'crypto_to_crypto' ? Network : Wallet}
-                      eyebrow="Etapa 3"
-                      title={routeCopy.detailTitle}
-                      description={routeCopy.detailDescription}
-                    />
+                    
 
                     <div className="grid gap-4">
                       {route === 'wallet_ramp_withdraw' ? (
@@ -1724,15 +1709,7 @@ export function CreatePaymentOrderForm({
                       <div className="grid gap-4">
                         {detailSubStep === 'supplier' && (
                           <>
-                            <SectionHeading
-                              icon={Wallet}
-                              eyebrow={`Etapa 3 — Paso 1 de ${DETAIL_SUB_ORDER.length}`}
-                              title="Proveedor y Beneficiario"
-                              description={isCryptoToCrypto
-                                ? 'Selecciona el proveedor. Los datos de la wallet destino se autocompletarán.'
-                                : 'Selecciona el proveedor y el sistema autocompletará la información correspondiente.'
-                              }
-                            />
+                            
                             
                             <FormField
                               control={form.control}
@@ -1858,12 +1835,7 @@ export function CreatePaymentOrderForm({
 
                         {detailSubStep === 'funding' && isCryptoToCrypto && (
                           <>
-                            <SectionHeading
-                              icon={Network}
-                              eyebrow={`Etapa 3 — Paso 2 de ${DETAIL_SUB_ORDER.length}`}
-                              title="Datos de Fondeo"
-                              description="Configura desde qué red y moneda enviarás, e indica tu wallet de origen."
-                            />
+                            
                             <div className="grid gap-4 lg:grid-cols-2">
                               <NetworkSelectField 
                                 control={form.control} 
@@ -1888,12 +1860,7 @@ export function CreatePaymentOrderForm({
 
                         {detailSubStep === 'reason' && (
                           <>
-                            <SectionHeading
-                              icon={FileText}
-                              eyebrow={`Etapa 3 — Paso ${isCryptoToCrypto ? '3' : '2'} de ${DETAIL_SUB_ORDER.length}`}
-                              title="Motivo y Respaldo"
-                              description="Ingresa el motivo del envío y adjunta el documento de respaldo obligatorio."
-                            />
+                            
                             <TextField control={form.control} disabled={disabled} label="Motivo del pago" name="payment_reason" />
                             <DocumentInputCard
                               className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
@@ -1910,15 +1877,7 @@ export function CreatePaymentOrderForm({
 
                         {detailSubStep === 'amount' && (
                           <>
-                            <SectionHeading
-                              icon={Banknote}
-                              eyebrow={`Etapa 3 — Paso ${DETAIL_SUB_ORDER.length} de ${DETAIL_SUB_ORDER.length}`}
-                              title="Define el monto a enviar"
-                              description={isBoliviaToExterior
-                                ? 'Ingresa el monto en bolivianos. Verás el tipo de cambio y la comisión aplicados.'
-                                : 'Ingresa el monto de la operación.'
-                              }
-                            />
+                            
                             <NumericField control={form.control} disabled={disabled} label={getAmountLabel(currentRoute.key)} name="amount_origin" />
                             <EstimationSummary
                               amountOrigin={summaryStats.amountOrigin}
@@ -1978,12 +1937,7 @@ export function CreatePaymentOrderForm({
                       <div className="grid gap-4">
                         {fiatBoSubStep === 'wallet' && (
                           <>
-                            <SectionHeading
-                              icon={Wallet}
-                              eyebrow="Etapa 3 — Paso 1 de 4"
-                              title="Wallet y Token de Origen"
-                              description="Selecciona la wallet Bridge y el token que deseas retirar a Bolivia."
-                            />
+                            
                             <WalletWithdrawDetailStep
                               form={form}
                               method="fiat_bo"
@@ -1999,12 +1953,7 @@ export function CreatePaymentOrderForm({
 
                         {fiatBoSubStep === 'bank' && (
                           <>
-                            <SectionHeading
-                              icon={Landmark}
-                              eyebrow="Etapa 3 — Paso 2 de 4"
-                              title="Tu Cuenta Bancaria Destino"
-                              description="Los fondos convertidos a bolivianos serán depositados en esta cuenta bancaria."
-                            />
+                            
                             <WalletWithdrawDetailStep
                               form={form}
                               method="fiat_bo"
@@ -2020,12 +1969,7 @@ export function CreatePaymentOrderForm({
 
                         {fiatBoSubStep === 'reason' && (
                           <>
-                            <SectionHeading
-                              icon={FileText}
-                              eyebrow="Etapa 3 — Paso 3 de 4"
-                              title="Motivo del Retiro"
-                              description="Indica el motivo del retiro y adjunta el documento de respaldo obligatorio."
-                            />
+                            
                             <TextField control={form.control} disabled={disabled} label="Motivo del retiro" name="payment_reason" />
                             <DocumentInputCard
                               className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
@@ -2042,12 +1986,7 @@ export function CreatePaymentOrderForm({
 
                         {fiatBoSubStep === 'amount' && (
                           <>
-                            <SectionHeading
-                              icon={Banknote}
-                              eyebrow="Etapa 3 — Paso 4 de 4"
-                              title="Monto a Retirar (Token)"
-                              description="Ingresa el monto en tokens que deseas convertir y depositar en bolivianos."
-                            />
+                            
                             <WalletWithdrawDetailStep
                               form={form}
                               method="fiat_bo"
@@ -2091,12 +2030,7 @@ export function CreatePaymentOrderForm({
                       <div className="grid gap-4">
                         {cryptoWithdrawSubStep === 'wallet' && (
                           <>
-                            <SectionHeading
-                              icon={Wallet}
-                              eyebrow="Etapa 3 — Paso 1 de 4"
-                              title="Wallet y Token de Origen"
-                              description="Selecciona la wallet Bridge y el token que deseas retirar a una wallet externa."
-                            />
+                            
                             <WalletWithdrawDetailStep
                               form={form}
                               method="crypto"
@@ -2112,12 +2046,7 @@ export function CreatePaymentOrderForm({
 
                         {cryptoWithdrawSubStep === 'dest_wallet' && (
                           <>
-                            <SectionHeading
-                              icon={Network}
-                              eyebrow="Etapa 3 — Paso 2 de 4"
-                              title="Wallet Externa Destino"
-                              description="Selecciona la red y token de destino, luego ingresa la dirección cripto donde recibirás los fondos."
-                            />
+                            
                             <WalletWithdrawDetailStep
                               form={form}
                               method="crypto"
@@ -2133,12 +2062,7 @@ export function CreatePaymentOrderForm({
 
                         {cryptoWithdrawSubStep === 'reason' && (
                           <>
-                            <SectionHeading
-                              icon={FileText}
-                              eyebrow="Etapa 3 — Paso 3 de 4"
-                              title="Motivo del Retiro"
-                              description="Indica el motivo del retiro y adjunta el documento de respaldo obligatorio."
-                            />
+                            
                             <TextField control={form.control} disabled={disabled} label="Motivo del retiro" name="payment_reason" />
                             <DocumentInputCard
                               className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
@@ -2152,12 +2076,7 @@ export function CreatePaymentOrderForm({
 
                         {cryptoWithdrawSubStep === 'amount' && (
                           <>
-                            <SectionHeading
-                              icon={Banknote}
-                              eyebrow="Etapa 3 — Paso 4 de 4"
-                              title="Monto a Retirar (Crypto)"
-                              description="Ingresa el monto en tokens que deseas enviar a la wallet destino."
-                            />
+                            
                             <WalletWithdrawDetailStep
                               form={form}
                               method="crypto"
@@ -2201,12 +2120,7 @@ export function CreatePaymentOrderForm({
                       <div className="grid gap-4">
                         {fiatUsSubStep === 'wallet' && (
                           <>
-                            <SectionHeading
-                              icon={Wallet}
-                              eyebrow="Etapa 3 — Paso 1 de 4"
-                              title="Wallet y Token de Origen"
-                              description="Selecciona la wallet Bridge y el token que deseas retirar a tu cuenta bancaria en EE.UU."
-                            />
+                            
                             <WalletWithdrawDetailStep
                               form={form}
                               method="fiat_us"
@@ -2222,12 +2136,7 @@ export function CreatePaymentOrderForm({
 
                         {fiatUsSubStep === 'supplier' && (
                           <>
-                            <SectionHeading
-                              icon={Landmark}
-                              eyebrow="Etapa 3 — Paso 2 de 4"
-                              title="Proveedor o Beneficiario"
-                              description="Selecciona el proveedor con cuenta bancaria externa (ACH/Wire) registrada en Bridge."
-                            />
+                            
                             <FormField
                               control={form.control}
                               name="supplier_id"
@@ -2288,12 +2197,7 @@ export function CreatePaymentOrderForm({
 
                         {fiatUsSubStep === 'reason' && (
                           <>
-                            <SectionHeading
-                              icon={FileText}
-                              eyebrow="Etapa 3 — Paso 3 de 4"
-                              title="Motivo del Retiro"
-                              description="Indica el motivo del retiro y adjunta el documento de respaldo obligatorio."
-                            />
+                            
                             <TextField control={form.control} disabled={disabled} label="Motivo del retiro" name="payment_reason" />
                             <DocumentInputCard
                               className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
@@ -2307,12 +2211,7 @@ export function CreatePaymentOrderForm({
 
                         {fiatUsSubStep === 'amount' && (
                           <>
-                            <SectionHeading
-                              icon={Banknote}
-                              eyebrow="Etapa 3 — Paso 4 de 4"
-                              title="Monto del Retiro"
-                              description="Ingresa el monto en tokens que deseas retirar a tu cuenta bancaria estadounidense."
-                            />
+                            
                             <WalletWithdrawDetailStep
                               form={form}
                               method="fiat_us"
@@ -2357,12 +2256,7 @@ export function CreatePaymentOrderForm({
                       <div className="grid gap-4">
                         {fiatBoDepositSubStep === 'wallet' && (
                           <>
-                            <SectionHeading
-                              icon={Wallet}
-                              eyebrow="Etapa 3 — Paso 1 de 3"
-                              title="Wallet Bridge Destino"
-                              description="Selecciona la wallet Bridge de destino y el token que recibirás."
-                            />
+                            
                             <WalletRampDetailStep
                               form={form}
                               method="fiat_bo"
@@ -2380,12 +2274,7 @@ export function CreatePaymentOrderForm({
 
                         {fiatBoDepositSubStep === 'reason' && (
                           <>
-                            <SectionHeading
-                              icon={FileText}
-                              eyebrow="Etapa 3 — Paso 2 de 3"
-                              title="Motivo y Respaldo"
-                              description="Ingresa el motivo del depósito y adjunta el documento de respaldo obligatorio."
-                            />
+                            
                             <TextField control={form.control} disabled={disabled} label="Motivo del depósito" name="payment_reason" />
                             <DocumentInputCard
                               className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
@@ -2402,12 +2291,7 @@ export function CreatePaymentOrderForm({
 
                         {fiatBoDepositSubStep === 'amount' && (
                           <>
-                            <SectionHeading
-                              icon={Banknote}
-                              eyebrow="Etapa 3 — Paso 3 de 3"
-                              title="Monto Inicial en BOB"
-                              description="Ingresa el monto en bolivianos que deseas depositar a tu wallet Bridge."
-                            />
+                            
                             <WalletRampDetailStep
                               form={form}
                               method="fiat_bo"
@@ -2454,12 +2338,7 @@ export function CreatePaymentOrderForm({
                       <div className="grid gap-4">
                         {rampDepositSubStep === 'wallet' && (
                           <>
-                            <SectionHeading
-                              icon={Wallet}
-                              eyebrow="Etapa 3 — Paso 1 de 3"
-                              title="Wallet y Token Destino"
-                              description="Selecciona tu wallet Bridge destino y el token que deseas recibir."
-                            />
+                            
                             <WalletRampDetailStep
                               form={form}
                               method={walletRampMethod || 'fiat_bo'}
@@ -2477,12 +2356,7 @@ export function CreatePaymentOrderForm({
 
                         {rampDepositSubStep === 'network' && (
                           <>
-                            <SectionHeading
-                              icon={Network}
-                              eyebrow="Etapa 3 — Paso 2 de 3"
-                              title="Red y Moneda de Origen"
-                              description="Selecciona la red blockchain y la moneda desde la que enviarás los fondos."
-                            />
+                            
                             <WalletRampDetailStep
                               form={form}
                               method={walletRampMethod || 'fiat_bo'}
@@ -2500,12 +2374,7 @@ export function CreatePaymentOrderForm({
 
                         {rampDepositSubStep === 'reason' && (
                           <>
-                            <SectionHeading
-                              icon={FileText}
-                              eyebrow="Etapa 3 — Paso 3 de 3"
-                              title="Motivo y Respaldo"
-                              description="Ingresa el motivo del depósito y adjunta el documento de respaldo obligatorio."
-                            />
+                            
                             <TextField control={form.control} disabled={disabled} label="Motivo del depósito" name="payment_reason" />
                             <DocumentInputCard
                               className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
@@ -2551,12 +2420,7 @@ export function CreatePaymentOrderForm({
                       <div className="grid gap-4">
                         {worldBoliviaSubStep === 'bank' && (
                           <>
-                            <SectionHeading
-                              icon={Landmark}
-                              eyebrow="Etapa 3 — Paso 1 de 3"
-                              title="Datos Bancarios"
-                              description="Ingresa el banco, número de cuenta y el nombre del titular donde se realizará el depósito en Bolivia."
-                            />
+                            
                             <div className="grid gap-4 lg:grid-cols-2">
                               <TextField control={form.control} disabled={disabled} label="Banco" name="ach_bank_name" />
                               <TextField control={form.control} disabled={disabled} label="Cuenta bancaria" name="ach_account_number" />
@@ -2567,12 +2431,7 @@ export function CreatePaymentOrderForm({
 
                         {worldBoliviaSubStep === 'reason' && (
                           <>
-                            <SectionHeading
-                              icon={FileText}
-                              eyebrow="Etapa 3 — Paso 2 de 3"
-                              title="Motivo y Respaldo"
-                              description="Ingresa el motivo del pago y adjunta el documento de respaldo obligatorio."
-                            />
+                            
                             <TextField control={form.control} disabled={disabled} label="Motivo del pago" name="payment_reason" />
                             <DocumentInputCard
                               className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
@@ -2589,12 +2448,7 @@ export function CreatePaymentOrderForm({
 
                         {worldBoliviaSubStep === 'amount' && (
                           <>
-                            <SectionHeading
-                              icon={Banknote}
-                              eyebrow="Etapa 3 — Paso 3 de 3"
-                              title="Monto a Depositar"
-                              description="Ingresa el monto en USD que deseas depositar. Se mostrará la conversión estimada."
-                            />
+                            
                             <NumericField control={form.control} disabled={disabled} label={getAmountLabel(currentRoute.key)} name="amount_origin" />
                             <EstimationSummary
                               amountOrigin={summaryStats.amountOrigin}
@@ -2631,12 +2485,7 @@ export function CreatePaymentOrderForm({
 
                 {step === 'review' ? (
                   <AnimatedStepPanel key="review">
-                    <SectionHeading
-                      icon={CheckCircle2}
-                      eyebrow="Etapa 4"
-                      title="Revisa antes de crear el expediente"
-                      description="En esta etapa se crea la orden en payment_orders con estado created."
-                    />
+                    
 
                     <div className="grid gap-3 md:grid-cols-2">
                       {reviewItems.map((item) => (
@@ -2657,12 +2506,7 @@ export function CreatePaymentOrderForm({
 
                 {step === 'finish' ? (
                   <AnimatedStepPanel key="finish">
-                    <SectionHeading
-                      icon={FileCheck2}
-                      eyebrow="Etapa 5"
-                      title={routeCopy.finishTitle}
-                      description={routeCopy.finishDescription}
-                    />
+                    
 
                     {route === 'wallet_ramp_withdraw' ? (
                       <>

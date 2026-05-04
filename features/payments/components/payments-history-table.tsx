@@ -168,12 +168,9 @@ export function PaymentsHistoryTable({
 
   if (safeOrders.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Bitacora de expedientes</CardTitle>
-          <CardDescription>Aun no hay `payment_orders` creadas para este usuario.</CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-center text-sm text-muted-foreground">
+        Aun no hay ordenes creadas para este usuario.
+      </div>
     )
   }
 
@@ -367,25 +364,22 @@ export function PaymentsHistoryTable({
       </section>
 
       {filteredOrders.length === 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Sin coincidencias</CardTitle>
-            <CardDescription>No hay expedientes que coincidan con el filtro actual.</CardDescription>
-          </CardHeader>
-        </Card>
+        <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-center text-sm text-muted-foreground">
+          No hay resultados con los filtros actuales.
+        </div>
       ) : (
-        <div className="rounded-xl border border-border/60 overflow-hidden">
+        <div className="w-full">
           <Table>
             <TableHeader>
-              <TableRow className="border-b border-border/60 bg-muted/30 hover:bg-muted/30">
+              <TableRow>
                 <TableHead className="w-[40px] px-3" />
-                <TableHead className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">Expediente</TableHead>
-                <TableHead className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">Estado</TableHead>
-                <TableHead className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold hidden md:table-cell">Tipo / Riel</TableHead>
-                <TableHead className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold text-right">Origen</TableHead>
-                <TableHead className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold text-right">Destino</TableHead>
-                <TableHead className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold hidden lg:table-cell">Fecha</TableHead>
-                <TableHead className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold text-right">Acciones</TableHead>
+                <TableHead className="text-sm md:text-[15px]">Expediente</TableHead>
+                <TableHead className="text-sm md:text-[15px]">Estado</TableHead>
+                <TableHead className="text-sm md:text-[15px] hidden md:table-cell">Tipo / Riel</TableHead>
+                <TableHead className="text-sm md:text-[15px] text-right">Origen</TableHead>
+                <TableHead className="text-sm md:text-[15px] text-right">Destino</TableHead>
+                <TableHead className="text-sm md:text-[15px] hidden lg:table-cell">Fecha</TableHead>
+                <TableHead className="text-sm md:text-[15px] text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -473,8 +467,8 @@ function OrderTableRows({
       {/* ── Summary Row ── */}
       <TableRow
         className={cn(
-          'cursor-pointer transition-colors border-b border-border/40',
-          isExpanded ? 'bg-primary/[0.04]' : 'hover:bg-muted/20'
+          'cursor-pointer transition-colors',
+          isExpanded && 'bg-muted/50'
         )}
         onClick={onToggleExpand}
       >
@@ -486,21 +480,21 @@ function OrderTableRows({
         {/* Expediente + Proveedor */}
         <TableCell>
           <div className="flex flex-col gap-0.5">
-            <span className="font-mono text-sm font-semibold text-foreground">#{order.id.slice(0, 8)}</span>
+            <span className="font-mono text-lg font-semibold text-foreground">#{order.id.slice(0, 8)}</span>
             {supplier ? (
-              <span className="text-[11px] text-muted-foreground truncate max-w-[160px]">{supplier.name}</span>
+              <span className="text-sm font-medium text-muted-foreground truncate max-w-[160px]">{supplier.name}</span>
             ) : null}
           </div>
         </TableCell>
 
         {/* Estado */}
         <TableCell>
-          <div className="flex flex-col gap-1">
-            <Badge className={cn('text-[10px] w-fit', statusMeta.badgeClass)} variant={getStatusVariant(order.status)}>
+          <div className="flex flex-col gap-1.5">
+            <Badge className={cn('text-sm font-medium px-2 py-0.5 w-fit', statusMeta.badgeClass)} variant={getStatusVariant(order.status)}>
               {statusMeta.label}
             </Badge>
             {order.flow_type === 'va_deposit' && order.va_deposit_status && VA_STATUS_CONFIG[order.va_deposit_status] && (
-              <Badge className={cn('text-[10px] w-fit', VA_STATUS_CONFIG[order.va_deposit_status].badgeClass)} variant="outline">
+              <Badge className={cn('text-sm font-medium px-2 py-0.5 w-fit', VA_STATUS_CONFIG[order.va_deposit_status].badgeClass)} variant="outline">
                 {VA_STATUS_CONFIG[order.va_deposit_status].label}
               </Badge>
             )}
@@ -509,31 +503,31 @@ function OrderTableRows({
 
         {/* Tipo / Riel */}
         <TableCell className="hidden md:table-cell">
-          <div className="flex flex-col gap-1">
-            <Badge className="text-[10px] w-fit" variant="outline">{humanizeOrderType(order)}</Badge>
-            <Badge className="text-[10px] w-fit" variant="outline">{humanizeRail(order)}</Badge>
+          <div className="flex flex-col gap-1.5">
+            <Badge className="text-sm font-medium px-2 py-0.5 w-fit" variant="outline">{humanizeOrderType(order)}</Badge>
+            <Badge className="text-sm font-medium px-2 py-0.5 w-fit" variant="outline">{humanizeRail(order)}</Badge>
           </div>
         </TableCell>
 
         {/* Monto Origen */}
         <TableCell className="text-right">
-          <span className="text-sm font-medium tabular-nums text-foreground">
+          <span className="text-[17px] font-semibold tabular-nums text-foreground">
             {(order.amount_origin ?? order.amount ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
-          <span className="ml-1 text-[10px] text-muted-foreground">{order.origin_currency ?? order.currency ?? ''}</span>
+          <span className="ml-1.5 text-sm font-medium text-muted-foreground">{order.origin_currency ?? order.currency ?? ''}</span>
         </TableCell>
 
         {/* Monto Destino */}
         <TableCell className="text-right">
-          <span className="text-sm font-medium tabular-nums text-foreground">
+          <span className="text-[17px] font-semibold tabular-nums text-foreground">
             {(order.amount_converted ?? order.amount_destination ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
-          <span className="ml-1 text-[10px] text-muted-foreground">{order.destination_currency ?? order.currency ?? ''}</span>
+          <span className="ml-1.5 text-sm font-medium text-muted-foreground">{order.destination_currency ?? order.currency ?? ''}</span>
         </TableCell>
 
         {/* Fecha */}
         <TableCell className="hidden lg:table-cell">
-          <span className="text-xs text-muted-foreground">{format(new Date(order.created_at), 'dd/MM/yyyy')}</span>
+          <span className="text-[15px] font-medium text-muted-foreground">{format(new Date(order.created_at), 'dd/MM/yyyy')}</span>
         </TableCell>
 
         {/* Acciones */}

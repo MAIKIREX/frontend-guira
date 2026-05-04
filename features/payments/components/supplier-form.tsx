@@ -5,6 +5,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, ArrowRight, Building2, Landmark, Wallet, Globe } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { GuiraButton } from '@/components/shared/guira-button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
@@ -607,9 +608,9 @@ export function SupplierForm({
                   />
 
                   <div className="flex justify-end pt-4">
-                    <Button disabled={disabled} onClick={handleNext} type="button">
-                      Continuar a Detalles <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
+                    <GuiraButton disabled={disabled} onClick={handleNext} type="button" arrowNext>
+                      Continuar a Detalles
+                    </GuiraButton>
                   </div>
                 </CardContent>
               </Card>
@@ -1421,12 +1422,12 @@ export function SupplierForm({
                   )}
 
                   <div className="flex justify-between pt-4">
-                    <Button disabled={disabled} onClick={handleBack} type="button" variant="ghost">
-                      <ArrowLeft className="mr-2 h-4 w-4" /> Volver
-                    </Button>
-                    <Button disabled={disabled || form.formState.isSubmitting} type="submit">
+                    <GuiraButton disabled={disabled} onClick={handleBack} type="button" variant="ghost" iconStart={ArrowLeft}>
+                      Volver
+                    </GuiraButton>
+                    <GuiraButton disabled={disabled || form.formState.isSubmitting} type="submit">
                       Guardar Proveedor
-                    </Button>
+                    </GuiraButton>
                   </div>
                 </CardContent>
               </Card>

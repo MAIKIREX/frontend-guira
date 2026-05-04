@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Pencil, Plus, Search, Trash2, UserRound, CheckCircle2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { GuiraButton } from '@/components/shared/guira-button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -125,15 +126,14 @@ export function SuppliersSection({
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div className="space-y-2">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Proveedores</div>
-                <h1 className="text-3xl font-semibold tracking-tight">Agenda de proveedores</h1>
+                <h1 className="text-4xl sm:text-[3rem] sm:leading-[1.1] font-extrabold tracking-tight text-foreground">Agenda de proveedores</h1>
                 <p className="max-w-2xl text-sm text-muted-foreground">
                   Administra tus destinatarios de pago y sus cuentas desde una sola agenda operativa.
                 </p>
               </div>
-              <Button disabled={disabled} onClick={handleCreate} size="lg" type="button">
-                <Plus className="mr-2 h-4 w-4" />
+              <GuiraButton disabled={disabled} onClick={handleCreate} size="lg" type="button" iconStart={Plus}>
                 Agregar proveedor
-              </Button>
+              </GuiraButton>
             </div>
 
             <div className="grid gap-3 md:grid-cols-[1fr_220px]">

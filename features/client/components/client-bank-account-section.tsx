@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Landmark, AlertTriangle, CheckCircle2, Clock, Loader2, Pencil, Plus } from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { GuiraButton } from '@/components/shared/guira-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -65,19 +64,19 @@ export function ClientBankAccountSection() {
   if (!isApproved) return null
 
   return (
-    <Card className="border-border/80 bg-muted/10">
-      <CardHeader>
-        <div className="flex items-center gap-2">
+    <div className="space-y-6">
+      <div>
+        <div className="mb-2 flex items-center gap-2">
           <Landmark className="size-5 text-primary" />
-          <CardTitle>Cuenta bancaria para retiros (Bolivia)</CardTitle>
+          <h2 className="text-xl font-semibold tracking-tight text-foreground">Cuenta bancaria para retiros (Bolivia)</h2>
         </div>
-        <CardDescription>
+        <p className="text-sm text-muted-foreground">
           Registra los datos de tu cuenta bancaria personal en Bolivia. Se usarán
           exclusivamente para procesar retiros desde tu wallet hacia tu cuenta en
           bolivianos (BOB).
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+        </p>
+      </div>
+      <div>
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="size-5 animate-spin text-muted-foreground" />
@@ -91,7 +90,7 @@ export function ClientBankAccountSection() {
         ) : (
           <EmptyBankAccountCTA onRegister={() => setShowCreateDialog(true)} />
         )}
-      </CardContent>
+      </div>
 
       {/* Dialog: Registrar cuenta */}
       <BankAccountFormDialog
@@ -133,7 +132,7 @@ export function ClientBankAccountSection() {
           }}
         />
       )}
-    </Card>
+    </div>
   )
 }
 
@@ -208,7 +207,7 @@ function BankAccountDisplay({
       )}
 
       {/* Account data */}
-      <div className="overflow-hidden rounded-2xl border border-border/70 bg-background/85">
+      <div className="space-y-0">
         <InfoField label="Banco" value={account.bank_name} />
         <InfoField
           label="Número de cuenta"
@@ -255,19 +254,18 @@ function BankAccountDisplay({
 
       {/* Actions — solo editar, sin eliminar */}
       <div className="flex gap-3">
-        <Button
-          variant="outline"
-          size="sm"
+        <GuiraButton
+          variant="primary"
           onClick={onEdit}
           disabled={isEditBlocked}
+          iconStart={Pencil}
         >
-          <Pencil className="mr-2 size-3.5" />
           {isPending
             ? 'Cambio en revisión...'
             : monthlyLock
               ? `Próximo cambio: ${monthlyLock}`
               : 'Solicitar cambio'}
-        </Button>
+        </GuiraButton>
       </div>
     </div>
   )
@@ -299,10 +297,9 @@ function EmptyBankAccountCTA({ onRegister }: { onRegister: () => void }) {
         </div>
       </div>
 
-      <Button onClick={onRegister} className="gap-2">
-        <Plus className="size-4" />
+      <GuiraButton onClick={onRegister} iconStart={Plus}>
         Registrar cuenta bancaria
-      </Button>
+      </GuiraButton>
     </div>
   )
 }
@@ -325,8 +322,8 @@ function InfoField({
   return (
     <div
       className={cn(
-        'flex flex-col gap-2 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6',
-        !isLast && 'border-b border-border/60',
+        'flex flex-col gap-2 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6',
+        !isLast && 'border-b border-border/40',
       )}
     >
       <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground sm:min-w-44">
@@ -537,14 +534,16 @@ function BankAccountFormDialog({
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
+          <GuiraButton
+            variant="ghost"
             onClick={() => onOpenChange(false)}
             disabled={isSubmitting}
           >
             Cancelar
-          </Button>
-          <Button
+          </GuiraButton>
+          <GuiraButton
+            variant="primary"
+            arrowNext
             onClick={handleSubmit}
             disabled={!isValid || isSubmitting}
           >
@@ -552,7 +551,7 @@ function BankAccountFormDialog({
             {mode === 'create'
               ? 'Registrar cuenta'
               : 'Enviar solicitud de cambio'}
-          </Button>
+          </GuiraButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

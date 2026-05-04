@@ -15,7 +15,6 @@ import {
   UserCircle2,
   Waypoints,
 } from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { cn, interactiveCardClassName } from '@/lib/utils'
 import { useProfileStore } from '@/stores/profile-store'
@@ -31,28 +30,30 @@ export function ClientSettingsPanel() {
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-8">
       <div className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+        <h1 className="text-4xl sm:text-[3rem] sm:leading-[1.1] font-extrabold tracking-tight text-foreground">
           Configuracion de cuenta
         </h1>
       </div>
 
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.08fr)_360px]">
-        <div className="space-y-6">
+      <div className="grid items-start gap-12 xl:gap-0 xl:divide-x xl:divide-border/50 xl:grid-cols-[minmax(0,1.08fr)_360px]">
+        <div className="divide-y divide-border/50 xl:pr-12">
           <div
             className={cn(
-              'grid gap-6',
+              'grid gap-12 pb-10 lg:gap-0 lg:divide-x lg:divide-border/50',
               'lg:grid-cols-[minmax(300px,0.88fr)_minmax(0,1.12fr)]',
             )}
           >
-            <AvatarUploadCard profile={profile} />
-            <Card className="border-border/80 bg-muted/10">
-              <CardHeader>
-                <CardTitle>Datos de mi perfil</CardTitle>
-                <CardDescription>
+            <div className="lg:pr-12">
+              <AvatarUploadCard profile={profile} />
+            </div>
+            <div className="space-y-6 lg:pl-12">
+              <div>
+                <h2 className="text-xl font-semibold tracking-tight text-foreground">Datos de mi perfil</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
                   Resumen de la informacion principal asociada a tu cuenta.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="overflow-hidden rounded-2xl border border-border/70 bg-background/85 p-0">
+                </p>
+              </div>
+              <div className="space-y-0">
                 <InfoRow icon={UserCircle2} label="Nombre" value={profile?.full_name ?? 'Sin nombre'} />
                 <InfoRow icon={BellRing} label="Email" value={profile?.email ?? 'Sin email'} />
                 <InfoRow icon={ShieldCheck} label="Rol" value={formatProfileValue(profile?.role, 'Sin rol')} />
@@ -62,15 +63,19 @@ export function ClientSettingsPanel() {
                   value={formatProfileValue(profile?.onboarding_status, 'Sin estado')}
                   isLast
                 />
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
 
-          {showBankSection ? <ClientBankAccountSection /> : null}
+          {showBankSection ? (
+            <div className="pt-10">
+              <ClientBankAccountSection />
+            </div>
+          ) : null}
         </div>
 
-        <aside className="space-y-6 xl:sticky xl:top-6">
-          <div className="flex items-start gap-4 rounded-[24px] border border-blue-500/20 bg-blue-500/10 p-5 text-blue-700 dark:text-blue-400">
+        <aside className="divide-y divide-border/50 xl:sticky xl:top-6 xl:pl-12">
+          <div className="flex items-start gap-4 pb-10 text-blue-700 dark:text-blue-400">
             <Info className="mt-0.5 size-5 shrink-0" />
             <div className="text-sm">
               <p className="mb-1 text-base font-semibold">Proteccion de datos personales</p>
@@ -91,14 +96,14 @@ export function ClientSettingsPanel() {
             </div>
           </div>
 
-          <Card className="border-border/80 bg-muted/10">
-            <CardHeader>
-              <CardTitle>Accesos de cuenta</CardTitle>
-              <CardDescription>
+          <div className="space-y-6 pt-10">
+            <div>
+              <h2 className="text-xl font-semibold tracking-tight text-foreground">Accesos de cuenta</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
                 Accesos rapidos a las areas principales de tu cuenta.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
+              </p>
+            </div>
+            <div className="space-y-2">
               <ShortcutCard
                 href="/panel"
                 title="Panel"
@@ -114,8 +119,8 @@ export function ClientSettingsPanel() {
                 title="Soporte"
                 icon={LifeBuoy}
               />
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </aside>
       </div>
     </div>
@@ -136,8 +141,8 @@ function InfoRow({
   return (
     <div
       className={cn(
-        'flex flex-col gap-2 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6',
-        !isLast && 'border-b border-border/60',
+        'flex flex-col gap-2 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6',
+        !isLast && 'border-b border-border/40',
       )}
     >
       <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:min-w-40">
@@ -162,18 +167,17 @@ function ShortcutCard({
     <Link
       href={href}
       className={cn(
-        'flex min-h-16 items-center justify-between rounded-2xl border border-border/70 bg-background/85 px-4 py-4',
-        interactiveCardClassName,
+        'group flex min-h-16 items-center justify-between rounded-lg border border-border/50 px-3 py-3 transition-colors hover:bg-muted/40',
       )}
     >
-      <div className="flex items-center gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-muted/40">
-          <Icon className="size-4 text-muted-foreground" />
+      <div className="flex items-center gap-4">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted/50 text-muted-foreground transition-colors group-hover:text-foreground">
+          <Icon className="size-5" />
         </div>
         <div className="text-base font-medium text-foreground">{title}</div>
       </div>
-      <div className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted/40">
-          <ChevronRight className="size-4 text-muted-foreground" />
+      <div className="flex size-8 shrink-0 items-center justify-center text-muted-foreground transition-colors group-hover:text-foreground">
+          <ChevronRight className="size-5" />
       </div>
     </Link>
   )
@@ -210,18 +214,18 @@ function AvatarUploadCard({ profile }: { profile: Profile | null }) {
   }
 
   return (
-    <Card className="border-border/80 bg-muted/10">
-      <CardHeader className="items-center text-center">
-        <CardTitle>Mi avatar de cuenta</CardTitle>
-        <CardDescription className="max-w-sm">
+    <div className="space-y-6">
+      <div className="text-center">
+        <h2 className="text-xl font-semibold tracking-tight text-foreground">Mi avatar de cuenta</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
           Sube una foto o imagen para identificar tu perfil dentro del panel y mantener esta
           seccion mas personal y clara.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col items-center gap-6 text-center">
+        </p>
+      </div>
+      <div className="flex flex-col items-center gap-6 text-center">
         <div className="relative">
           <div className="absolute inset-[-14px] rounded-full bg-primary/10 blur-xl" aria-hidden />
-          <Avatar className="relative size-28 border border-border/70 shadow-sm">
+          <Avatar className="relative size-28 border border-border/40 shadow-sm">
             <AvatarImage src={profile?.avatar_url || ''} className="object-cover" />
             <AvatarFallback className="bg-muted text-2xl text-muted-foreground uppercase">
               {getAvatarFallback(profile?.full_name)}
@@ -274,8 +278,8 @@ function AvatarUploadCard({ profile }: { profile: Profile | null }) {
             Recomendado: formato 1:1, JPG o PNG y hasta 5MB.
           </p>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ArrowRight, ArrowLeftRight, Loader2, RefreshCw } from 'lucide-react'
+import { ArrowRight, ArrowLeftRight, Loader2, RefreshCw, TrendingDown, TrendingUp } from 'lucide-react'
 import Flag from 'react-world-flags'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -153,7 +153,7 @@ export function ClientDashboard() {
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
             PANEL
           </p>
-          <h1 className="text-4xl font-extrabold tracking-tight text-foreground md:text-[3rem]">
+          <h1 className="text-4xl sm:text-[3rem] sm:leading-[1.1] font-extrabold tracking-tight text-foreground">
             ¡Hola, {userFirstName}!
           </h1>
         </div>
@@ -180,11 +180,13 @@ export function ClientDashboard() {
           </span>
           <div className="hidden h-6 w-px bg-border/80 sm:block" />
           <div className="flex items-center gap-6 text-base md:text-lg text-muted-foreground">
-            <span>
-              Buy: 1 USD = <span className="font-extrabold text-primary">{formatNumber(buyRate)} Bs</span>
+            <span className="flex items-center gap-1.5">
+              Compra: 1 USD = <span className="font-extrabold text-primary">{formatNumber(buyRate)} Bs</span>
+              <TrendingDown className="size-5 text-primary" />
             </span>
-            <span>
-              Sell: 1 USD = <span className="font-extrabold text-success">{formatNumber(sellRate)} Bs</span>
+            <span className="flex items-center gap-1.5">
+              Venta: 1 USD = <span className="font-extrabold text-success">{formatNumber(sellRate)} Bs</span>
+              <TrendingUp className="size-5 text-success" />
             </span>
           </div>
         </div>
@@ -259,8 +261,6 @@ export function ClientDashboard() {
           <StatItem
             label="BALANCE TOTAL USD"
             value={`$${balanceUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-            sub="+2.4% vs mes anterior"
-            subColor="text-success"
           />
           <div className="hidden sm:block w-px self-stretch bg-border/60" />
           <StatItem
@@ -272,8 +272,6 @@ export function ClientDashboard() {
           <StatItem
             label="TASA PROMEDIO"
             value={`${formatNumber(visibleBaseRate)} Bs`}
-            sub="Eficiencia del 98.2%"
-            subColor="text-primary"
           />
         </section>
       </div>
@@ -360,7 +358,7 @@ function StatItem({
 }: {
   label: string
   value: string
-  sub: string
+  sub?: string
   subColor?: string
 }) {
   return (
@@ -369,7 +367,7 @@ function StatItem({
         {label}
       </p>
       <p className="text-[2rem] md:text-[2.5rem] font-bold tracking-tight text-foreground">{value}</p>
-      <p className={cn('text-sm font-medium', subColor ?? 'text-muted-foreground')}>{sub}</p>
+      {sub && <p className={cn('text-sm font-medium', subColor ?? 'text-muted-foreground')}>{sub}</p>}
     </div>
   )
 }
