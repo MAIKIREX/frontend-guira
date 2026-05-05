@@ -24,12 +24,12 @@ import { ClientBankAccountsService, type ClientBankAccount } from '@/services/cl
 import { AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
 import { NETWORK_LABELS, CRYPTO_CURRENCY_LABELS } from '@/lib/guira-crypto-config'
 import {
-  getOffRampDestNetworks,
-  getOffRampDestCurrencies,
   getOffRampMinAmount,
   OFF_RAMP_SOURCE_CURRENCIES,
   getFiatBoAvailableSourceCurrencies,
   getFiatBoMinAmountForSource,
+  getOffRampSameTokenNetworks,
+  getOffRampSameTokenDestCurrencies,
 } from '@/features/payments/lib/bridge-route-catalog'
 
 const LABEL_CLASS = 'text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground'
@@ -119,12 +119,12 @@ export function WalletWithdrawDetailStep({
 
   const availableNetworks = React.useMemo(() => {
     if (method !== 'crypto' || !selectedOriginCurrency) return []
-    return getOffRampDestNetworks(selectedOriginCurrency)
+    return getOffRampSameTokenNetworks(selectedOriginCurrency)
   }, [method, selectedOriginCurrency])
 
   const availableDestCurrencies = React.useMemo(() => {
     if (method !== 'crypto' || !selectedOriginCurrency || !selectedCryptoNetwork) return []
-    return getOffRampDestCurrencies(selectedOriginCurrency, selectedCryptoNetwork)
+    return getOffRampSameTokenDestCurrencies(selectedOriginCurrency, selectedCryptoNetwork)
   }, [method, selectedOriginCurrency, selectedCryptoNetwork])
 
   const offRampMinAmount = React.useMemo(() => {
@@ -135,16 +135,18 @@ export function WalletWithdrawDetailStep({
   // ── Cascada off-ramp: auto-clear invalid selections ──
   const handleSourceTokenChange = useCallback((token: string, fieldOnChange: (v: string) => void) => {
     fieldOnChange(token)
-    const newNetworks = getOffRampDestNetworks(token)
+    const newNetworks = getOffRampSameTokenNetworks(token)
     const currentNetwork = form.getValues('crypto_network')
     if (currentNetwork && !newNetworks.includes(currentNetwork)) {
       form.setValue('crypto_network', undefined as any, { shouldValidate: false })
       form.setValue('destination_currency', undefined as any, { shouldValidate: false })
     } else if (currentNetwork) {
-      const newDests = getOffRampDestCurrencies(token, currentNetwork)
+      const newDests = getOffRampSameTokenDestCurrencies(token, currentNetwork)
       const currentDest = form.getValues('destination_currency')
       if (currentDest && !newDests.includes(currentDest.toLowerCase())) {
         form.setValue('destination_currency', undefined as any, { shouldValidate: false })
+      } else if (newDests.length === 1) {
+        form.setValue('destination_currency', newDests[0], { shouldValidate: false })
       }
     }
   }, [form])
@@ -153,13 +155,11 @@ export function WalletWithdrawDetailStep({
     fieldOnChange(network)
     const srcToken = form.getValues('origin_currency')
     if (srcToken) {
-      const newDests = getOffRampDestCurrencies(srcToken, network)
-      const currentDest = form.getValues('destination_currency')
-      if (currentDest && !newDests.includes(currentDest.toLowerCase())) {
+      const sameDests = getOffRampSameTokenDestCurrencies(srcToken, network)
+      if (sameDests.length === 1) {
+        form.setValue('destination_currency', sameDests[0], { shouldValidate: false })
+      } else {
         form.setValue('destination_currency', undefined as any, { shouldValidate: false })
-      }
-      if (newDests.length === 1) {
-        form.setValue('destination_currency', newDests[0], { shouldValidate: false })
       }
     }
   }, [form])

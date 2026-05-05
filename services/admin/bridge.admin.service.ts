@@ -6,8 +6,36 @@
  * 
  * Todos los endpoints requieren rol: admin | super_admin
  */
-import { apiGet, apiPost } from '@/lib/api/client'
+import { apiGet, apiPost, apiPatch } from '@/lib/api/client'
 import type { PaginationParams } from '@/lib/api/types'
+
+export interface AdminLiquidationAddress {
+  id: string
+  user_id: string
+  bridge_liquidation_address_id: string
+  bridge_customer_id: string
+  chain: string
+  currency: string
+  address: string | null
+  destination_payment_rail: string | null
+  destination_currency: string | null
+  destination_external_account_id: string | null
+  destination_address: string | null
+  developer_fee_percent: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export interface UpdateLiquidationAddressDto {
+  external_account_id?: string
+  custom_developer_fee_percent?: string | null
+  destination_ach_reference?: string
+  destination_wire_message?: string
+  destination_sepa_reference?: string
+  destination_spei_reference?: string
+  destination_reference?: string
+  return_address?: string
+}
 
 export interface AdminBridgePayout {
   id: string
@@ -51,5 +79,27 @@ export const BridgeAdminService = {
    */
   async rejectPayout(payoutId: string, dto: Required<Pick<PayoutActionDto, 'rejection_reason'>>): Promise<void> {
     return apiPost<void>(`/admin/bridge/payouts/${payoutId}/reject`, dto)
+  },
+
+  /**
+   * Lista las liquidation addresses de un usuario específico (vista admin).
+   */
+  async getLiquidationAddressesByUser(userId: string): Promise<AdminLiquidationAddress[]> {
+    return apiGet<AdminLiquidationAddress[]>(`/admin/bridge/users/${userId}/liquidation-addresses`)
+  },
+
+  /**
+   * Actualiza una liquidation address en Bridge (fuente de verdad) y luego
+   * sincroniza la DB local con la respuesta confirmada de Bridge.
+   */
+  async updateLiquidationAddress(
+    userId: string,
+    laId: string,
+    dto: UpdateLiquidationAddressDto,
+  ): Promise<Record<string, unknown>> {
+    return apiPatch<Record<string, unknown>>(
+      `/admin/bridge/users/${userId}/liquidation-addresses/${laId}`,
+      dto,
+    )
   },
 }

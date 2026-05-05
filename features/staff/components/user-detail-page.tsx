@@ -29,6 +29,7 @@ import {
   CalendarDays,
   Fingerprint,
   Globe,
+  Wallet,
 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -45,6 +46,7 @@ import {
   ArchiveDeleteUserDialog,
   UnarchiveUserDialog,
 } from '@/features/staff/components/admin-action-dialogs'
+import { LiquidationAddressesPanel } from '@/features/staff/components/liquidation-addresses-panel'
 import type { Profile } from '@/types/profile'
 
 // ── Utilities ────────────────────────────────────────────
@@ -221,6 +223,13 @@ export function UserDetailPage({ userId }: { userId: string }) {
             Bancario
           </TabsTrigger>
           <TabsTrigger
+            value="liquidacion"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm"
+          >
+            <Wallet className="h-4 w-4 mr-2" />
+            Liquidación
+          </TabsTrigger>
+          <TabsTrigger
             value="admin"
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm"
           >
@@ -314,6 +323,24 @@ export function UserDetailPage({ userId }: { userId: string }) {
             </CardHeader>
             <CardContent>
               <BankAccountReviewPanel actor={actor} user={user} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Tab: Liquidación ── */}
+        <TabsContent value="liquidacion" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wallet className="h-5 w-5 text-primary" />
+                Liquidation Addresses
+              </CardTitle>
+              <CardDescription>
+                Direcciones crypto de liquidación registradas por el usuario. Cada dirección recibe depósitos y los convierte automáticamente.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <LiquidationAddressesPanel actor={actor} user={user} />
             </CardContent>
           </Card>
         </TabsContent>

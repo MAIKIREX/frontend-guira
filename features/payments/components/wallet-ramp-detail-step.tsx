@@ -17,14 +17,14 @@ import {
 import { Button } from '@/components/ui/button'
 import { Plus, CircleAlert, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { RAMP_ON_SOURCE_NETWORKS, CRYPTO_NETWORK_LABELS } from '@/features/payments/lib/crypto-networks'
+import { CRYPTO_NETWORK_LABELS } from '@/features/payments/lib/crypto-networks'
 import { CRYPTO_CURRENCY_LABELS } from '@/lib/guira-crypto-config'
 import {
-  getSourceCurrencies,
-  getDestinationCurrencies,
-  getMinAmount,
   getAllCryptoDestCurrencies,
   FIAT_BO_ALLOWED_DESTINATION_CURRENCIES,
+  getSourceNetworksForDest,
+  getSourceCurrenciesForDestAndNetwork,
+  getMinAmountByDest,
 } from '@/features/payments/lib/bridge-route-catalog'
 import { CreateVirtualAccountDialog } from '@/features/client/components/create-virtual-account-dialog'
 import { resolveFeeTotal, type ExchangeRateRecord } from '@/features/payments/lib/deposit-instructions'
@@ -89,77 +89,57 @@ export function WalletRampDetailStep({
   const selectedOriginCurrency = form.watch('origin_currency') ?? ''
   const selectedDestCurrency = form.watch('wallet_ramp_destination_currency') ?? ''
 
-  // ── Listas dinámicas filtradas por catálogo Bridge ──
+  // ── Listas dinámicas filtradas por documento lista_permitida_moneda_origen_destino ──
+  // La moneda destino (elegida en el paso anterior) determina las redes y monedas de origen válidas.
+
+  const availableSourceNetworks = React.useMemo(() => {
+    if (method !== 'crypto') return []
+    return getSourceNetworksForDest(selectedDestCurrency)
+  }, [method, selectedDestCurrency])
+
   const availableSourceCurrencies = React.useMemo(() => {
     if (method !== 'crypto' || !selectedSourceNetwork) return []
-    return getSourceCurrencies(selectedSourceNetwork)
-  }, [method, selectedSourceNetwork])
+    return getSourceCurrenciesForDestAndNetwork(selectedDestCurrency, selectedSourceNetwork)
+  }, [method, selectedDestCurrency, selectedSourceNetwork])
 
   const availableDestCurrencies = React.useMemo(() => {
     if (method === 'fiat_bo') {
       return [...FIAT_BO_ALLOWED_DESTINATION_CURRENCIES]
     }
-    if (method === 'crypto' && selectedSourceNetwork && selectedOriginCurrency) {
-      return getDestinationCurrencies(selectedSourceNetwork, selectedOriginCurrency)
-    }
-    // When in crypto 'wallet' sub-step before network/currency are chosen,
-    // show all possible destination tokens so the user can make their selection.
     if (method === 'crypto') {
       return getAllCryptoDestCurrencies()
     }
     return []
-  }, [method, selectedSourceNetwork, selectedOriginCurrency])
+  }, [method])
 
   const minAmount = React.useMemo(() => {
-    if (method === 'crypto' && selectedSourceNetwork && selectedOriginCurrency) {
-      return getMinAmount(selectedSourceNetwork, selectedOriginCurrency)
+    if (method === 'crypto' && selectedDestCurrency && selectedSourceNetwork && selectedOriginCurrency) {
+      return getMinAmountByDest(selectedDestCurrency, selectedSourceNetwork, selectedOriginCurrency)
     }
     return 0
-  }, [method, selectedSourceNetwork, selectedOriginCurrency])
+  }, [method, selectedDestCurrency, selectedSourceNetwork, selectedOriginCurrency])
 
   // ── Cascada: auto-clear cuando la selección queda inválida ──
   // IMPORTANT: Base UI Select treats '' as a valid value that doesn't match
   // any item, causing the component to freeze. Use undefined to clear.
   const handleNetworkChange = useCallback((network: string, fieldOnChange: (v: string) => void) => {
     fieldOnChange(network)
-    // Limpiar moneda origen y destino si ya no son válidas
-    const newSourceCurrencies = getSourceCurrencies(network)
+    // Limpiar moneda origen si ya no es válida para la nueva red + destino seleccionado
+    const destCurrency = form.getValues('wallet_ramp_destination_currency')
+    const newSourceCurrencies = getSourceCurrenciesForDestAndNetwork(destCurrency, network)
     const currentOrigin = form.getValues('origin_currency')
     if (currentOrigin && !newSourceCurrencies.includes(currentOrigin.toLowerCase())) {
-      // Auto-select if there's only one source currency available (e.g. Tron → usdt)
       if (newSourceCurrencies.length === 1) {
         form.setValue('origin_currency', newSourceCurrencies[0], { shouldValidate: false })
-        // Also auto-cascade destination currencies
-        const newDests = getDestinationCurrencies(network, newSourceCurrencies[0])
-        const currentDest = form.getValues('wallet_ramp_destination_currency')
-        if (currentDest && !newDests.includes(currentDest.toLowerCase())) {
-          form.setValue('wallet_ramp_destination_currency', undefined as any, { shouldValidate: false })
-        }
       } else {
         form.setValue('origin_currency', undefined as any, { shouldValidate: false })
-        form.setValue('wallet_ramp_destination_currency', undefined as any, { shouldValidate: false })
-      }
-    } else if (currentOrigin) {
-      // Verificar si destino sigue siendo válido
-      const newDests = getDestinationCurrencies(network, currentOrigin)
-      const currentDest = form.getValues('wallet_ramp_destination_currency')
-      if (currentDest && !newDests.includes(currentDest.toLowerCase())) {
-        form.setValue('wallet_ramp_destination_currency', undefined as any, { shouldValidate: false })
       }
     }
   }, [form])
 
   const handleSourceCurrencyChange = useCallback((currency: string, fieldOnChange: (v: string) => void) => {
     fieldOnChange(currency)
-    const network = form.getValues('wallet_ramp_source_network')
-    if (network) {
-      const newDests = getDestinationCurrencies(network, currency)
-      const currentDest = form.getValues('wallet_ramp_destination_currency')
-      if (currentDest && !newDests.includes(currentDest.toLowerCase())) {
-        form.setValue('wallet_ramp_destination_currency', undefined as any, { shouldValidate: false })
-      }
-    }
-  }, [form])
+  }, [])
 
   // ── Resolución de moneda para labels ──
   const displayOriginCurrency = method === 'fiat_bo' ? 'BOB' : (selectedOriginCurrency || 'CRYPTO').toUpperCase()
@@ -281,7 +261,7 @@ export function WalletRampDetailStep({
         {method === 'crypto' && (
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              {/* Red de origen */}
+              {/* Red de origen — filtrada por token destino elegido en paso 1 */}
               <FormField
                 control={form.control}
                 name="wallet_ramp_source_network"
@@ -291,17 +271,17 @@ export function WalletRampDetailStep({
                     <Select
                       value={field.value || null}
                       onValueChange={(v) => handleNetworkChange(v, field.onChange)}
-                      disabled={disabled}
+                      disabled={disabled || availableSourceNetworks.length === 0}
                     >
                       <FormControl>
                         <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
-                          <SelectValue placeholder="Seleccionar red" />
+                          <SelectValue placeholder={selectedDestCurrency ? 'Seleccionar red' : 'Selecciona un token destino primero'} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {RAMP_ON_SOURCE_NETWORKS.map((net) => (
+                        {availableSourceNetworks.map((net) => (
                           <SelectItem key={net} value={net}>
-                            {CRYPTO_NETWORK_LABELS[net] ?? net}
+                            {CRYPTO_NETWORK_LABELS[net as keyof typeof CRYPTO_NETWORK_LABELS] ?? net}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -311,7 +291,7 @@ export function WalletRampDetailStep({
                 )}
               />
 
-              {/* Moneda de origen (filtrada por red) */}
+              {/* Moneda de origen — filtrada por token destino + red de origen */}
               <FormField
                 control={form.control}
                 name="origin_currency"
@@ -432,7 +412,7 @@ export function WalletRampDetailStep({
       {method === 'crypto' && (
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            {/* Red de origen */}
+            {/* Red de origen — filtrada por token destino */}
             <FormField
               control={form.control}
               name="wallet_ramp_source_network"
@@ -442,17 +422,17 @@ export function WalletRampDetailStep({
                   <Select
                     value={field.value || null}
                     onValueChange={(v) => handleNetworkChange(v, field.onChange)}
-                    disabled={disabled}
+                    disabled={disabled || availableSourceNetworks.length === 0}
                   >
                     <FormControl>
                       <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
-                        <SelectValue placeholder="Seleccionar red" />
+                        <SelectValue placeholder={selectedDestCurrency ? 'Seleccionar red' : 'Selecciona un token destino primero'} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {RAMP_ON_SOURCE_NETWORKS.map((net) => (
+                      {availableSourceNetworks.map((net) => (
                         <SelectItem key={net} value={net}>
-                          {CRYPTO_NETWORK_LABELS[net] ?? net}
+                          {CRYPTO_NETWORK_LABELS[net as keyof typeof CRYPTO_NETWORK_LABELS] ?? net}
                         </SelectItem>
                       ))}
                     </SelectContent>

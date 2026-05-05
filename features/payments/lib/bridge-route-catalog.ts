@@ -86,6 +86,87 @@ export function isValidFiatBoDestination(currency: string | null | undefined): b
   return (FIAT_BO_ALLOWED_DESTINATION_CURRENCIES as readonly string[]).includes(currency.toLowerCase())
 }
 
+// ═══════════════════════════════════════════════════════════════════
+//  RUTAS ON-RAMP INDEXADAS POR DESTINO — crypto_to_bridge_wallet
+//  Fuente: lista_permitida_moneda_origen_destino.md
+//
+//  Estructura: { [dest_currency]: [{ network, currency, min }, ...] }
+//
+//  Uso: cuando el usuario ya eligió el token destino (paso 1),
+//  esta tabla determina qué redes y monedas de origen son válidas.
+// ═══════════════════════════════════════════════════════════════════
+
+export interface AllowedSourceEntry {
+  network: string
+  currency: string
+  min: number
+}
+
+/**
+ * Combinaciones de origen permitidas por token de destino.
+ * Destino siempre Solana (wallet custodial).
+ */
+export const BRIDGE_ON_RAMP_ALLOWED_SOURCES_BY_DEST: Record<string, AllowedSourceEntry[]> = {
+  usdc: [
+    { network: 'ethereum', currency: 'usdc', min: 1 },
+    { network: 'polygon',  currency: 'usdc', min: 1 },
+    { network: 'solana',   currency: 'usdc', min: 1 },
+    { network: 'stellar',  currency: 'usdc', min: 1 },
+  ],
+  usdt: [
+    { network: 'ethereum', currency: 'usdt', min: 20 },
+    { network: 'tron',     currency: 'usdt', min: 20 },
+  ],
+  usdb: [],
+  pyusd: [
+    { network: 'ethereum', currency: 'pyusd', min: 1 },
+  ],
+  eurc: [
+    { network: 'ethereum', currency: 'eurc', min: 1 },
+    { network: 'solana',   currency: 'eurc', min: 1 },
+  ],
+}
+
+/** Dado un token destino, retorna las redes de origen disponibles (sin duplicados) */
+export function getSourceNetworksForDest(destCurrency: string | null | undefined): string[] {
+  if (!destCurrency) return []
+  const sources = BRIDGE_ON_RAMP_ALLOWED_SOURCES_BY_DEST[destCurrency.toLowerCase()] ?? []
+  return [...new Set(sources.map((s) => s.network))]
+}
+
+/** Dado un token destino + red de origen, retorna las monedas de origen disponibles */
+export function getSourceCurrenciesForDestAndNetwork(
+  destCurrency: string | null | undefined,
+  sourceNetwork: string | null | undefined,
+): string[] {
+  if (!destCurrency || !sourceNetwork) return []
+  const sources = BRIDGE_ON_RAMP_ALLOWED_SOURCES_BY_DEST[destCurrency.toLowerCase()] ?? []
+  return sources
+    .filter((s) => s.network === sourceNetwork.toLowerCase())
+    .map((s) => s.currency)
+}
+
+/** Mínimo de transacción dado el token destino, red de origen y moneda de origen */
+export function getMinAmountByDest(
+  destCurrency: string | null | undefined,
+  sourceNetwork: string | null | undefined,
+  sourceCurrency: string | null | undefined,
+): number {
+  if (!destCurrency || !sourceNetwork || !sourceCurrency) return 1
+  const sources = BRIDGE_ON_RAMP_ALLOWED_SOURCES_BY_DEST[destCurrency.toLowerCase()] ?? []
+  const match = sources.find(
+    (s) => s.network === sourceNetwork.toLowerCase() && s.currency === sourceCurrency.toLowerCase(),
+  )
+  return match?.min ?? 1
+}
+
+/** Tokens destino que tienen al menos una ruta de origen válida */
+export function getCryptoDestCurrenciesWithSources(): string[] {
+  return Object.entries(BRIDGE_ON_RAMP_ALLOWED_SOURCES_BY_DEST)
+    .filter(([, sources]) => sources.length > 0)
+    .map(([dest]) => dest)
+}
+
 /** Unión de todos los tokens destino posibles para crypto_to_bridge_wallet (independiente de red/origen) */
 export function getAllCryptoDestCurrencies(): string[] {
   const set = new Set<string>()
@@ -174,6 +255,25 @@ export function getOffRampMinAmount(sourceCurrency: string | null | undefined, d
 export function isValidOffRampRoute(sourceCurrency: string | null | undefined, destNetwork: string | null | undefined, destCurrency: string | null | undefined): boolean {
   if (!sourceCurrency || !destNetwork || !destCurrency) return false
   return (BRIDGE_RAMP_OFF_ROUTES[sourceCurrency.toLowerCase()]?.[destNetwork.toLowerCase()]?.[destCurrency.toLowerCase()] ?? 0) > 0
+}
+
+/** Redes destino donde el mismo token de origen existe como destino (same-token transfer) */
+export function getOffRampSameTokenNetworks(sourceCurrency: string | null | undefined): string[] {
+  if (!sourceCurrency) return []
+  const cur = sourceCurrency.toLowerCase()
+  const networks = BRIDGE_RAMP_OFF_ROUTES[cur] ?? {}
+  return Object.keys(networks).filter((net) => cur in networks[net])
+}
+
+/** Retorna [sourceCurrency] si ese mismo token está disponible como destino en la red dada, o [] si no */
+export function getOffRampSameTokenDestCurrencies(
+  sourceCurrency: string | null | undefined,
+  destNetwork: string | null | undefined,
+): string[] {
+  if (!sourceCurrency || !destNetwork) return []
+  const cur = sourceCurrency.toLowerCase()
+  const dests = BRIDGE_RAMP_OFF_ROUTES[cur]?.[destNetwork.toLowerCase()] ?? {}
+  return cur in dests ? [cur] : []
 }
 
 // ═══════════════════════════════════════════════════════════════════
