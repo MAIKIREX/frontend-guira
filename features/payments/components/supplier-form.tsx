@@ -3,7 +3,8 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, ArrowRight, Building2, Landmark, Wallet, Globe } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Building2, Landmark, Wallet, Globe, Bitcoin } from 'lucide-react'
+import Flag from 'react-world-flags'
 import { Button } from '@/components/ui/button'
 import { GuiraButton } from '@/components/shared/guira-button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,8 +13,8 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { StepProgressRail } from '@/features/payments/components/step-progress-rail'
 import { interactiveClickableCardClassName, cn } from '@/lib/utils'
-import { ALLOWED_NETWORKS, NETWORK_LABELS, ALLOWED_CRYPTO_CURRENCIES, CRYPTO_CURRENCY_LABELS, NETWORK_TOKEN_MAP, ADDRESS_VALIDATORS, validateCryptoAddress } from '@/lib/guira-crypto-config'
-import type { AllowedNetwork, AllowedCryptoCurrency } from '@/lib/guira-crypto-config'
+import { ALLOWED_NETWORKS, NETWORK_LABELS, ADDRESS_VALIDATORS, validateCryptoAddress } from '@/lib/guira-crypto-config'
+import type { AllowedNetwork } from '@/lib/guira-crypto-config'
 import type { Supplier, PaymentRail, CreateSupplierPayload } from '@/types/supplier'
 
 interface SupplierFormProps {
@@ -141,17 +142,17 @@ const RAIL_OPTIONS: Array<{
   value: PaymentRail
   label: string
   description: string
-  icon: typeof Landmark
+  icon: string | React.ElementType
 }> = [
-  { value: 'ach', label: '🇺🇸 ACH (Estados Unidos)', description: 'Transferencia local ACH en USD', icon: Landmark },
-  { value: 'wire', label: '🇺🇸 Wire (Estados Unidos)', description: 'Transferencia Wire en USD', icon: Building2 },
-  { value: 'sepa', label: '🇪🇺 SEPA (Europa)', description: 'Transferencia bancaria en EUR', icon: Globe },
-  { value: 'spei', label: '🇲🇽 SPEI (México)', description: 'Transferencia bancaria en MXN', icon: Landmark },
-  { value: 'pix', label: '🇧🇷 PIX (Brasil)', description: 'Transferencia rápida en BRL', icon: Landmark },
-  { value: 'bre_b', label: '🇨🇴 Bre-B (Colombia)', description: 'Transferencia rápida en COP', icon: Landmark },
-  { value: 'co_bank_transfer', label: '🇨🇴 CO Bank Transfer (Colombia)', description: 'Transferencia bancaria tradicional en COP', icon: Building2 },
-  { value: 'faster_payments', label: '🇬🇧 Faster Payments (Reino Unido)', description: 'Transferencia rápida en GBP', icon: Landmark },
-  { value: 'crypto', label: '₿ Billetera Crypto', description: 'USDC/USDT vía redes crypto', icon: Wallet },
+  { value: 'ach', label: 'ACH (Estados Unidos)', description: 'Transferencia local ACH en USD', icon: 'US' },
+  { value: 'wire', label: 'Wire (Estados Unidos)', description: 'Transferencia Wire en USD', icon: 'US' },
+  { value: 'sepa', label: 'SEPA (Europa)', description: 'Transferencia bancaria en EUR', icon: 'EU' },
+  { value: 'spei', label: 'SPEI (México)', description: 'Transferencia bancaria en MXN', icon: 'MX' },
+  { value: 'pix', label: 'PIX (Brasil)', description: 'Transferencia rápida en BRL', icon: 'BR' },
+  { value: 'bre_b', label: 'Bre-B (Colombia)', description: 'Transferencia rápida en COP', icon: 'CO' },
+  { value: 'co_bank_transfer', label: 'CO Bank Transfer (Colombia)', description: 'Transferencia bancaria tradicional en COP', icon: 'CO' },
+  { value: 'faster_payments', label: 'Faster Payments (Reino Unido)', description: 'Transferencia rápida en GBP', icon: 'GB' },
+  { value: 'crypto', label: 'Billetera Crypto', description: 'USDC/USDT vía redes crypto', icon: Bitcoin },
 ]
 
 const CO_BANKS = [
@@ -211,6 +212,7 @@ const COUNTRY_OPTIONS = [
   { value: 'US', label: 'Estados Unidos' },
   { value: 'MX', label: 'México' },
   { value: 'CO', label: 'Colombia' },
+  { value: 'BO', label: 'Bolivia' },
   { value: 'BR', label: 'Brasil' },
   { value: 'AR', label: 'Argentina' },
   { value: 'PE', label: 'Perú' },
@@ -312,13 +314,16 @@ export function SupplierForm({
   const addressCountry = useWatch({ control: form.control, name: 'address_country' })
   const selectedWalletNetwork = useWatch({ control: form.control, name: 'wallet_network' })
 
+  // Regla de moneda para proveedores crypto:
+  // Tron → USDT (único token soportado sin exchange rate en Bridge)
+  // Todas las demás redes → USDC
   useEffect(() => {
     if (selectedRail !== 'crypto') return
-    const validTokens = NETWORK_TOKEN_MAP[selectedWalletNetwork as AllowedNetwork]
-    if (!validTokens) return
+    const isTron = selectedWalletNetwork?.toLowerCase() === 'tron'
+    const forcedCurrency = isTron ? 'usdt' : 'usdc'
     const current = form.getValues('wallet_currency')
-    if (!validTokens.includes(current as AllowedCryptoCurrency)) {
-      form.setValue('wallet_currency', validTokens[0])
+    if (current !== forcedCurrency) {
+      form.setValue('wallet_currency', forcedCurrency)
     }
   }, [selectedWalletNetwork, selectedRail, form])
 
@@ -486,12 +491,12 @@ export function SupplierForm({
             transition={{ duration: 0.2 }}
           >
             {currentStep === 'general' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Datos Generales</CardTitle>
-                  <CardDescription>Información básica del destinatario o empresa a la que enviarás fondos.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
+              <div className="flex flex-col gap-6">
+                <div className="space-y-1">
+                  <h3 className="text-xl font-semibold tracking-tight">Datos Generales</h3>
+                  <p className="text-sm text-muted-foreground">Información básica del destinatario o empresa a la que enviarás fondos.</p>
+                </div>
+                <div className="space-y-6">
                   <FormField
                     control={form.control}
                     name="name"
@@ -562,7 +567,14 @@ export function SupplierForm({
                             </FormControl>
                             <SelectContent>
                               {COUNTRY_OPTIONS.map((c) => (
-                                <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                                <SelectItem key={c.value} value={c.value}>
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex size-4 shrink-0 overflow-hidden rounded-sm">
+                                      <Flag code={c.value} className="h-full w-full object-cover" />
+                                    </div>
+                                    <span>{c.label}</span>
+                                  </div>
+                                </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -592,8 +604,19 @@ export function SupplierForm({
                                 if (!disabled) field.onChange(option.value)
                               }}
                             >
-                              <div className={cn('flex size-10 items-center justify-center rounded-lg border bg-background text-muted-foreground')}>
-                                <option.icon className="size-5" />
+                              <div
+                                className={cn(
+                                  'flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border',
+                                  typeof option.icon !== 'string' && option.value === 'crypto'
+                                    ? 'bg-primary border-primary text-primary-foreground shadow-sm'
+                                    : 'bg-background text-muted-foreground'
+                                )}
+                              >
+                                {typeof option.icon === 'string' ? (
+                                  <Flag code={option.icon} className="h-full w-full object-cover" fallback={<span className="text-xl leading-none">{option.icon}</span>} />
+                                ) : (
+                                  <option.icon className="size-5" />
+                                )}
                               </div>
                               <div className="flex flex-col gap-1">
                                 <span className={cn('text-sm font-medium leading-none tracking-tight')}>{option.label}</span>
@@ -612,19 +635,19 @@ export function SupplierForm({
                       Continuar a Detalles
                     </GuiraButton>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             )}
 
             {currentStep === 'accounts' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Detalles Bancarios</CardTitle>
-                  <CardDescription>
+              <div className="flex flex-col gap-6">
+                <div className="space-y-1">
+                  <h3 className="text-xl font-semibold tracking-tight">Detalles Bancarios</h3>
+                  <p className="text-sm text-muted-foreground">
                     Completa la información necesaria para envíos vía <strong>{RAIL_OPTIONS.find(r => r.value === selectedRail)?.label}</strong>.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
+                  </p>
+                </div>
+                <div className="space-y-6">
 
                   {/* Nombre del banco (ACH/Wire/SEPA/SPEI) */}
                   {['ach', 'wire', 'sepa', 'spei'].includes(selectedRail) && (
@@ -744,7 +767,14 @@ export function SupplierForm({
                                 </FormControl>
                                 <SelectContent>
                                   {COUNTRY_OPTIONS.map((c) => (
-                                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                                    <SelectItem key={c.value} value={c.value}>
+                                      <div className="flex items-center gap-2">
+                                        <div className="flex size-4 shrink-0 overflow-hidden rounded-sm">
+                                          <Flag code={c.value} className="h-full w-full object-cover" />
+                                        </div>
+                                        <span>{c.label}</span>
+                                      </div>
+                                    </SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
@@ -1352,24 +1382,22 @@ export function SupplierForm({
                           name="wallet_currency"
                           rules={{ required: 'La moneda es requerida' }}
                           render={({ field }) => {
-                            const validTokens = NETWORK_TOKEN_MAP[selectedWalletNetwork as AllowedNetwork] ?? ALLOWED_CRYPTO_CURRENCIES
+                            const isTron = selectedWalletNetwork?.toLowerCase() === 'tron'
+                            const forcedToken = isTron ? 'USDT' : 'USDC'
                             return (
                               <FormItem>
                                 <FormLabel>Token / Moneda</FormLabel>
-                                <Select disabled={disabled} onValueChange={field.onChange} value={field.value}>
-                                  <FormControl>
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Seleccione token" />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    {validTokens.map((cur) => (
-                                      <SelectItem key={cur} value={cur}>
-                                        {CRYPTO_CURRENCY_LABELS[cur]}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                                <FormControl>
+                                  <Input
+                                    disabled
+                                    value={forcedToken}
+                                    className="bg-muted/50 font-medium"
+                                  />
+                                </FormControl>
+                                <p className="text-xs text-muted-foreground">
+                                  Determinado automáticamente por la red seleccionada para evitar comisiones de conversión.
+                                </p>
+                                <input type="hidden" {...field} />
                                 <FormMessage />
                               </FormItem>
                             )
@@ -1429,8 +1457,8 @@ export function SupplierForm({
                       Guardar Proveedor
                     </GuiraButton>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             )}
           </motion.div>
         </AnimatePresence>

@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Pencil, Plus, Search, Trash2, UserRound, CheckCircle2 } from 'lucide-react'
+import { Pencil, Plus, Search, Trash2, UserRound, CheckCircle2, Bitcoin } from 'lucide-react'
+import Flag from 'react-world-flags'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { GuiraButton } from '@/components/shared/guira-button'
@@ -23,13 +24,27 @@ interface SuppliersSectionProps {
 }
 
 const RAIL_LABELS: Record<PaymentRail, string> = {
-  ach: '🇺🇸 ACH (USD)',
-  wire: '🇺🇸 Wire (USD)',
-  sepa: '🇪🇺 SEPA (EUR)',
-  spei: '🇲🇽 SPEI (MXN)',
-  pix: '🇧🇷 PIX (BRL)',
-  bre_b: '🇨🇴 Bre-B (COP)',
-  crypto: '₿ Crypto',
+  ach: 'ACH (USD)',
+  wire: 'Wire (USD)',
+  sepa: 'SEPA (EUR)',
+  spei: 'SPEI (MXN)',
+  pix: 'PIX (BRL)',
+  bre_b: 'Bre-B (COP)',
+  co_bank_transfer: 'CO Bank Transfer (COP)',
+  faster_payments: 'Faster Payments (GBP)',
+  crypto: 'Crypto',
+}
+
+const RAIL_FLAG_CODES: Record<PaymentRail, string | null> = {
+  ach: 'US',
+  wire: 'US',
+  sepa: 'EU',
+  spei: 'MX',
+  pix: 'BR',
+  bre_b: 'CO',
+  co_bank_transfer: 'CO',
+  faster_payments: 'GB',
+  crypto: null,
 }
 
 export function SuppliersSection({
@@ -184,9 +199,21 @@ export function SuppliersSection({
                     )}
                   >
                     <div className="flex items-start gap-4 min-w-0 w-full md:w-auto">
-                      <div className="flex size-11 flex-shrink-0 items-center justify-center rounded-2xl border border-border/70 bg-muted/30">
-                        <UserRound className="size-5 text-muted-foreground" />
-                      </div>
+                      {(() => {
+                        const flagCode = RAIL_FLAG_CODES[supplier.payment_rail]
+                        if (flagCode) {
+                          return (
+                            <div className="flex size-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/70 bg-muted/30">
+                              <Flag code={flagCode} className="h-full w-full object-cover" fallback={<UserRound className="size-5 text-muted-foreground" />} />
+                            </div>
+                          )
+                        }
+                        return (
+                          <div className="flex size-11 flex-shrink-0 items-center justify-center rounded-full border border-primary bg-primary shadow-sm">
+                            <Bitcoin className="size-5 text-primary-foreground" />
+                          </div>
+                        )
+                      })()}
                       <div className="flex min-w-0 flex-col gap-3 md:flex-row md:gap-8 md:items-center">
                         <div className="min-w-0">
                           <div className="truncate text-xl font-semibold">{supplier.name}</div>

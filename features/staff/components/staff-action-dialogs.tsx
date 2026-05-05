@@ -973,7 +973,7 @@ function getOrderStepExpectation(order: PaymentOrder) {
       }
     case 'processing': {
       // Flujos 100% automáticos: Bridge maneja todo, no requiere acción manual
-      const fullyAutoFlows = ['bridge_wallet_to_crypto', 'bridge_wallet_to_fiat_us']
+      const fullyAutoFlows = ['bridge_wallet_to_crypto', 'bridge_wallet_to_fiat_us', 'crypto_to_bridge_wallet']
       if (fullyAutoFlows.includes(order.flow_type ?? '') && !order.requires_psav) {
         return {
           title: 'Transferencia en curso vía Bridge.',
@@ -1367,7 +1367,7 @@ function ProcessingNumberField({
 
 function getOrderActions(order: PaymentOrder) {
   // Flujos 100% automatizados por Bridge (no requieren admin pipeline)
-  const fullyAutoFlows = ['bridge_wallet_to_crypto', 'bridge_wallet_to_fiat_us']
+  const fullyAutoFlows = ['bridge_wallet_to_crypto', 'bridge_wallet_to_fiat_us', 'wallet_to_wallet', 'crypto_to_bridge_wallet']
   if (fullyAutoFlows.includes(order.flow_type ?? '') && !order.requires_psav) {
     if (['created', 'processing'].includes(order.status)) {
       return ['failed'] as const

@@ -137,9 +137,9 @@ const ROUTE_STAGE_COPY: Record<SupportedPaymentRoute, {
   },
   crypto_to_crypto: {
     detailTitle: 'Completa el destino cripto',
-    detailDescription: 'El destino se toma del proveedor y la orden se crea antes de adjuntar el comprobante final.',
-    finishTitle: 'Adjunta el comprobante del fondeo',
-    finishDescription: 'La orden digital ya fue creada. Puedes adjuntar el comprobante final o continuar despues.',
+    detailDescription: 'El destino se toma del proveedor y la orden se crea antes de iniciar la transferencia.',
+    finishTitle: 'Deposita en la dirección Bridge',
+    finishDescription: 'La orden fue creada exitosamente. Deposita los fondos en la dirección indicada — Bridge los detectará automáticamente.',
   },
   wallet_ramp_deposit: {
     detailTitle: 'Detalle de la recarga a tu wallet',
@@ -148,10 +148,10 @@ const ROUTE_STAGE_COPY: Record<SupportedPaymentRoute, {
     finishDescription: 'El expediente fue creado. Sigue las instrucciones de fondeo y haz el depósito cuando estés listo. Opcionalmente sube tu comprobante de una vez.',
   },
   wallet_ramp_withdraw: {
-    detailTitle: 'Detalle del retiro a Bolivia',
-    detailDescription: 'Ingresa el monto, selecciona tu wallet Bridge y los datos de tu cuenta bancaria boliviana.',
+    detailTitle: 'Detalle del retiro',
+    detailDescription: 'Selecciona tu wallet Bridge, completa los datos de destino y el monto a retirar.',
     finishTitle: 'Retiro en proceso',
-    finishDescription: 'Tu orden fue creada y la transferencia de fondos está en camino. Recibirás tus bolivianos en tu cuenta bancaria.',
+    finishDescription: 'Tu orden fue creada y la transferencia de fondos está en camino.',
   },
   wallet_to_fiat: {
     detailTitle: 'Envío desde wallet on-chain',
@@ -2562,6 +2562,50 @@ export function CreatePaymentOrderForm({
                           {walletRampWithdrawMethod === 'fiat_bo'
                             ? 'Puedes dar seguimiento a esta orden desde el tab "Seguimiento". No es necesario subir comprobante; el proceso es automático en la primera etapa.'
                             : 'Tu retiro es procesado automáticamente por Bridge. El estado se actualizará cuando se complete. Puedes dar seguimiento desde el tab "Seguimiento".'}
+                        </div>
+
+                        <div className="flex items-center justify-end mt-8">
+                          <AnimatedNextButton
+                            disabled={disabled}
+                            onClick={() => resetFlow(form, setStep, setSupportFile, setQrFile, setEvidenceFile, setCreatedOrder)}
+                          >
+                            Cerrar
+                          </AnimatedNextButton>
+                        </div>
+                      </>
+                    ) : route === 'crypto_to_crypto' ? (
+                      <>
+                        {/* Instrucciones de depósito Bridge (dirección crypto + red) */}
+                        <div className="grid gap-4 lg:grid-cols-2">
+                          {finalInstructions.map((instruction) => (
+                            <DepositInstructionCard key={instruction.id} instruction={instruction} />
+                          ))}
+                        </div>
+
+                        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-6 text-base space-y-3">
+                          <div className="flex items-center gap-2 font-medium text-emerald-400">
+                            <Loader2 className="size-4 animate-spin" />
+                            Esperando depósito…
+                          </div>
+                          <p className="text-muted-foreground">
+                            Deposita los fondos en la dirección indicada arriba. Bridge detectará
+                            la transacción on-chain automáticamente y la orden se completará
+                            sin necesidad de subir comprobante.
+                          </p>
+                          <div className="mt-4 grid gap-2 text-sm text-muted-foreground">
+                            <div className="flex justify-between rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
+                              <span>Estado actual</span>
+                              <span className="font-medium text-amber-400">Esperando depósito</span>
+                            </div>
+                            <div className="flex justify-between rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
+                              <span>Proveedor destino</span>
+                              <span className="font-medium text-foreground">{suppliers.find(s => s.id === form.getValues('supplier_id'))?.name ?? 'Sin proveedor'}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="border-l-2 border-border/70 bg-muted/10 px-4 py-4 text-base text-muted-foreground">
+                          Puedes dar seguimiento a esta orden desde el tab "Seguimiento". El proceso es completamente automático — Bridge verificará el depósito on-chain y enviará los fondos al destino.
                         </div>
 
                         <div className="flex items-center justify-end mt-8">
