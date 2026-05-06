@@ -44,15 +44,25 @@ export const BRIDGE_RAMP_ON_ROUTES: Record<string, Record<string, BridgeRouteEnt
 }
 
 /**
- * Tokens destino permitidos para fiat_bo_to_bridge_wallet (Etapa 1).
- * EURC excluido porque requiere tasa BOB_EUR no disponible.
+ * Tokens destino activos para wallet ramp (fiat_bo y crypto).
+ * USDB y PYUSD excluidos. EURC visible pero no seleccionable (próximamente).
  */
-export const FIAT_BO_ALLOWED_DESTINATION_CURRENCIES = [
-  'usdc',
-  'usdt',
-  'usdb',
-  'pyusd',
+export const WALLET_RAMP_ACTIVE_DEST_CURRENCIES = ['usdc', 'usdt'] as const
+
+/** Tokens destino visibles pero aún no operativos — se muestran deshabilitados en la UI. */
+export const WALLET_RAMP_SOON_DEST_CURRENCIES = ['eurc'] as const
+
+/** Unión de activos + próximamente para renderizar el select completo. */
+export const WALLET_RAMP_ALLOWED_DEST_CURRENCIES = [
+  ...WALLET_RAMP_ACTIVE_DEST_CURRENCIES,
+  ...WALLET_RAMP_SOON_DEST_CURRENCIES,
 ] as const
+
+/**
+ * Tokens destino permitidos para fiat_bo_to_bridge_wallet.
+ * Alias de WALLET_RAMP_ACTIVE_DEST_CURRENCIES para compatibilidad.
+ */
+export const FIAT_BO_ALLOWED_DESTINATION_CURRENCIES = WALLET_RAMP_ACTIVE_DEST_CURRENCIES
 
 /** Dado una red, retorna las monedas de origen válidas */
 export function getSourceCurrencies(network: string | null | undefined): string[] {
@@ -191,7 +201,7 @@ export function getAllCryptoDestCurrencies(): string[] {
 // ═══════════════════════════════════════════════════════════════════
 
 /** Tokens de origen válidos para off-ramp */
-export const OFF_RAMP_SOURCE_CURRENCIES = ['usdc', 'usdt', 'usdb', 'pyusd', 'eurc'] as const
+export const OFF_RAMP_SOURCE_CURRENCIES = ['usdc', 'usdt', 'eurc'] as const
 
 /**
  * Catálogo de rutas soportadas para off-ramp bridge_wallet_to_crypto.
@@ -285,8 +295,8 @@ export function getOffRampSameTokenDestCurrencies(
 //  Derivado de lista_bridge_out.md
 // ═══════════════════════════════════════════════════════════════════
 
-/** Tokens excluidos para bridge_wallet_to_fiat_bo (Etapa 1) */
-export const FIAT_BO_EXCLUDED_SOURCE_CURRENCIES = ['eurc'] as const
+/** Tokens próximamente disponibles para off-ramp (se muestran en UI pero no son seleccionables) */
+export const COMING_SOON_OFF_RAMP_SOURCE_CURRENCIES = ['eurc'] as const
 
 /**
  * Rutas off-ramp válidas para bridge_wallet_to_fiat_bo.
@@ -294,10 +304,9 @@ export const FIAT_BO_EXCLUDED_SOURCE_CURRENCIES = ['eurc'] as const
  * { [source_currency]: { [psav_network]: { [psav_currency]: min_amount } } }
  */
 export const FIAT_BO_OFF_RAMP_ROUTES: Record<string, Record<string, Record<string, number>>> = {
-  usdc:  { solana: { usdc: 1 } },
-  usdt:  { solana: { usdc: 2 } },
-  usdb:  { solana: { usdt: 20 } },
-  pyusd: { solana: { usdc: 1, usdt: 20 } },
+  usdc: { solana: { usdc: 1 } },
+  usdt: { solana: { usdc: 2 } },
+  eurc: { solana: { eurc: 1 } },
 }
 
 /** Tokens de origen válidos para fiat_bo off-ramp */

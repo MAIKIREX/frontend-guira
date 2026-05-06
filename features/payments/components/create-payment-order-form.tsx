@@ -1040,7 +1040,7 @@ export function CreatePaymentOrderForm({
               {isDepositRouteActive ? 'Fondeo de expediente' : 'Transferencia de expediente'}
             </span>
             <CardTitle className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground leading-tight">
-              {isDepositRouteActive ? 'Depositar fondos' : 'Enviar fondos'}
+              {isDepositRouteActive ? 'Retirar fondos' : 'Enviar fondos'}
             </CardTitle>
             <CardDescription className="mt-1 text-sm text-muted-foreground leading-relaxed max-w-[65ch]">
               Selecciona ruta, metodo y detalle. La orden se crea antes de cualquier instruccion de pago.

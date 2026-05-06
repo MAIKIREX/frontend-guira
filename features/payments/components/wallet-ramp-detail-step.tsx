@@ -20,8 +20,8 @@ import { cn } from '@/lib/utils'
 import { CRYPTO_NETWORK_LABELS } from '@/features/payments/lib/crypto-networks'
 import { CRYPTO_CURRENCY_LABELS } from '@/lib/guira-crypto-config'
 import {
-  getAllCryptoDestCurrencies,
-  FIAT_BO_ALLOWED_DESTINATION_CURRENCIES,
+  WALLET_RAMP_ALLOWED_DEST_CURRENCIES,
+  WALLET_RAMP_SOON_DEST_CURRENCIES,
   getSourceNetworksForDest,
   getSourceCurrenciesForDestAndNetwork,
   getMinAmountByDest,
@@ -109,11 +109,8 @@ export function WalletRampDetailStep({
   }, [method, selectedDestCurrency, selectedSourceNetwork])
 
   const availableDestCurrencies = React.useMemo(() => {
-    if (method === 'fiat_bo') {
-      return [...FIAT_BO_ALLOWED_DESTINATION_CURRENCIES]
-    }
-    if (method === 'crypto') {
-      return getAllCryptoDestCurrencies()
+    if (method === 'fiat_bo' || method === 'crypto') {
+      return [...WALLET_RAMP_ALLOWED_DEST_CURRENCIES]
     }
     return []
   }, [method])
@@ -203,7 +200,7 @@ export function WalletRampDetailStep({
           name="wallet_ramp_wallet_id"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className={LABEL_CLASS}>Wallet Bridge destino</FormLabel>
+              <FormLabel className={LABEL_CLASS}>Tu Billetera Digital</FormLabel>
               <Select
                 value={field.value || null}
                 onValueChange={field.onChange}
@@ -255,11 +252,21 @@ export function WalletRampDetailStep({
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {availableDestCurrencies.map((cur) => (
-                    <SelectItem key={cur} value={cur}>
-                      {CRYPTO_CURRENCY_LABELS[cur as keyof typeof CRYPTO_CURRENCY_LABELS] ?? cur.toUpperCase()}
-                    </SelectItem>
-                  ))}
+                  {availableDestCurrencies.map((cur) => {
+                    const isSoon = (WALLET_RAMP_SOON_DEST_CURRENCIES as readonly string[]).includes(cur)
+                    return (
+                      <SelectItem key={cur} value={cur} disabled={isSoon}>
+                        <span className="flex items-center gap-2">
+                          {CRYPTO_CURRENCY_LABELS[cur as keyof typeof CRYPTO_CURRENCY_LABELS] ?? cur.toUpperCase()}
+                          {isSoon && (
+                            <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                              Próximamente
+                            </span>
+                          )}
+                        </span>
+                      </SelectItem>
+                    )
+                  })}
                 </SelectContent>
               </Select>
               <FormMessage />
@@ -496,7 +503,7 @@ export function WalletRampDetailStep({
           name="wallet_ramp_wallet_id"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className={LABEL_CLASS}>Wallet Bridge destino</FormLabel>
+              <FormLabel className={LABEL_CLASS}>Tu Billetera Digital destino</FormLabel>
               <Select
                 value={field.value || null}
                 onValueChange={field.onChange}
@@ -552,11 +559,21 @@ export function WalletRampDetailStep({
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {availableDestCurrencies.map((cur) => (
-                    <SelectItem key={cur} value={cur}>
-                      {CRYPTO_CURRENCY_LABELS[cur as keyof typeof CRYPTO_CURRENCY_LABELS] ?? cur.toUpperCase()}
-                    </SelectItem>
-                  ))}
+                  {availableDestCurrencies.map((cur) => {
+                    const isSoon = (WALLET_RAMP_SOON_DEST_CURRENCIES as readonly string[]).includes(cur)
+                    return (
+                      <SelectItem key={cur} value={cur} disabled={isSoon}>
+                        <span className="flex items-center gap-2">
+                          {CRYPTO_CURRENCY_LABELS[cur as keyof typeof CRYPTO_CURRENCY_LABELS] ?? cur.toUpperCase()}
+                          {isSoon && (
+                            <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                              Próximamente
+                            </span>
+                          )}
+                        </span>
+                      </SelectItem>
+                    )
+                  })}
                 </SelectContent>
               </Select>
               {method === 'crypto' && availableDestCurrencies.length === 0 && selectedSourceNetwork && (

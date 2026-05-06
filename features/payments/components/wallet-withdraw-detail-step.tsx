@@ -26,6 +26,7 @@ import { NETWORK_LABELS, CRYPTO_CURRENCY_LABELS } from '@/lib/guira-crypto-confi
 import {
   getOffRampMinAmount,
   OFF_RAMP_SOURCE_CURRENCIES,
+  COMING_SOON_OFF_RAMP_SOURCE_CURRENCIES,
   getFiatBoAvailableSourceCurrencies,
   getFiatBoMinAmountForSource,
   getOffRampSameTokenNetworks,
@@ -78,38 +79,48 @@ export function WalletWithdrawDetailStep({
   const fiatBoAvailableCurrencies = React.useMemo(() => {
     if (method !== 'fiat_bo') return []
     const routeValid = getFiatBoAvailableSourceCurrencies(psavConfigs as any[])
-    if (!selectedWallet?.token_balances?.length) return routeValid
-    return routeValid.filter((cur) => {
-      const tb = selectedWallet.token_balances.find(
-        (t) => t.currency.toLowerCase() === cur.toLowerCase()
-      )
-      return tb && tb.available_balance > 0
-    })
+    let active = routeValid
+    if (selectedWallet?.token_balances?.length) {
+      active = routeValid.filter((cur) => {
+        if ((COMING_SOON_OFF_RAMP_SOURCE_CURRENCIES as readonly string[]).includes(cur)) return false
+        const tb = selectedWallet.token_balances.find(
+          (t) => t.currency.toLowerCase() === cur.toLowerCase()
+        )
+        return tb && tb.available_balance > 0
+      })
+    }
+    const comingSoon = [...COMING_SOON_OFF_RAMP_SOURCE_CURRENCIES].filter((c) => !active.includes(c))
+    return [...active, ...comingSoon]
   }, [method, psavConfigs, selectedWallet])
 
   const fiatUsAvailableCurrencies = React.useMemo(() => {
     if (method !== 'fiat_us') return []
     const allTokens = [...OFF_RAMP_SOURCE_CURRENCIES]
     if (!selectedWallet?.token_balances?.length) return allTokens
-    return allTokens.filter((cur) => {
+    const active = allTokens.filter((cur) => {
+      if ((COMING_SOON_OFF_RAMP_SOURCE_CURRENCIES as readonly string[]).includes(cur)) return false
       const tb = selectedWallet.token_balances.find(
         (t) => t.currency.toLowerCase() === cur.toLowerCase()
       )
       return tb && tb.available_balance > 0
     })
+    const comingSoon = [...COMING_SOON_OFF_RAMP_SOURCE_CURRENCIES].filter((c) => !active.includes(c))
+    return [...active, ...comingSoon]
   }, [method, selectedWallet])
 
-  // Crypto: misma lógica de filtrado por balance que fiat_bo y fiat_us
   const cryptoAvailableCurrencies = React.useMemo(() => {
     if (method !== 'crypto') return []
     const allTokens = [...OFF_RAMP_SOURCE_CURRENCIES]
     if (!selectedWallet?.token_balances?.length) return allTokens
-    return allTokens.filter((cur) => {
+    const active = allTokens.filter((cur) => {
+      if ((COMING_SOON_OFF_RAMP_SOURCE_CURRENCIES as readonly string[]).includes(cur)) return false
       const tb = selectedWallet.token_balances.find(
         (t) => t.currency.toLowerCase() === cur.toLowerCase()
       )
       return tb && tb.available_balance > 0
     })
+    const comingSoon = [...COMING_SOON_OFF_RAMP_SOURCE_CURRENCIES].filter((c) => !active.includes(c))
+    return [...active, ...comingSoon]
   }, [method, selectedWallet])
 
   const fiatBoMinAmount = React.useMemo(() => {
@@ -327,13 +338,20 @@ export function WalletWithdrawDetailStep({
               </FormControl>
               <SelectContent>
                 {currencies.map((cur) => {
+                  const isComingSoon = (COMING_SOON_OFF_RAMP_SOURCE_CURRENCIES as readonly string[]).includes(cur)
                   const tokenBalance = selectedWallet?.token_balances?.find(
                     (t) => t.currency.toLowerCase() === cur.toLowerCase()
                   )
                   return (
-                    <SelectItem key={cur} value={cur}>
-                      {CRYPTO_CURRENCY_LABELS[cur as keyof typeof CRYPTO_CURRENCY_LABELS] ?? cur.toUpperCase()}
-                      {tokenBalance ? (
+                    <SelectItem key={cur} value={cur} disabled={isComingSoon}>
+                      <span className={isComingSoon ? 'text-muted-foreground' : ''}>
+                        {CRYPTO_CURRENCY_LABELS[cur as keyof typeof CRYPTO_CURRENCY_LABELS] ?? cur.toUpperCase()}
+                      </span>
+                      {isComingSoon ? (
+                        <span className="ml-1.5 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                          Próximamente
+                        </span>
+                      ) : tokenBalance ? (
                         <span className="ml-1.5 text-muted-foreground text-xs">
                           · {tokenBalance.available_balance.toFixed(2)} disponible
                         </span>
