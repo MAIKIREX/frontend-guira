@@ -18,16 +18,18 @@ import {
   FileCheck2,
   FileText,
   Landmark,
-  Network,
   Upload,
   Wallet,
   Loader2,
-  Banknote,
-  Globe,
-  Download,
-  RefreshCcw,
-  ArrowDownToLine,
+  Earth,
+  Send,
+  ArrowRightLeft,
+  WalletMinimal,
   ArrowUpRight,
+  Bitcoin,
+  CircleDollarSign,
+  BadgeDollarSign,
+  Building2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { getErrorMessage } from '@/lib/utils'
@@ -242,7 +244,7 @@ export function CreatePaymentOrderForm({
   })
 
   const route = useWatch({ control: form.control, name: 'route' })
-  
+
   useEffect(() => {
     if (route === 'crypto_to_crypto' || route === 'wallet_ramp_deposit' || route === 'wallet_ramp_withdraw') {
       setLoadingWallets(true)
@@ -290,7 +292,7 @@ export function CreatePaymentOrderForm({
   const supplierAchDetails = useMemo(() => getSupplierAchDetails(selectedSupplier), [selectedSupplier])
   const supplierSwiftDetails = useMemo(() => getSupplierSwiftDetails(selectedSupplier), [selectedSupplier])
   const supplierHasCrypto = Boolean(selectedSupplier?.bank_details?.wallet_address)
-  
+
   const supportedSourceRails = useMemo(() => {
     if (route !== 'crypto_to_crypto' || !selectedSupplier?.bank_details) return []
     const destNet = String(selectedSupplier.bank_details.wallet_network || '')
@@ -856,7 +858,7 @@ export function CreatePaymentOrderForm({
           if (deliveryMethod === 'swift') supplierFields.push('swift_bank_name', 'swift_code', 'swift_iban', 'swift_bank_address', 'swift_country')
           if (deliveryMethod === 'crypto') supplierFields.push('crypto_address', 'crypto_network')
           if (isCryptoToCrypto) supplierFields.push('destination_currency')
-          
+
           const isValid = await form.trigger(supplierFields, { shouldFocus: true })
           if (!isValid) return
           // crypto_to_crypto va a 'funding', bolivia_to_exterior salta a 'reason'
@@ -1045,7 +1047,7 @@ export function CreatePaymentOrderForm({
               <AnimatePresence mode="wait">
                 {step === 'route' ? (
                   <AnimatedStepPanel key="route">
-                    
+
                     <FormField
                       control={form.control}
                       name="route"
@@ -1070,10 +1072,10 @@ export function CreatePaymentOrderForm({
                                           description={entry.description}
                                           disabled={disabled || entry.disabled}
                                           icon={
-                                            entry.key === 'bolivia_to_exterior' ? Globe :
-                                            entry.key === 'world_to_bolivia' ? Download :
-                                            entry.key === 'crypto_to_crypto' ? RefreshCcw :
-                                            Landmark
+                                            entry.key === 'bolivia_to_exterior' ? Send :
+                                              entry.key === 'world_to_bolivia' ? Earth :
+                                                entry.key === 'crypto_to_crypto' ? ArrowRightLeft :
+                                                  Landmark
                                           }
                                           isSelected={field.value === entry.key}
                                           onClick={() => {
@@ -1100,9 +1102,9 @@ export function CreatePaymentOrderForm({
                                           description={entry.description}
                                           disabled={disabled || entry.disabled}
                                           icon={
-                                            entry.key === 'wallet_ramp_deposit' ? ArrowDownToLine :
-                                            entry.key === 'wallet_ramp_withdraw' ? ArrowUpRight :
-                                            Wallet
+                                            entry.key === 'wallet_ramp_deposit' ? WalletMinimal :
+                                              entry.key === 'wallet_ramp_withdraw' ? ArrowUpRight :
+                                                Wallet
                                           }
                                           isSelected={field.value === entry.key}
                                           onClick={() => {
@@ -1135,7 +1137,7 @@ export function CreatePaymentOrderForm({
 
                 {step === 'method' ? (
                   <AnimatedStepPanel key="method">
-                    
+
                     {currentRoute.key === 'world_to_bolivia' ? (
                       <FormField
                         control={form.control}
@@ -1148,21 +1150,21 @@ export function CreatePaymentOrderForm({
                                 <SelectionCard
                                   description="Recibe los fondos directamente en tu cuenta de banco local."
                                   disabled={disabled}
-                                  icon={Landmark}
+                                  icon={Building2}
                                   isSelected={field.value === 'bank_account'}
                                   onClick={() => field.onChange('bank_account')}
                                   title="Cuenta Bancaria"
                                 />
                                 {/* Hidden from UI — set to true to re-enable */}
                                 {false && (
-                                <SelectionCard
-                                  description="Próximamente: escanea y paga directamente usando un QR bancario."
-                                  disabled={true} // Inhabilitado temporalmente a petición
-                                  icon={FileText}
-                                  isSelected={field.value === 'bank_qr'}
-                                  onClick={() => field.onChange('bank_qr')}
-                                  title="Pago con QR"
-                                />
+                                  <SelectionCard
+                                    description="Próximamente: escanea y paga directamente usando un QR bancario."
+                                    disabled={true} // Inhabilitado temporalmente a petición
+                                    icon={FileText}
+                                    isSelected={field.value === 'bank_qr'}
+                                    onClick={() => field.onChange('bank_qr')}
+                                    title="Pago con QR"
+                                  />
                                 )}
                               </div>
                             </FormControl>
@@ -1192,7 +1194,7 @@ export function CreatePaymentOrderForm({
                                 <SelectionCard
                                   description="Envía los fondos directamente a una billetera digital."
                                   disabled={disabled}
-                                  icon={Network}
+                                  icon={Bitcoin}
                                   isSelected={field.value === 'crypto'}
                                   onClick={() => field.onChange('crypto')}
                                   title="Billetera Crypto"
@@ -1220,7 +1222,7 @@ export function CreatePaymentOrderForm({
                       <SelectionCard
                         description="Transfiere activos entre billeteras de manera inmediata."
                         disabled={disabled}
-                        icon={Network}
+                        icon={Bitcoin}
                         isSelected
                         onClick={() => form.setValue('ui_method_group', 'crypto')}
                         title="A Billetera Digital"
@@ -1237,21 +1239,21 @@ export function CreatePaymentOrderForm({
                             <FormControl>
                               <div className="grid gap-3 sm:grid-cols-2">
                                 <SelectionCard
-                                  description="Convierte tus Bolivianos a dólares digitales (USDC)."
+                                  description="Convierte tus Bolivianos a dólares digitales."
                                   disabled={disabled}
-                                  icon={Banknote}
+                                  icon={CircleDollarSign}
                                   isSelected={field.value === 'fiat_bo'}
                                   onClick={() => {
                                     field.onChange('fiat_bo')
                                     form.setValue('origin_currency', 'BOB')
                                     form.setValue('destination_currency', 'USDC')
                                   }}
-                                  title="Con Bolivianos (BOB)"
+                                  title="Con Bolivianos"
                                 />
                                 <SelectionCard
                                   description="Fondea usando tus activos digitales de otras billeteras."
                                   disabled={disabled}
-                                  icon={Network}
+                                  icon={Bitcoin}
                                   isSelected={field.value === 'crypto'}
                                   onClick={() => {
                                     field.onChange('crypto')
@@ -1262,18 +1264,18 @@ export function CreatePaymentOrderForm({
                                 />
                                 {/* Hidden from UI — set to true to re-enable */}
                                 {false && (
-                                <SelectionCard
-                                  description="Fondeo automático usando tu cuenta bancaria en EE.UU."
-                                  disabled={true}
-                                  icon={Landmark}
-                                  isSelected={field.value === 'fiat_us'}
-                                  onClick={() => {
-                                    field.onChange('fiat_us')
-                                    form.setValue('origin_currency', 'USD')
-                                    form.setValue('destination_currency', 'USDC')
-                                  }}
-                                  title="Con Dólares (USD)"
-                                />
+                                  <SelectionCard
+                                    description="Fondeo automático usando tu cuenta bancaria en EE.UU."
+                                    disabled={true}
+                                    icon={Landmark}
+                                    isSelected={field.value === 'fiat_us'}
+                                    onClick={() => {
+                                      field.onChange('fiat_us')
+                                      form.setValue('origin_currency', 'USD')
+                                      form.setValue('destination_currency', 'USDC')
+                                    }}
+                                    title="Con Dólares (USD)"
+                                  />
                                 )}
                               </div>
                             </FormControl>
@@ -1295,7 +1297,7 @@ export function CreatePaymentOrderForm({
                                 <SelectionCard
                                   description="Recibe tu dinero directamente en tu cuenta local en Bolivianos."
                                   disabled={disabled}
-                                  icon={Banknote}
+                                  icon={Building2}
                                   isSelected={field.value === 'fiat_bo'}
                                   onClick={() => {
                                     field.onChange('fiat_bo')
@@ -1307,7 +1309,7 @@ export function CreatePaymentOrderForm({
                                 <SelectionCard
                                   description="Transfiere el saldo a otra billetera digital de forma directa."
                                   disabled={disabled}
-                                  icon={Network}
+                                  icon={Bitcoin}
                                   isSelected={field.value === 'crypto'}
                                   onClick={() => {
                                     field.onChange('crypto')
@@ -1321,7 +1323,7 @@ export function CreatePaymentOrderForm({
                                 <SelectionCard
                                   description="Envía los fondos a una cuenta bancaria en Estados Unidos."
                                   disabled={disabled}
-                                  icon={Landmark}
+                                  icon={BadgeDollarSign}
                                   isSelected={field.value === 'fiat_us'}
                                   onClick={() => {
                                     field.onChange('fiat_us')
@@ -1351,380 +1353,63 @@ export function CreatePaymentOrderForm({
 
                 {step === 'detail' ? (
                   <>
-                  {!hasSubStepFlow && !isFiatBoWithdraw && !isCryptoWithdraw && !isFiatUsWithdraw && !isFiatBoDeposit && !isRampDepositWithSubSteps && !isWorldToBolivia && (
-                  <AnimatedStepPanel key="detail">
-                    
+                    {!hasSubStepFlow && !isFiatBoWithdraw && !isCryptoWithdraw && !isFiatUsWithdraw && !isFiatBoDeposit && !isRampDepositWithSubSteps && !isWorldToBolivia && (
+                      <AnimatedStepPanel key="detail">
 
-                    <div className="grid gap-4">
-                      {route === 'wallet_ramp_withdraw' ? (
-                        <WalletWithdrawDetailStep
-                          form={form}
-                          method={walletRampWithdrawMethod || 'fiat_bo'}
-                          wallets={bridgeWallets}
-                          exchangeRates={exchangeRates}
-                          feesConfig={feesConfig}
-                          psavConfigs={psavConfigs}
-                          disabled={disabled}
-                        />
-                      ) : route === 'wallet_ramp_deposit' ? (
-                        <WalletRampDetailStep
-                          form={form}
-                          method={form.watch('wallet_ramp_method') || 'fiat_bo'}
-                          wallets={bridgeWallets}
-                          virtualAccounts={virtualAccounts}
-                          loadingVirtualAccounts={loadingVirtualAccounts}
-                          onVaCreated={(va) => setVirtualAccounts(prev => [...prev, va])}
-                          exchangeRates={exchangeRates}
-                          feesConfig={feesConfig}
-                          disabled={disabled}
-                        />
-                      ) : route === 'wallet_to_fiat' ? (
-                        <WalletToFiatDetailStep
-                          form={form}
-                          feesConfig={feesConfig}
-                          exchangeRates={exchangeRates}
-                          disabled={disabled}
-                        />
-                      ) : (
-                          <>
-                          <NumericField control={form.control} disabled={disabled} label={getAmountLabel(currentRoute.key)} name="amount_origin" />
-                          <EstimationSummary
-                            amountOrigin={summaryStats.amountOrigin}
-                            originCurrency={summaryStats.originCurrency}
-                            feeTotal={summaryStats.feeTotal}
-                            exchangeRate={exchangeRateApplied}
-                            exchangeRateLabel={`${summaryStats.destinationCurrency}/${summaryStats.originCurrency}`}
-                            exchangeRatePrecision={2}
-                            receivesApprox={summaryStats.netAmountDestination}
-                            receivesCurrency={summaryStats.destinationCurrency}
-                            showAmountOrigin
-                            receivesSubtext={
-                              summaryStats.originCurrency.trim().toUpperCase() !== summaryStats.destinationCurrency.trim().toUpperCase()
-                                ? `Después de comisión y conversión a ${summaryStats.destinationCurrency}`
-                                : 'Después de descontar la comisión'
-                            }
-                          />
-                        </>
-                      )}
 
-                      {!shouldHideSupplier && route !== 'wallet_ramp_deposit' ? (
-                        <FormField
-                          control={form.control}
-                          name="supplier_id"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className={FORM_LABEL_CLASS}>Proveedor o beneficiario</FormLabel>
-                              <FormControl>
-                                <Select
-                                  value={field.value || 'none'}
-                                  onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
-                                  disabled={disabled}
-                                >
-                                  <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
-                                    <SelectValue placeholder="Selecciona uno guardado o crea uno nuevo en Proveedores">
-                                      {selectedSupplier?.name ?? (field.value ? field.value : undefined)}
-                                    </SelectValue>
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="none">Sin proveedor cargado</SelectItem>
-                                    {filteredSuppliers.map((supplier) => (
-                                      <SelectItem key={supplier.id} value={supplier.id ?? supplier.name}>
-                                        <span>{supplier.name}</span>
-                                        {supplier.bridge_external_account_id ? (
-                                          <span className="ml-1.5 text-sm text-muted-foreground">
-                                            ({supplier.payment_rail?.toUpperCase() ?? 'BANK'} · External Account)
-                                          </span>
-                                        ) : null}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </FormControl>
-                              {currentRoute.key === 'wallet_ramp_withdraw' && walletRampWithdrawMethod === 'fiat_us' && filteredSuppliers.length === 0 ? (
-                                <p className="text-sm text-amber-500">
-                                  No tienes proveedores con cuenta externa bancaria (ACH/Wire) registrada. Crea uno en la sección Proveedores para continuar.
-                                </p>
-                              ) : currentRoute.key === 'wallet_to_fiat' && filteredSuppliers.length === 0 ? (
-                                <p className="text-sm text-amber-500">
-                                  No tienes proveedores con cuenta bancaria externa registrada en Bridge. Crea uno en la sección Proveedores.
-                                </p>
-                              ) : (
-                                <p className="text-sm text-muted-foreground">
-                                  {currentRoute.key === 'wallet_ramp_withdraw' && walletRampWithdrawMethod === 'fiat_us'
-                                    ? 'Solo se muestran proveedores con cuenta bancaria externa registrada en Bridge (ACH/Wire).'
-                                    : currentRoute.key === 'wallet_to_fiat'
-                                      ? 'Solo se muestran proveedores con cuenta bancaria externa registrada en Bridge (ACH/Wire).'
-                                      : currentRoute.key === 'crypto_to_crypto'
-                                        ? 'Solo se muestran proveedores con wallet crypto configurada. La red y moneda de origen se filtran segun el destino del proveedor.'
-                                        : 'Debes crear un proveedor con los datos correctos antes de usar esta opcion.'}
-                                </p>
-                              )}
-                              <div className="flex flex-wrap items-center gap-3">
-                                <Link
-                                  className="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium transition-colors hover:bg-muted"
-                                  href="/proveedores"
-                                >
-                                  Ir a Proveedores
-                                </Link>
-                                <span className="text-sm text-muted-foreground">Crea o completa el proveedor y vuelve a esta operacion.</span>
-                              </div>
-                              <FormMessage />
-                            </FormItem>
+                        <div className="grid gap-4">
+                          {route === 'wallet_ramp_withdraw' ? (
+                            <WalletWithdrawDetailStep
+                              form={form}
+                              method={walletRampWithdrawMethod || 'fiat_bo'}
+                              wallets={bridgeWallets}
+                              exchangeRates={exchangeRates}
+                              feesConfig={feesConfig}
+                              psavConfigs={psavConfigs}
+                              disabled={disabled}
+                            />
+                          ) : route === 'wallet_ramp_deposit' ? (
+                            <WalletRampDetailStep
+                              form={form}
+                              method={form.watch('wallet_ramp_method') || 'fiat_bo'}
+                              wallets={bridgeWallets}
+                              virtualAccounts={virtualAccounts}
+                              loadingVirtualAccounts={loadingVirtualAccounts}
+                              onVaCreated={(va) => setVirtualAccounts(prev => [...prev, va])}
+                              exchangeRates={exchangeRates}
+                              feesConfig={feesConfig}
+                              disabled={disabled}
+                            />
+                          ) : route === 'wallet_to_fiat' ? (
+                            <WalletToFiatDetailStep
+                              form={form}
+                              feesConfig={feesConfig}
+                              exchangeRates={exchangeRates}
+                              disabled={disabled}
+                            />
+                          ) : (
+                            <>
+                              <NumericField control={form.control} disabled={disabled} label={getAmountLabel(currentRoute.key)} name="amount_origin" />
+                              <EstimationSummary
+                                amountOrigin={summaryStats.amountOrigin}
+                                originCurrency={summaryStats.originCurrency}
+                                feeTotal={summaryStats.feeTotal}
+                                exchangeRate={exchangeRateApplied}
+                                exchangeRateLabel={`${summaryStats.destinationCurrency}/${summaryStats.originCurrency}`}
+                                exchangeRatePrecision={2}
+                                receivesApprox={summaryStats.netAmountDestination}
+                                receivesCurrency={summaryStats.destinationCurrency}
+                                showAmountOrigin
+                                receivesSubtext={
+                                  summaryStats.originCurrency.trim().toUpperCase() !== summaryStats.destinationCurrency.trim().toUpperCase()
+                                    ? `Después de comisión y conversión a ${summaryStats.destinationCurrency}`
+                                    : 'Después de descontar la comisión'
+                                }
+                              />
+                            </>
                           )}
-                        />
-                      ) : null}
 
-                      {supplierValidationMessage && hasSupplierSelected ? <ValidationNotice message={supplierValidationMessage} /> : null}
-
-                      {/* Motivo obligatorio para retiro fiat US */}
-                      {currentRoute.key === 'wallet_ramp_withdraw' ? (
-                        <TextField control={form.control} disabled={disabled} label="Motivo del retiro" name="payment_reason" />
-                      ) : null}
-
-                      {/* El campo QR bancario (Opcional) fue removido de aquí para trasladarlo al método 'bank_qr' posteriormente */}
-
-                      {shouldShowExpandedDetail && route !== 'wallet_ramp_deposit' ? (
-                        <>
-                          {!shouldHideSupplier && route !== 'wallet_to_fiat' ? (
-                            <FormField
-                              control={form.control}
-                              name="delivery_method"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel className={FORM_LABEL_CLASS}>Metodo tecnico final</FormLabel>
-                                  <FormControl>
-                                    <Select
-                                      value={field.value}
-                                      onValueChange={field.onChange}
-                                      disabled={disabled || availableTechnicalMethods.length <= 1}
-                                    >
-                                      <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {availableTechnicalMethods.map((method) => (
-                                          <SelectItem key={method} value={method}>
-                                            {method}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          ) : null}
-                          {currentRoute.key === 'us_to_wallet' ? (
-                            <>
-                              <div className="grid gap-4 lg:grid-cols-2">
-                                <TextField control={form.control} disabled={disabled} label="Direccion de la billetera" name="crypto_address" />
-                                <NetworkSelectField
-                                  control={form.control}
-                                  disabled={disabled}
-                                  label="Red de recepcion"
-                                  name="crypto_network"
-                                  placeholder="Selecciona la red de recepcion"
-                                />
-                              </div>
-                              {/*
-                            <AutoFilledPanel
-                              title="Metadata autocompletada"
-                              rows={buildMetadataPreview({
-                                route,
-                                deliveryMethod,
-                                receiveVariant,
-                                uiMethodGroup,
-                                values: form.getValues(),
-                              })}
-                            />
-                            */}
-                            </>
-                          ) : null}
-
-                          {currentRoute.key === 'world_to_bolivia' ? (
-                            <>
-                              <div className="grid gap-4 lg:grid-cols-2">
-                                <TextField control={form.control} disabled={disabled} label="Banco" name="ach_bank_name" />
-                                <TextField control={form.control} disabled={disabled} label="Cuenta bancaria" name="ach_account_number" />
-                              </div>
-                              <TextField control={form.control} disabled={disabled} label="Nombre del titular de la cuenta" name="destination_account_holder" />
-                              <TextField control={form.control} disabled={disabled} label="Motivo del pago" name="payment_reason" />
-                            </>
-                          ) : null}
-
-                          {/* Legacy detail block — these routes now go through hasSubStepFlow; kept for safety */}
-                          {(() => { const r = route as string; return currentRoute.key !== 'us_to_wallet' && currentRoute.key !== 'world_to_bolivia' && currentRoute.key !== 'wallet_ramp_withdraw' && currentRoute.key !== 'wallet_to_fiat' ? (
-                            <>
-                              <div className={`grid gap-4 ${(r === 'bolivia_to_exterior' && uiMethodGroup !== 'crypto') ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
-                                {!(r === 'bolivia_to_exterior' && uiMethodGroup === 'crypto') && r !== 'crypto_to_crypto' ? (
-                                  <TextField control={form.control} disabled={disabled} label={getDestinationLabel(currentRoute.key)} name="destination_address" />
-                                ) : null}
-                                {r === 'bolivia_to_exterior' ? (
-                                  <FormField
-                                    control={form.control}
-                                    name="funding_method"
-                                    render={({ field }) => (
-                                      <FormItem>
-                                        <FormLabel className={FORM_LABEL_CLASS}>Funding method</FormLabel>
-                                        <FormControl>
-                                          <Select value={field.value} onValueChange={field.onChange} disabled={true}>
-                                            <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
-                                              <SelectValue placeholder="Selecciona" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                              <SelectItem value="bs">bs</SelectItem>
-                                              <SelectItem value="crypto">crypto</SelectItem>
-                                              <SelectItem value="ach">ach</SelectItem>
-                                              <SelectItem value="wallet">wallet</SelectItem>
-                                            </SelectContent>
-                                          </Select>
-                                        </FormControl>
-                                        <FormMessage />
-                                      </FormItem>
-                                    )}
-                                  />
-                                ) : null}
-                              </div>
-
-                              {deliveryMethod === 'swift' && r === 'bolivia_to_exterior' ? (
-                                <div className="grid gap-4 lg:grid-cols-2">
-                                  <TextField control={form.control} disabled={disabled} label="Banco" name="swift_bank_name" />
-                                  <TextField control={form.control} disabled={disabled} label="Codigo SWIFT" name="swift_code" />
-                                  <TextField control={form.control} disabled={disabled} label="IBAN o cuenta" name="swift_iban" />
-                                  <TextField control={form.control} disabled={disabled} label="Direccion del banco" name="swift_bank_address" />
-                                  <TextField control={form.control} disabled={disabled} label="Pais del banco" name="swift_country" />
-                                </div>
-                              ) : null}
-
-                              {deliveryMethod === 'ach' && r === 'bolivia_to_exterior' ? (
-                                <div className="grid gap-4 lg:grid-cols-3">
-                                  <TextField control={form.control} disabled={disabled} label="Routing number" name="ach_routing_number" />
-                                  <TextField control={form.control} disabled={disabled} label="Account number" name="ach_account_number" />
-                                  <TextField control={form.control} disabled={disabled} label="Bank name" name="ach_bank_name" />
-                                </div>
-                              ) : null}
-
-                              {deliveryMethod === 'crypto' ? (
-                                <>
-                                  {r === 'crypto_to_crypto' ? (
-                                    <>
-                                      <div className="grid gap-4 mt-4 px-4 py-4 border rounded-md bg-muted/20">
-                                        <div className="col-span-full mb-2">
-                                          <h4 className="text-base font-semibold">Datos de Fondeo (Desde dónde envías)</h4>
-                                        </div>
-                                        <div className="grid gap-4 lg:grid-cols-2">
-                                          <NetworkSelectField 
-                                            control={form.control} 
-                                            disabled={disabled || !hasSupplierSelected || supportedSourceNetworks.length === 0} 
-                                            label="Red de Origen" 
-                                            name="source_crypto_network" 
-                                            placeholder="Selecciona la red" 
-                                            options={supportedSourceNetworks}
-                                          />
-                                          <CurrencySelectField 
-                                            control={form.control} 
-                                            disabled={disabled || !hasSupplierSelected || supportedSourceCurrencies.length === 0} 
-                                            label="Moneda de origen" 
-                                            name="origin_currency" 
-                                            placeholder="Selecciona moneda" 
-                                            options={supportedSourceCurrencies}
-                                          />
-                                        </div>
-                                        <TextField control={form.control} disabled={disabled} label="Wallet de Origen (Externa)" name="source_crypto_address" />
-                                      </div>
-                                    </>
-                                  ) : null}
-                                  <div className="grid gap-4 lg:grid-cols-3 mt-4">
-                                    <TextField control={form.control} disabled={true} label="Wallet destino" name="crypto_address" />
-                                    <NetworkSelectField control={form.control} disabled={true} label="Red destino" name="crypto_network" placeholder="Selecciona la red" />
-                                    {r === 'crypto_to_crypto' ? (
-                                      <CurrencySelectField control={form.control} disabled={true} label="Moneda destino" name="destination_currency" placeholder="Selecciona moneda" />
-                                    ) : null}
-                                  </div>
-                                </>
-                              ) : null}
-
-                              {/*
-                            <AutoFilledPanel
-                              title="Metadata autocompletada"
-                              rows={buildMetadataPreview({
-                                route,
-                                deliveryMethod,
-                                receiveVariant,
-                                uiMethodGroup,
-                                values: form.getValues(),
-                              })}
-                            />
-                            */}
-                            </>
-                          ) : null; })()}
-
-                          {currentRoute.key !== 'us_to_wallet' && !isDepositRouteActive ? (
-                            <TextField control={form.control} disabled={disabled} label="Motivo del pago" name="payment_reason" />
-                          ) : null}
-
-
-                          {showSupportUpload && !(currentRoute.key === 'world_to_bolivia' && receiveVariant === 'bank_qr') ? (
-                            <DocumentInputCard
-                              className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
-                              file={supportFile}
-                              label="Documento de respaldo"
-                              description={
-                                currentRoute.key === 'bolivia_to_exterior' || currentRoute.key === 'crypto_to_crypto' || currentRoute.key === 'world_to_bolivia' || currentRoute.key === 'wallet_ramp_withdraw'
-                                  ? 'Obligatorio en esta ruta. Se guardará como support_document_url al crear la orden.'
-                                  : 'Documento Opcional.'
-                              }
-                              onFileChange={(f) => {
-                                setSupportFile(f)
-                                if (f) setShowSupportFileError(false)
-                              }}
-                            />
-                          ) : null}
-                        </>
-                      ) : hasSupplierObservation ? (
-                        <div className="border-l-2 border-amber-500/70 bg-amber-50/70 px-4 py-4 text-base text-amber-950">
-                          Corrige primero la observacion del proveedor para habilitar los campos siguientes.
-                        </div>
-                      ) : (
-                        <div className="border-l-2 border-border/70 bg-muted/10 px-4 py-4 text-base text-muted-foreground">
-                          Selecciona primero un proveedor valido para mostrar metodo tecnico, monedas y metadata autocompletada.
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between mt-8">
-                      <AnimatedBackButton onClick={handleBack}>
-                        Volver
-                      </AnimatedBackButton>
-                      <AnimatedNextButton disabled={disabled} onClick={handleNext}>
-                        Revisar expediente
-                      </AnimatedNextButton>
-                    </div>
-                  </AnimatedStepPanel>
-                  )}
-
-                  {hasSubStepFlow && (
-                    <AnimatedStepPanel key={`detail-${detailSubStep}`}>
-                      {/* Sub-pasos indicados visualmente */}
-                      <div className="flex items-center gap-2 mb-6 px-1">
-                        {DETAIL_SUB_ORDER.map((sub, i) => (
-                          <div key={sub} className="flex items-center gap-2">
-                            <div className={cn(
-                              'size-2 rounded-full transition-colors',
-                              detailSubStep === sub ? 'bg-primary' :
-                              DETAIL_SUB_ORDER.indexOf(detailSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
-                            )} />
-                            {i < DETAIL_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="grid gap-4">
-                        {detailSubStep === 'supplier' && (
-                          <>
-                            
-                            
+                          {!shouldHideSupplier && route !== 'wallet_ramp_deposit' ? (
                             <FormField
                               control={form.control}
                               name="supplier_id"
@@ -1738,433 +1423,7 @@ export function CreatePaymentOrderForm({
                                       disabled={disabled}
                                     >
                                       <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
-                                        <SelectValue placeholder="Selecciona uno guardado o crea uno nuevo">
-                                          {selectedSupplier?.name ?? (field.value ? field.value : undefined)}
-                                        </SelectValue>
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="none">Sin proveedor cargado</SelectItem>
-                                        {filteredSuppliers.map((supplier) => (
-                                          <SelectItem key={supplier.id} value={supplier.id ?? supplier.name}>
-                                            <span>{supplier.name}</span>
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </FormControl>
-                                  <p className="text-sm text-muted-foreground">
-                                    {isCryptoToCrypto
-                                      ? 'Solo se muestran proveedores con wallet crypto configurada.'
-                                      : 'Debes crear un proveedor con los datos correctos antes de usar esta opcion.'}
-                                  </p>
-                                  <div className="flex flex-wrap items-center gap-3">
-                                    <Link className="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium transition-colors hover:bg-muted" href="/proveedores">Ir a Proveedores</Link>
-                                    <span className="text-sm text-muted-foreground">Crea o completa el proveedor y vuelve a esta operacion.</span>
-                                  </div>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-
-                            {supplierValidationMessage && hasSupplierSelected ? <ValidationNotice message={supplierValidationMessage} /> : null}
-
-                            {shouldShowExpandedDetail && (
-                              <>
-                                <FormField
-                                  control={form.control}
-                                  name="delivery_method"
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormLabel className={FORM_LABEL_CLASS}>Metodo tecnico final</FormLabel>
-                                      <FormControl>
-                                        <Select value={field.value} onValueChange={field.onChange} disabled={disabled || isCryptoToCrypto || uiMethodGroup === 'crypto' || availableTechnicalMethods.length <= 1}>
-                                          <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
-                                            <SelectValue />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {availableTechnicalMethods.map((method) => (
-                                              <SelectItem key={method} value={method}>{method}</SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-                                
-                                {isBoliviaToExterior && (
-                                  <div className={`grid gap-4 ${uiMethodGroup !== 'crypto' ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
-                                    {uiMethodGroup !== 'crypto' && (
-                                      <TextField control={form.control} disabled={disabled} label="Cuenta o destino" name="destination_address" />
-                                    )}
-                                    <FormField control={form.control} name="funding_method" render={({ field }) => (
-                                      <FormItem>
-                                        <FormLabel className={FORM_LABEL_CLASS}>Funding method</FormLabel>
-                                        <FormControl>
-                                          <Select value={field.value} onValueChange={field.onChange} disabled={true}>
-                                            <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                              <SelectItem value="bs">bs</SelectItem>
-                                              <SelectItem value="crypto">crypto</SelectItem>
-                                            </SelectContent>
-                                          </Select>
-                                        </FormControl>
-                                      </FormItem>
-                                    )} />
-                                  </div>
-                                )}
-
-                                {deliveryMethod === 'swift' && isBoliviaToExterior && (
-                                  <div className="grid gap-4 lg:grid-cols-2">
-                                    <TextField control={form.control} disabled={disabled} label="Banco" name="swift_bank_name" />
-                                    <TextField control={form.control} disabled={disabled} label="Codigo SWIFT" name="swift_code" />
-                                    <TextField control={form.control} disabled={disabled} label="IBAN o cuenta" name="swift_iban" />
-                                    <TextField control={form.control} disabled={disabled} label="Direccion del banco" name="swift_bank_address" />
-                                    <TextField control={form.control} disabled={disabled} label="Pais del banco" name="swift_country" />
-                                  </div>
-                                )}
-
-                                {deliveryMethod === 'ach' && isBoliviaToExterior && (
-                                  <div className="grid gap-4 lg:grid-cols-3">
-                                    <TextField control={form.control} disabled={disabled} label="Routing number" name="ach_routing_number" />
-                                    <TextField control={form.control} disabled={disabled} label="Account number" name="ach_account_number" />
-                                    <TextField control={form.control} disabled={disabled} label="Bank name" name="ach_bank_name" />
-                                  </div>
-                                )}
-
-                                {deliveryMethod === 'crypto' && (
-                                  <div className="grid gap-4 lg:grid-cols-2 mt-4">
-                                    <TextField control={form.control} disabled={true} label="Wallet destino" name="crypto_address" />
-                                    <NetworkSelectField control={form.control} disabled={true} label="Red destino" name="crypto_network" placeholder="Selecciona la red" />
-                                    {isCryptoToCrypto && (
-                                      <CurrencySelectField control={form.control} disabled={true} label="Moneda destino" name="destination_currency" placeholder="Selecciona moneda" />
-                                    )}
-                                  </div>
-                                )}
-                              </>
-                            )}
-                          </>
-                        )}
-
-                        {detailSubStep === 'funding' && isCryptoToCrypto && (
-                          <>
-                            
-                            <div className="grid gap-4 lg:grid-cols-2">
-                              <NetworkSelectField 
-                                control={form.control} 
-                                disabled={disabled || !hasSupplierSelected || supportedSourceNetworks.length === 0} 
-                                label="Red de Origen" 
-                                name="source_crypto_network" 
-                                placeholder="Selecciona la red" 
-                                options={supportedSourceNetworks}
-                              />
-                              <CurrencySelectField 
-                                control={form.control} 
-                                disabled={disabled || !hasSupplierSelected || supportedSourceCurrencies.length === 0} 
-                                label="Moneda de origen" 
-                                name="origin_currency" 
-                                placeholder="Selecciona moneda" 
-                                options={supportedSourceCurrencies}
-                              />
-                            </div>
-                            <TextField control={form.control} disabled={disabled} label="Wallet de Origen (Externa)" name="source_crypto_address" />
-                          </>
-                        )}
-
-                        {detailSubStep === 'reason' && (
-                          <>
-                            
-                            <TextField control={form.control} disabled={disabled} label="Motivo del pago" name="payment_reason" />
-                            <DocumentInputCard
-                              className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
-                              file={supportFile}
-                              label="Documento de respaldo"
-                              description="Obligatorio en esta ruta. Se guardara como support_document_url al crear la orden."
-                              onFileChange={(f) => {
-                                setSupportFile(f)
-                                if (f) setShowSupportFileError(false)
-                              }}
-                            />
-                          </>
-                        )}
-
-                        {detailSubStep === 'amount' && (
-                          <>
-                            
-                            <NumericField control={form.control} disabled={disabled} label={getAmountLabel(currentRoute.key)} name="amount_origin" />
-                            <EstimationSummary
-                              amountOrigin={summaryStats.amountOrigin}
-                              originCurrency={summaryStats.originCurrency}
-                              feeTotal={summaryStats.feeTotal}
-                              exchangeRate={exchangeRateApplied}
-                              exchangeRateLabel={`${summaryStats.destinationCurrency}/${summaryStats.originCurrency}`}
-                              exchangeRatePrecision={2}
-                              receivesApprox={summaryStats.netAmountDestination}
-                              receivesCurrency={summaryStats.destinationCurrency}
-                              showAmountOrigin
-                              receivesSubtext={
-                                summaryStats.originCurrency.trim().toUpperCase() !== summaryStats.destinationCurrency.trim().toUpperCase()
-                                  ? `Después de comisión y conversión a ${summaryStats.destinationCurrency}`
-                                  : 'Después de descontar la comisión'
-                              }
-                              validationError={
-                                isBoliviaToExterior &&
-                                summaryStats.amountOrigin > 0 &&
-                                ((Number(form.watch('amount_origin') || 0)) / ((exchangeRates.find(r => r.pair === 'BOB_USD') as any)?.effective_rate ?? exchangeRates.find(r => r.pair === 'BOB_USD')?.rate ?? 1)) <
-                                  parseFloat(String(appSettings.find(s => s.key === 'MIN_INTERBANK_USD')?.value ?? '0'))
-                                  ? `El envío equivale a ~$${((Number(form.watch('amount_origin') || 0)) / ((exchangeRates.find(r => r.pair === 'BOB_USD') as any)?.effective_rate ?? exchangeRates.find(r => r.pair === 'BOB_USD')?.rate ?? 1)).toFixed(2)} USD. El sistema interbancario exige un mínimo de $${parseFloat(String(appSettings.find(s => s.key === 'MIN_INTERBANK_USD')?.value ?? '0')).toFixed(2)} USD. Ajusta tu monto para continuar.`
-                                  : undefined
-                              }
-                            />
-                          </>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-between mt-8">
-                        <AnimatedBackButton onClick={handleBack}>
-                          {detailSubStep === 'supplier' ? 'Volver' : 'Anterior'}
-                        </AnimatedBackButton>
-                        <AnimatedNextButton disabled={disabled} onClick={handleNext}>
-                          {detailSubStep === 'amount' ? 'Revisar expediente' : 'Siguiente'}
-                        </AnimatedNextButton>
-                      </div>
-                    </AnimatedStepPanel>
-                  )}
-
-                  {isFiatBoWithdraw && (
-                    <AnimatedStepPanel key={`detail-fiatbo-${fiatBoSubStep}`}>
-                      {/* Indicador de sub-pasos */}
-                      <div className="flex items-center gap-2 mb-6 px-1">
-                        {FIAT_BO_SUB_ORDER.map((sub, i) => (
-                          <div key={sub} className="flex items-center gap-2">
-                            <div className={cn(
-                              'size-2 rounded-full transition-colors',
-                              fiatBoSubStep === sub ? 'bg-primary' :
-                              FIAT_BO_SUB_ORDER.indexOf(fiatBoSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
-                            )} />
-                            {i < FIAT_BO_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="grid gap-4">
-                        {fiatBoSubStep === 'wallet' && (
-                          <>
-                            
-                            <WalletWithdrawDetailStep
-                              form={form}
-                              method="fiat_bo"
-                              wallets={bridgeWallets}
-                              exchangeRates={exchangeRates}
-                              feesConfig={feesConfig}
-                              psavConfigs={psavConfigs}
-                              disabled={disabled}
-                              subStep="wallet"
-                            />
-                          </>
-                        )}
-
-                        {fiatBoSubStep === 'bank' && (
-                          <>
-                            
-                            <WalletWithdrawDetailStep
-                              form={form}
-                              method="fiat_bo"
-                              wallets={bridgeWallets}
-                              exchangeRates={exchangeRates}
-                              feesConfig={feesConfig}
-                              psavConfigs={psavConfigs}
-                              disabled={disabled}
-                              subStep="bank"
-                            />
-                          </>
-                        )}
-
-                        {fiatBoSubStep === 'reason' && (
-                          <>
-                            
-                            <TextField control={form.control} disabled={disabled} label="Motivo del retiro" name="payment_reason" />
-                            <DocumentInputCard
-                              className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
-                              file={supportFile}
-                              label="Documento de respaldo"
-                              description="Obligatorio en esta ruta. Se guardará como support_document_url al crear la orden."
-                              onFileChange={(f) => {
-                                setSupportFile(f)
-                                if (f) setShowSupportFileError(false)
-                              }}
-                            />
-                          </>
-                        )}
-
-                        {fiatBoSubStep === 'amount' && (
-                          <>
-                            
-                            <WalletWithdrawDetailStep
-                              form={form}
-                              method="fiat_bo"
-                              wallets={bridgeWallets}
-                              exchangeRates={exchangeRates}
-                              feesConfig={feesConfig}
-                              psavConfigs={psavConfigs}
-                              disabled={disabled}
-                              subStep="amount"
-                            />
-                          </>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-between mt-8">
-                        <AnimatedBackButton onClick={handleBack}>
-                          {fiatBoSubStep === 'wallet' ? 'Volver' : 'Anterior'}
-                        </AnimatedBackButton>
-                        <AnimatedNextButton disabled={disabled} onClick={handleNext}>
-                          {fiatBoSubStep === 'amount' ? 'Revisar expediente' : 'Siguiente'}
-                        </AnimatedNextButton>
-                      </div>
-                    </AnimatedStepPanel>
-                  )}
-
-                  {isCryptoWithdraw && (
-                    <AnimatedStepPanel key={`detail-crypto-${cryptoWithdrawSubStep}`}>
-                      <div className="flex items-center gap-2 mb-6 px-1">
-                        {CRYPTO_WITHDRAW_SUB_ORDER.map((sub, i) => (
-                          <div key={sub} className="flex items-center gap-2">
-                            <div className={cn(
-                              'size-2 rounded-full transition-colors',
-                              cryptoWithdrawSubStep === sub ? 'bg-primary' :
-                              CRYPTO_WITHDRAW_SUB_ORDER.indexOf(cryptoWithdrawSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
-                            )} />
-                            {i < CRYPTO_WITHDRAW_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="grid gap-4">
-                        {cryptoWithdrawSubStep === 'wallet' && (
-                          <>
-                            
-                            <WalletWithdrawDetailStep
-                              form={form}
-                              method="crypto"
-                              wallets={bridgeWallets}
-                              exchangeRates={exchangeRates}
-                              feesConfig={feesConfig}
-                              psavConfigs={psavConfigs}
-                              disabled={disabled}
-                              subStep="wallet"
-                            />
-                          </>
-                        )}
-
-                        {cryptoWithdrawSubStep === 'dest_wallet' && (
-                          <>
-                            
-                            <WalletWithdrawDetailStep
-                              form={form}
-                              method="crypto"
-                              wallets={bridgeWallets}
-                              exchangeRates={exchangeRates}
-                              feesConfig={feesConfig}
-                              psavConfigs={psavConfigs}
-                              disabled={disabled}
-                              subStep="dest_wallet"
-                            />
-                          </>
-                        )}
-
-                        {cryptoWithdrawSubStep === 'reason' && (
-                          <>
-                            
-                            <TextField control={form.control} disabled={disabled} label="Motivo del retiro" name="payment_reason" />
-                            <DocumentInputCard
-                              className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
-                              file={supportFile}
-                              label="Documento de respaldo"
-                              description="Obligatorio en esta ruta. Se guardará como support_document_url al crear la orden."
-                              onFileChange={(f) => { setSupportFile(f); if (f) setShowSupportFileError(false) }}
-                            />
-                          </>
-                        )}
-
-                        {cryptoWithdrawSubStep === 'amount' && (
-                          <>
-                            
-                            <WalletWithdrawDetailStep
-                              form={form}
-                              method="crypto"
-                              wallets={bridgeWallets}
-                              exchangeRates={exchangeRates}
-                              feesConfig={feesConfig}
-                              psavConfigs={psavConfigs}
-                              disabled={disabled}
-                              subStep="amount"
-                            />
-                          </>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-between mt-8">
-                        <AnimatedBackButton onClick={handleBack}>
-                          {cryptoWithdrawSubStep === 'wallet' ? 'Volver' : 'Anterior'}
-                        </AnimatedBackButton>
-                        <AnimatedNextButton disabled={disabled} onClick={handleNext}>
-                          {cryptoWithdrawSubStep === 'amount' ? 'Revisar expediente' : 'Siguiente'}
-                        </AnimatedNextButton>
-                      </div>
-                    </AnimatedStepPanel>
-                  )}
-
-                  {isFiatUsWithdraw && (
-                    <AnimatedStepPanel key={`detail-fiatus-${fiatUsSubStep}`}>
-                      <div className="flex items-center gap-2 mb-6 px-1">
-                        {FIAT_US_SUB_ORDER.map((sub, i) => (
-                          <div key={sub} className="flex items-center gap-2">
-                            <div className={cn(
-                              'size-2 rounded-full transition-colors',
-                              fiatUsSubStep === sub ? 'bg-primary' :
-                              FIAT_US_SUB_ORDER.indexOf(fiatUsSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
-                            )} />
-                            {i < FIAT_US_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="grid gap-4">
-                        {fiatUsSubStep === 'wallet' && (
-                          <>
-                            
-                            <WalletWithdrawDetailStep
-                              form={form}
-                              method="fiat_us"
-                              wallets={bridgeWallets}
-                              exchangeRates={exchangeRates}
-                              feesConfig={feesConfig}
-                              psavConfigs={psavConfigs}
-                              disabled={disabled}
-                              subStep="wallet"
-                            />
-                          </>
-                        )}
-
-                        {fiatUsSubStep === 'supplier' && (
-                          <>
-                            
-                            <FormField
-                              control={form.control}
-                              name="supplier_id"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel className={FORM_LABEL_CLASS}>Proveedor o beneficiario</FormLabel>
-                                  <FormControl>
-                                    <Select
-                                      value={field.value || 'none'}
-                                      onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
-                                      disabled={disabled}
-                                    >
-                                      <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
-                                        <SelectValue placeholder="Selecciona uno guardado">
+                                        <SelectValue placeholder="Selecciona uno guardado o crea uno nuevo en Proveedores">
                                           {selectedSupplier?.name ?? (field.value ? field.value : undefined)}
                                         </SelectValue>
                                       </SelectTrigger>
@@ -2183,13 +1442,23 @@ export function CreatePaymentOrderForm({
                                       </SelectContent>
                                     </Select>
                                   </FormControl>
-                                  {filteredSuppliers.length === 0 ? (
+                                  {currentRoute.key === 'wallet_ramp_withdraw' && walletRampWithdrawMethod === 'fiat_us' && filteredSuppliers.length === 0 ? (
                                     <p className="text-sm text-amber-500">
-                                      No tienes proveedores con cuenta bancaria externa (ACH/Wire) registrada en Bridge. Crea uno en la sección Proveedores.
+                                      No tienes proveedores con cuenta externa bancaria (ACH/Wire) registrada. Crea uno en la sección Proveedores para continuar.
+                                    </p>
+                                  ) : currentRoute.key === 'wallet_to_fiat' && filteredSuppliers.length === 0 ? (
+                                    <p className="text-sm text-amber-500">
+                                      No tienes proveedores con cuenta bancaria externa registrada en Bridge. Crea uno en la sección Proveedores.
                                     </p>
                                   ) : (
                                     <p className="text-sm text-muted-foreground">
-                                      Solo se muestran proveedores con cuenta bancaria externa registrada en Bridge (ACH/Wire).
+                                      {currentRoute.key === 'wallet_ramp_withdraw' && walletRampWithdrawMethod === 'fiat_us'
+                                        ? 'Solo se muestran proveedores con cuenta bancaria externa registrada en Bridge (ACH/Wire).'
+                                        : currentRoute.key === 'wallet_to_fiat'
+                                          ? 'Solo se muestran proveedores con cuenta bancaria externa registrada en Bridge (ACH/Wire).'
+                                          : currentRoute.key === 'crypto_to_crypto'
+                                            ? 'Solo se muestran proveedores con wallet crypto configurada. La red y moneda de origen se filtran segun el destino del proveedor.'
+                                            : 'Debes crear un proveedor con los datos correctos antes de usar esta opcion.'}
                                     </p>
                                   )}
                                   <div className="flex flex-wrap items-center gap-3">
@@ -2205,301 +1474,1036 @@ export function CreatePaymentOrderForm({
                                 </FormItem>
                               )}
                             />
-                            {supplierValidationMessage && hasSupplierSelected ? <ValidationNotice message={supplierValidationMessage} /> : null}
-                          </>
-                        )}
+                          ) : null}
 
-                        {fiatUsSubStep === 'reason' && (
-                          <>
-                            
+                          {supplierValidationMessage && hasSupplierSelected ? <ValidationNotice message={supplierValidationMessage} /> : null}
+
+                          {/* Motivo obligatorio para retiro fiat US */}
+                          {currentRoute.key === 'wallet_ramp_withdraw' ? (
                             <TextField control={form.control} disabled={disabled} label="Motivo del retiro" name="payment_reason" />
-                            <DocumentInputCard
-                              className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
-                              file={supportFile}
-                              label="Documento de respaldo"
-                              description="Obligatorio en esta ruta. Se guardará como support_document_url al crear la orden."
-                              onFileChange={(f) => { setSupportFile(f); if (f) setShowSupportFileError(false) }}
+                          ) : null}
+
+                          {/* El campo QR bancario (Opcional) fue removido de aquí para trasladarlo al método 'bank_qr' posteriormente */}
+
+                          {shouldShowExpandedDetail && route !== 'wallet_ramp_deposit' ? (
+                            <>
+                              {!shouldHideSupplier && route !== 'wallet_to_fiat' ? (
+                                <FormField
+                                  control={form.control}
+                                  name="delivery_method"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel className={FORM_LABEL_CLASS}>Metodo tecnico final</FormLabel>
+                                      <FormControl>
+                                        <Select
+                                          value={field.value}
+                                          onValueChange={field.onChange}
+                                          disabled={disabled || availableTechnicalMethods.length <= 1}
+                                        >
+                                          <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
+                                            <SelectValue />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {availableTechnicalMethods.map((method) => (
+                                              <SelectItem key={method} value={method}>
+                                                {method}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              ) : null}
+                              {currentRoute.key === 'us_to_wallet' ? (
+                                <>
+                                  <div className="grid gap-4 lg:grid-cols-2">
+                                    <TextField control={form.control} disabled={disabled} label="Direccion de la billetera" name="crypto_address" />
+                                    <NetworkSelectField
+                                      control={form.control}
+                                      disabled={disabled}
+                                      label="Red de recepcion"
+                                      name="crypto_network"
+                                      placeholder="Selecciona la red de recepcion"
+                                    />
+                                  </div>
+                                  {/*
+                            <AutoFilledPanel
+                              title="Metadata autocompletada"
+                              rows={buildMetadataPreview({
+                                route,
+                                deliveryMethod,
+                                receiveVariant,
+                                uiMethodGroup,
+                                values: form.getValues(),
+                              })}
                             />
-                          </>
-                        )}
+                            */}
+                                </>
+                              ) : null}
 
-                        {fiatUsSubStep === 'amount' && (
-                          <>
-                            
-                            <WalletWithdrawDetailStep
-                              form={form}
-                              method="fiat_us"
-                              wallets={bridgeWallets}
-                              exchangeRates={exchangeRates}
-                              feesConfig={feesConfig}
-                              psavConfigs={psavConfigs}
-                              disabled={disabled}
-                              subStep="amount"
+                              {currentRoute.key === 'world_to_bolivia' ? (
+                                <>
+                                  <div className="grid gap-4 lg:grid-cols-2">
+                                    <TextField control={form.control} disabled={disabled} label="Banco" name="ach_bank_name" />
+                                    <TextField control={form.control} disabled={disabled} label="Cuenta bancaria" name="ach_account_number" />
+                                  </div>
+                                  <TextField control={form.control} disabled={disabled} label="Nombre del titular de la cuenta" name="destination_account_holder" />
+                                  <TextField control={form.control} disabled={disabled} label="Motivo del pago" name="payment_reason" />
+                                </>
+                              ) : null}
+
+                              {/* Legacy detail block — these routes now go through hasSubStepFlow; kept for safety */}
+                              {(() => {
+                                const r = route as string; return currentRoute.key !== 'us_to_wallet' && currentRoute.key !== 'world_to_bolivia' && currentRoute.key !== 'wallet_ramp_withdraw' && currentRoute.key !== 'wallet_to_fiat' ? (
+                                  <>
+                                    <div className={`grid gap-4 ${(r === 'bolivia_to_exterior' && uiMethodGroup !== 'crypto') ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
+                                      {!(r === 'bolivia_to_exterior' && uiMethodGroup === 'crypto') && r !== 'crypto_to_crypto' ? (
+                                        <TextField control={form.control} disabled={disabled} label={getDestinationLabel(currentRoute.key)} name="destination_address" />
+                                      ) : null}
+                                      {r === 'bolivia_to_exterior' ? (
+                                        <FormField
+                                          control={form.control}
+                                          name="funding_method"
+                                          render={({ field }) => (
+                                            <FormItem>
+                                              <FormLabel className={FORM_LABEL_CLASS}>Funding method</FormLabel>
+                                              <FormControl>
+                                                <Select value={field.value} onValueChange={field.onChange} disabled={true}>
+                                                  <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
+                                                    <SelectValue placeholder="Selecciona" />
+                                                  </SelectTrigger>
+                                                  <SelectContent>
+                                                    <SelectItem value="bs">bs</SelectItem>
+                                                    <SelectItem value="crypto">crypto</SelectItem>
+                                                    <SelectItem value="ach">ach</SelectItem>
+                                                    <SelectItem value="wallet">wallet</SelectItem>
+                                                  </SelectContent>
+                                                </Select>
+                                              </FormControl>
+                                              <FormMessage />
+                                            </FormItem>
+                                          )}
+                                        />
+                                      ) : null}
+                                    </div>
+
+                                    {deliveryMethod === 'swift' && r === 'bolivia_to_exterior' ? (
+                                      <div className="grid gap-4 lg:grid-cols-2">
+                                        <TextField control={form.control} disabled={disabled} label="Banco" name="swift_bank_name" />
+                                        <TextField control={form.control} disabled={disabled} label="Codigo SWIFT" name="swift_code" />
+                                        <TextField control={form.control} disabled={disabled} label="IBAN o cuenta" name="swift_iban" />
+                                        <TextField control={form.control} disabled={disabled} label="Direccion del banco" name="swift_bank_address" />
+                                        <TextField control={form.control} disabled={disabled} label="Pais del banco" name="swift_country" />
+                                      </div>
+                                    ) : null}
+
+                                    {deliveryMethod === 'ach' && r === 'bolivia_to_exterior' ? (
+                                      <div className="grid gap-4 lg:grid-cols-3">
+                                        <TextField control={form.control} disabled={disabled} label="Routing number" name="ach_routing_number" />
+                                        <TextField control={form.control} disabled={disabled} label="Account number" name="ach_account_number" />
+                                        <TextField control={form.control} disabled={disabled} label="Bank name" name="ach_bank_name" />
+                                      </div>
+                                    ) : null}
+
+                                    {deliveryMethod === 'crypto' ? (
+                                      <>
+                                        {r === 'crypto_to_crypto' ? (
+                                          <>
+                                            <div className="grid gap-4 mt-4 px-4 py-4 border rounded-md bg-muted/20">
+                                              <div className="col-span-full mb-2">
+                                                <h4 className="text-base font-semibold">Datos de Fondeo (Desde dónde envías)</h4>
+                                              </div>
+                                              <div className="grid gap-4 lg:grid-cols-2">
+                                                <NetworkSelectField
+                                                  control={form.control}
+                                                  disabled={disabled || !hasSupplierSelected || supportedSourceNetworks.length === 0}
+                                                  label="Red de Origen"
+                                                  name="source_crypto_network"
+                                                  placeholder="Selecciona la red"
+                                                  options={supportedSourceNetworks}
+                                                />
+                                                <CurrencySelectField
+                                                  control={form.control}
+                                                  disabled={disabled || !hasSupplierSelected || supportedSourceCurrencies.length === 0}
+                                                  label="Moneda de origen"
+                                                  name="origin_currency"
+                                                  placeholder="Selecciona moneda"
+                                                  options={supportedSourceCurrencies}
+                                                />
+                                              </div>
+                                              <TextField control={form.control} disabled={disabled} label="Wallet de Origen (Externa)" name="source_crypto_address" />
+                                            </div>
+                                          </>
+                                        ) : null}
+                                        <div className="grid gap-4 lg:grid-cols-3 mt-4">
+                                          <TextField control={form.control} disabled={true} label="Wallet destino" name="crypto_address" />
+                                          <NetworkSelectField control={form.control} disabled={true} label="Red destino" name="crypto_network" placeholder="Selecciona la red" />
+                                          {r === 'crypto_to_crypto' ? (
+                                            <CurrencySelectField control={form.control} disabled={true} label="Moneda destino" name="destination_currency" placeholder="Selecciona moneda" />
+                                          ) : null}
+                                        </div>
+                                      </>
+                                    ) : null}
+
+                                    {/*
+                            <AutoFilledPanel
+                              title="Metadata autocompletada"
+                              rows={buildMetadataPreview({
+                                route,
+                                deliveryMethod,
+                                receiveVariant,
+                                uiMethodGroup,
+                                values: form.getValues(),
+                              })}
                             />
-                          </>
-                        )}
-                      </div>
+                            */}
+                                  </>
+                                ) : null;
+                              })()}
 
-                      <div className="flex items-center justify-between mt-8">
-                        <AnimatedBackButton onClick={handleBack}>
-                          {fiatUsSubStep === 'wallet' ? 'Volver' : 'Anterior'}
-                        </AnimatedBackButton>
-                        <AnimatedNextButton disabled={disabled} onClick={handleNext}>
-                          {fiatUsSubStep === 'amount' ? 'Revisar expediente' : 'Siguiente'}
-                        </AnimatedNextButton>
-                      </div>
-                    </AnimatedStepPanel>
-                  )}
+                              {currentRoute.key !== 'us_to_wallet' && !isDepositRouteActive ? (
+                                <TextField control={form.control} disabled={disabled} label="Motivo del pago" name="payment_reason" />
+                              ) : null}
 
-                  {isFiatBoDeposit && (
-                    <AnimatedStepPanel key={`detail-fiat-bo-deposit-${fiatBoDepositSubStep}`}>
-                      {/* Indicador de sub-pasos */}
-                      <div className="flex items-center gap-2 mb-6 px-1">
-                        {FIAT_BO_DEPOSIT_SUB_ORDER.map((sub, i) => (
-                          <div key={sub} className="flex items-center gap-2">
-                            <div className={cn(
-                              'size-2 rounded-full transition-colors',
-                              fiatBoDepositSubStep === sub ? 'bg-primary' :
-                              FIAT_BO_DEPOSIT_SUB_ORDER.indexOf(fiatBoDepositSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
-                            )} />
-                            {i < FIAT_BO_DEPOSIT_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
-                          </div>
-                        ))}
-                      </div>
 
-                      <div className="grid gap-4">
-                        {fiatBoDepositSubStep === 'wallet' && (
-                          <>
-                            
-                            <WalletRampDetailStep
-                              form={form}
-                              method="fiat_bo"
-                              wallets={bridgeWallets}
-                              virtualAccounts={virtualAccounts}
-                              loadingVirtualAccounts={loadingVirtualAccounts}
-                              onVaCreated={(va) => setVirtualAccounts(prev => [...prev, va])}
-                              exchangeRates={exchangeRates}
-                              feesConfig={feesConfig}
-                              disabled={disabled}
-                              subStep="wallet"
-                            />
-                          </>
-                        )}
-
-                        {fiatBoDepositSubStep === 'reason' && (
-                          <>
-                            
-                            <TextField control={form.control} disabled={disabled} label="Motivo del depósito" name="payment_reason" />
-                            <DocumentInputCard
-                              className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
-                              file={supportFile}
-                              label="Documento de respaldo"
-                              description="Obligatorio. Se guardará como support_document_url al crear la orden."
-                              onFileChange={(f) => {
-                                setSupportFile(f)
-                                if (f) setShowSupportFileError(false)
-                              }}
-                            />
-                          </>
-                        )}
-
-                        {fiatBoDepositSubStep === 'amount' && (
-                          <>
-                            
-                            <WalletRampDetailStep
-                              form={form}
-                              method="fiat_bo"
-                              wallets={bridgeWallets}
-                              virtualAccounts={virtualAccounts}
-                              loadingVirtualAccounts={loadingVirtualAccounts}
-                              onVaCreated={(va) => setVirtualAccounts(prev => [...prev, va])}
-                              exchangeRates={exchangeRates}
-                              feesConfig={feesConfig}
-                              disabled={disabled}
-                              subStep="amount"
-                            />
-                          </>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-between mt-8">
-                        <AnimatedBackButton onClick={handleBack}>
-                          {fiatBoDepositSubStep === 'wallet' ? 'Volver' : 'Anterior'}
-                        </AnimatedBackButton>
-                        <AnimatedNextButton disabled={disabled} onClick={handleNext}>
-                          {fiatBoDepositSubStep === 'amount' ? 'Revisar expediente' : 'Siguiente'}
-                        </AnimatedNextButton>
-                      </div>
-                    </AnimatedStepPanel>
-                  )}
-
-                  {isRampDepositWithSubSteps && (
-                    <AnimatedStepPanel key={`detail-ramp-deposit-${rampDepositSubStep}`}>
-                      {/* Indicador de sub-pasos */}
-                      <div className="flex items-center gap-2 mb-6 px-1">
-                        {RAMP_DEPOSIT_SUB_ORDER.map((sub, i) => (
-                          <div key={sub} className="flex items-center gap-2">
-                            <div className={cn(
-                              'size-2 rounded-full transition-colors',
-                              rampDepositSubStep === sub ? 'bg-primary' :
-                              RAMP_DEPOSIT_SUB_ORDER.indexOf(rampDepositSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
-                            )} />
-                            {i < RAMP_DEPOSIT_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="grid gap-4">
-                        {rampDepositSubStep === 'wallet' && (
-                          <>
-                            
-                            <WalletRampDetailStep
-                              form={form}
-                              method={walletRampMethod || 'fiat_bo'}
-                              wallets={bridgeWallets}
-                              virtualAccounts={virtualAccounts}
-                              loadingVirtualAccounts={loadingVirtualAccounts}
-                              onVaCreated={(va) => setVirtualAccounts(prev => [...prev, va])}
-                              exchangeRates={exchangeRates}
-                              feesConfig={feesConfig}
-                              disabled={disabled}
-                              subStep="wallet"
-                            />
-                          </>
-                        )}
-
-                        {rampDepositSubStep === 'network' && (
-                          <>
-                            
-                            <WalletRampDetailStep
-                              form={form}
-                              method={walletRampMethod || 'fiat_bo'}
-                              wallets={bridgeWallets}
-                              virtualAccounts={virtualAccounts}
-                              loadingVirtualAccounts={loadingVirtualAccounts}
-                              onVaCreated={(va) => setVirtualAccounts(prev => [...prev, va])}
-                              exchangeRates={exchangeRates}
-                              feesConfig={feesConfig}
-                              disabled={disabled}
-                              subStep="network"
-                            />
-                          </>
-                        )}
-
-                        {rampDepositSubStep === 'reason' && (
-                          <>
-                            
-                            <TextField control={form.control} disabled={disabled} label="Motivo del depósito" name="payment_reason" />
-                            <DocumentInputCard
-                              className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
-                              file={supportFile}
-                              label="Documento de respaldo"
-                              description="Obligatorio. Se guardará como support_document_url al crear la orden."
-                              onFileChange={(f) => {
-                                setSupportFile(f)
-                                if (f) setShowSupportFileError(false)
-                              }}
-                            />
-                          </>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-between mt-8">
-                        <AnimatedBackButton onClick={handleBack}>
-                          {rampDepositSubStep === 'wallet' ? 'Volver' : 'Anterior'}
-                        </AnimatedBackButton>
-                        <AnimatedNextButton disabled={disabled} onClick={handleNext}>
-                          {rampDepositSubStep === 'reason' ? 'Revisar expediente' : 'Siguiente'}
-                        </AnimatedNextButton>
-                      </div>
-                    </AnimatedStepPanel>
-                  )}
-
-                  {isWorldToBolivia && (
-                    <AnimatedStepPanel key={`detail-world-bolivia-${worldBoliviaSubStep}`}>
-                      {/* Indicador de sub-pasos */}
-                      <div className="flex items-center gap-2 mb-6 px-1">
-                        {WORLD_BOLIVIA_SUB_ORDER.map((sub, i) => (
-                          <div key={sub} className="flex items-center gap-2">
-                            <div className={cn(
-                              'size-2 rounded-full transition-colors',
-                              worldBoliviaSubStep === sub ? 'bg-primary' :
-                              WORLD_BOLIVIA_SUB_ORDER.indexOf(worldBoliviaSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
-                            )} />
-                            {i < WORLD_BOLIVIA_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="grid gap-4">
-                        {worldBoliviaSubStep === 'bank' && (
-                          <>
-                            
-                            <div className="grid gap-4 lg:grid-cols-2">
-                              <TextField control={form.control} disabled={disabled} label="Banco" name="ach_bank_name" />
-                              <TextField control={form.control} disabled={disabled} label="Cuenta bancaria" name="ach_account_number" />
+                              {showSupportUpload && !(currentRoute.key === 'world_to_bolivia' && receiveVariant === 'bank_qr') ? (
+                                <DocumentInputCard
+                                  className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
+                                  file={supportFile}
+                                  label="Documento de respaldo"
+                                  description={
+                                    currentRoute.key === 'bolivia_to_exterior' || currentRoute.key === 'crypto_to_crypto' || currentRoute.key === 'world_to_bolivia' || currentRoute.key === 'wallet_ramp_withdraw'
+                                      ? 'Obligatorio en esta ruta. Se guardará como support_document_url al crear la orden.'
+                                      : 'Documento Opcional.'
+                                  }
+                                  onFileChange={(f) => {
+                                    setSupportFile(f)
+                                    if (f) setShowSupportFileError(false)
+                                  }}
+                                />
+                              ) : null}
+                            </>
+                          ) : hasSupplierObservation ? (
+                            <div className="border-l-2 border-amber-500/70 bg-amber-50/70 px-4 py-4 text-base text-amber-950">
+                              Corrige primero la observacion del proveedor para habilitar los campos siguientes.
                             </div>
-                            <TextField control={form.control} disabled={disabled} label="Nombre del titular de la cuenta" name="destination_account_holder" />
-                          </>
-                        )}
+                          ) : (
+                            <div className="border-l-2 border-border/70 bg-muted/10 px-4 py-4 text-base text-muted-foreground">
+                              Selecciona primero un proveedor valido para mostrar metodo tecnico, monedas y metadata autocompletada.
+                            </div>
+                          )}
+                        </div>
 
-                        {worldBoliviaSubStep === 'reason' && (
-                          <>
-                            
-                            <TextField control={form.control} disabled={disabled} label="Motivo del pago" name="payment_reason" />
-                            <DocumentInputCard
-                              className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
-                              file={supportFile}
-                              label="Documento de respaldo"
-                              description="Obligatorio en esta ruta. Se guardará como support_document_url al crear la orden."
-                              onFileChange={(f) => {
-                                setSupportFile(f)
-                                if (f) setShowSupportFileError(false)
-                              }}
-                            />
-                          </>
-                        )}
+                        <div className="flex items-center justify-between mt-8">
+                          <AnimatedBackButton onClick={handleBack}>
+                            Volver
+                          </AnimatedBackButton>
+                          <AnimatedNextButton disabled={disabled} onClick={handleNext}>
+                            Revisar expediente
+                          </AnimatedNextButton>
+                        </div>
+                      </AnimatedStepPanel>
+                    )}
 
-                        {worldBoliviaSubStep === 'amount' && (
-                          <>
-                            
-                            <NumericField control={form.control} disabled={disabled} label={getAmountLabel(currentRoute.key)} name="amount_origin" />
-                            <EstimationSummary
-                              amountOrigin={summaryStats.amountOrigin}
-                              originCurrency={summaryStats.originCurrency}
-                              feeTotal={summaryStats.feeTotal}
-                              exchangeRate={exchangeRateApplied}
-                              exchangeRateLabel={`${summaryStats.destinationCurrency}/${summaryStats.originCurrency}`}
-                              exchangeRatePrecision={2}
-                              receivesApprox={summaryStats.netAmountDestination}
-                              receivesCurrency={summaryStats.destinationCurrency}
-                              showAmountOrigin
-                              receivesSubtext={
-                                summaryStats.originCurrency.trim().toUpperCase() !== summaryStats.destinationCurrency.trim().toUpperCase()
-                                  ? `Después de comisión y conversión a ${summaryStats.destinationCurrency}`
-                                  : 'Después de descontar la comisión'
-                              }
-                            />
-                          </>
-                        )}
-                      </div>
+                    {hasSubStepFlow && (
+                      <AnimatedStepPanel key={`detail-${detailSubStep}`}>
+                        {/* Sub-pasos indicados visualmente */}
+                        <div className="flex items-center gap-2 mb-6 px-1">
+                          {DETAIL_SUB_ORDER.map((sub, i) => (
+                            <div key={sub} className="flex items-center gap-2">
+                              <div className={cn(
+                                'size-2 rounded-full transition-colors',
+                                detailSubStep === sub ? 'bg-primary' :
+                                  DETAIL_SUB_ORDER.indexOf(detailSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
+                              )} />
+                              {i < DETAIL_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
+                            </div>
+                          ))}
+                        </div>
 
-                      <div className="flex items-center justify-between mt-8">
-                        <AnimatedBackButton onClick={handleBack}>
-                          {worldBoliviaSubStep === 'bank' ? 'Volver' : 'Anterior'}
-                        </AnimatedBackButton>
-                        <AnimatedNextButton disabled={disabled} onClick={handleNext}>
-                          {worldBoliviaSubStep === 'amount' ? 'Revisar expediente' : 'Siguiente'}
-                        </AnimatedNextButton>
-                      </div>
-                    </AnimatedStepPanel>
-                  )}
+                        <div className="grid gap-4">
+                          {detailSubStep === 'supplier' && (
+                            <>
+
+
+                              <FormField
+                                control={form.control}
+                                name="supplier_id"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className={FORM_LABEL_CLASS}>Proveedor o beneficiario</FormLabel>
+                                    <FormControl>
+                                      <Select
+                                        value={field.value || 'none'}
+                                        onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
+                                        disabled={disabled}
+                                      >
+                                        <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
+                                          <SelectValue placeholder="Selecciona uno guardado o crea uno nuevo">
+                                            {selectedSupplier?.name ?? (field.value ? field.value : undefined)}
+                                          </SelectValue>
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="none">Sin proveedor cargado</SelectItem>
+                                          {filteredSuppliers.map((supplier) => (
+                                            <SelectItem key={supplier.id} value={supplier.id ?? supplier.name}>
+                                              <span>{supplier.name}</span>
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </FormControl>
+                                    <p className="text-sm text-muted-foreground">
+                                      {isCryptoToCrypto
+                                        ? 'Solo se muestran proveedores con wallet crypto configurada.'
+                                        : 'Debes crear un proveedor con los datos correctos antes de usar esta opcion.'}
+                                    </p>
+                                    <div className="flex flex-wrap items-center gap-3">
+                                      <Link className="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium transition-colors hover:bg-muted" href="/proveedores">Ir a Proveedores</Link>
+                                      <span className="text-sm text-muted-foreground">Crea o completa el proveedor y vuelve a esta operacion.</span>
+                                    </div>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+
+                              {supplierValidationMessage && hasSupplierSelected ? <ValidationNotice message={supplierValidationMessage} /> : null}
+
+                              {shouldShowExpandedDetail && (
+                                <>
+                                  <FormField
+                                    control={form.control}
+                                    name="delivery_method"
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormLabel className={FORM_LABEL_CLASS}>Metodo tecnico final</FormLabel>
+                                        <FormControl>
+                                          <Select value={field.value} onValueChange={field.onChange} disabled={disabled || isCryptoToCrypto || uiMethodGroup === 'crypto' || availableTechnicalMethods.length <= 1}>
+                                            <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
+                                              <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              {availableTechnicalMethods.map((method) => (
+                                                <SelectItem key={method} value={method}>{method}</SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+
+                                  {isBoliviaToExterior && (
+                                    <div className={`grid gap-4 ${uiMethodGroup !== 'crypto' ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
+                                      {uiMethodGroup !== 'crypto' && (
+                                        <TextField control={form.control} disabled={disabled} label="Cuenta o destino" name="destination_address" />
+                                      )}
+                                      <FormField control={form.control} name="funding_method" render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel className={FORM_LABEL_CLASS}>Funding method</FormLabel>
+                                          <FormControl>
+                                            <Select value={field.value} onValueChange={field.onChange} disabled={true}>
+                                              <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}><SelectValue /></SelectTrigger>
+                                              <SelectContent>
+                                                <SelectItem value="bs">bs</SelectItem>
+                                                <SelectItem value="crypto">crypto</SelectItem>
+                                              </SelectContent>
+                                            </Select>
+                                          </FormControl>
+                                        </FormItem>
+                                      )} />
+                                    </div>
+                                  )}
+
+                                  {deliveryMethod === 'swift' && isBoliviaToExterior && (
+                                    <div className="grid gap-4 lg:grid-cols-2">
+                                      <TextField control={form.control} disabled={disabled} label="Banco" name="swift_bank_name" />
+                                      <TextField control={form.control} disabled={disabled} label="Codigo SWIFT" name="swift_code" />
+                                      <TextField control={form.control} disabled={disabled} label="IBAN o cuenta" name="swift_iban" />
+                                      <TextField control={form.control} disabled={disabled} label="Direccion del banco" name="swift_bank_address" />
+                                      <TextField control={form.control} disabled={disabled} label="Pais del banco" name="swift_country" />
+                                    </div>
+                                  )}
+
+                                  {deliveryMethod === 'ach' && isBoliviaToExterior && (
+                                    <div className="grid gap-4 lg:grid-cols-3">
+                                      <TextField control={form.control} disabled={disabled} label="Routing number" name="ach_routing_number" />
+                                      <TextField control={form.control} disabled={disabled} label="Account number" name="ach_account_number" />
+                                      <TextField control={form.control} disabled={disabled} label="Bank name" name="ach_bank_name" />
+                                    </div>
+                                  )}
+
+                                  {deliveryMethod === 'crypto' && (
+                                    <div className="grid gap-4 lg:grid-cols-2 mt-4">
+                                      <TextField control={form.control} disabled={true} label="Wallet destino" name="crypto_address" />
+                                      <NetworkSelectField control={form.control} disabled={true} label="Red destino" name="crypto_network" placeholder="Selecciona la red" />
+                                      {isCryptoToCrypto && (
+                                        <CurrencySelectField control={form.control} disabled={true} label="Moneda destino" name="destination_currency" placeholder="Selecciona moneda" />
+                                      )}
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </>
+                          )}
+
+                          {detailSubStep === 'funding' && isCryptoToCrypto && (
+                            <>
+
+                              <div className="grid gap-4 lg:grid-cols-2">
+                                <NetworkSelectField
+                                  control={form.control}
+                                  disabled={disabled || !hasSupplierSelected || supportedSourceNetworks.length === 0}
+                                  label="Red de Origen"
+                                  name="source_crypto_network"
+                                  placeholder="Selecciona la red"
+                                  options={supportedSourceNetworks}
+                                />
+                                <CurrencySelectField
+                                  control={form.control}
+                                  disabled={disabled || !hasSupplierSelected || supportedSourceCurrencies.length === 0}
+                                  label="Moneda de origen"
+                                  name="origin_currency"
+                                  placeholder="Selecciona moneda"
+                                  options={supportedSourceCurrencies}
+                                />
+                              </div>
+                              <TextField control={form.control} disabled={disabled} label="Wallet de Origen (Externa)" name="source_crypto_address" />
+                            </>
+                          )}
+
+                          {detailSubStep === 'reason' && (
+                            <>
+
+                              <TextField control={form.control} disabled={disabled} label="Motivo del pago" name="payment_reason" />
+                              <DocumentInputCard
+                                className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
+                                file={supportFile}
+                                label="Documento de respaldo"
+                                description="Obligatorio en esta ruta. Se guardara como support_document_url al crear la orden."
+                                onFileChange={(f) => {
+                                  setSupportFile(f)
+                                  if (f) setShowSupportFileError(false)
+                                }}
+                              />
+                            </>
+                          )}
+
+                          {detailSubStep === 'amount' && (
+                            <>
+
+                              <NumericField control={form.control} disabled={disabled} label={getAmountLabel(currentRoute.key)} name="amount_origin" />
+                              <EstimationSummary
+                                amountOrigin={summaryStats.amountOrigin}
+                                originCurrency={summaryStats.originCurrency}
+                                feeTotal={summaryStats.feeTotal}
+                                exchangeRate={exchangeRateApplied}
+                                exchangeRateLabel={`${summaryStats.destinationCurrency}/${summaryStats.originCurrency}`}
+                                exchangeRatePrecision={2}
+                                receivesApprox={summaryStats.netAmountDestination}
+                                receivesCurrency={summaryStats.destinationCurrency}
+                                showAmountOrigin
+                                receivesSubtext={
+                                  summaryStats.originCurrency.trim().toUpperCase() !== summaryStats.destinationCurrency.trim().toUpperCase()
+                                    ? `Después de comisión y conversión a ${summaryStats.destinationCurrency}`
+                                    : 'Después de descontar la comisión'
+                                }
+                                validationError={
+                                  isBoliviaToExterior &&
+                                    summaryStats.amountOrigin > 0 &&
+                                    ((Number(form.watch('amount_origin') || 0)) / ((exchangeRates.find(r => r.pair === 'BOB_USD') as any)?.effective_rate ?? exchangeRates.find(r => r.pair === 'BOB_USD')?.rate ?? 1)) <
+                                    parseFloat(String(appSettings.find(s => s.key === 'MIN_INTERBANK_USD')?.value ?? '0'))
+                                    ? `El envío equivale a ~$${((Number(form.watch('amount_origin') || 0)) / ((exchangeRates.find(r => r.pair === 'BOB_USD') as any)?.effective_rate ?? exchangeRates.find(r => r.pair === 'BOB_USD')?.rate ?? 1)).toFixed(2)} USD. El sistema interbancario exige un mínimo de $${parseFloat(String(appSettings.find(s => s.key === 'MIN_INTERBANK_USD')?.value ?? '0')).toFixed(2)} USD. Ajusta tu monto para continuar.`
+                                    : undefined
+                                }
+                              />
+                            </>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between mt-8">
+                          <AnimatedBackButton onClick={handleBack}>
+                            {detailSubStep === 'supplier' ? 'Volver' : 'Anterior'}
+                          </AnimatedBackButton>
+                          <AnimatedNextButton disabled={disabled} onClick={handleNext}>
+                            {detailSubStep === 'amount' ? 'Revisar expediente' : 'Siguiente'}
+                          </AnimatedNextButton>
+                        </div>
+                      </AnimatedStepPanel>
+                    )}
+
+                    {isFiatBoWithdraw && (
+                      <AnimatedStepPanel key={`detail-fiatbo-${fiatBoSubStep}`}>
+                        {/* Indicador de sub-pasos */}
+                        <div className="flex items-center gap-2 mb-6 px-1">
+                          {FIAT_BO_SUB_ORDER.map((sub, i) => (
+                            <div key={sub} className="flex items-center gap-2">
+                              <div className={cn(
+                                'size-2 rounded-full transition-colors',
+                                fiatBoSubStep === sub ? 'bg-primary' :
+                                  FIAT_BO_SUB_ORDER.indexOf(fiatBoSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
+                              )} />
+                              {i < FIAT_BO_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="grid gap-4">
+                          {fiatBoSubStep === 'wallet' && (
+                            <>
+
+                              <WalletWithdrawDetailStep
+                                form={form}
+                                method="fiat_bo"
+                                wallets={bridgeWallets}
+                                exchangeRates={exchangeRates}
+                                feesConfig={feesConfig}
+                                psavConfigs={psavConfigs}
+                                disabled={disabled}
+                                subStep="wallet"
+                              />
+                            </>
+                          )}
+
+                          {fiatBoSubStep === 'bank' && (
+                            <>
+
+                              <WalletWithdrawDetailStep
+                                form={form}
+                                method="fiat_bo"
+                                wallets={bridgeWallets}
+                                exchangeRates={exchangeRates}
+                                feesConfig={feesConfig}
+                                psavConfigs={psavConfigs}
+                                disabled={disabled}
+                                subStep="bank"
+                              />
+                            </>
+                          )}
+
+                          {fiatBoSubStep === 'reason' && (
+                            <>
+
+                              <TextField control={form.control} disabled={disabled} label="Motivo del retiro" name="payment_reason" />
+                              <DocumentInputCard
+                                className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
+                                file={supportFile}
+                                label="Documento de respaldo"
+                                description="Obligatorio en esta ruta. Se guardará como support_document_url al crear la orden."
+                                onFileChange={(f) => {
+                                  setSupportFile(f)
+                                  if (f) setShowSupportFileError(false)
+                                }}
+                              />
+                            </>
+                          )}
+
+                          {fiatBoSubStep === 'amount' && (
+                            <>
+
+                              <WalletWithdrawDetailStep
+                                form={form}
+                                method="fiat_bo"
+                                wallets={bridgeWallets}
+                                exchangeRates={exchangeRates}
+                                feesConfig={feesConfig}
+                                psavConfigs={psavConfigs}
+                                disabled={disabled}
+                                subStep="amount"
+                              />
+                            </>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between mt-8">
+                          <AnimatedBackButton onClick={handleBack}>
+                            {fiatBoSubStep === 'wallet' ? 'Volver' : 'Anterior'}
+                          </AnimatedBackButton>
+                          <AnimatedNextButton disabled={disabled} onClick={handleNext}>
+                            {fiatBoSubStep === 'amount' ? 'Revisar expediente' : 'Siguiente'}
+                          </AnimatedNextButton>
+                        </div>
+                      </AnimatedStepPanel>
+                    )}
+
+                    {isCryptoWithdraw && (
+                      <AnimatedStepPanel key={`detail-crypto-${cryptoWithdrawSubStep}`}>
+                        <div className="flex items-center gap-2 mb-6 px-1">
+                          {CRYPTO_WITHDRAW_SUB_ORDER.map((sub, i) => (
+                            <div key={sub} className="flex items-center gap-2">
+                              <div className={cn(
+                                'size-2 rounded-full transition-colors',
+                                cryptoWithdrawSubStep === sub ? 'bg-primary' :
+                                  CRYPTO_WITHDRAW_SUB_ORDER.indexOf(cryptoWithdrawSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
+                              )} />
+                              {i < CRYPTO_WITHDRAW_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="grid gap-4">
+                          {cryptoWithdrawSubStep === 'wallet' && (
+                            <>
+
+                              <WalletWithdrawDetailStep
+                                form={form}
+                                method="crypto"
+                                wallets={bridgeWallets}
+                                exchangeRates={exchangeRates}
+                                feesConfig={feesConfig}
+                                psavConfigs={psavConfigs}
+                                disabled={disabled}
+                                subStep="wallet"
+                              />
+                            </>
+                          )}
+
+                          {cryptoWithdrawSubStep === 'dest_wallet' && (
+                            <>
+
+                              <WalletWithdrawDetailStep
+                                form={form}
+                                method="crypto"
+                                wallets={bridgeWallets}
+                                exchangeRates={exchangeRates}
+                                feesConfig={feesConfig}
+                                psavConfigs={psavConfigs}
+                                disabled={disabled}
+                                subStep="dest_wallet"
+                              />
+                            </>
+                          )}
+
+                          {cryptoWithdrawSubStep === 'reason' && (
+                            <>
+
+                              <TextField control={form.control} disabled={disabled} label="Motivo del retiro" name="payment_reason" />
+                              <DocumentInputCard
+                                className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
+                                file={supportFile}
+                                label="Documento de respaldo"
+                                description="Obligatorio en esta ruta. Se guardará como support_document_url al crear la orden."
+                                onFileChange={(f) => { setSupportFile(f); if (f) setShowSupportFileError(false) }}
+                              />
+                            </>
+                          )}
+
+                          {cryptoWithdrawSubStep === 'amount' && (
+                            <>
+
+                              <WalletWithdrawDetailStep
+                                form={form}
+                                method="crypto"
+                                wallets={bridgeWallets}
+                                exchangeRates={exchangeRates}
+                                feesConfig={feesConfig}
+                                psavConfigs={psavConfigs}
+                                disabled={disabled}
+                                subStep="amount"
+                              />
+                            </>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between mt-8">
+                          <AnimatedBackButton onClick={handleBack}>
+                            {cryptoWithdrawSubStep === 'wallet' ? 'Volver' : 'Anterior'}
+                          </AnimatedBackButton>
+                          <AnimatedNextButton disabled={disabled} onClick={handleNext}>
+                            {cryptoWithdrawSubStep === 'amount' ? 'Revisar expediente' : 'Siguiente'}
+                          </AnimatedNextButton>
+                        </div>
+                      </AnimatedStepPanel>
+                    )}
+
+                    {isFiatUsWithdraw && (
+                      <AnimatedStepPanel key={`detail-fiatus-${fiatUsSubStep}`}>
+                        <div className="flex items-center gap-2 mb-6 px-1">
+                          {FIAT_US_SUB_ORDER.map((sub, i) => (
+                            <div key={sub} className="flex items-center gap-2">
+                              <div className={cn(
+                                'size-2 rounded-full transition-colors',
+                                fiatUsSubStep === sub ? 'bg-primary' :
+                                  FIAT_US_SUB_ORDER.indexOf(fiatUsSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
+                              )} />
+                              {i < FIAT_US_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="grid gap-4">
+                          {fiatUsSubStep === 'wallet' && (
+                            <>
+
+                              <WalletWithdrawDetailStep
+                                form={form}
+                                method="fiat_us"
+                                wallets={bridgeWallets}
+                                exchangeRates={exchangeRates}
+                                feesConfig={feesConfig}
+                                psavConfigs={psavConfigs}
+                                disabled={disabled}
+                                subStep="wallet"
+                              />
+                            </>
+                          )}
+
+                          {fiatUsSubStep === 'supplier' && (
+                            <>
+
+                              <FormField
+                                control={form.control}
+                                name="supplier_id"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className={FORM_LABEL_CLASS}>Proveedor o beneficiario</FormLabel>
+                                    <FormControl>
+                                      <Select
+                                        value={field.value || 'none'}
+                                        onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
+                                        disabled={disabled}
+                                      >
+                                        <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
+                                          <SelectValue placeholder="Selecciona uno guardado">
+                                            {selectedSupplier?.name ?? (field.value ? field.value : undefined)}
+                                          </SelectValue>
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="none">Sin proveedor cargado</SelectItem>
+                                          {filteredSuppliers.map((supplier) => (
+                                            <SelectItem key={supplier.id} value={supplier.id ?? supplier.name}>
+                                              <span>{supplier.name}</span>
+                                              {supplier.bridge_external_account_id ? (
+                                                <span className="ml-1.5 text-sm text-muted-foreground">
+                                                  ({supplier.payment_rail?.toUpperCase() ?? 'BANK'} · External Account)
+                                                </span>
+                                              ) : null}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </FormControl>
+                                    {filteredSuppliers.length === 0 ? (
+                                      <p className="text-sm text-amber-500">
+                                        No tienes proveedores con cuenta bancaria externa (ACH/Wire) registrada en Bridge. Crea uno en la sección Proveedores.
+                                      </p>
+                                    ) : (
+                                      <p className="text-sm text-muted-foreground">
+                                        Solo se muestran proveedores con cuenta bancaria externa registrada en Bridge (ACH/Wire).
+                                      </p>
+                                    )}
+                                    <div className="flex flex-wrap items-center gap-3">
+                                      <Link
+                                        className="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium transition-colors hover:bg-muted"
+                                        href="/proveedores"
+                                      >
+                                        Ir a Proveedores
+                                      </Link>
+                                      <span className="text-sm text-muted-foreground">Crea o completa el proveedor y vuelve a esta operacion.</span>
+                                    </div>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              {supplierValidationMessage && hasSupplierSelected ? <ValidationNotice message={supplierValidationMessage} /> : null}
+                            </>
+                          )}
+
+                          {fiatUsSubStep === 'reason' && (
+                            <>
+
+                              <TextField control={form.control} disabled={disabled} label="Motivo del retiro" name="payment_reason" />
+                              <DocumentInputCard
+                                className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
+                                file={supportFile}
+                                label="Documento de respaldo"
+                                description="Obligatorio en esta ruta. Se guardará como support_document_url al crear la orden."
+                                onFileChange={(f) => { setSupportFile(f); if (f) setShowSupportFileError(false) }}
+                              />
+                            </>
+                          )}
+
+                          {fiatUsSubStep === 'amount' && (
+                            <>
+
+                              <WalletWithdrawDetailStep
+                                form={form}
+                                method="fiat_us"
+                                wallets={bridgeWallets}
+                                exchangeRates={exchangeRates}
+                                feesConfig={feesConfig}
+                                psavConfigs={psavConfigs}
+                                disabled={disabled}
+                                subStep="amount"
+                              />
+                            </>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between mt-8">
+                          <AnimatedBackButton onClick={handleBack}>
+                            {fiatUsSubStep === 'wallet' ? 'Volver' : 'Anterior'}
+                          </AnimatedBackButton>
+                          <AnimatedNextButton disabled={disabled} onClick={handleNext}>
+                            {fiatUsSubStep === 'amount' ? 'Revisar expediente' : 'Siguiente'}
+                          </AnimatedNextButton>
+                        </div>
+                      </AnimatedStepPanel>
+                    )}
+
+                    {isFiatBoDeposit && (
+                      <AnimatedStepPanel key={`detail-fiat-bo-deposit-${fiatBoDepositSubStep}`}>
+                        {/* Indicador de sub-pasos */}
+                        <div className="flex items-center gap-2 mb-6 px-1">
+                          {FIAT_BO_DEPOSIT_SUB_ORDER.map((sub, i) => (
+                            <div key={sub} className="flex items-center gap-2">
+                              <div className={cn(
+                                'size-2 rounded-full transition-colors',
+                                fiatBoDepositSubStep === sub ? 'bg-primary' :
+                                  FIAT_BO_DEPOSIT_SUB_ORDER.indexOf(fiatBoDepositSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
+                              )} />
+                              {i < FIAT_BO_DEPOSIT_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="grid gap-4">
+                          {fiatBoDepositSubStep === 'wallet' && (
+                            <>
+
+                              <WalletRampDetailStep
+                                form={form}
+                                method="fiat_bo"
+                                wallets={bridgeWallets}
+                                virtualAccounts={virtualAccounts}
+                                loadingVirtualAccounts={loadingVirtualAccounts}
+                                onVaCreated={(va) => setVirtualAccounts(prev => [...prev, va])}
+                                exchangeRates={exchangeRates}
+                                feesConfig={feesConfig}
+                                disabled={disabled}
+                                subStep="wallet"
+                              />
+                            </>
+                          )}
+
+                          {fiatBoDepositSubStep === 'reason' && (
+                            <>
+
+                              <TextField control={form.control} disabled={disabled} label="Motivo del depósito" name="payment_reason" />
+                              <DocumentInputCard
+                                className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
+                                file={supportFile}
+                                label="Documento de respaldo"
+                                description="Obligatorio. Se guardará como support_document_url al crear la orden."
+                                onFileChange={(f) => {
+                                  setSupportFile(f)
+                                  if (f) setShowSupportFileError(false)
+                                }}
+                              />
+                            </>
+                          )}
+
+                          {fiatBoDepositSubStep === 'amount' && (
+                            <>
+
+                              <WalletRampDetailStep
+                                form={form}
+                                method="fiat_bo"
+                                wallets={bridgeWallets}
+                                virtualAccounts={virtualAccounts}
+                                loadingVirtualAccounts={loadingVirtualAccounts}
+                                onVaCreated={(va) => setVirtualAccounts(prev => [...prev, va])}
+                                exchangeRates={exchangeRates}
+                                feesConfig={feesConfig}
+                                disabled={disabled}
+                                subStep="amount"
+                              />
+                            </>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between mt-8">
+                          <AnimatedBackButton onClick={handleBack}>
+                            {fiatBoDepositSubStep === 'wallet' ? 'Volver' : 'Anterior'}
+                          </AnimatedBackButton>
+                          <AnimatedNextButton disabled={disabled} onClick={handleNext}>
+                            {fiatBoDepositSubStep === 'amount' ? 'Revisar expediente' : 'Siguiente'}
+                          </AnimatedNextButton>
+                        </div>
+                      </AnimatedStepPanel>
+                    )}
+
+                    {isRampDepositWithSubSteps && (
+                      <AnimatedStepPanel key={`detail-ramp-deposit-${rampDepositSubStep}`}>
+                        {/* Indicador de sub-pasos */}
+                        <div className="flex items-center gap-2 mb-6 px-1">
+                          {RAMP_DEPOSIT_SUB_ORDER.map((sub, i) => (
+                            <div key={sub} className="flex items-center gap-2">
+                              <div className={cn(
+                                'size-2 rounded-full transition-colors',
+                                rampDepositSubStep === sub ? 'bg-primary' :
+                                  RAMP_DEPOSIT_SUB_ORDER.indexOf(rampDepositSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
+                              )} />
+                              {i < RAMP_DEPOSIT_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="grid gap-4">
+                          {rampDepositSubStep === 'wallet' && (
+                            <>
+
+                              <WalletRampDetailStep
+                                form={form}
+                                method={walletRampMethod || 'fiat_bo'}
+                                wallets={bridgeWallets}
+                                virtualAccounts={virtualAccounts}
+                                loadingVirtualAccounts={loadingVirtualAccounts}
+                                onVaCreated={(va) => setVirtualAccounts(prev => [...prev, va])}
+                                exchangeRates={exchangeRates}
+                                feesConfig={feesConfig}
+                                disabled={disabled}
+                                subStep="wallet"
+                              />
+                            </>
+                          )}
+
+                          {rampDepositSubStep === 'network' && (
+                            <>
+
+                              <WalletRampDetailStep
+                                form={form}
+                                method={walletRampMethod || 'fiat_bo'}
+                                wallets={bridgeWallets}
+                                virtualAccounts={virtualAccounts}
+                                loadingVirtualAccounts={loadingVirtualAccounts}
+                                onVaCreated={(va) => setVirtualAccounts(prev => [...prev, va])}
+                                exchangeRates={exchangeRates}
+                                feesConfig={feesConfig}
+                                disabled={disabled}
+                                subStep="network"
+                              />
+                            </>
+                          )}
+
+                          {rampDepositSubStep === 'reason' && (
+                            <>
+
+                              <TextField control={form.control} disabled={disabled} label="Motivo del depósito" name="payment_reason" />
+                              <DocumentInputCard
+                                className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
+                                file={supportFile}
+                                label="Documento de respaldo"
+                                description="Obligatorio. Se guardará como support_document_url al crear la orden."
+                                onFileChange={(f) => {
+                                  setSupportFile(f)
+                                  if (f) setShowSupportFileError(false)
+                                }}
+                              />
+                            </>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between mt-8">
+                          <AnimatedBackButton onClick={handleBack}>
+                            {rampDepositSubStep === 'wallet' ? 'Volver' : 'Anterior'}
+                          </AnimatedBackButton>
+                          <AnimatedNextButton disabled={disabled} onClick={handleNext}>
+                            {rampDepositSubStep === 'reason' ? 'Revisar expediente' : 'Siguiente'}
+                          </AnimatedNextButton>
+                        </div>
+                      </AnimatedStepPanel>
+                    )}
+
+                    {isWorldToBolivia && (
+                      <AnimatedStepPanel key={`detail-world-bolivia-${worldBoliviaSubStep}`}>
+                        {/* Indicador de sub-pasos */}
+                        <div className="flex items-center gap-2 mb-6 px-1">
+                          {WORLD_BOLIVIA_SUB_ORDER.map((sub, i) => (
+                            <div key={sub} className="flex items-center gap-2">
+                              <div className={cn(
+                                'size-2 rounded-full transition-colors',
+                                worldBoliviaSubStep === sub ? 'bg-primary' :
+                                  WORLD_BOLIVIA_SUB_ORDER.indexOf(worldBoliviaSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
+                              )} />
+                              {i < WORLD_BOLIVIA_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="grid gap-4">
+                          {worldBoliviaSubStep === 'bank' && (
+                            <>
+
+                              <div className="grid gap-4 lg:grid-cols-2">
+                                <TextField control={form.control} disabled={disabled} label="Banco" name="ach_bank_name" />
+                                <TextField control={form.control} disabled={disabled} label="Cuenta bancaria" name="ach_account_number" />
+                              </div>
+                              <TextField control={form.control} disabled={disabled} label="Nombre del titular de la cuenta" name="destination_account_holder" />
+                            </>
+                          )}
+
+                          {worldBoliviaSubStep === 'reason' && (
+                            <>
+
+                              <TextField control={form.control} disabled={disabled} label="Motivo del pago" name="payment_reason" />
+                              <DocumentInputCard
+                                className={showSupportFileError && !supportFile ? 'border-destructive/80 bg-destructive/5 ring-1 ring-destructive' : ''}
+                                file={supportFile}
+                                label="Documento de respaldo"
+                                description="Obligatorio en esta ruta. Se guardará como support_document_url al crear la orden."
+                                onFileChange={(f) => {
+                                  setSupportFile(f)
+                                  if (f) setShowSupportFileError(false)
+                                }}
+                              />
+                            </>
+                          )}
+
+                          {worldBoliviaSubStep === 'amount' && (
+                            <>
+
+                              <NumericField control={form.control} disabled={disabled} label={getAmountLabel(currentRoute.key)} name="amount_origin" />
+                              <EstimationSummary
+                                amountOrigin={summaryStats.amountOrigin}
+                                originCurrency={summaryStats.originCurrency}
+                                feeTotal={summaryStats.feeTotal}
+                                exchangeRate={exchangeRateApplied}
+                                exchangeRateLabel={`${summaryStats.destinationCurrency}/${summaryStats.originCurrency}`}
+                                exchangeRatePrecision={2}
+                                receivesApprox={summaryStats.netAmountDestination}
+                                receivesCurrency={summaryStats.destinationCurrency}
+                                showAmountOrigin
+                                receivesSubtext={
+                                  summaryStats.originCurrency.trim().toUpperCase() !== summaryStats.destinationCurrency.trim().toUpperCase()
+                                    ? `Después de comisión y conversión a ${summaryStats.destinationCurrency}`
+                                    : 'Después de descontar la comisión'
+                                }
+                              />
+                            </>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between mt-8">
+                          <AnimatedBackButton onClick={handleBack}>
+                            {worldBoliviaSubStep === 'bank' ? 'Volver' : 'Anterior'}
+                          </AnimatedBackButton>
+                          <AnimatedNextButton disabled={disabled} onClick={handleNext}>
+                            {worldBoliviaSubStep === 'amount' ? 'Revisar expediente' : 'Siguiente'}
+                          </AnimatedNextButton>
+                        </div>
+                      </AnimatedStepPanel>
+                    )}
                   </>
                 ) : null}
 
                 {step === 'review' ? (
                   <AnimatedStepPanel key="review">
-                    
+
 
                     <div className="grid gap-3 md:grid-cols-2">
                       {reviewItems.map((item) => (
@@ -2520,7 +2524,7 @@ export function CreatePaymentOrderForm({
 
                 {step === 'finish' ? (
                   <AnimatedStepPanel key="finish">
-                    
+
 
                     {route === 'wallet_ramp_withdraw' ? (
                       <>
@@ -2908,6 +2912,7 @@ function NumericField({
             <div className="relative flex w-full max-w-[240px] md:max-w-[320px] mx-auto items-center justify-center">
               <Input
                 {...field}
+                value={field.value ?? ""}
                 className="h-auto w-full p-0 border-none bg-transparent text-center text-5xl font-semibold tracking-[-0.04em] shadow-none focus-visible:ring-0 md:text-6xl [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 disabled={disabled}
                 min={0.01}
@@ -2948,7 +2953,7 @@ function TextField({
         <FormItem>
           <FormLabel className={FORM_LABEL_CLASS}>{label}</FormLabel>
           <FormControl>
-            <Input {...field} className={cn(FORM_UNDERLINE_INPUT_CLASS, FORM_TEXT_CLASS)} disabled={disabled} />
+            <Input {...field} value={field.value ?? ""} className={cn(FORM_UNDERLINE_INPUT_CLASS, FORM_TEXT_CLASS)} disabled={disabled} />
           </FormControl>
           <FormMessage />
         </FormItem>
@@ -3096,8 +3101,8 @@ function SelectionCard({
       <div className="flex items-center gap-4">
         <div className={cn(
           'flex size-12 shrink-0 items-center justify-center rounded-xl transition-all duration-300',
-          isSelected 
-            ? 'bg-primary/20 text-primary scale-110 shadow-sm' 
+          isSelected
+            ? 'bg-primary/20 text-primary scale-110 shadow-sm'
             : 'bg-muted/20 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary'
         )}>
           <Icon className="size-6" />
@@ -3400,15 +3405,15 @@ function buildReviewItems(args: {
 
   if (args.route === 'wallet_ramp_deposit') {
     items.push({ label: 'Método de Fondeo', value: args.values.wallet_ramp_method === 'fiat_bo' ? 'Fiat BO' : args.values.wallet_ramp_method === 'fiat_us' ? 'Fiat US' : 'Crypto' })
-    
+
     if (args.values.fee_total !== undefined) {
       items.push({ label: 'Comisión', value: formatMoney(args.values.fee_total, args.values.origin_currency) })
     }
-    
+
     if (args.values.exchange_rate_applied !== undefined && args.values.exchange_rate_applied !== 0 && args.values.wallet_ramp_method === 'fiat_bo') {
       items.push({ label: 'Tipo de cambio', value: formatExchangeRate(args.values.exchange_rate_applied, args.values.origin_currency, args.values.destination_currency) })
     }
-    
+
     if (args.values.amount_converted !== undefined) {
       items.push({ label: 'Recibirás', value: formatMoney(args.values.amount_converted, args.values.destination_currency) })
     }
@@ -3423,7 +3428,7 @@ function buildReviewItems(args: {
     }
     if (args.values.wallet_ramp_method === 'fiat_us') {
       const vaSelected = args.virtualAccounts?.find(va => va.id === args.values.wallet_ramp_va_id)
-      const vaReadable = vaSelected 
+      const vaReadable = vaSelected
         ? `${vaSelected.bank_name ?? 'Banco VA'} — ****${vaSelected.account_number?.slice(-4) ?? ''}`
         : (args.values.wallet_ramp_va_id || 'Pendiente')
       items.push({ label: 'Virtual Account Origen', value: vaReadable })

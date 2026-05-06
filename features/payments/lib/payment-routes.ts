@@ -23,59 +23,59 @@ export const supportedPaymentRoutes: Array<{
   hidden?: boolean
   category?: 'interbank' | 'ramp'
 }> = [
-  {
-    key: 'bolivia_to_exterior',
-    label: 'Bolivia al exterior',
-    description: 'Envía dinero desde Bolivia hacia cualquier cuenta en el extranjero.',
-    supportedDeliveryMethods: ['swift', 'ach', 'crypto'],
-    category: 'interbank',
-  },
-  {
-    key: 'world_to_bolivia',
-    label: 'Exterior a Bolivia',
-    description: 'Recibe fondos del exterior directamente en tu cuenta bancaria local.',
-    supportedDeliveryMethods: ['ach'],
-    category: 'interbank',
-  },
-  {
-    key: 'us_to_wallet',
-    label: 'USA a wallet',
-    description: 'Recibe transferencias desde EE.UU. directamente en tu billetera crypto.',
-    supportedDeliveryMethods: ['ach'],
-    disabled: true,
-    hidden: true,
-    category: 'interbank',
-  },
-  {
-    key: 'crypto_to_crypto',
-    label: 'Crypto a crypto',
-    description: 'Transfiere activos digitales entre billeteras de forma rápida y segura.',
-    supportedDeliveryMethods: ['crypto'],
-    category: 'interbank',
-  },
-  {
-    key: 'wallet_ramp_deposit',
-    label: 'Deposita a tu wallet',
-    description: 'Añade saldo a tu billetera virtual usando moneda local, dólares o cripto.',
-    supportedDeliveryMethods: [], // no aplica delivery method técnico
-    category: 'ramp',
-  },
-  {
-    key: 'wallet_ramp_withdraw',
-    label: 'Retirar fondos de mi Wallet',
-    description: 'Transfiere el saldo de tu billetera a tu cuenta bancaria o cuenta externa.',
-    supportedDeliveryMethods: [], // no aplica delivery method técnico
-    category: 'ramp',
-  },
-  {
-    key: 'wallet_to_fiat',
-    label: 'Wallet → Cuenta Bancaria',
-    description: 'Convierte y envía tus criptomonedas directo a una cuenta bancaria.',
-    supportedDeliveryMethods: [],
-    hidden: true,
-    category: 'interbank',
-  },
-]
+    {
+      key: 'bolivia_to_exterior',
+      label: 'Bolivia al exterior',
+      description: 'Envía dinero desde Bolivia hacia cualquier cuenta en el extranjero.',
+      supportedDeliveryMethods: ['swift', 'ach', 'crypto'],
+      category: 'interbank',
+    },
+    {
+      key: 'world_to_bolivia',
+      label: 'Exterior a Bolivia',
+      description: 'Recibe fondos del exterior directamente en tu cuenta bancaria local.',
+      supportedDeliveryMethods: ['ach'],
+      category: 'interbank',
+    },
+    {
+      key: 'us_to_wallet',
+      label: 'USA a wallet',
+      description: 'Recibe transferencias desde EE.UU. directamente en tu billetera crypto.',
+      supportedDeliveryMethods: ['ach'],
+      disabled: true,
+      hidden: true,
+      category: 'interbank',
+    },
+    {
+      key: 'crypto_to_crypto',
+      label: 'Crypto a crypto',
+      description: 'Transfiere activos digitales entre billeteras de forma rápida y segura.',
+      supportedDeliveryMethods: ['crypto'],
+      category: 'interbank',
+    },
+    {
+      key: 'wallet_ramp_deposit',
+      label: 'Deposita a tu Billetera Digital',
+      description: 'Añade saldo a tu billetera digital usando moneda local, dólares o cripto.',
+      supportedDeliveryMethods: [], // no aplica delivery method técnico
+      category: 'ramp',
+    },
+    {
+      key: 'wallet_ramp_withdraw',
+      label: 'Retirar fondos de mi Billetera Digital',
+      description: 'Transfiere el saldo de tu billetera a tu cuenta bancaria o cuenta externa.',
+      supportedDeliveryMethods: [], // no aplica delivery method técnico
+      category: 'ramp',
+    },
+    {
+      key: 'wallet_to_fiat',
+      label: 'Wallet → Cuenta Bancaria',
+      description: 'Convierte y envía tus criptomonedas directo a una cuenta bancaria.',
+      supportedDeliveryMethods: [],
+      hidden: true,
+      category: 'interbank',
+    },
+  ]
 
 export const unsupportedPaymentRoutes = [
   'bank_to_crypto',

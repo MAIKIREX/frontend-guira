@@ -89,6 +89,12 @@ export function WalletRampDetailStep({
   const selectedOriginCurrency = form.watch('origin_currency') ?? ''
   const selectedDestCurrency = form.watch('wallet_ramp_destination_currency') ?? ''
 
+  const selectedWalletId = form.watch('wallet_ramp_wallet_id') ?? ''
+  const selectedWallet = wallets.find((w) => w.id === selectedWalletId)
+
+  const selectedVaId = form.watch('wallet_ramp_va_id') ?? ''
+  const selectedVa = virtualAccounts.find((v) => v.id === selectedVaId)
+
   // ── Listas dinámicas filtradas por documento lista_permitida_moneda_origen_destino ──
   // La moneda destino (elegida en el paso anterior) determina las redes y monedas de origen válidas.
 
@@ -205,7 +211,16 @@ export function WalletRampDetailStep({
               >
                 <FormControl>
                   <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
-                    <SelectValue placeholder="Seleccionar wallet" />
+                    {selectedWallet ? (
+                      <span className="flex items-center gap-1.5 truncate">
+                        <span className="font-medium">{selectedWallet.label ?? `${selectedWallet.currency.toUpperCase()} Wallet`}</span>
+                        <span className="text-muted-foreground text-xs">
+                          ({selectedWallet.currency.toUpperCase()} · {selectedWallet.network ?? 'interna'} · {selectedWallet.available_balance.toFixed(2)} disponible)
+                        </span>
+                      </span>
+                    ) : (
+                      <SelectValue placeholder="Seleccionar wallet" />
+                    )}
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -489,7 +504,16 @@ export function WalletRampDetailStep({
               >
                 <FormControl>
                   <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
-                    <SelectValue placeholder="Seleccionar wallet" />
+                    {selectedWallet ? (
+                      <span className="flex items-center gap-1.5 truncate">
+                        <span className="font-medium">{selectedWallet.label ?? `${selectedWallet.currency.toUpperCase()} Wallet`}</span>
+                        <span className="text-muted-foreground text-xs">
+                          ({selectedWallet.currency.toUpperCase()} · {selectedWallet.network ?? 'interna'} · {selectedWallet.available_balance.toFixed(2)} disponible)
+                        </span>
+                      </span>
+                    ) : (
+                      <SelectValue placeholder="Seleccionar wallet" />
+                    )}
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -602,7 +626,18 @@ export function WalletRampDetailStep({
                   >
                     <FormControl>
                       <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
-                        <SelectValue placeholder="Seleccionar cuenta virtual" />
+                        {selectedVa ? (
+                          <span className="flex items-center gap-1.5 truncate">
+                            <span className="font-medium">
+                              {selectedVa.bank_name ?? 'Banco VA'} — {selectedVa.account_number ?? selectedVa.id.slice(0, 8)}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              ({selectedVa.source_currency.toUpperCase()} → {selectedVa.destination_currency.toUpperCase()})
+                            </span>
+                          </span>
+                        ) : (
+                          <SelectValue placeholder="Seleccionar cuenta virtual" />
+                        )}
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
