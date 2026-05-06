@@ -340,11 +340,14 @@ export function CreatePaymentOrderForm({
     ) {
       return suppliers.filter((s) => s.bridge_external_account_id)
     }
-    if (currentRoute.key === 'crypto_to_crypto') {
+    if (currentRoute.key === 'crypto_to_crypto' || (currentRoute.key === 'bolivia_to_exterior' && uiMethodGroup === 'crypto')) {
       return suppliers.filter((s) => s.bank_details?.wallet_address && s.bank_details?.wallet_network && s.bank_details?.wallet_currency)
     }
+    if (currentRoute.key === 'bolivia_to_exterior' && uiMethodGroup === 'bank') {
+      return suppliers.filter((s) => s.payment_rail !== 'crypto' && !s.bank_details?.wallet_address)
+    }
     return suppliers
-  }, [suppliers, currentRoute.key, walletRampWithdrawMethod])
+  }, [suppliers, currentRoute.key, walletRampWithdrawMethod, uiMethodGroup])
   const availableTechnicalMethods = useMemo(
     () => getDeliveryMethodsForRoute(currentRoute.key, uiMethodGroup, supplierMethods),
     [currentRoute.key, uiMethodGroup, supplierMethods]
@@ -1469,9 +1472,11 @@ export function CreatePaymentOrderForm({
                                         ? 'Solo se muestran proveedores con cuenta bancaria externa registrada en Bridge (ACH/Wire).'
                                         : currentRoute.key === 'wallet_to_fiat'
                                           ? 'Solo se muestran proveedores con cuenta bancaria externa registrada en Bridge (ACH/Wire).'
-                                          : currentRoute.key === 'crypto_to_crypto'
-                                            ? 'Solo se muestran proveedores con wallet crypto configurada. La red y moneda de origen se filtran segun el destino del proveedor.'
-                                            : 'Debes crear un proveedor con los datos correctos antes de usar esta opcion.'}
+                                          : currentRoute.key === 'crypto_to_crypto' || (currentRoute.key === 'bolivia_to_exterior' && uiMethodGroup === 'crypto')
+                                            ? 'Solo se muestran proveedores con wallet crypto configurada.'
+                                            : currentRoute.key === 'bolivia_to_exterior' && uiMethodGroup === 'bank'
+                                              ? 'Solo se muestran proveedores con cuenta bancaria fiat.'
+                                              : 'Debes crear un proveedor con los datos correctos antes de usar esta opcion.'}
                                     </p>
                                   )}
                                   <div className="flex flex-wrap items-center gap-3">
@@ -2903,6 +2908,7 @@ function NumericField({
   // Extract currency symbol/name from the label if it's in parentheses, e.g., "(USD)"
   const currencyMatch = label.match(/\((.*?)\)/);
   const currency = currencyMatch ? currencyMatch[1] : '';
+  const displayLabel = label.replace(/\s*\((.*?)\)/, '').trim();
 
   return (
     <FormField
@@ -2910,7 +2916,7 @@ function NumericField({
       name={name}
       render={({ field }) => (
         <FormItem className="flex flex-col items-center justify-center space-y-2 pb-2 pt-4">
-          <FormLabel className={cn(FORM_LABEL_CLASS, "text-center")}>{label}</FormLabel>
+          <FormLabel className={cn(FORM_LABEL_CLASS, "text-center")}>{displayLabel}</FormLabel>
           <FormControl>
             <div className="relative flex w-full max-w-[240px] md:max-w-[320px] mx-auto items-center justify-center">
               <Input
@@ -3205,7 +3211,7 @@ function getMethodDescription(route: SupportedPaymentRoute) {
 function getAmountLabel(route: SupportedPaymentRoute) {
   switch (route) {
     case 'bolivia_to_exterior':
-      return 'Monto en bolivianos'
+      return 'Monto en bolivianos (BOB)'
     case 'world_to_bolivia':
       return 'Monto a depositar'
     case 'us_to_wallet':
@@ -3438,7 +3444,7 @@ function buildReviewItems(args: {
     if (args.values.wallet_ramp_method === 'fiat_bo' || args.values.wallet_ramp_method === 'crypto') {
       const wallet = args.bridgeWallets?.find(w => w.id === args.values.wallet_ramp_wallet_id)
       const readableWallet = wallet ? `Wallet ${wallet.currency} (${wallet.network})` : (args.values.wallet_ramp_wallet_id || 'Pendiente')
-      items.push({ label: 'Wallet Bridge Destino', value: readableWallet })
+      items.push({ label: 'Tu Billetera Digital Destino', value: readableWallet })
     }
     if (args.values.wallet_ramp_method === 'crypto') {
       items.push({ label: 'Red Cripto Origen', value: args.values.wallet_ramp_source_network || 'Pendiente' })

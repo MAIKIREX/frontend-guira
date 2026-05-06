@@ -9,14 +9,12 @@ import {
   LayoutDashboard,
   Settings,
   UsersRound,
-  Wallet,
   Waypoints,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const mainLinks = [
   { href: '/panel', label: 'Panel', icon: LayoutDashboard },
-  { href: '/cuentas', label: 'Mis Cuentas', icon: Wallet },
   { href: '/depositar', label: 'Depositar', icon: ArrowDownLeft },
   { href: '/enviar', label: 'Enviar / Retirar', icon: ArrowUpRight },
   { href: '/proveedores', label: 'Proveedores', icon: UsersRound },

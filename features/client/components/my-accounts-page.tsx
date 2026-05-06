@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { Copy, Loader2, ShieldAlert, Wallet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
     Card,
     CardContent,
@@ -76,65 +77,44 @@ function TokenRow({
     const tokenLabel = TOKEN_LABELS[currency] ?? currency;
     const iconUrl = TOKEN_ICONS[currency] ?? TOKEN_ICONS["USDB"];
 
-    const iconBgClass =
-        currency === "USDC"
-            ? "bg-[#2775ca]"
-            : currency === "USDT"
-              ? "bg-[#26a17b]"
-              : currency === "USDB"
-                ? "bg-[#0052ff]"
-                : currency === "PYUSD"
-                  ? "bg-[#0079c1]"
-                  : currency === "UERC"
-                    ? "bg-[#5574c2]"
-                    : "bg-primary";
-
     return (
-        <div className="group border-b border-border last:border-b-0">
-            <div className="flex items-center justify-between gap-4 py-6 transition-colors hover:bg-muted/10">
-                <div className="flex items-center gap-5 min-w-0">
-                    <div
-                        className={`relative flex size-12 sm:size-14 shrink-0 items-center justify-center rounded-full shadow-sm overflow-hidden bg-muted/20 border border-border/40`}
-                    >
+        <div className="group border-b border-border/50 last:border-b-0">
+            <div className="flex items-center justify-between gap-4 py-3.5 transition-colors hover:bg-muted/30 px-3 -mx-3 rounded-xl cursor-pointer">
+                <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="relative flex size-10 shrink-0 items-center justify-center rounded-full shadow-sm overflow-hidden bg-background border border-border/60">
                         <img
                             src={iconUrl}
                             alt={currency}
-                            className="size-full object-cover"
+                            className="size-[65%] object-contain"
                             onError={(e) => {
                                 e.currentTarget.style.display = "none";
                                 if (e.currentTarget.nextElementSibling) {
-                                    (
-                                        e.currentTarget
-                                            .nextElementSibling as HTMLElement
-                                    ).style.display = "flex";
+                                    (e.currentTarget.nextElementSibling as HTMLElement).style.display = "flex";
                                 }
                             }}
                         />
-                        <div
-                            className={`hidden absolute inset-0 size-full items-center justify-center ${iconBgClass}`}
-                        >
-                            <span className="text-white font-bold text-sm">
+                        <div className="hidden absolute inset-0 size-full items-center justify-center bg-primary/10">
+                            <span className="text-primary font-bold text-xs">
                                 {currency.slice(0, 1)}
                             </span>
                         </div>
                     </div>
                     <div className="min-w-0 flex flex-col justify-center">
-                        <div className="flex items-center gap-2.5">
-                            <span className="text-lg sm:text-xl font-semibold text-foreground tracking-tight leading-tight">
-                                {currency}
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-sm sm:text-base text-muted-foreground">
-                                {tokenLabel}
-                            </span>
-                        </div>
+                        <span className="text-sm font-bold text-foreground leading-tight">
+                            {tokenLabel}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground mt-0.5 font-medium tracking-wide">
+                            {currency}
+                        </span>
                     </div>
                 </div>
 
                 <div className="flex flex-col items-end justify-center shrink-0">
                     <span
-                        className={`text-xl sm:text-3xl font-normal tracking-tight tabular-nums ${balance > 0 ? "text-foreground" : "text-muted-foreground"}`}
+                        className={cn(
+                            "text-[15px] font-bold tracking-tight tabular-nums",
+                            balance > 0 ? "text-foreground" : "text-muted-foreground/60"
+                        )}
                     >
                         {balance > 0 ? "$" : ""}
                         {balance.toLocaleString("en-US", {
@@ -142,6 +122,11 @@ function TokenRow({
                             maximumFractionDigits: 2,
                         })}
                     </span>
+                    {balance > 0 && (
+                        <span className="text-[9px] text-success font-semibold uppercase tracking-widest mt-0.5">
+                            Disponible
+                        </span>
+                    )}
                 </div>
             </div>
         </div>
@@ -297,7 +282,7 @@ function WalletsSection({ isApproved }: { isApproved: boolean }) {
             {/* Token Rows (Replaces Wallet Rows) */}
             {!loading && !error && wallets.length > 0 && (
                 <div className="pt-2">
-                    {DISPLAY_CURRENCIES.map((cur) => (
+                    {DISPLAY_CURRENCIES.filter((cur) => cur !== "USDB" && cur !== "PYUSD").map((cur) => (
                         <TokenRow
                             key={cur}
                             currency={cur}
@@ -402,10 +387,54 @@ function WalletsSection({ isApproved }: { isApproved: boolean }) {
 
 // ── Main Page ────────────────────────────────────────────────────
 
-export function MyAccountsPage() {
+export function MyAccountsPage({ embedded = false }: { embedded?: boolean }) {
     const { profile } = useProfileStore();
     const isApproved = profile?.onboarding_status === "approved";
 
+    /* ── Embedded mode: inline sections inside the Panel ── */
+    if (embedded) {
+        return (
+            <div className="space-y-6">
+                {/* KYC alert (only when not verified) */}
+                {!isApproved && (
+                    <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
+                        <ShieldAlert className="mt-0.5 size-4 shrink-0 text-amber-400" />
+                        <div>
+                            <p className="font-medium text-foreground">
+                                Verificación pendiente
+                            </p>
+                            <p className="mt-0.5 text-muted-foreground">
+                                Las wallets y cuentas virtuales se activan al
+                                aprobar tu verificación KYC/KYB.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Wallets — wrapped in a matching card */}
+                <div className="rounded-[2.5rem] border border-border/50 bg-card overflow-hidden shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)]">
+                    <div className="px-8 sm:px-10 pt-8 pb-4 border-b border-border/50">
+                        <h2 className="text-xl font-bold text-foreground tracking-tight">Wallets</h2>
+                        <p className="text-sm text-muted-foreground mt-1">
+                            Tus balances de activos digitales en tiempo real
+                        </p>
+                    </div>
+                    <div className="px-8 sm:px-10 pb-8">
+                        <WalletsSection isApproved={isApproved} />
+                    </div>
+                </div>
+
+                {/* Virtual Accounts — wrapped in a matching card */}
+                <div className="rounded-[2.5rem] border border-border/50 bg-card overflow-hidden shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)]">
+                    <div className="px-8 sm:px-10 pt-8 pb-8">
+                        <VirtualAccountsSection isApproved={isApproved} />
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    /* ── Standalone mode: full page with tabs (used by /cuentas route) ── */
     return (
         <div className="mx-auto w-full max-w-5xl space-y-6">
             {/* Header */}

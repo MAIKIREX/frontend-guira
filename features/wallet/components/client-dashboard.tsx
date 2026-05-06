@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeftRight, Loader2, RefreshCw } from 'lucide-react'
+import {
+  ArrowLeftRight,
+  DollarSign,
+  Loader2,
+  RefreshCw,
+  TrendingUp,
+  Waypoints,
+} from 'lucide-react'
 import Flag from 'react-world-flags'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -53,7 +60,7 @@ const ACTION_CONFIG: Record<
   },
 }
 
-export function ClientDashboard() {
+export function ClientDashboard({ children }: { children?: React.ReactNode }) {
   const router = useRouter()
   const { profile } = useProfileStore()
   const { rates, loading, error, reload } = useExchangeRates()
@@ -125,7 +132,6 @@ export function ClientDashboard() {
     )
   }
 
-  const userFirstName = profile?.full_name?.split(' ')[0] ?? 'Usuario'
   const config = ACTION_CONFIG[action]
   const amountOrigin = parseAmount(amountInput)
   const buyRate = rates.buyRate
@@ -137,147 +143,147 @@ export function ClientDashboard() {
       : (buyRate ? amountOrigin / buyRate : 0),
   }
 
+  // Format integer and decimal parts of balance for styling
+  const balanceInt = Math.floor(balanceUSD).toLocaleString('en-US')
+  const balanceDec = (balanceUSD % 1).toFixed(2).substring(1) // gets ".00"
+  
+  // Extract first name correctly from full_name if available
+  const userFirstName = profile?.full_name?.split(' ')[0] || profile?.business_name || 'Usuario'
+
   return (
-    <div className="mx-auto w-full max-w-screen-lg pb-12 pt-6">
-
-      {/* ── Header ── */}
-      <section className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-[0.68rem] font-extrabold uppercase tracking-[0.2em] text-muted-foreground mb-1.5">
-            Panel de control
-          </p>
-          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tighter text-foreground leading-none">
-            ¡Hola, {userFirstName}!
-          </h1>
-        </div>
-
-        {/* Compact Rate Ticker */}
-        <div className="flex items-center gap-3 self-start rounded-2xl border border-border/60 bg-card px-5 py-3 shadow-sm">
-          <div className="flex items-center gap-2">
-            <span className="relative flex size-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
-              <span className="relative inline-flex size-2 rounded-full bg-success" />
-            </span>
-            <span className="text-[0.65rem] font-extrabold uppercase tracking-[0.14em] text-success">En vivo</span>
-          </div>
-          <div className="h-3.5 w-px bg-border" />
-          <div className="flex items-center gap-4 text-sm">
-            <span className="text-muted-foreground">
-              Compra: <span className="font-bold text-foreground">{formatNumber(buyRate)} Bs</span>
-            </span>
-            <span className="text-muted-foreground">
-              Venta: <span className="font-bold text-accent">{formatNumber(sellRate)} Bs</span>
-            </span>
-          </div>
-          <button
-            onClick={reload}
-            type="button"
-            className="ml-1 text-muted-foreground/50 hover:text-foreground transition-colors"
-            aria-label="Actualizar tasas"
-          >
-            <RefreshCw className="size-3.5" />
-          </button>
-        </div>
-      </section>
-
-      {/* ── Bento Grid: 1fr 2fr ── */}
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-5">
-
-        {/* ── Left: Stats Panel ── */}
-        <div className="rounded-2xl border border-border/60 bg-card overflow-hidden">
-          <div className="px-7 pt-7 pb-6 border-b border-border/50">
-            <p className={cn(FORM_LABEL_CLASS, 'mb-2.5')}>Balance Total</p>
-            <p className="text-[2.2rem] font-extrabold tracking-tighter text-foreground leading-none">
-              ${balanceUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </p>
-            <p className="text-xs text-muted-foreground mt-2">USD disponible en tu cuenta</p>
+    <div className="mx-auto w-full max-w-screen-xl pb-12 pt-8">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] xl:grid-cols-[1fr_420px] gap-10 xl:gap-16">
+        
+        {/* ── LEFT COLUMN: Balances & Activity ── */}
+        <div className="space-y-10">
+          
+          {/* Greeting */}
+          <div className="space-y-1">
+             <h1 className="text-4xl sm:text-[3rem] font-extrabold tracking-tight text-foreground leading-none">
+               ¡Hola, {userFirstName}!
+             </h1>
+             <p className="text-base font-medium text-muted-foreground mt-2">
+               Resumen de tus cuentas operativas
+             </p>
           </div>
 
-          <div className="px-7 py-6 border-b border-border/50">
-            <p className={cn(FORM_LABEL_CLASS, 'mb-2.5')}>Operaciones este mes</p>
-            <p className="text-[2.2rem] font-extrabold tracking-tighter text-foreground leading-none">
-              {ordersThisMonth}
-            </p>
-            {pendingOrders > 0 ? (
-              <p className="text-xs text-warning font-medium mt-2">
-                {pendingOrders} pendiente{pendingOrders !== 1 ? 's' : ''} de confirmación
+          {/* Balance Section (Bento Card) */}
+          <section className="rounded-[2.5rem] border border-border/50 bg-card shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] p-8 sm:p-10 relative overflow-hidden">
+            <div className="relative z-10">
+              <p className="text-[0.68rem] font-extrabold uppercase tracking-[0.2em] text-muted-foreground mb-3">
+                Balance Operativo Total
               </p>
-            ) : (
-              <p className="text-xs text-muted-foreground mt-2">Sin operaciones pendientes</p>
-            )}
-          </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-6xl sm:text-[5rem] font-extrabold tracking-tighter text-foreground leading-none">
+                  ${balanceInt}
+                </span>
+                <span className="text-3xl sm:text-4xl font-medium text-muted-foreground/80 tracking-tight">
+                  {balanceDec} USD
+                </span>
+              </div>
 
-          <div className="px-7 py-6">
-            <p className={cn(FORM_LABEL_CLASS, 'mb-2.5')}>
-              Tasa {action === 'depositar' ? 'de venta' : 'de compra'}
-            </p>
-            <p className="text-[2.2rem] font-extrabold tracking-tighter text-foreground leading-none">
-              {formatNumber(visibleBaseRate)}
-            </p>
-            <p className="text-xs text-muted-foreground mt-2">Bolivianos por dólar</p>
-          </div>
+              {/* Sub-stats (Ingresos/Egresos style) */}
+              <div className="flex gap-8 sm:gap-12 mt-10 pt-8 border-t border-border/50">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1.5 font-medium uppercase tracking-wider">Operaciones del Mes</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
+                    <span className="text-success mr-1">+</span>{ordersThisMonth}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1.5 font-medium uppercase tracking-wider">Órdenes Pendientes</p>
+                  <p className={cn("text-2xl sm:text-3xl font-bold tracking-tight", pendingOrders > 0 ? "text-destructive" : "text-foreground")}>
+                    {pendingOrders > 0 ? `-${pendingOrders}` : "0"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Children slot (Wallets + Virtual Accounts) */}
+          {children && (
+            <section className="pt-4">
+              {children}
+            </section>
+          )}
         </div>
 
-        {/* ── Right: Quote Calculator ── */}
-        <div className="rounded-2xl border border-border/60 bg-card overflow-hidden">
-          {/* Tabs Header */}
-          <div className="border-b border-border/50 px-7 pt-7">
-            <h2 className="text-base font-bold text-foreground mb-4">Cotización rápida</h2>
-            <div className="flex">
-              {(['depositar', 'enviar'] as const).map((item) => (
-                <GuiraButton
-                  key={item}
-                  variant="tab"
-                  active={action === item}
-                  className="mr-6 pb-3"
-                  onClick={() => { setAction(item) }}
-                >
-                  {ACTION_CONFIG[item].label}
-                </GuiraButton>
-              ))}
-            </div>
-          </div>
-
-          <div className="p-7 space-y-3">
-            {/* Origin input */}
-            <div className="rounded-xl bg-muted/50 px-6 py-5 transition-colors focus-within:bg-muted/80">
-              <MoneyField
-                currency={config.originCurrency}
-                label={config.originLabel}
-                onChange={setAmountInput}
-                value={amountInput}
-              />
-            </div>
-
-            {/* Swap arrow */}
-            <div className="flex justify-center py-0.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground hover:scale-105 transition-transform cursor-default shadow-sm">
-                <ArrowLeftRight className="size-4" />
+        {/* ── RIGHT COLUMN: Floating Card (Cambio Rápido) ── */}
+        <div>
+          <div className="sticky top-8 overflow-hidden rounded-[2.5rem] border border-border/50 bg-card shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] text-foreground">
+            {/* Header */}
+            <div className="px-8 sm:px-10 pt-10 pb-6 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <RefreshCw className="size-5" />
+                </div>
+                <h2 className="text-2xl font-bold tracking-tight">Cambio Rápido</h2>
               </div>
             </div>
 
-            {/* Destination read-only */}
-            <div className="rounded-xl border border-border/40 bg-muted/20 px-6 py-5">
-              <ReadOnlyField
-                currency={config.destinationCurrency}
-                label={config.destinationLabel}
-                value={estimate.amountConverted}
-              />
+            {/* Toggle Tabs */}
+            <div className="px-8 sm:px-10 mb-6 flex gap-6 border-b border-border/30">
+              {(['depositar', 'enviar'] as const).map((item) => (
+                <button
+                  key={item}
+                  onClick={() => setAction(item)}
+                  className={cn(
+                    "text-sm font-semibold transition-colors pb-3 border-b-2 relative -mb-[1px]",
+                    action === item ? "text-foreground border-primary" : "text-muted-foreground border-transparent hover:text-foreground"
+                  )}
+                >
+                  {item === 'depositar' ? 'Depositar' : 'Retirar'}
+                </button>
+              ))}
             </div>
 
-            {/* Helper + CTA */}
-            <div className="pt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-muted-foreground leading-relaxed max-w-[44ch]">
-                {config.helperText}
-              </p>
-              <GuiraButton
-                arrowNext
-                onClick={() => router.push(action === 'depositar' ? '/depositar' : '/enviar')}
-                className="self-start sm:self-auto shrink-0"
-              >
-                Continuar
-              </GuiraButton>
+            {/* Form Fields */}
+            <div className="px-8 sm:px-10 pb-10 space-y-3 relative">
+              {/* Origin */}
+              <div className="rounded-[1.5rem] border border-border/60 bg-muted/30 p-6 transition-colors focus-within:bg-muted/50 focus-within:border-border">
+                <MoneyField
+                  currency={config.originCurrency}
+                  label={config.originLabel}
+                  onChange={setAmountInput}
+                  value={amountInput}
+                />
+              </div>
+
+              {/* Swap Arrow Overlay */}
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 mt-[2px] z-10 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm border-4 border-card hover:scale-105 transition-transform cursor-pointer">
+                <ArrowLeftRight className="size-5" />
+              </div>
+
+              {/* Destination */}
+              <div className="rounded-[1.5rem] border border-border/60 bg-muted/30 p-6">
+                <ReadOnlyField
+                  currency={config.destinationCurrency}
+                  label={config.destinationLabel}
+                  value={estimate.amountConverted}
+                />
+              </div>
+
+              {/* Rate & Action */}
+              <div className="pt-8 flex flex-col gap-6">
+                <div className="flex items-center justify-between text-sm text-muted-foreground font-medium">
+                  <span>Tasa: 1 USD = {action === 'depositar' ? formatNumber(sellRate) : (buyRate ? formatNumber(1/buyRate) : 0)} Bs</span>
+                  <div className="flex items-center gap-1.5 bg-success/10 px-2.5 py-1 rounded-md text-success font-semibold text-xs">
+                    <TrendingUp className="size-3.5" />
+                    <span>En vivo</span>
+                  </div>
+                </div>
+
+                <GuiraButton
+                  onClick={() => router.push(action === 'depositar' ? '/depositar' : '/enviar')}
+                  className="w-full justify-center h-14 rounded-2xl text-base"
+                >
+                  Continuar
+                </GuiraButton>
+              </div>
             </div>
+            
+            {/* Bottom Edge Indicator */}
+            <div className="h-1 w-full bg-gradient-to-r from-primary/0 via-primary/50 to-primary/0 opacity-50" />
           </div>
         </div>
       </div>
@@ -301,15 +307,13 @@ function MoneyField({
   onChange: (value: string) => void
 }) {
   return (
-    <div className="space-y-3">
-      <label className={FORM_LABEL_CLASS}>{label}</label>
+    <div className="space-y-1">
+      <label className="text-[0.65rem] font-bold uppercase tracking-wider text-muted-foreground">{label}</label>
       <div className="flex items-center justify-between gap-3">
         <Input
-          className="h-auto w-full border-0 bg-transparent p-0 text-[2.8rem] md:text-[3.5rem] font-extrabold tracking-tight text-foreground shadow-none focus-visible:ring-0 placeholder:text-muted-foreground"
+          className="h-auto w-full border-0 bg-transparent p-0 text-3xl font-bold tracking-tight text-foreground shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/30"
           inputMode="decimal"
-          onChange={(event) => {
-            onChange(event.target.value)
-          }}
+          onChange={(event) => onChange(event.target.value)}
           placeholder="0.00"
           value={value}
         />
@@ -329,10 +333,10 @@ function ReadOnlyField({
   currency: string
 }) {
   return (
-    <div className="space-y-3">
-      <label className={FORM_LABEL_CLASS}>{label}</label>
+    <div className="space-y-1">
+      <label className="text-[0.65rem] font-bold uppercase tracking-wider text-muted-foreground">{label}</label>
       <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0 flex-1 truncate text-[2.8rem] md:text-[3.5rem] font-extrabold tracking-tight text-foreground">
+        <div className="min-w-0 flex-1 truncate text-3xl font-bold tracking-tight text-primary">
           {formatNumber(value)}
         </div>
         <CurrencyPill currency={currency} />
@@ -345,11 +349,11 @@ function CurrencyPill({ currency }: { currency: string }) {
   const flagCode = currency === 'USD' ? 'US' : 'BO'
 
   return (
-    <div className="flex shrink-0 items-center gap-2 rounded-full bg-background/90 px-3 py-1.5 shadow-sm border border-border/40">
-      <div className="flex size-5 items-center justify-center overflow-hidden rounded-full bg-muted">
+    <div className="flex shrink-0 items-center gap-2 rounded-lg bg-background px-2.5 py-1.5 border border-border/50 shadow-sm">
+      <div className="flex size-4 items-center justify-center overflow-hidden rounded-sm bg-muted">
         <Flag code={flagCode} className="h-full w-full object-cover" />
       </div>
-      <span className="text-sm font-bold text-foreground pr-1">{currency}</span>
+      <span className="text-sm font-semibold text-foreground">{currency}</span>
     </div>
   )
 }

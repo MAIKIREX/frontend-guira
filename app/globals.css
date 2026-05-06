@@ -10,7 +10,7 @@
   ║  Derivada del punto medio del gradiente del logo:   ║
   ║    Logo gradient: #0788FF → #01C5FF                 ║
   ║    Logo solid:    #0150F2  (azul royal)              ║
-  ║    Logo text:     #050036  (navy ink)                ║
+  ║    Logo text:     #0A1128  (navy slate)              ║
   ║                                                      ║
   ║  Primary = punto medio del gradiente (azul profundo) ║
   ║  Accent  = teal sofisticado (complemento cálido)     ║
@@ -70,35 +70,35 @@
 
 /* ─────────────────────────────────────────────────────
    LIGHT MODE — Design System
-   Primary: #0055FF · Accent: #00D6FF · Dark: #050036
-   Surface: #F4F6FF · Sidebar: always dark (#050036)
+   Primary: #0055FF · Accent: #00D6FF · Dark: #0A1128
+   Surface: #F4F6FF · Sidebar: always dark (#0A1128)
 ───────────────────────────────────────────────────── */
 :root {
   /* Surfaces */
-  --background:          #F4F6FF;
-  --foreground:          #050036;
+  --background:          #F4F7FB;
+  --foreground:          #0A1128;
 
   --card:                #FFFFFF;
-  --card-foreground:     #050036;
+  --card-foreground:     #0A1128;
 
   --popover:             #FFFFFF;
-  --popover-foreground:  #050036;
+  --popover-foreground:  #0A1128;
 
   /* Primary */
   --primary:             #0055FF;
   --primary-foreground:  #FFFFFF;
 
   /* Secondary — light tint of surface */
-  --secondary:           #EEF0FD;
-  --secondary-foreground: #050036;
+  --secondary:           #F1F5F9;
+  --secondary-foreground: #0A1128;
 
   /* Muted — subtle blue-gray */
-  --muted:               #ECEFFE;
-  --muted-foreground:    #6B6E9E;
+  --muted:               #F1F5F9;
+  --muted-foreground:    #64748B;
 
   /* Accent */
   --accent:              #00D6FF;
-  --accent-foreground:   #050036;
+  --accent-foreground:   #0A1128;
 
   /* Semantic */
   --destructive:         #E84040;
@@ -108,11 +108,11 @@
   --success-foreground:  #FFFFFF;
 
   --warning:             #F5A623;
-  --warning-foreground:  #050036;
+  --warning-foreground:  #0A1128;
 
   /* Chrome */
-  --border:              #D5D8EE;
-  --input:               #E2E5F5;
+  --border:              #E2E8F0;
+  --input:               #E2E8F0;
   --ring:                #0055FF;
 
   /* Charts */
@@ -125,7 +125,7 @@
   --radius: 0.75rem;
 
   /* Sidebar — always dark per design system */
-  --sidebar:                    #050036;
+  --sidebar:                    #0A1128;
   --sidebar-foreground:         #FFFFFF;
   --sidebar-primary:            #0055FF;
   --sidebar-primary-foreground: #FFFFFF;
@@ -141,30 +141,30 @@
 ───────────────────────────────────────────────────── */
 .dark {
   /* Surfaces */
-  --background:          #0D0F1E;
-  --foreground:          #F0F2FF;
+  --background:          #0B1120;
+  --foreground:          #F8FAFC;
 
-  --card:                #141829;
-  --card-foreground:     #F0F2FF;
+  --card:                #0F172A;
+  --card-foreground:     #F8FAFC;
 
-  --popover:             #141829;
-  --popover-foreground:  #F0F2FF;
+  --popover:             #0F172A;
+  --popover-foreground:  #F8FAFC;
 
   /* Primary — slightly lighter for dark mode readability */
   --primary:             #4D87FF;
-  --primary-foreground:  #050036;
+  --primary-foreground:  #0A1128;
 
   /* Secondary */
-  --secondary:           #1C1F35;
-  --secondary-foreground: #C8CCEE;
+  --secondary:           #1E293B;
+  --secondary-foreground: #CBD5E1;
 
   /* Muted */
-  --muted:               #1A1D32;
-  --muted-foreground:    #8B8EAA;
+  --muted:               #1E293B;
+  --muted-foreground:    #94A3B8;
 
   /* Accent */
   --accent:              #00D6FF;
-  --accent-foreground:   #050036;
+  --accent-foreground:   #0A1128;
 
   /* Semantic */
   --destructive:         #E84040;
@@ -174,11 +174,11 @@
   --success-foreground:  #FFFFFF;
 
   --warning:             #F5A623;
-  --warning-foreground:  #050036;
+  --warning-foreground:  #0A1128;
 
   /* Chrome */
-  --border:              rgba(208, 214, 255, 0.12);
-  --input:               rgba(208, 214, 255, 0.08);
+  --border:              rgba(148, 163, 184, 0.15);
+  --input:               rgba(148, 163, 184, 0.15);
   --ring:                #4D87FF;
 
   /* Charts */
@@ -189,7 +189,7 @@
   --chart-5:             #E84040;
 
   /* Sidebar — deeper dark in dark mode */
-  --sidebar:                    #020019;
+  --sidebar:                    #050A18;
   --sidebar-foreground:         #FFFFFF;
   --sidebar-primary:            #4D87FF;
   --sidebar-primary-foreground: #FFFFFF;
