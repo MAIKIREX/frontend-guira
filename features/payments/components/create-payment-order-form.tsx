@@ -1030,16 +1030,21 @@ export function CreatePaymentOrderForm({
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
-      <Card className="ring-0 shadow-none bg-background">
-        <CardHeader className="border-b border-border/60 bg-transparent px-4 py-5 sm:px-6">
-          <CardTitle className="text-4xl sm:text-[3rem] sm:leading-[1.1] font-extrabold tracking-tight text-foreground">
-            {isDepositRouteActive ? 'Depositar por expediente' : 'Enviar por expediente'}
-          </CardTitle>
-          <CardDescription className="text-sm sm:text-base leading-relaxed sm:leading-6 tracking-[0.01em]">
-            El flujo separa ruta, metodo, detalle, revision y finalizacion para una mejor experiencia.
-          </CardDescription>
+      <Card className="ring-0 shadow-none bg-background overflow-hidden">
+        <CardHeader className="border-b border-border/60 bg-transparent px-4 py-6 sm:px-8 sm:py-8">
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-bold uppercase tracking-[0.22em] text-primary">
+              {isDepositRouteActive ? 'Fondeo de expediente' : 'Transferencia de expediente'}
+            </span>
+            <CardTitle className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground leading-tight">
+              {isDepositRouteActive ? 'Depositar fondos' : 'Enviar fondos'}
+            </CardTitle>
+            <CardDescription className="mt-1 text-sm text-muted-foreground leading-relaxed max-w-[65ch]">
+              Selecciona ruta, metodo y detalle. La orden se crea antes de cualquier instruccion de pago.
+            </CardDescription>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-6 sm:space-y-8 px-4 py-6 sm:px-6 lg:px-8">
+        <CardContent className="space-y-6 sm:space-y-8 px-4 py-6 sm:px-8 lg:px-10">
           <StepProgressRail currentStep={step} getStepLabel={getStepLabel} steps={STEP_ORDER} />
 
           <Form {...form}>
@@ -1062,9 +1067,13 @@ export function CreatePaymentOrderForm({
                               <div className="space-y-6">
                                 {interbankRoutes.length > 0 && (
                                   <div className="space-y-3">
-                                    <h3 className="text-lg font-semibold text-foreground">
-                                      {mode === 'depositar' ? 'Recepción Interbancaria' : 'Envíos Interbancarios'}
-                                    </h3>
+                                    <div className="flex items-center gap-3">
+                                      <div className="h-px flex-1 bg-border/40" />
+                                      <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                                        {mode === 'depositar' ? 'Recepción Interbancaria' : 'Envíos Interbancarios'}
+                                      </span>
+                                      <div className="h-px flex-1 bg-border/40" />
+                                    </div>
                                     <div className="grid gap-3 sm:grid-cols-2">
                                       {interbankRoutes.map((entry) => (
                                         <SelectionCard
@@ -1092,9 +1101,13 @@ export function CreatePaymentOrderForm({
                                 )}
                                 {rampRoutes.length > 0 && (
                                   <div className="space-y-3">
-                                    <h3 className="text-lg font-semibold text-foreground">
-                                      {mode === 'depositar' ? 'Fondeo de Billetera (Ramp)' : 'Retiros de Billetera (Ramp)'}
-                                    </h3>
+                                    <div className="flex items-center gap-3">
+                                      <div className="h-px flex-1 bg-border/40" />
+                                      <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                                        {mode === 'depositar' ? 'Fondeo de Billetera' : 'Retiros de Billetera'}
+                                      </span>
+                                      <div className="h-px flex-1 bg-border/40" />
+                                    </div>
                                     <div className="grid gap-3 sm:grid-cols-2">
                                       {rampRoutes.map((entry) => (
                                         <SelectionCard
@@ -1710,19 +1723,7 @@ export function CreatePaymentOrderForm({
 
                     {hasSubStepFlow && (
                       <AnimatedStepPanel key={`detail-${detailSubStep}`}>
-                        {/* Sub-pasos indicados visualmente */}
-                        <div className="flex items-center gap-2 mb-6 px-1">
-                          {DETAIL_SUB_ORDER.map((sub, i) => (
-                            <div key={sub} className="flex items-center gap-2">
-                              <div className={cn(
-                                'size-2 rounded-full transition-colors',
-                                detailSubStep === sub ? 'bg-primary' :
-                                  DETAIL_SUB_ORDER.indexOf(detailSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
-                              )} />
-                              {i < DETAIL_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
-                            </div>
-                          ))}
-                        </div>
+                        <SubStepRail steps={DETAIL_SUB_ORDER} current={detailSubStep} />
 
                         <div className="grid gap-4">
                           {detailSubStep === 'supplier' && (
@@ -1938,19 +1939,7 @@ export function CreatePaymentOrderForm({
 
                     {isFiatBoWithdraw && (
                       <AnimatedStepPanel key={`detail-fiatbo-${fiatBoSubStep}`}>
-                        {/* Indicador de sub-pasos */}
-                        <div className="flex items-center gap-2 mb-6 px-1">
-                          {FIAT_BO_SUB_ORDER.map((sub, i) => (
-                            <div key={sub} className="flex items-center gap-2">
-                              <div className={cn(
-                                'size-2 rounded-full transition-colors',
-                                fiatBoSubStep === sub ? 'bg-primary' :
-                                  FIAT_BO_SUB_ORDER.indexOf(fiatBoSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
-                              )} />
-                              {i < FIAT_BO_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
-                            </div>
-                          ))}
-                        </div>
+                        <SubStepRail steps={FIAT_BO_SUB_ORDER} current={fiatBoSubStep} />
 
                         <div className="grid gap-4">
                           {fiatBoSubStep === 'wallet' && (
@@ -2032,18 +2021,7 @@ export function CreatePaymentOrderForm({
 
                     {isCryptoWithdraw && (
                       <AnimatedStepPanel key={`detail-crypto-${cryptoWithdrawSubStep}`}>
-                        <div className="flex items-center gap-2 mb-6 px-1">
-                          {CRYPTO_WITHDRAW_SUB_ORDER.map((sub, i) => (
-                            <div key={sub} className="flex items-center gap-2">
-                              <div className={cn(
-                                'size-2 rounded-full transition-colors',
-                                cryptoWithdrawSubStep === sub ? 'bg-primary' :
-                                  CRYPTO_WITHDRAW_SUB_ORDER.indexOf(cryptoWithdrawSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
-                              )} />
-                              {i < CRYPTO_WITHDRAW_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
-                            </div>
-                          ))}
-                        </div>
+                        <SubStepRail steps={CRYPTO_WITHDRAW_SUB_ORDER} current={cryptoWithdrawSubStep} />
 
                         <div className="grid gap-4">
                           {cryptoWithdrawSubStep === 'wallet' && (
@@ -2122,18 +2100,7 @@ export function CreatePaymentOrderForm({
 
                     {isFiatUsWithdraw && (
                       <AnimatedStepPanel key={`detail-fiatus-${fiatUsSubStep}`}>
-                        <div className="flex items-center gap-2 mb-6 px-1">
-                          {FIAT_US_SUB_ORDER.map((sub, i) => (
-                            <div key={sub} className="flex items-center gap-2">
-                              <div className={cn(
-                                'size-2 rounded-full transition-colors',
-                                fiatUsSubStep === sub ? 'bg-primary' :
-                                  FIAT_US_SUB_ORDER.indexOf(fiatUsSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
-                              )} />
-                              {i < FIAT_US_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
-                            </div>
-                          ))}
-                        </div>
+                        <SubStepRail steps={FIAT_US_SUB_ORDER} current={fiatUsSubStep} />
 
                         <div className="grid gap-4">
                           {fiatUsSubStep === 'wallet' && (
@@ -2257,19 +2224,7 @@ export function CreatePaymentOrderForm({
 
                     {isFiatBoDeposit && (
                       <AnimatedStepPanel key={`detail-fiat-bo-deposit-${fiatBoDepositSubStep}`}>
-                        {/* Indicador de sub-pasos */}
-                        <div className="flex items-center gap-2 mb-6 px-1">
-                          {FIAT_BO_DEPOSIT_SUB_ORDER.map((sub, i) => (
-                            <div key={sub} className="flex items-center gap-2">
-                              <div className={cn(
-                                'size-2 rounded-full transition-colors',
-                                fiatBoDepositSubStep === sub ? 'bg-primary' :
-                                  FIAT_BO_DEPOSIT_SUB_ORDER.indexOf(fiatBoDepositSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
-                              )} />
-                              {i < FIAT_BO_DEPOSIT_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
-                            </div>
-                          ))}
-                        </div>
+                        <SubStepRail steps={FIAT_BO_DEPOSIT_SUB_ORDER} current={fiatBoDepositSubStep} />
 
                         <div className="grid gap-4">
                           {fiatBoDepositSubStep === 'wallet' && (
@@ -2339,19 +2294,7 @@ export function CreatePaymentOrderForm({
 
                     {isRampDepositWithSubSteps && (
                       <AnimatedStepPanel key={`detail-ramp-deposit-${rampDepositSubStep}`}>
-                        {/* Indicador de sub-pasos */}
-                        <div className="flex items-center gap-2 mb-6 px-1">
-                          {RAMP_DEPOSIT_SUB_ORDER.map((sub, i) => (
-                            <div key={sub} className="flex items-center gap-2">
-                              <div className={cn(
-                                'size-2 rounded-full transition-colors',
-                                rampDepositSubStep === sub ? 'bg-primary' :
-                                  RAMP_DEPOSIT_SUB_ORDER.indexOf(rampDepositSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
-                              )} />
-                              {i < RAMP_DEPOSIT_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
-                            </div>
-                          ))}
-                        </div>
+                        <SubStepRail steps={RAMP_DEPOSIT_SUB_ORDER} current={rampDepositSubStep} />
 
                         <div className="grid gap-4">
                           {rampDepositSubStep === 'wallet' && (
@@ -2421,19 +2364,7 @@ export function CreatePaymentOrderForm({
 
                     {isWorldToBolivia && (
                       <AnimatedStepPanel key={`detail-world-bolivia-${worldBoliviaSubStep}`}>
-                        {/* Indicador de sub-pasos */}
-                        <div className="flex items-center gap-2 mb-6 px-1">
-                          {WORLD_BOLIVIA_SUB_ORDER.map((sub, i) => (
-                            <div key={sub} className="flex items-center gap-2">
-                              <div className={cn(
-                                'size-2 rounded-full transition-colors',
-                                worldBoliviaSubStep === sub ? 'bg-primary' :
-                                  WORLD_BOLIVIA_SUB_ORDER.indexOf(worldBoliviaSubStep) > i ? 'bg-emerald-400' : 'bg-muted'
-                              )} />
-                              {i < WORLD_BOLIVIA_SUB_ORDER.length - 1 && <div className="h-px w-6 bg-border/40" />}
-                            </div>
-                          ))}
-                        </div>
+                        <SubStepRail steps={WORLD_BOLIVIA_SUB_ORDER} current={worldBoliviaSubStep} />
 
                         <div className="grid gap-4">
                           {worldBoliviaSubStep === 'bank' && (
@@ -2503,15 +2434,20 @@ export function CreatePaymentOrderForm({
 
                 {step === 'review' ? (
                   <AnimatedStepPanel key="review">
-
-
-                    <div className="grid gap-3 md:grid-cols-2">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="h-px flex-1 bg-border/40" />
+                      <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Resumen del expediente</span>
+                      <div className="h-px flex-1 bg-border/40" />
+                    </div>
+                    <div className="rounded-xl border border-border/60 overflow-hidden divide-y divide-border/40">
                       {reviewItems.map((item) => (
                         <InfoBlock key={item.label} label={item.label} value={item.value} />
                       ))}
                     </div>
-
-                    <div className="flex items-center justify-between mt-8">
+                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+                      Revisa todos los datos antes de crear. Una vez creado el expediente no se puede modificar.
+                    </div>
+                    <div className="flex items-center justify-between mt-6">
                       <AnimatedBackButton onClick={handleBack}>
                         Editar detalle
                       </AnimatedBackButton>
@@ -2835,12 +2771,79 @@ function AnimatedStepPanel({ children }: { children: React.ReactNode }) {
     <motion.section
       animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
       className="space-y-6 border-0 bg-transparent p-0 shadow-none"
-      exit={{ opacity: 0, y: -14, filter: 'blur(4px)' }}
-      initial={{ opacity: 0, y: 18, filter: 'blur(6px)' }}
-      transition={{ duration: 0.26, ease: 'easeOut' }}
+      exit={{ opacity: 0, y: -10, filter: 'blur(3px)' }}
+      initial={{ opacity: 0, y: 16, filter: 'blur(4px)' }}
+      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
     >
       {children}
     </motion.section>
+  )
+}
+
+const SUBSTEP_LABELS: Record<string, string> = {
+  wallet: 'Billetera',
+  bank: 'Banco',
+  reason: 'Motivo',
+  amount: 'Monto',
+  supplier: 'Proveedor',
+  funding: 'Fondeo',
+  dest_wallet: 'Destino',
+  network: 'Red',
+}
+
+function SubStepRail({
+  steps,
+  current,
+}: {
+  steps: readonly string[]
+  current: string
+}) {
+  const currentIdx = steps.indexOf(current)
+  return (
+    <div className="flex items-center mb-8 gap-0">
+      {steps.map((step, i) => {
+        const isCompleted = currentIdx > i
+        const isCurrent = current === step
+        return (
+          <div key={step} className="flex items-center flex-1 min-w-0">
+            <div className={cn(
+              'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide transition-all duration-300 whitespace-nowrap',
+              isCurrent
+                ? 'bg-primary/10 text-primary border border-primary/25'
+                : isCompleted
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-muted-foreground/40'
+            )}>
+              <div className={cn(
+                'size-4 rounded-full flex items-center justify-center shrink-0',
+                isCurrent
+                  ? 'bg-primary text-primary-foreground'
+                  : isCompleted
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-muted/60 text-muted-foreground'
+              )}>
+                {isCompleted ? (
+                  <svg viewBox="0 0 12 12" fill="none" className="size-2.5">
+                    <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ) : (
+                  <span className="text-[9px] font-bold">{i + 1}</span>
+                )}
+              </div>
+              <span className={cn('hidden sm:inline', !isCurrent && !isCompleted && 'opacity-0 sm:opacity-100')}>
+                {SUBSTEP_LABELS[step] ?? step}
+              </span>
+            </div>
+            {i < steps.length - 1 && (
+              <div className={cn(
+                'h-px flex-1 mx-1 transition-colors duration-500 min-w-[8px]',
+                isCompleted ? 'bg-emerald-400/50' : 'bg-border/30'
+              )} />
+            )}
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
@@ -2870,14 +2873,14 @@ function DocumentInputCard({
 
 function SectionHeading({ icon: Icon, eyebrow, title, description }: { icon: typeof Landmark; eyebrow: string; title: string; description: string }) {
   return (
-    <div className="flex items-start gap-3 border-b border-border/60 pb-4 sm:pb-5">
-      <div className="shrink-0 rounded-xl border border-border/60 bg-muted/20 p-2.5 text-muted-foreground">
-        <Icon className="size-5 sm:size-5" />
+    <div className="flex items-start gap-3.5 border-b border-border/50 pb-5">
+      <div className="shrink-0 flex size-9 items-center justify-center rounded-lg border border-border/50 bg-muted/30 text-muted-foreground mt-0.5">
+        <Icon className="size-4" strokeWidth={1.5} />
       </div>
-      <div className="min-w-0">
-        <div className={cn(FORM_LABEL_CLASS, 'text-xs')}>{eyebrow}</div>
-        <div className="mt-0.5 sm:mt-1 text-xl sm:text-2xl font-semibold tracking-[-0.03em] text-foreground leading-tight sm:leading-normal">{title}</div>
-        <div className="mt-1 text-sm sm:text-base leading-relaxed sm:leading-6 tracking-[0.01em] text-muted-foreground line-clamp-2 sm:line-clamp-none">{description}</div>
+      <div className="min-w-0 flex-1">
+        <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-primary">{eyebrow}</span>
+        <div className="mt-0.5 text-xl font-semibold tracking-tight text-foreground leading-tight">{title}</div>
+        <div className="mt-1 text-sm leading-relaxed text-muted-foreground max-w-[65ch]">{description}</div>
       </div>
     </div>
   )
@@ -3087,34 +3090,44 @@ function SelectionCard({
     <button
       aria-pressed={isSelected}
       className={cn(
-        'group rounded-xl border px-4 py-4 text-left transition-all duration-300',
+        'group relative w-full rounded-2xl border text-left transition-all duration-300 ease-out',
+        'active:scale-[0.98]',
         isSelected
-          ? 'border-primary bg-primary/10 shadow-[0_0_15px_rgba(var(--primary-rgb),0.12)]'
-          : 'border-border/70 bg-transparent hover:border-primary/50 hover:bg-primary/5',
-        !disabled && interactiveClickableCardClassName,
-        disabled && 'cursor-not-allowed opacity-60'
+          ? 'border-primary bg-background shadow-[0_8px_30px_rgb(0,0,0,0.06)] ring-1 ring-primary'
+          : 'border-border/50 bg-background hover:border-border/80 hover:shadow-[0_8px_30px_rgb(0,0,0,0.03)]',
+        disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
       )}
       disabled={disabled}
       onClick={onClick}
       type="button"
     >
-      <div className="flex items-center gap-4">
-        <div className={cn(
-          'flex size-12 shrink-0 items-center justify-center rounded-xl transition-all duration-300',
-          isSelected
-            ? 'bg-primary/20 text-primary scale-110 shadow-sm'
-            : 'bg-muted/20 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary'
-        )}>
-          <Icon className="size-6" />
-        </div>
-        <div className="min-w-0 flex-1">
+      <div className="flex flex-col gap-4 p-5 sm:p-6">
+        <div className="flex items-start justify-between">
           <div className={cn(
-            "text-xl font-semibold tracking-tight transition-colors",
-            isSelected ? "text-foreground" : "text-foreground/90"
+            'flex size-11 shrink-0 items-center justify-center rounded-full transition-colors duration-300',
+            isSelected
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-muted/50 text-muted-foreground group-hover:bg-muted group-hover:text-foreground'
+          )}>
+            <Icon className="size-[22px]" strokeWidth={1.5} />
+          </div>
+          <div className={cn(
+            'mt-1 flex size-5 items-center justify-center rounded-full border transition-all duration-300',
+            isSelected
+              ? 'border-primary bg-primary'
+              : 'border-border/60 bg-transparent group-hover:border-border/80'
+          )}>
+            {isSelected && <div className="size-2 rounded-full bg-background" />}
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <div className={cn(
+            'text-base font-semibold tracking-tight transition-colors duration-300',
+            isSelected ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'
           )}>
             {title}
           </div>
-          <div className="mt-1 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+          <div className="text-[13.5px] leading-relaxed text-muted-foreground line-clamp-2">
             {description}
           </div>
         </div>
@@ -3125,9 +3138,13 @@ function SelectionCard({
 
 function InfoBlock({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border-b border-border/50 px-1 py-3">
-      <div className={FORM_LABEL_CLASS}>{label}</div>
-      <div className="mt-1 text-base font-medium tracking-[0.01em] text-foreground">{value}</div>
+    <div className="flex items-start justify-between px-4 py-3.5 gap-6">
+      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground shrink-0 pt-0.5">
+        {label}
+      </span>
+      <span className="text-sm font-medium text-foreground text-right break-all max-w-[60%]">
+        {value}
+      </span>
     </div>
   )
 }

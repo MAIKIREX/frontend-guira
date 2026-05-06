@@ -14,7 +14,7 @@ export const AnimatedNextButton = React.forwardRef<HTMLButtonElement, AnimatedNe
         type={props.type || "button"}
         disabled={disabled}
         className={cn(
-          "group flex cursor-pointer items-center justify-between gap-4 rounded-xl bg-primary px-5 py-3 text-primary-foreground shadow-sm transition-all duration-200 ease-in-out hover:bg-primary/90 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-primary disabled:hover:shadow-sm",
+          "group flex cursor-pointer items-center justify-between gap-4 rounded-full bg-primary px-6 py-3.5 text-primary-foreground shadow-[0_8px_20px_rgb(0,0,0,0.08)] transition-all duration-300 ease-out hover:bg-primary/90 hover:shadow-[0_8px_25px_rgb(0,0,0,0.15)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-primary disabled:hover:shadow-[0_8px_20px_rgb(0,0,0,0.08)]",
           className
         )}
         {...props}

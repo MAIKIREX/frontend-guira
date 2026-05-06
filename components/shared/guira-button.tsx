@@ -41,7 +41,7 @@ const guiraButtonVariants = cva(
   [
     'group/guira-btn relative inline-flex items-center justify-center',
     'font-semibold whitespace-nowrap select-none',
-    'transition-all duration-200 ease-in-out',
+    'transition-all duration-300 ease-out',
     'outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
     'disabled:pointer-events-none disabled:opacity-50',
   ].join(' '),
@@ -49,45 +49,48 @@ const guiraButtonVariants = cva(
     variants: {
       variant: {
         primary: [
-          'rounded-xl bg-primary text-white dark:text-white shadow-sm',
-          'hover:bg-primary/90 hover:shadow-md',
-          'active:translate-y-px',
+          'rounded-full bg-primary text-white dark:text-white shadow-[0_8px_20px_rgb(0,0,0,0.08)]',
+          'hover:bg-primary/90 hover:shadow-[0_8px_25px_rgb(0,0,0,0.15)]',
+          'active:scale-[0.98]',
         ].join(' '),
         secondary: [
-          'rounded-xl border border-border bg-background text-foreground shadow-sm',
-          'hover:bg-muted/60 hover:shadow-md',
-          'active:translate-y-px',
+          'rounded-full border border-border/50 bg-background text-foreground shadow-sm',
+          'hover:bg-muted/20 hover:border-border hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)]',
+          'active:scale-[0.98]',
         ].join(' '),
         outline: [
-          'rounded-xl border border-border/60 bg-transparent text-foreground',
+          'rounded-full border border-border/60 bg-transparent text-foreground',
           'hover:border-primary/35 hover:bg-muted/10 hover:shadow-sm',
+          'active:scale-[0.98]',
         ].join(' '),
         ghost: [
-          'rounded-xl bg-transparent text-muted-foreground',
+          'rounded-full bg-transparent text-muted-foreground',
           'hover:bg-muted/60 hover:text-foreground',
+          'active:scale-[0.98]',
         ].join(' '),
         accent: [
-          'rounded-xl border border-accent/30 bg-transparent text-accent',
+          'rounded-full border border-accent/30 bg-transparent text-accent',
           'hover:bg-accent/5 hover:border-accent/50',
-          'active:translate-y-px',
+          'active:scale-[0.98]',
         ].join(' '),
         destructive: [
-          'rounded-xl bg-destructive/10 text-destructive',
+          'rounded-full bg-destructive/10 text-destructive',
           'hover:bg-destructive/20',
           'focus-visible:ring-destructive/20',
+          'active:scale-[0.98]',
         ].join(' '),
         tab: [
           'relative rounded-none border-0 bg-transparent px-1',
           'text-muted-foreground font-medium',
           'hover:text-foreground',
-          'after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:bg-transparent after:transition-colors after:duration-200',
+          'after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:bg-transparent after:transition-colors after:duration-300',
         ].join(' '),
       },
       size: {
-        sm: 'gap-2 px-3 py-2 text-xs tracking-wide',
-        default: 'gap-3 px-5 py-3 text-sm tracking-wide',
-        lg: 'gap-3.5 px-6 py-3.5 text-base tracking-wide',
-        xl: 'gap-4 px-8 py-4 text-lg tracking-wide',
+        sm: 'gap-2 px-4 py-2 text-xs tracking-wide',
+        default: 'gap-3 px-6 py-3.5 text-sm tracking-wide',
+        lg: 'gap-3.5 px-7 py-4 text-base tracking-wide',
+        xl: 'gap-4 px-8 py-4.5 text-lg tracking-wide',
       },
       active: {
         true: '',

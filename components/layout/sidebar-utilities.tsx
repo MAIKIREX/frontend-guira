@@ -15,14 +15,18 @@ export function SidebarUtilities({
   return (
     <div
       className={cn(
-        'border-t border-sidebar-border',
+        'border-t border-sidebar-border/60',
         mobile ? 'px-5 py-4' : collapsed ? 'px-3 py-4' : 'px-5 py-4'
       )}
     >
       <div
         className={cn(
           'flex items-center',
-          mobile ? 'justify-between gap-3' : collapsed ? 'flex-col gap-3' : 'justify-between gap-3'
+          mobile
+            ? 'justify-between gap-3'
+            : collapsed
+              ? 'flex-col gap-2.5'
+              : 'justify-between gap-2'
         )}
       >
         <ThemeToggle />

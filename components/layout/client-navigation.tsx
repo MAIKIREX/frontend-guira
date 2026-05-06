@@ -2,19 +2,95 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ArrowDownLeft, ArrowUpRight, Headset, LayoutDashboard, Settings, UsersRound, Wallet, Waypoints } from 'lucide-react'
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  Headset,
+  LayoutDashboard,
+  Settings,
+  UsersRound,
+  Wallet,
+  Waypoints,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-const clientLinks = [
+const mainLinks = [
   { href: '/panel', label: 'Panel', icon: LayoutDashboard },
   { href: '/cuentas', label: 'Mis Cuentas', icon: Wallet },
   { href: '/depositar', label: 'Depositar', icon: ArrowDownLeft },
   { href: '/enviar', label: 'Enviar / Retirar', icon: ArrowUpRight },
   { href: '/proveedores', label: 'Proveedores', icon: UsersRound },
   { href: '/transacciones', label: 'Transacciones', icon: Waypoints },
+]
+
+const utilityLinks = [
   { href: '/configuracion', label: 'Configuracion', icon: Settings },
   { href: '/soporte', label: 'Soporte', icon: Headset },
 ]
+
+function NavLink({
+  href,
+  label,
+  icon: Icon,
+  active,
+  collapsed,
+}: {
+  href: string
+  label: string
+  icon: React.ElementType
+  active: boolean
+  collapsed: boolean
+}) {
+  return (
+    <div className="relative flex flex-col w-full">
+      <div className="relative flex items-center px-4 py-0.5">
+        {active && (
+          <div
+            className="absolute left-0 h-[55%] w-[3px] rounded-r-full bg-accent transition-all duration-300"
+            style={{ boxShadow: '0 0 8px rgba(0, 214, 255, 0.45)' }}
+          />
+        )}
+        <Link
+          href={href}
+          title={label}
+          aria-label={label}
+          className={cn(
+            'w-full group relative flex items-center transition-all duration-200 ease-out',
+            collapsed ? 'justify-center p-3 rounded-2xl' : 'gap-3.5 px-4 py-2.5 rounded-[12px]',
+            active
+              ? 'bg-white/[0.07] text-white'
+              : 'text-sidebar-foreground/55 hover:bg-white/[0.04] hover:text-white'
+          )}
+        >
+          <span
+            className={cn(
+              'relative z-10 flex shrink-0 items-center justify-center transition-all duration-200',
+              active
+                ? 'text-accent'
+                : 'text-sidebar-foreground/55 group-hover:text-white/80'
+            )}
+          >
+            <Icon
+              strokeWidth={active ? 2.5 : 1.8}
+              className={cn('size-[1.1rem]', collapsed && 'size-[1.2rem]')}
+            />
+          </span>
+
+          {!collapsed && (
+            <span
+              className={cn(
+                'relative z-10 text-[0.85rem] tracking-tight',
+                active ? 'font-semibold text-white' : 'font-medium'
+              )}
+            >
+              {label}
+            </span>
+          )}
+        </Link>
+      </div>
+    </div>
+  )
+}
 
 export function ClientNavigation({
   collapsed = false,
@@ -24,62 +100,50 @@ export function ClientNavigation({
   const pathname = usePathname()
 
   return (
-    <nav className="flex flex-col py-2">
-      {clientLinks.map((link, index) => {
-        const active = pathname === link.href || pathname.startsWith(`${link.href}/`)
-        const Icon = link.icon
+    <nav className="flex flex-col h-full py-2">
+      {/* Main links */}
+      <div className="flex flex-col flex-1">
+        {mainLinks.map((link) => {
+          const active = pathname === link.href || pathname.startsWith(`${link.href}/`)
+          return (
+            <NavLink
+              key={link.href}
+              href={link.href}
+              label={link.label}
+              icon={link.icon}
+              active={active}
+              collapsed={collapsed}
+            />
+          )
+        })}
+      </div>
 
-        return (
-          <div key={link.href} className="relative flex flex-col w-full">
+      {/* Separator */}
+      <div className={cn('my-3', collapsed ? 'mx-4' : 'mx-5')}>
+        <div className="h-px bg-sidebar-border/60" />
+      </div>
 
-            {/* Link Container */}
-            <div className="relative flex items-center px-4 py-0.5">
-              {/* Floating Left Indicator (Outside the button) */}
-              {active && (
-                <div 
-                  className="absolute left-0 h-[60%] w-[4px] rounded-r-md bg-[#01C5FF] transition-all duration-300" 
-                  style={{ boxShadow: '0 0 10px rgba(1, 197, 255, 0.5)' }}
-                />
-              )}
-
-              <Link
-                href={link.href}
-                title={link.label}
-                aria-label={link.label}
-                className={cn(
-                  'w-full group relative flex items-center transition-all duration-200 ease-out',
-                  collapsed ? 'justify-center p-3 rounded-2xl' : 'gap-3.5 px-4 py-2.5 rounded-[12px]',
-                  active
-                    ? 'bg-white/[0.08] text-white shadow-sm ring-1 ring-white/5'
-                    : 'text-sidebar-foreground/60 hover:bg-white/[0.03] hover:text-white'
-                )}
-              >
-                {/* Icon */}
-                <span
-                  className={cn(
-                    'relative z-10 flex shrink-0 items-center justify-center transition-all duration-200',
-                    active 
-                      ? 'text-[#01C5FF]' 
-                      : 'text-sidebar-foreground/60 group-hover:text-white'
-                  )}
-                >
-                  <Icon strokeWidth={active ? 2.5 : 2} className={cn('size-[1.15rem]', collapsed && 'size-[1.25rem]')} />
-                </span>
-                
-                {/* Label */}
-                {!collapsed && (
-                  <span className={cn(
-                    "relative z-10 text-[0.875rem] font-medium tracking-tight",
-                    active ? "text-white font-semibold" : ""
-                  )}>
-                    {link.label}
-                  </span>
-                )}
-              </Link>
-            </div>
-          </div>
-        )
-      })}
+      {/* Utility links */}
+      <div className="flex flex-col">
+        {!collapsed && (
+          <p className="px-8 pb-1.5 text-[0.6rem] font-extrabold uppercase tracking-[0.16em] text-sidebar-foreground/30">
+            Ajustes
+          </p>
+        )}
+        {utilityLinks.map((link) => {
+          const active = pathname === link.href || pathname.startsWith(`${link.href}/`)
+          return (
+            <NavLink
+              key={link.href}
+              href={link.href}
+              label={link.label}
+              icon={link.icon}
+              active={active}
+              collapsed={collapsed}
+            />
+          )
+        })}
+      </div>
     </nav>
   )
 }

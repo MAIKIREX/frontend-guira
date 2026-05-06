@@ -14,7 +14,7 @@ export const AnimatedBackButton = React.forwardRef<HTMLButtonElement, AnimatedBa
         type={props.type || "button"}
         disabled={disabled}
         className={cn(
-          "group flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-border bg-background px-5 py-3 text-foreground shadow-sm transition-all duration-200 ease-in-out hover:bg-muted/60 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-background disabled:hover:shadow-sm",
+          "group flex cursor-pointer items-center justify-between gap-4 rounded-full border border-border/50 bg-background px-6 py-3.5 text-foreground shadow-sm transition-all duration-300 ease-out hover:border-border hover:bg-muted/20 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-background disabled:hover:shadow-sm",
           className
         )}
         {...props}

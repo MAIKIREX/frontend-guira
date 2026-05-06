@@ -137,21 +137,14 @@ export function ClientOperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
 
       {mode === 'transacciones' ? (
         <div className="mx-auto w-full max-w-7xl space-y-6">
-          <Card className='bg-background ring-0 shadow-none'>
-            <CardHeader>
-              <CardTitle className="text-4xl sm:text-[3rem] sm:leading-[1.1] font-extrabold tracking-tight text-foreground">Expedientes</CardTitle>
-            </CardHeader>
-            <CardContent className='bg-background'>
-              <PaymentsHistoryTable
-                activityLogs={payments.snapshot.activityLogs}
-                disabled={!canOperate}
-                onCancelOrder={handleCancelOrder}
-                onUploadOrderFile={handleUploadOrderFile}
-                orders={payments.snapshot.paymentOrders}
-                suppliers={payments.snapshot.suppliers}
-              />
-            </CardContent>
-          </Card>
+          <PaymentsHistoryTable
+            activityLogs={payments.snapshot.activityLogs}
+            disabled={!canOperate}
+            onCancelOrder={handleCancelOrder}
+            onUploadOrderFile={handleUploadOrderFile}
+            orders={payments.snapshot.paymentOrders}
+            suppliers={payments.snapshot.suppliers}
+          />
         </div>
       ) : null}
     </div>

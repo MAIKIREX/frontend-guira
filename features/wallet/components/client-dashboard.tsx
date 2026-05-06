@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ArrowRight, ArrowLeftRight, Loader2, RefreshCw, TrendingDown, TrendingUp } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ArrowLeftRight, Loader2, RefreshCw } from 'lucide-react'
 import Flag from 'react-world-flags'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -11,8 +12,9 @@ import { useProfileStore } from '@/stores/profile-store'
 import { useExchangeRates } from '@/features/payments/hooks/use-exchange-rates'
 import { WalletService } from '@/services/wallet.service'
 import { PaymentsService } from '@/services/payments.service'
+import { GuiraButton } from '@/components/shared/guira-button'
 
-const FORM_LABEL_CLASS = 'text-xs font-extrabold uppercase tracking-[0.1em] text-muted-foreground'
+const FORM_LABEL_CLASS = 'text-[0.68rem] font-extrabold uppercase tracking-[0.14em] text-muted-foreground'
 
 type QuoteAction = 'depositar' | 'enviar'
 
@@ -36,7 +38,7 @@ const ACTION_CONFIG: Record<
     destinationCurrency: 'Bs',
     originLabel: 'TÚ ENVÍAS',
     destinationLabel: 'RECIBES',
-    helperText: 'Cotiza depositos desde USD hacia bolivianos usando la tasa de venta.',
+    helperText: 'Cotiza depósitos desde USD hacia bolivianos usando la tasa de venta.',
     rateLabel: 'Tasa de venta',
   },
   enviar: {
@@ -46,62 +48,56 @@ const ACTION_CONFIG: Record<
     destinationCurrency: 'USD',
     originLabel: 'TÚ ENVÍAS',
     destinationLabel: 'RECIBES',
-    helperText: 'Cotiza salidas desde bolivianos hacia dolares usando la tasa de compra.',
+    helperText: 'Cotiza salidas desde bolivianos hacia dólares usando la tasa de compra.',
     rateLabel: 'Tasa de compra',
   },
 }
 
 export function ClientDashboard() {
+  const router = useRouter()
   const { profile } = useProfileStore()
   const { rates, loading, error, reload } = useExchangeRates()
   const [action, setAction] = useState<QuoteAction>('depositar')
   const [amountInput, setAmountInput] = useState('1000')
-  
-  // Dynamic stats
+
   const [balanceUSD, setBalanceUSD] = useState(0)
   const [ordersThisMonth, setOrdersThisMonth] = useState(0)
   const [pendingOrders, setPendingOrders] = useState(0)
 
   useEffect(() => {
-    // Balance: usar getWallets() que es el endpoint probado (/wallets)
-    // getBalances() (/wallets/balances) puede no estar implementado o retornar vacío
     WalletService.getWallets().then(wallets => {
-       const list = Array.isArray(wallets) ? wallets : []
-       const totalUSD = list.reduce((acc, w) => acc + (w.available_balance || 0), 0)
-       setBalanceUSD(totalUSD)
+      const list = Array.isArray(wallets) ? wallets : []
+      const totalUSD = list.reduce((acc, w) => acc + (w.available_balance || 0), 0)
+      setBalanceUSD(totalUSD)
     }).catch(err => {
-       console.error('[Dashboard] Error cargando wallets:', err)
+      console.error('[Dashboard] Error cargando wallets:', err)
     })
 
-    // Órdenes: el backend retorna { data: [...], total, page, limit }
-    // Pedir limit=50 para capturar más órdenes del mes actual
     PaymentsService.getOrders({ limit: 50 } as any).then((rawResponse: any) => {
-       // Normalizar: puede ser array plano o wrapper paginado
-       let orders: any[] = []
-       let totalFromBackend = 0
+      let orders: any[] = []
+      let totalFromBackend = 0
 
-       if (Array.isArray(rawResponse)) {
-         orders = rawResponse
-         totalFromBackend = rawResponse.length
-       } else if (rawResponse && typeof rawResponse === 'object') {
-         orders = Array.isArray(rawResponse.data) ? rawResponse.data
-                : Array.isArray(rawResponse.items) ? rawResponse.items
-                : []
-         totalFromBackend = rawResponse.total ?? orders.length
-       }
+      if (Array.isArray(rawResponse)) {
+        orders = rawResponse
+        totalFromBackend = rawResponse.length
+      } else if (rawResponse && typeof rawResponse === 'object') {
+        orders = Array.isArray(rawResponse.data) ? rawResponse.data
+          : Array.isArray(rawResponse.items) ? rawResponse.items
+          : []
+        totalFromBackend = rawResponse.total ?? orders.length
+      }
 
-       // Filtrar por mes actual
-       const now = new Date()
-       const thisMonth = orders.filter((o: any) => {
-          if (!o.created_at) return false
-          const d = new Date(o.created_at)
-          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-       })
-       setOrdersThisMonth(thisMonth.length > 0 ? thisMonth.length : totalFromBackend)
-       const pendingStatuses = ['pending', 'created', 'processing', 'waiting_deposit', 'deposit_received']
-       setPendingOrders(orders.filter((o: any) => pendingStatuses.includes(o.status)).length)
+      const now = new Date()
+      const thisMonth = orders.filter((o: any) => {
+        if (!o.created_at) return false
+        const d = new Date(o.created_at)
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+      })
+      setOrdersThisMonth(thisMonth.length > 0 ? thisMonth.length : totalFromBackend)
+      const pendingStatuses = ['pending', 'created', 'processing', 'waiting_deposit', 'deposit_received']
+      setPendingOrders(orders.filter((o: any) => pendingStatuses.includes(o.status)).length)
     }).catch(err => {
-       console.error('[Dashboard] Error cargando órdenes:', err)
+      console.error('[Dashboard] Error cargando órdenes:', err)
     })
   }, [])
 
@@ -115,7 +111,7 @@ export function ClientDashboard() {
 
   if (error) {
     return (
-      <Card className="mx-auto mt-8 max-w-xl rounded-md border-destructive/30 shadow-none">
+      <Card className="mx-auto mt-8 max-w-xl rounded-2xl border-destructive/30 shadow-none">
         <CardContent className="space-y-4 pt-6 text-center">
           <p className="text-lg font-semibold">No se pudo cargar el panel</p>
           <p className="text-sm text-muted-foreground">
@@ -135,145 +131,155 @@ export function ClientDashboard() {
   const buyRate = rates.buyRate
   const sellRate = rates.sellRate
   const visibleBaseRate = action === 'depositar' ? (sellRate ?? 0) : (buyRate ?? 0)
-  const amountToConvert = amountOrigin
   const estimate = {
-    feeTotal: 0,
     amountConverted: action === 'depositar'
       ? amountOrigin * (sellRate ?? 0)
       : (buyRate ? amountOrigin / buyRate : 0),
-    exchangeRateApplied: action === 'depositar' ? (sellRate ?? 0) : (buyRate ?? 0),
   }
-  const feePercent = 0.5
 
   return (
-    <div className="mx-auto w-full max-w-screen-lg space-y-10 px-4 pb-12 pt-6">
-      {/* ── Header ──────────────────────────────────── */}
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-1">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
-            PANEL
+    <div className="mx-auto w-full max-w-screen-lg pb-12 pt-6">
+
+      {/* ── Header ── */}
+      <section className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-[0.68rem] font-extrabold uppercase tracking-[0.2em] text-muted-foreground mb-1.5">
+            Panel de control
           </p>
-          <h1 className="text-4xl sm:text-[3rem] sm:leading-[1.1] font-extrabold tracking-tight text-foreground">
+          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tighter text-foreground leading-none">
             ¡Hola, {userFirstName}!
           </h1>
         </div>
 
-        <div className="flex items-center gap-4">
-          <span className="text-sm italic text-muted-foreground">Actualizado hace 2 min</span>
-          <Button
+        {/* Compact Rate Ticker */}
+        <div className="flex items-center gap-3 self-start rounded-2xl border border-border/60 bg-card px-5 py-3 shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="relative flex size-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
+              <span className="relative inline-flex size-2 rounded-full bg-success" />
+            </span>
+            <span className="text-[0.65rem] font-extrabold uppercase tracking-[0.14em] text-success">En vivo</span>
+          </div>
+          <div className="h-3.5 w-px bg-border" />
+          <div className="flex items-center gap-4 text-sm">
+            <span className="text-muted-foreground">
+              Compra: <span className="font-bold text-foreground">{formatNumber(buyRate)} Bs</span>
+            </span>
+            <span className="text-muted-foreground">
+              Venta: <span className="font-bold text-accent">{formatNumber(sellRate)} Bs</span>
+            </span>
+          </div>
+          <button
             onClick={reload}
             type="button"
-            variant="outline"
-            className="h-9 rounded-md border-accent/30 px-4 text-sm font-bold text-accent hover:bg-accent/5"
+            className="ml-1 text-muted-foreground/50 hover:text-foreground transition-colors"
+            aria-label="Actualizar tasas"
           >
-            <RefreshCw className="mr-2 size-3.5" />
-            Actualizar
-          </Button>
+            <RefreshCw className="size-3.5" />
+          </button>
         </div>
       </section>
 
-      {/* ── Live Rate Ticker Bar ───────────────────── */}
-      <section className="flex flex-wrap items-center justify-between rounded-md bg-muted/40 px-6 py-4">
-        <div className="flex flex-wrap items-center gap-4 md:gap-6">
-          <span className="text-base md:text-lg font-bold text-muted-foreground">
-            Tipo de cambio en vivo
-          </span>
-          <div className="hidden h-6 w-px bg-border/80 sm:block" />
-          <div className="flex items-center gap-6 text-base md:text-lg text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              Compra: 1 USD = <span className="font-extrabold text-primary">{formatNumber(buyRate)} Bs</span>
-              <TrendingDown className="size-5 text-primary" />
-            </span>
-            <span className="flex items-center gap-1.5">
-              Venta: 1 USD = <span className="font-extrabold text-success">{formatNumber(sellRate)} Bs</span>
-              <TrendingUp className="size-5 text-success" />
-            </span>
-          </div>
-        </div>
-        <div className="mt-2 flex items-center gap-2 text-sm font-extrabold uppercase tracking-widest text-success sm:mt-0">
-          <div className="size-2 animate-pulse rounded-full bg-success" />
-          EN VIVO
-        </div>
-      </section>
+      {/* ── Bento Grid: 1fr 2fr ── */}
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-5">
 
-      {/* ── Cotización Rápida ──────────────────────── */}
-      <section className="space-y-6">
-        <h2 className="text-xl font-bold text-foreground md:text-2xl">Cotización rápida</h2>
-
-        {/* Tabs */}
-        <div className="flex border-b border-border/50">
-          {(['depositar', 'enviar'] as const).map((item) => (
-            <button
-              key={item}
-              className={cn(
-                'relative pb-3 text-base transition-colors px-1',
-                item === 'depositar' ? 'mr-6' : '',
-                action === item
-                  ? 'text-accent font-bold after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:bg-accent'
-                  : 'text-muted-foreground hover:text-foreground font-medium'
-              )}
-              onClick={() => { setAction(item) }}
-              type="button"
-            >
-              {ACTION_CONFIG[item].label}
-            </button>
-          ))}
-        </div>
-
-        {/* Inputs (No Cards) */}
-        <div className="relative flex flex-col items-center gap-4 md:flex-row md:items-stretch py-2">
-          {/* Origin */}
-          <div className="flex-1 rounded-lg bg-muted/60 p-6 md:p-8 w-full transition-all focus-within:bg-muted">
-            <MoneyField
-              currency={config.originCurrency}
-              label={config.originLabel}
-              onChange={setAmountInput}
-              value={amountInput}
-            />
+        {/* ── Left: Stats Panel ── */}
+        <div className="rounded-2xl border border-border/60 bg-card overflow-hidden">
+          <div className="px-7 pt-7 pb-6 border-b border-border/50">
+            <p className={cn(FORM_LABEL_CLASS, 'mb-2.5')}>Balance Total</p>
+            <p className="text-[2.2rem] font-extrabold tracking-tighter text-foreground leading-none">
+              ${balanceUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">USD disponible en tu cuenta</p>
           </div>
 
-          {/* Center Arrow */}
-          <div className="absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md z-10 hidden md:flex hover:scale-105 transition-transform cursor-pointer">
-            <ArrowLeftRight className="size-5" />
+          <div className="px-7 py-6 border-b border-border/50">
+            <p className={cn(FORM_LABEL_CLASS, 'mb-2.5')}>Operaciones este mes</p>
+            <p className="text-[2.2rem] font-extrabold tracking-tighter text-foreground leading-none">
+              {ordersThisMonth}
+            </p>
+            {pendingOrders > 0 ? (
+              <p className="text-xs text-warning font-medium mt-2">
+                {pendingOrders} pendiente{pendingOrders !== 1 ? 's' : ''} de confirmación
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground mt-2">Sin operaciones pendientes</p>
+            )}
           </div>
 
-          {/* Mobile Arrow */}
-          <div className="md:hidden flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md -my-7 z-10 hover:scale-105 transition-transform cursor-pointer">
-            <ArrowLeftRight className="size-4 rotate-90" />
-          </div>
-
-          {/* Destination */}
-          <div className="flex-1 rounded-lg bg-muted/60 p-6 md:p-8 w-full transition-all">
-            <ReadOnlyField
-              currency={config.destinationCurrency}
-              label={config.destinationLabel}
-              value={estimate.amountConverted}
-            />
+          <div className="px-7 py-6">
+            <p className={cn(FORM_LABEL_CLASS, 'mb-2.5')}>
+              Tasa {action === 'depositar' ? 'de venta' : 'de compra'}
+            </p>
+            <p className="text-[2.2rem] font-extrabold tracking-tighter text-foreground leading-none">
+              {formatNumber(visibleBaseRate)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">Bolivianos por dólar</p>
           </div>
         </div>
 
+        {/* ── Right: Quote Calculator ── */}
+        <div className="rounded-2xl border border-border/60 bg-card overflow-hidden">
+          {/* Tabs Header */}
+          <div className="border-b border-border/50 px-7 pt-7">
+            <h2 className="text-base font-bold text-foreground mb-4">Cotización rápida</h2>
+            <div className="flex">
+              {(['depositar', 'enviar'] as const).map((item) => (
+                <GuiraButton
+                  key={item}
+                  variant="tab"
+                  active={action === item}
+                  className="mr-6 pb-3"
+                  onClick={() => { setAction(item) }}
+                >
+                  {ACTION_CONFIG[item].label}
+                </GuiraButton>
+              ))}
+            </div>
+          </div>
 
-      </section>
+          <div className="p-7 space-y-3">
+            {/* Origin input */}
+            <div className="rounded-xl bg-muted/50 px-6 py-5 transition-colors focus-within:bg-muted/80">
+              <MoneyField
+                currency={config.originCurrency}
+                label={config.originLabel}
+                onChange={setAmountInput}
+                value={amountInput}
+              />
+            </div>
 
-      {/* ── Bottom Stats Row ───────────────────────────── */}
-      <div className="pt-12">
-        <section className="flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-12">
-          <StatItem
-            label="BALANCE TOTAL USD"
-            value={`$${balanceUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          />
-          <div className="hidden sm:block w-px self-stretch bg-border/60" />
-          <StatItem
-            label="OPERACIONES ESTE MES"
-            value={ordersThisMonth.toString()}
-            sub={`${pendingOrders} pendientes de confirmación`}
-          />
-          <div className="hidden sm:block w-px self-stretch bg-border/60" />
-          <StatItem
-            label="TASA PROMEDIO"
-            value={`${formatNumber(visibleBaseRate)} Bs`}
-          />
-        </section>
+            {/* Swap arrow */}
+            <div className="flex justify-center py-0.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground hover:scale-105 transition-transform cursor-default shadow-sm">
+                <ArrowLeftRight className="size-4" />
+              </div>
+            </div>
+
+            {/* Destination read-only */}
+            <div className="rounded-xl border border-border/40 bg-muted/20 px-6 py-5">
+              <ReadOnlyField
+                currency={config.destinationCurrency}
+                label={config.destinationLabel}
+                value={estimate.amountConverted}
+              />
+            </div>
+
+            {/* Helper + CTA */}
+            <div className="pt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-muted-foreground leading-relaxed max-w-[44ch]">
+                {config.helperText}
+              </p>
+              <GuiraButton
+                arrowNext
+                onClick={() => router.push(action === 'depositar' ? '/depositar' : '/enviar')}
+                className="self-start sm:self-auto shrink-0"
+              >
+                Continuar
+              </GuiraButton>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -295,11 +301,11 @@ function MoneyField({
   onChange: (value: string) => void
 }) {
   return (
-    <div className="space-y-4">
-      <label className={cn(FORM_LABEL_CLASS)}>{label}</label>
+    <div className="space-y-3">
+      <label className={FORM_LABEL_CLASS}>{label}</label>
       <div className="flex items-center justify-between gap-3">
         <Input
-          className="h-auto w-full border-0 bg-transparent p-0 text-[3rem] md:text-[4rem] font-extrabold tracking-tight text-foreground shadow-none focus-visible:ring-0 placeholder:text-muted-foreground"
+          className="h-auto w-full border-0 bg-transparent p-0 text-[2.8rem] md:text-[3.5rem] font-extrabold tracking-tight text-foreground shadow-none focus-visible:ring-0 placeholder:text-muted-foreground"
           inputMode="decimal"
           onChange={(event) => {
             onChange(event.target.value)
@@ -323,10 +329,10 @@ function ReadOnlyField({
   currency: string
 }) {
   return (
-    <div className="space-y-4">
-      <label className={cn(FORM_LABEL_CLASS)}>{label}</label>
+    <div className="space-y-3">
+      <label className={FORM_LABEL_CLASS}>{label}</label>
       <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0 flex-1 truncate text-[3rem] md:text-[4rem] font-extrabold tracking-tight text-foreground">
+        <div className="min-w-0 flex-1 truncate text-[2.8rem] md:text-[3.5rem] font-extrabold tracking-tight text-foreground">
           {formatNumber(value)}
         </div>
         <CurrencyPill currency={currency} />
@@ -336,38 +342,14 @@ function ReadOnlyField({
 }
 
 function CurrencyPill({ currency }: { currency: string }) {
-  // Determine flag code based on currency
-  const flagCode = currency === 'USD' ? 'US' : 'BO' // Using BO (Bolivia) for Bs
-  
+  const flagCode = currency === 'USD' ? 'US' : 'BO'
+
   return (
     <div className="flex shrink-0 items-center gap-2 rounded-full bg-background/90 px-3 py-1.5 shadow-sm border border-border/40">
       <div className="flex size-5 items-center justify-center overflow-hidden rounded-full bg-muted">
         <Flag code={flagCode} className="h-full w-full object-cover" />
       </div>
       <span className="text-sm font-bold text-foreground pr-1">{currency}</span>
-    </div>
-  )
-}
-
-
-function StatItem({
-  label,
-  value,
-  sub,
-  subColor,
-}: {
-  label: string
-  value: string
-  sub?: string
-  subColor?: string
-}) {
-  return (
-    <div className="flex flex-1 flex-col gap-1.5">
-      <p className="text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">
-        {label}
-      </p>
-      <p className="text-[2rem] md:text-[2.5rem] font-bold tracking-tight text-foreground">{value}</p>
-      {sub && <p className={cn('text-sm font-medium', subColor ?? 'text-muted-foreground')}>{sub}</p>}
     </div>
   )
 }

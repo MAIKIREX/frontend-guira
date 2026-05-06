@@ -175,14 +175,14 @@ export function SuppliersSection({
             </div>
           </section>
 
-          <Card className="border-border/70 bg-background ring-0">
-            <CardHeader>
-              <CardTitle>Destinatarios guardados</CardTitle>
-              <CardDescription>
+          <Card className="rounded-[2rem] border-border/50 bg-background shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
+            <CardHeader className="px-6 py-6 sm:px-8">
+              <CardTitle className="text-xl font-bold tracking-tight">Destinatarios guardados</CardTitle>
+              <CardDescription className="text-sm">
                 Lista de todos los proveedores listos para recibir pagos a través de los diversos métodos.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-2 px-6 pb-6 sm:px-8 sm:pb-8">
               {filteredSuppliers.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-border/70 p-8 text-center text-sm text-muted-foreground">
                   {suppliers.length === 0
@@ -193,10 +193,7 @@ export function SuppliersSection({
                 filteredSuppliers.map((supplier) => (
                   <div
                     key={supplier.id}
-                    className={cn(
-                      'flex flex-col gap-4 rounded-2xl border border-primary/20 bg-background/80 p-5 shadow-[inset_0_0_0_1px_hsl(var(--border)/0.55),0_0_0_4px_hsl(var(--primary)/0.04)] md:flex-row md:items-center md:justify-between',
-                      interactiveCardClassName
-                    )}
+                    className="group flex cursor-pointer flex-col gap-4 rounded-2xl border border-transparent p-3 transition-all duration-300 hover:border-border/60 hover:bg-muted/20 hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] md:flex-row md:items-center md:justify-between"
                   >
                     <div className="flex items-start gap-4 min-w-0 w-full md:w-auto">
                       {(() => {
@@ -239,26 +236,26 @@ export function SuppliersSection({
                       </div>
                     </div>
 
-                    <div className="mt-2 flex items-center justify-end gap-2 md:mt-0">
+                    <div className="mt-2 flex items-center justify-end gap-1 md:mt-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
                       <Button
-                        className="text-muted-foreground hover:bg-primary/10 hover:text-primary cursor-pointer"
+                        className="text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer rounded-full"
                         disabled={disabled}
                         onClick={() => handleEdit(supplier)}
                         size="icon"
                         type="button"
                         variant="ghost"
                       >
-                        <Pencil className="h-4 w-4" />
+                        <Pencil className="size-4" />
                       </Button>
                       <Button
-                        className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive cursor-pointer"
+                        className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive cursor-pointer rounded-full"
                         disabled={disabled}
                         onClick={() => handleDelete(supplier)}
                         size="icon"
                         type="button"
                         variant="ghost"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="size-4" />
                       </Button>
                     </div>
                   </div>
