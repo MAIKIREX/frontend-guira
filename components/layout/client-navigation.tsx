@@ -31,16 +31,6 @@ export function ClientNavigation({
 
         return (
           <div key={link.href} className="relative flex flex-col w-full">
-            {/* Group Headers */}
-            {index === 0 && !collapsed && (
-              <div className="px-8 mb-2 mt-2 text-[10px] font-bold text-sidebar-foreground/40 tracking-wider">MENÚ PRINCIPAL</div>
-            )}
-            {index === 4 && !collapsed && (
-              <div className="px-8 mb-2 mt-6 text-[10px] font-bold text-sidebar-foreground/40 tracking-wider">OTROS</div>
-            )}
-            {index === 6 && !collapsed && (
-              <div className="px-8 mb-2 mt-6 text-[10px] font-bold text-sidebar-foreground/40 tracking-wider">CUENTA</div>
-            )}
 
             {/* Link Container */}
             <div className="relative flex items-center px-4 py-0.5">

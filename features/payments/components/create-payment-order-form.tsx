@@ -23,6 +23,11 @@ import {
   Wallet,
   Loader2,
   Banknote,
+  Globe,
+  Download,
+  RefreshCcw,
+  ArrowDownToLine,
+  ArrowUpRight,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { getErrorMessage } from '@/lib/utils'
@@ -1064,7 +1069,12 @@ export function CreatePaymentOrderForm({
                                           key={entry.key}
                                           description={entry.description}
                                           disabled={disabled || entry.disabled}
-                                          icon={Landmark}
+                                          icon={
+                                            entry.key === 'bolivia_to_exterior' ? Globe :
+                                            entry.key === 'world_to_bolivia' ? Download :
+                                            entry.key === 'crypto_to_crypto' ? RefreshCcw :
+                                            Landmark
+                                          }
                                           isSelected={field.value === entry.key}
                                           onClick={() => {
                                             field.onChange(entry.key)
@@ -1089,7 +1099,11 @@ export function CreatePaymentOrderForm({
                                           key={entry.key}
                                           description={entry.description}
                                           disabled={disabled || entry.disabled}
-                                          icon={Landmark}
+                                          icon={
+                                            entry.key === 'wallet_ramp_deposit' ? ArrowDownToLine :
+                                            entry.key === 'wallet_ramp_withdraw' ? ArrowUpRight :
+                                            Wallet
+                                          }
                                           isSelected={field.value === entry.key}
                                           onClick={() => {
                                             field.onChange(entry.key)
@@ -3059,7 +3073,7 @@ function SelectionCard({
 }: {
   title: string
   description: string
-  icon: typeof Landmark
+  icon: React.ElementType
   isSelected: boolean
   onClick: () => void
   disabled?: boolean
@@ -3070,8 +3084,8 @@ function SelectionCard({
       className={cn(
         'group rounded-xl border px-4 py-4 text-left transition-all duration-300',
         isSelected
-          ? 'border-primary/40 bg-primary/8 shadow-[0_0_12px_rgba(var(--primary-rgb),0.06)]'
-          : 'border-border/50 bg-transparent hover:border-border/80 hover:bg-muted/5',
+          ? 'border-primary bg-primary/10 shadow-[0_0_15px_rgba(var(--primary-rgb),0.12)]'
+          : 'border-border/70 bg-transparent hover:border-primary/50 hover:bg-primary/5',
         !disabled && interactiveClickableCardClassName,
         disabled && 'cursor-not-allowed opacity-60'
       )}
@@ -3083,8 +3097,8 @@ function SelectionCard({
         <div className={cn(
           'flex size-12 shrink-0 items-center justify-center rounded-xl transition-all duration-300',
           isSelected 
-            ? 'bg-primary/15 text-primary scale-110' 
-            : 'bg-muted/20 text-muted-foreground group-hover:bg-muted/30 group-hover:text-foreground'
+            ? 'bg-primary/20 text-primary scale-110 shadow-sm' 
+            : 'bg-muted/20 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary'
         )}>
           <Icon className="size-6" />
         </div>

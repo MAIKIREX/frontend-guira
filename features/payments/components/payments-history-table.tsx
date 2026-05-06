@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import { format } from 'date-fns'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { ChevronDown, Download, FileSpreadsheet, FileText, Loader2, Search, ShieldAlert, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { DocumentUploadCard } from '@/components/shared/document-upload-card'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -42,16 +44,16 @@ const VA_DEPOSIT_FLOW_STAGES: Array<{ key: PaymentOrder['status']; label: string
   { key: 'completed', label: 'Acreditado' },
 ]
 
-/** Visual config for va_deposit_status badges */
+/** Visual config for va_deposit_status badges — Oceanic Trust palette */
 const VA_STATUS_CONFIG: Record<string, { label: string; badgeClass: string }> = {
-  funds_received:    { label: 'Fondos Recibidos',       badgeClass: 'border-amber-400/35 bg-amber-400/10 text-amber-700 dark:text-amber-300' },
-  funds_scheduled:   { label: 'ACH en Tránsito',        badgeClass: 'border-sky-400/35 bg-sky-400/10 text-sky-700 dark:text-sky-300' },
-  payment_submitted: { label: 'Procesando Pago',        badgeClass: 'border-cyan-400/35 bg-cyan-400/10 text-cyan-700 dark:text-cyan-300' },
-  payment_processed: { label: 'Confirmado',             badgeClass: 'border-emerald-400/35 bg-emerald-400/10 text-emerald-700 dark:text-emerald-300' },
-  in_review:         { label: 'En Revisión',            badgeClass: 'border-orange-400/35 bg-orange-400/10 text-orange-700 dark:text-orange-300' },
-  refund_in_flight:  { label: 'Reembolso en Proceso',   badgeClass: 'border-rose-400/35 bg-rose-400/10 text-rose-700 dark:text-rose-300' },
-  refunded:          { label: 'Reembolsado',            badgeClass: 'border-destructive/35 bg-destructive/10 text-destructive' },
-  refund_failed:     { label: 'Reembolso Fallido',      badgeClass: 'border-destructive/35 bg-destructive/10 text-destructive' },
+  funds_received:    { label: 'Fondos Recibidos',       badgeClass: 'border-warning/40 bg-warning/10 text-warning-foreground dark:text-warning' },
+  funds_scheduled:   { label: 'ACH en Tránsito',        badgeClass: 'border-primary/40 bg-primary/10 text-primary dark:text-[#8AB4FF]' },
+  payment_submitted: { label: 'Procesando Pago',        badgeClass: 'border-accent/40 bg-accent/10 text-accent-foreground dark:text-accent' },
+  payment_processed: { label: 'Confirmado',             badgeClass: 'border-success/40 bg-success/10 text-success dark:text-success' },
+  in_review:         { label: 'En Revisión',            badgeClass: 'border-warning/40 bg-warning/10 text-warning-foreground dark:text-warning' },
+  refund_in_flight:  { label: 'Reembolso en Proceso',   badgeClass: 'border-destructive/40 bg-destructive/10 text-destructive dark:text-[#FF8080]' },
+  refunded:          { label: 'Reembolsado',            badgeClass: 'border-destructive/40 bg-destructive/10 text-destructive' },
+  refund_failed:     { label: 'Reembolso Fallido',      badgeClass: 'border-destructive/40 bg-destructive/10 text-destructive' },
 }
 
 /** Stages for wallet-withdraw flows (Bridge wallet to fiat/crypto — no external deposit needed) */
@@ -115,7 +117,7 @@ export function PaymentsHistoryTable({
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<'all' | PaymentOrder['status']>('all')
   const [search, setSearch] = useState('')
-  const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>({})
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const suppliersById = useMemo(
     () =>
       new Map(
@@ -140,15 +142,12 @@ export function PaymentsHistoryTable({
     return grouped
   }, [activityLogs])
 
+  // Reset selection if the selected order disappears from the list
   useEffect(() => {
-    setExpandedOrders((current) => {
-      const next = { ...current }
-      safeOrders.forEach((order, index) => {
-        if (next[order.id] === undefined) next[order.id] = index === 0
-      })
-      return next
-    })
-  }, [safeOrders])
+    if (selectedOrderId && !safeOrders.some((o) => o.id === selectedOrderId)) {
+      setSelectedOrderId(null)
+    }
+  }, [safeOrders, selectedOrderId])
 
   const filteredOrders = useMemo(
     () =>
@@ -166,6 +165,10 @@ export function PaymentsHistoryTable({
     [safeOrders, search, statusFilter, suppliersById]
   )
 
+  const selectedOrder = useMemo(
+    () => (selectedOrderId ? safeOrders.find((o) => o.id === selectedOrderId) ?? null : null),
+    [safeOrders, selectedOrderId]
+  )
   if (safeOrders.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-center text-sm text-muted-foreground">
@@ -372,7 +375,6 @@ export function PaymentsHistoryTable({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[40px] px-3" />
                 <TableHead className="text-sm md:text-[15px]">Expediente</TableHead>
                 <TableHead className="text-sm md:text-[15px]">Estado</TableHead>
                 <TableHead className="text-sm md:text-[15px] hidden md:table-cell">Tipo / Riel</TableHead>
@@ -386,43 +388,20 @@ export function PaymentsHistoryTable({
               {filteredOrders.map((order) => {
                 const supplier = order.supplier_id ? (suppliersById.get(order.supplier_id) ?? null) : null
                 const canCancel = isOpenForActions(order)
-                const openUploads = isOpenForActions(order)
-                const orderActivity = activityByOrderId.get(order.id) ?? []
-                const quotePreparedAt = getMetadataDate(order.metadata, 'quote_prepared_at')
-                const isExpanded = expandedOrders[order.id] ?? false
-                const depositInstructions = buildDepositInstructionsFromOrder(order)
-                const primaryDepositInstructions = depositInstructions.filter((instruction) => instruction.kind !== 'note')
-                const noteDepositInstructions = depositInstructions.filter((instruction) => instruction.kind === 'note')
-                const hasEvidence = Boolean(order.deposit_proof_url || order.evidence_url)
-                const showFundingInstructions = depositInstructions.length > 0 && isOpenForActions(order) && !hasEvidence
                 const statusMeta = getStatusMeta(order.status)
 
                 return (
-                  <OrderTableRows
+                  <OrderSummaryRow
                     key={order.id}
                     order={order}
                     supplier={supplier}
                     statusMeta={statusMeta}
-                    isExpanded={isExpanded}
+                    isSelected={selectedOrderId === order.id}
                     canCancel={canCancel}
-                    openUploads={openUploads}
-                    orderActivity={orderActivity}
-                    quotePreparedAt={quotePreparedAt}
-                    primaryDepositInstructions={primaryDepositInstructions}
-                    noteDepositInstructions={noteDepositInstructions}
-                    showFundingInstructions={showFundingInstructions}
                     disabled={disabled}
                     busyKey={busyKey}
-                    files={files}
-                    onToggleExpand={() =>
-                      setExpandedOrders((current) => ({
-                        ...current,
-                        [order.id]: !isExpanded,
-                      }))
-                    }
+                    onSelect={() => setSelectedOrderId(order.id)}
                     onCancel={() => handleCancel(order)}
-                    onUpload={handleUpload}
-                    onFileChange={setFiles}
                     onDownloadPdf={() => handleDownloadPdf(order)}
                   />
                 )
@@ -431,217 +410,313 @@ export function PaymentsHistoryTable({
           </Table>
         </div>
       )}
+
+      {/* ── Order Detail Sheet ── */}
+      <OrderDetailSheet
+        order={selectedOrder}
+        supplier={selectedOrder?.supplier_id ? (suppliersById.get(selectedOrder.supplier_id) ?? null) : null}
+        orderActivity={selectedOrder ? (activityByOrderId.get(selectedOrder.id) ?? []) : []}
+        disabled={disabled}
+        busyKey={busyKey}
+        files={files}
+        onClose={() => setSelectedOrderId(null)}
+        onCancel={selectedOrder ? () => handleCancel(selectedOrder) : () => {}}
+        onUpload={handleUpload}
+        onFileChange={setFiles}
+        onDownloadPdf={selectedOrder ? () => handleDownloadPdf(selectedOrder) : () => {}}
+      />
     </div>
   )
 }
 
-// ── OrderTableRows: compact row + expandable detail ──────────────────────
-function OrderTableRows({
-  order, supplier, statusMeta, isExpanded, canCancel, openUploads,
-  orderActivity, quotePreparedAt, primaryDepositInstructions, noteDepositInstructions,
-  showFundingInstructions, disabled, busyKey, files,
-  onToggleExpand, onCancel, onUpload, onFileChange, onDownloadPdf,
+// ── OrderSummaryRow: compact table row ──────────────────────────────────
+function OrderSummaryRow({
+  order, supplier, statusMeta, isSelected, canCancel,
+  disabled, busyKey,
+  onSelect, onCancel, onDownloadPdf,
 }: {
   order: PaymentOrder
   supplier: Supplier | null
   statusMeta: ReturnType<typeof getStatusMeta>
-  isExpanded: boolean
+  isSelected: boolean
   canCancel: boolean
-  openUploads: boolean
+  disabled?: boolean
+  busyKey: string | null
+  onSelect: () => void
+  onCancel: () => void
+  onDownloadPdf: () => void
+}) {
+  return (
+    <TableRow
+      className={cn(
+        'cursor-pointer transition-colors',
+        isSelected && 'bg-primary/[0.04] border-l-2 border-l-primary'
+      )}
+      onClick={onSelect}
+    >
+      {/* Expediente + Proveedor */}
+      <TableCell>
+        <div className="flex flex-col gap-0.5">
+          <span className="font-mono text-lg font-semibold text-foreground">#{order.id.slice(0, 8)}</span>
+          {supplier ? (
+            <span className="text-sm font-medium text-muted-foreground truncate max-w-[160px]">{supplier.name}</span>
+          ) : null}
+        </div>
+      </TableCell>
+
+      {/* Estado */}
+      <TableCell>
+        <div className="flex flex-col gap-1.5">
+          <Badge className={cn('text-sm font-medium px-2 py-0.5 w-fit', statusMeta.badgeClass)} variant={getStatusVariant(order.status)}>
+            {statusMeta.label}
+          </Badge>
+          {order.flow_type === 'va_deposit' && order.va_deposit_status && VA_STATUS_CONFIG[order.va_deposit_status] && (
+            <Badge className={cn('text-sm font-medium px-2 py-0.5 w-fit', VA_STATUS_CONFIG[order.va_deposit_status].badgeClass)} variant="outline">
+              {VA_STATUS_CONFIG[order.va_deposit_status].label}
+            </Badge>
+          )}
+        </div>
+      </TableCell>
+
+      {/* Tipo / Riel */}
+      <TableCell className="hidden md:table-cell">
+        <div className="flex flex-col gap-1.5">
+          <Badge className="text-sm font-medium px-2 py-0.5 w-fit" variant="outline">{humanizeOrderType(order)}</Badge>
+          <Badge className="text-sm font-medium px-2 py-0.5 w-fit" variant="outline">{humanizeRail(order)}</Badge>
+        </div>
+      </TableCell>
+
+      {/* Monto Origen */}
+      <TableCell className="text-right">
+        <span className="text-[17px] font-semibold tabular-nums text-foreground">
+          {(order.amount_origin ?? order.amount ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </span>
+        <span className="ml-1.5 text-sm font-medium text-muted-foreground">{order.origin_currency ?? order.currency ?? ''}</span>
+      </TableCell>
+
+      {/* Monto Destino */}
+      <TableCell className="text-right">
+        <span className="text-[17px] font-semibold tabular-nums text-foreground">
+          {(order.amount_converted ?? order.amount_destination ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </span>
+        <span className="ml-1.5 text-sm font-medium text-muted-foreground">{order.destination_currency ?? order.currency ?? ''}</span>
+      </TableCell>
+
+      {/* Fecha */}
+      <TableCell className="hidden lg:table-cell">
+        <span className="text-[15px] font-medium text-muted-foreground">{format(new Date(order.created_at), 'dd/MM/yyyy')}</span>
+      </TableCell>
+
+      {/* Acciones */}
+      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-end gap-2">
+          {(order.status === 'completed' || order.status === 'cancelled') && (
+            <Button
+              className="h-8 px-3 py-0 text-xs font-semibold gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-colors"
+              disabled={disabled || busyKey === `${order.id}-pdf`}
+              onClick={onDownloadPdf}
+              size="sm"
+              type="button"
+              title="Descargar PDF"
+            >
+              <Download className="size-3.5" />
+              <span className="hidden sm:inline">PDF</span>
+            </Button>
+          )}
+          {canCancel && (
+            <Button
+              className="h-8 px-3 py-0 text-xs font-semibold gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm transition-colors"
+              disabled={disabled || busyKey === `${order.id}-cancel`}
+              onClick={onCancel}
+              size="sm"
+              type="button"
+              title="Cancelar expediente"
+            >
+              <XCircle className="size-3.5" />
+              <span className="hidden sm:inline">Cancelar</span>
+            </Button>
+          )}
+        </div>
+      </TableCell>
+    </TableRow>
+  )
+}
+
+// ── OrderDetailSheet: right-side Sheet with all detail sections ──────
+function OrderDetailSheet({
+  order, supplier, orderActivity,
+  disabled, busyKey, files,
+  onClose, onCancel, onUpload, onFileChange, onDownloadPdf,
+}: {
+  order: PaymentOrder | null
+  supplier: Supplier | null
   orderActivity: ActivityLog[]
-  quotePreparedAt: string | null
-  primaryDepositInstructions: ReturnType<typeof buildDepositInstructionsFromOrder>
-  noteDepositInstructions: ReturnType<typeof buildDepositInstructionsFromOrder>
-  showFundingInstructions: boolean
   disabled?: boolean
   busyKey: string | null
   files: Record<string, Partial<Record<OrderFileField, File>>>
-  onToggleExpand: () => void
+  onClose: () => void
   onCancel: () => void
   onUpload: (order: PaymentOrder, field: OrderFileField) => Promise<void>
   onFileChange: React.Dispatch<React.SetStateAction<Record<string, Partial<Record<OrderFileField, File>>>>>
   onDownloadPdf: () => void
 }) {
+  if (!order) {
+    return (
+      <Sheet open={false} onOpenChange={() => {}}>
+        <SheetContent side="right" className="sm:max-w-xl lg:max-w-2xl w-full p-0" />
+      </Sheet>
+    )
+  }
+
+  const statusMeta = getStatusMeta(order.status)
+  const canCancel = isOpenForActions(order)
+  const openUploads = isOpenForActions(order)
+  const quotePreparedAt = getMetadataDate(order.metadata, 'quote_prepared_at')
+  const depositInstructions = buildDepositInstructionsFromOrder(order)
+  const primaryDepositInstructions = depositInstructions.filter((i) => i.kind !== 'note')
+  const noteDepositInstructions = depositInstructions.filter((i) => i.kind === 'note')
+  const hasEvidence = Boolean(order.deposit_proof_url || order.evidence_url)
+  const showFundingInstructions = depositInstructions.length > 0 && isOpenForActions(order) && !hasEvidence
+
   return (
-    <>
-      {/* ── Summary Row ── */}
-      <TableRow
-        className={cn(
-          'cursor-pointer transition-colors',
-          isExpanded && 'bg-muted/50'
-        )}
-        onClick={onToggleExpand}
-      >
-        {/* Chevron */}
-        <TableCell className="px-3 w-[40px]">
-          <ChevronDown className={cn('size-4 text-muted-foreground transition-transform duration-200', isExpanded && 'rotate-180')} />
-        </TableCell>
-
-        {/* Expediente + Proveedor */}
-        <TableCell>
-          <div className="flex flex-col gap-0.5">
-            <span className="font-mono text-lg font-semibold text-foreground">#{order.id.slice(0, 8)}</span>
-            {supplier ? (
-              <span className="text-sm font-medium text-muted-foreground truncate max-w-[160px]">{supplier.name}</span>
-            ) : null}
+    <Sheet open={!!order} onOpenChange={(open) => !open && onClose()}>
+      <SheetContent side="right" className="sm:max-w-xl lg:max-w-2xl w-full p-0 flex flex-col border-l-2 border-l-primary/20" showCloseButton={false}>
+        {/* ── Header ── */}
+        <div className="shrink-0 border-b border-border/60 px-6 py-5 bg-gradient-to-r from-primary/[0.03] to-transparent">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-2">
+              <SheetTitle className="font-mono text-xl font-bold tracking-tight">
+                #{order.id.slice(0, 8)}
+              </SheetTitle>
+              <SheetDescription className="text-sm text-muted-foreground">
+                {supplier ? supplier.name : 'Sin proveedor asignado'} · {humanizeOrderType(order)} · {humanizeRail(order)}
+              </SheetDescription>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="shrink-0 h-8 w-8 p-0 rounded-full"
+              onClick={onClose}
+            >
+              <XCircle className="size-4" />
+            </Button>
           </div>
-        </TableCell>
-
-        {/* Estado */}
-        <TableCell>
-          <div className="flex flex-col gap-1.5">
-            <Badge className={cn('text-sm font-medium px-2 py-0.5 w-fit', statusMeta.badgeClass)} variant={getStatusVariant(order.status)}>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Badge className={cn('text-sm font-medium px-2.5 py-0.5', statusMeta.badgeClass)} variant={getStatusVariant(order.status)}>
               {statusMeta.label}
             </Badge>
             {order.flow_type === 'va_deposit' && order.va_deposit_status && VA_STATUS_CONFIG[order.va_deposit_status] && (
-              <Badge className={cn('text-sm font-medium px-2 py-0.5 w-fit', VA_STATUS_CONFIG[order.va_deposit_status].badgeClass)} variant="outline">
+              <Badge className={cn('text-sm font-medium px-2.5 py-0.5', VA_STATUS_CONFIG[order.va_deposit_status].badgeClass)} variant="outline">
                 {VA_STATUS_CONFIG[order.va_deposit_status].label}
               </Badge>
             )}
+            <Badge className="text-xs px-2 py-0.5" variant="outline">
+              {format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')}
+            </Badge>
           </div>
-        </TableCell>
+        </div>
 
-        {/* Tipo / Riel */}
-        <TableCell className="hidden md:table-cell">
-          <div className="flex flex-col gap-1.5">
-            <Badge className="text-sm font-medium px-2 py-0.5 w-fit" variant="outline">{humanizeOrderType(order)}</Badge>
-            <Badge className="text-sm font-medium px-2 py-0.5 w-fit" variant="outline">{humanizeRail(order)}</Badge>
+        {/* ── Scrollable Content ── */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="space-y-0 divide-y divide-border/40">
+            {/* Status Rail */}
+            <div className="px-6 py-5">
+              <section className="space-y-4">
+                <SectionHeading title="Progreso de trazabilidad" />
+                <StatusRailCompact order={order} />
+              </section>
+            </div>
+
+            {/* Compliance Note */}
+            <div className="px-6 py-5">
+              <ComplianceNote order={order} quotePreparedAt={quotePreparedAt} />
+            </div>
+
+            {/* Funding Instructions */}
+            {showFundingInstructions ? (
+              <div className="px-6 py-5">
+                <section className="space-y-4">
+                  <SectionHeading title="Cuenta para depositar" />
+                  <div className="grid gap-4">
+                    {primaryDepositInstructions.map((instruction) => (
+                      <DepositInstructionCard key={`${order.id}-${instruction.id}`} instruction={instruction} />
+                    ))}
+                  </div>
+                  {noteDepositInstructions.length > 0 ? (
+                    <div className="grid gap-4">
+                      {noteDepositInstructions.map((instruction) => (
+                        <DepositInstructionCard key={`${order.id}-${instruction.id}`} instruction={instruction} />
+                      ))}
+                    </div>
+                  ) : null}
+                </section>
+              </div>
+            ) : null}
+
+            {/* Quote Card */}
+            <div className="px-6 py-5">
+              <section className="space-y-4">
+                <SectionHeading title="Cotizacion final" />
+                <QuoteCard order={order} quotePreparedAt={quotePreparedAt} />
+              </section>
+            </div>
+
+            {/* Action Desk */}
+            <div className="px-6 py-5 bg-muted/[0.04]">
+              <ActionDesk
+                busy={busyKey}
+                canCancel={canCancel}
+                disabled={disabled}
+                files={files}
+                onCancel={onCancel}
+                onFileChange={onFileChange}
+                onUpload={onUpload}
+                openUploads={openUploads}
+                order={order}
+              />
+            </div>
+
+            {/* Activity Panel */}
+            <div className="px-6 py-5">
+              <section className="space-y-4">
+                <SectionHeading title="Bitacora de actividad" />
+                <ActivityPanel orderActivity={orderActivity} />
+              </section>
+            </div>
           </div>
-        </TableCell>
+        </div>
 
-        {/* Monto Origen */}
-        <TableCell className="text-right">
-          <span className="text-[17px] font-semibold tabular-nums text-foreground">
-            {(order.amount_origin ?? order.amount ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
-          <span className="ml-1.5 text-sm font-medium text-muted-foreground">{order.origin_currency ?? order.currency ?? ''}</span>
-        </TableCell>
-
-        {/* Monto Destino */}
-        <TableCell className="text-right">
-          <span className="text-[17px] font-semibold tabular-nums text-foreground">
-            {(order.amount_converted ?? order.amount_destination ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
-          <span className="ml-1.5 text-sm font-medium text-muted-foreground">{order.destination_currency ?? order.currency ?? ''}</span>
-        </TableCell>
-
-        {/* Fecha */}
-        <TableCell className="hidden lg:table-cell">
-          <span className="text-[15px] font-medium text-muted-foreground">{format(new Date(order.created_at), 'dd/MM/yyyy')}</span>
-        </TableCell>
-
-        {/* Acciones */}
-        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-end gap-1">
+        {/* ── Footer ── */}
+        <div className="shrink-0 border-t border-border/60 px-6 py-4 bg-gradient-to-r from-primary/[0.02] to-transparent">
+          <div className="flex items-center justify-end gap-3">
             {(order.status === 'completed' || order.status === 'cancelled') && (
               <Button
-                className="h-7 w-7 p-0"
+                className="h-9 gap-2 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground border border-primary/20"
                 disabled={disabled || busyKey === `${order.id}-pdf`}
                 onClick={onDownloadPdf}
                 size="sm"
                 type="button"
-                variant="ghost"
-                title="Descargar PDF"
+                variant="outline"
               >
-                <Download className="size-3.5" />
+                <Download className="size-4" />
+                Descargar comprobante
               </Button>
             )}
-            {canCancel && (
-              <Button
-                className="h-7 w-7 p-0"
-                disabled={disabled || busyKey === `${order.id}-cancel`}
-                onClick={onCancel}
-                size="sm"
-                type="button"
-                variant="ghost"
-                title="Cancelar expediente"
-              >
-                <XCircle className="size-3.5 text-destructive" />
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9"
+              onClick={onClose}
+            >
+              Cerrar
+            </Button>
           </div>
-        </TableCell>
-      </TableRow>
-
-      {/* ── Expanded Detail Row ── */}
-      <AnimatePresence initial={false}>
-        {isExpanded && (
-          <tr>
-            <td colSpan={8} className="p-0 border-b border-primary/20">
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                className="overflow-hidden"
-              >
-                <div className="border-t border-primary/15 bg-muted/[0.03]">
-                  {/* Status Rail */}
-                  <div className="w-full border-b border-border/60 p-4 sm:px-6 sm:py-5 bg-muted/[0.04]">
-                    <section className="space-y-4">
-                      <SectionHeading title="Progreso de trazabilidad" />
-                      <StatusRail order={order} />
-                    </section>
-                  </div>
-
-                  {/* Main content grid */}
-                  <div className="grid w-full xl:grid-cols-[1fr_380px]">
-                    <div className="space-y-6 sm:space-y-8 p-4 sm:px-6 sm:py-6">
-                      <ComplianceNote order={order} quotePreparedAt={quotePreparedAt} />
-
-                      {showFundingInstructions ? (
-                        <section className="space-y-4 border-t border-border/60 pt-6">
-                          <SectionHeading title="Cuenta para depositar" />
-                          <div className="grid gap-4 xl:grid-cols-2">
-                            {primaryDepositInstructions.map((instruction) => (
-                              <DepositInstructionCard key={`${order.id}-${instruction.id}`} instruction={instruction} />
-                            ))}
-                          </div>
-                          {noteDepositInstructions.length > 0 ? (
-                            <div className="grid gap-4">
-                              {noteDepositInstructions.map((instruction) => (
-                                <DepositInstructionCard key={`${order.id}-${instruction.id}`} instruction={instruction} />
-                              ))}
-                            </div>
-                          ) : null}
-                        </section>
-                      ) : null}
-
-                      <section className="space-y-4 border-t border-border/60 pt-6">
-                        <SectionHeading title="Cotizacion final" />
-                        <QuoteCard order={order} quotePreparedAt={quotePreparedAt} />
-                      </section>
-                    </div>
-
-                    <div className="border-t border-border/60 bg-muted/[0.08] p-4 sm:px-6 sm:py-6 xl:border-l xl:border-t-0">
-                      <div className="space-y-6 sm:space-y-8">
-                        <ActionDesk
-                          busy={busyKey}
-                          canCancel={canCancel}
-                          disabled={disabled}
-                          files={files}
-                          onCancel={onCancel}
-                          onFileChange={onFileChange}
-                          onUpload={onUpload}
-                          openUploads={openUploads}
-                          order={order}
-                        />
-                        <section className="space-y-4 border-t border-border/60 pt-6">
-                          <SectionHeading title="Bitacora de actividad" />
-                          <ActivityPanel orderActivity={orderActivity} />
-                        </section>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            </td>
-          </tr>
-        )}
-      </AnimatePresence>
-    </>
+        </div>
+      </SheetContent>
+    </Sheet>
   )
 }
+
 
 function StatusRail({ order }: { order: PaymentOrder }) {
   const stages = getFlowStages(order)
@@ -652,9 +727,9 @@ function StatusRail({ order }: { order: PaymentOrder }) {
   if (isTerminal) {
     const meta = getStatusMeta(order.status)
     const bannerStyle = order.status === 'cancelled'
-      ? { border: 'border-orange-400/30 bg-orange-400/5', circle: 'border-orange-400/50 bg-orange-400/10 text-orange-400' }
+      ? { border: 'border-warning/30 bg-warning/5', circle: 'border-warning/50 bg-warning/10 text-warning' }
       : order.status === 'swept_external'
-        ? { border: 'border-teal-400/30 bg-teal-400/5', circle: 'border-teal-400/50 bg-teal-400/10 text-teal-400' }
+        ? { border: 'border-accent/30 bg-accent/5', circle: 'border-accent/50 bg-accent/10 text-accent' }
         : { border: 'border-destructive/30 bg-destructive/5', circle: 'border-destructive/50 bg-destructive/10 text-destructive' }
     const bannerMessage = order.status === 'cancelled'
       ? 'Este expediente fue anulado y no continuará en el flujo operativo.'
@@ -687,16 +762,16 @@ function StatusRail({ order }: { order: PaymentOrder }) {
           const isCurrent = stage.key === order.status
           const isReached = currentIndex >= index
 
-          if (!isReached && index > currentIndex + 1) return null; // Only show up to next step
+          if (!isReached && index > currentIndex + 1) return null;
 
           return (
             <div key={stage.key} className="flex items-center gap-3 rounded-2xl border border-border/40 bg-muted/5 p-3">
               <div className={cn(
                 "flex size-8 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold transition-colors",
-                isCurrent 
-                  ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.2)]" 
-                  : isReached 
-                    ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-400" 
+                isCurrent
+                  ? "border-primary/50 bg-primary/10 text-primary shadow-[0_0_8px_rgba(0,85,255,0.15)]"
+                  : isReached
+                    ? "border-success/40 bg-success/10 text-success"
                     : "border-border/60 bg-muted/20 text-muted-foreground"
               )}>
                 {index + 1}
@@ -734,17 +809,17 @@ function StatusRail({ order }: { order: PaymentOrder }) {
                 <motion.div
                   animate={{
                     backgroundColor: isCurrent
-                      ? 'rgba(34,211,238,0.18)'
+                      ? 'rgba(0,85,255,0.14)'
                       : isComplete
-                        ? 'rgba(16,185,129,0.18)'
+                        ? 'rgba(29,184,122,0.14)'
                         : 'rgba(255,255,255,0.04)',
                     borderColor: isCurrent
-                      ? 'rgba(34,211,238,0.55)'
+                      ? 'rgba(0,85,255,0.50)'
                       : isComplete
-                        ? 'rgba(16,185,129,0.45)'
+                        ? 'rgba(29,184,122,0.40)'
                         : 'rgba(148,163,184,0.22)',
                     scale: isCurrent ? 1.06 : 1,
-                    boxShadow: isCurrent ? '0 0 0 6px rgba(34,211,238,0.08)' : '0 0 0 0 rgba(0,0,0,0)',
+                    boxShadow: isCurrent ? '0 0 0 6px rgba(0,85,255,0.06)' : '0 0 0 0 rgba(0,0,0,0)',
                   }}
                   className="relative z-10 flex size-12 items-center justify-center rounded-full border text-sm font-semibold text-foreground"
                   initial={false}
@@ -775,7 +850,7 @@ function StatusRail({ order }: { order: PaymentOrder }) {
                         animate={{ width: lineFilled }}
                         className={cn(
                           'absolute inset-y-0 left-0 rounded-full',
-                          isComplete ? 'bg-emerald-400' : 'bg-cyan-400'
+                          isComplete ? 'bg-success' : 'bg-primary'
                         )}
                         initial={false}
                         transition={{ duration: 0.35, ease: 'easeInOut' }}
@@ -787,6 +862,79 @@ function StatusRail({ order }: { order: PaymentOrder }) {
             )
           })}
         </div>
+      </div>
+    </div>
+  )
+}
+
+/** Ultra-compact horizontal stepper for the Sheet panel — minimal vertical footprint */
+function StatusRailCompact({ order }: { order: PaymentOrder }) {
+  const stages = getFlowStages(order)
+  const isTerminal = TERMINAL_STATUSES.has(order.status)
+  const currentIndex = stages.findIndex((stage) => stage.key === order.status)
+
+  if (isTerminal) {
+    const meta = getStatusMeta(order.status)
+    const color = order.status === 'cancelled'
+      ? { bg: 'bg-warning/8', border: 'border-warning/25', text: 'text-warning', dot: 'bg-warning' }
+      : order.status === 'swept_external'
+        ? { bg: 'bg-accent/8', border: 'border-accent/25', text: 'text-accent', dot: 'bg-accent' }
+        : { bg: 'bg-destructive/8', border: 'border-destructive/25', text: 'text-destructive', dot: 'bg-destructive' }
+    return (
+      <div className={cn("flex items-center gap-2.5 rounded-lg border px-3 py-2.5", color.bg, color.border)}>
+        <div className={cn("size-2 shrink-0 rounded-full", color.dot)} />
+        <span className={cn("text-xs font-semibold", color.text)}>{meta.label}</span>
+        <span className="text-[11px] text-muted-foreground">
+          — {order.status === 'cancelled' ? 'Anulado' : order.status === 'swept_external' ? 'Liquidado externamente' : 'Marcado como fallido'}
+        </span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2.5">
+      {/* Horizontal dot stepper */}
+      <div className="flex items-center gap-1">
+        {stages.map((stage, index) => {
+          const isCurrent = stage.key === order.status
+          const isReached = currentIndex >= index
+          const isComplete = currentIndex > index
+
+          return (
+            <div key={stage.key} className="flex items-center">
+              {/* Dot */}
+              <div
+                className={cn(
+                  "shrink-0 rounded-full transition-all",
+                  isCurrent
+                    ? "size-3 bg-primary shadow-[0_0_6px_rgba(0,85,255,0.25)]"
+                    : isComplete
+                      ? "size-2.5 bg-accent"
+                      : "size-2 bg-border"
+                )}
+                title={stage.label}
+              />
+              {/* Connector line */}
+              {index < stages.length - 1 && (
+                <div className={cn(
+                  "h-px flex-1 min-w-3 mx-0.5",
+                  isComplete ? "bg-accent/50" : "bg-border/60"
+                )} />
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Current step label */}
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] font-medium text-muted-foreground">
+          Paso {currentIndex + 1} de {stages.length}
+        </span>
+        <span className="text-[11px] text-muted-foreground">·</span>
+        <span className="text-xs font-semibold text-foreground">
+          {stages[currentIndex]?.label ?? 'Desconocido'}
+        </span>
       </div>
     </div>
   )
@@ -1144,27 +1292,27 @@ function getStatusVariant(status: PaymentOrder['status']) {
 function getStatusMeta(status: PaymentOrder['status']) {
   switch (status) {
     case 'created':
-      return { badgeClass: 'border-slate-400/30 bg-slate-500/10 text-foreground', eyebrow: 'Preparacion', label: 'Orden creada' }
+      return { badgeClass: 'border-muted-foreground/30 bg-muted/40 text-foreground dark:bg-muted/20', eyebrow: 'Preparacion', label: 'Orden creada' }
     case 'waiting_deposit':
-      return { badgeClass: 'border-amber-400/35 bg-amber-400/10 text-amber-700 dark:text-amber-300', eyebrow: 'Fondeo', label: 'Esperando deposito' }
+      return { badgeClass: 'border-warning/40 bg-warning/12 text-[#8B6914] font-semibold dark:text-warning', eyebrow: 'Fondeo', label: 'Esperando deposito' }
     case 'deposit_received':
-      return { badgeClass: 'border-cyan-400/35 bg-cyan-400/10 text-cyan-700 dark:text-cyan-300', eyebrow: 'Control', label: 'Deposito validado' }
+      return { badgeClass: 'border-accent/40 bg-accent/12 text-[#007A94] font-semibold dark:text-accent', eyebrow: 'Control', label: 'Deposito validado' }
     case 'processing':
-      return { badgeClass: 'border-sky-400/35 bg-sky-400/10 text-sky-700 dark:text-sky-300', eyebrow: 'Ejecucion', label: 'Procesando' }
+      return { badgeClass: 'border-primary/40 bg-primary/12 text-primary font-semibold dark:text-[#8AB4FF]', eyebrow: 'Ejecucion', label: 'Procesando' }
     case 'sent':
-      return { badgeClass: 'border-cyan-400/35 bg-cyan-400/10 text-cyan-700 dark:text-cyan-300', eyebrow: 'Liquidacion', label: 'Enviado' }
+      return { badgeClass: 'border-primary/40 bg-primary/12 text-primary font-semibold dark:text-[#8AB4FF]', eyebrow: 'Liquidacion', label: 'Enviado' }
     case 'completed':
-      return { badgeClass: 'border-emerald-400/35 bg-emerald-400/10 text-emerald-700 dark:text-emerald-300', eyebrow: 'Cierre', label: 'Completado' }
+      return { badgeClass: 'border-success/40 bg-success/12 text-[#157A54] font-semibold dark:text-success', eyebrow: 'Cierre', label: 'Completado' }
     case 'failed':
-      return { badgeClass: 'border-destructive/35 bg-destructive/10', eyebrow: 'Incidencia', label: 'Fallido' }
+      return { badgeClass: 'border-destructive/40 bg-destructive/12 text-destructive font-semibold', eyebrow: 'Incidencia', label: 'Fallido' }
     case 'cancelled':
-      return { badgeClass: 'border-orange-400/35 bg-orange-400/10 text-orange-700 dark:text-orange-300', eyebrow: 'Anulacion', label: 'Cancelado' }
+      return { badgeClass: 'border-destructive/40 bg-destructive/12 text-destructive font-semibold', eyebrow: 'Anulacion', label: 'Cancelado' }
     case 'swept_external':
-      return { badgeClass: 'border-teal-400/35 bg-teal-400/10 text-teal-700 dark:text-teal-300', eyebrow: 'Liquidacion externa', label: 'Liquidado externo' }
+      return { badgeClass: 'border-accent/40 bg-accent/12 text-[#007A94] font-semibold dark:text-accent', eyebrow: 'Liquidacion externa', label: 'Liquidado externo' }
     case 'pending':
-      return { badgeClass: 'border-amber-400/35 bg-amber-400/10 text-amber-700 dark:text-amber-300', eyebrow: 'Cuenta Virtual', label: 'Pendiente Bridge' }
+      return { badgeClass: 'border-warning/40 bg-warning/12 text-[#8B6914] font-semibold dark:text-warning', eyebrow: 'Cuenta Virtual', label: 'Pendiente Bridge' }
     case 'refunded':
-      return { badgeClass: 'border-destructive/35 bg-destructive/10 text-destructive', eyebrow: 'Reembolso', label: 'Reembolsado' }
+      return { badgeClass: 'border-destructive/40 bg-destructive/12 text-destructive font-semibold', eyebrow: 'Reembolso', label: 'Reembolsado' }
     default:
       return { badgeClass: 'border-border/30 bg-muted/10 text-muted-foreground', eyebrow: 'Desconocido', label: status ?? 'Sin estado' }
   }
@@ -1236,22 +1384,22 @@ function getUrgencyLabel(status: PaymentOrder['status']) {
 function getUrgencyBadgeClass(status: PaymentOrder['status']) {
   switch (status) {
     case 'created':
-      return 'border-amber-400/35 bg-amber-400/10 text-amber-700 dark:text-amber-300'
+      return 'border-warning/40 bg-warning/12 text-[#8B6914] dark:text-warning'
     case 'waiting_deposit':
-      return 'border-cyan-400/35 bg-cyan-400/10 text-cyan-700 dark:text-cyan-300'
+      return 'border-accent/40 bg-accent/12 text-[#007A94] dark:text-accent'
     case 'deposit_received':
-      return 'border-sky-400/35 bg-sky-400/10 text-sky-700 dark:text-sky-300'
+      return 'border-primary/40 bg-primary/12 text-primary dark:text-[#8AB4FF]'
     case 'processing':
     case 'sent':
-      return 'border-cyan-400/35 bg-cyan-400/10 text-cyan-700 dark:text-cyan-300'
+      return 'border-primary/40 bg-primary/12 text-primary dark:text-[#8AB4FF]'
     case 'completed':
-      return 'border-emerald-400/35 bg-emerald-400/10 text-emerald-700 dark:text-emerald-300'
+      return 'border-success/40 bg-success/12 text-[#157A54] dark:text-success'
     case 'failed':
-      return 'border-destructive/35 bg-destructive/10 text-destructive'
+      return 'border-destructive/40 bg-destructive/12 text-destructive'
     case 'cancelled':
-      return 'border-orange-400/35 bg-orange-400/10 text-orange-700 dark:text-orange-300'
+      return 'border-destructive/40 bg-destructive/12 text-destructive'
     case 'swept_external':
-      return 'border-teal-400/35 bg-teal-400/10 text-teal-700 dark:text-teal-300'
+      return 'border-accent/40 bg-accent/12 text-[#007A94] dark:text-accent'
     default:
       return 'border-border/35 bg-muted/10 text-muted-foreground'
   }
