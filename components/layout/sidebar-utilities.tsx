@@ -15,7 +15,7 @@ export function SidebarUtilities({
   return (
     <div
       className={cn(
-        'border-t border-border/60',
+        'border-t border-sidebar-border',
         mobile ? 'px-5 py-4' : collapsed ? 'px-3 py-4' : 'px-5 py-4'
       )}
     >

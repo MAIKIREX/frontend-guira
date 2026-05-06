@@ -50,7 +50,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className={gilroy.variable} suppressHydrationWarning>
+      <body className={`font-sans antialiased ${gilroy.variable}`} suppressHydrationWarning>
         <Providers>
           {children}
         </Providers>

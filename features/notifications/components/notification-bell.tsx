@@ -89,10 +89,10 @@ export function NotificationBell() {
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger className="relative group inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-10 w-10">
-        <Bell strokeWidth={2.5} className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
+      <PopoverTrigger className="relative group inline-flex h-9 w-9 items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 text-sidebar-foreground/60 hover:bg-white/5 hover:text-white">
+        <Bell strokeWidth={2} className="size-[1.15rem]" />
         {unreadCount > 0 && (
-          <span className="absolute top-1.5 right-1.5 w-3 h-3 bg-red-500 rounded-full border-2 border-background animate-pulse" />
+          <span className="absolute top-1.5 right-2 w-2 h-2 bg-[#E84040] rounded-full border border-sidebar animate-pulse" />
         )}
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="end">

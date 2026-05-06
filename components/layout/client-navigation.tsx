@@ -24,45 +24,70 @@ export function ClientNavigation({
   const pathname = usePathname()
 
   return (
-    <nav className="space-y-2.5">
-      {clientLinks.map((link) => {
+    <nav className="flex flex-col py-2">
+      {clientLinks.map((link, index) => {
         const active = pathname === link.href || pathname.startsWith(`${link.href}/`)
         const Icon = link.icon
 
         return (
-          <Link
-            key={link.href}
-            href={link.href}
-            title={link.label}
-            aria-label={link.label}
-            className={cn(
-              'group relative flex overflow-hidden  text-sm transition-all duration-200',
-              collapsed ? 'justify-center px-3 py-4' : 'items-center gap-3.5 px-4 py-4',
-              active
-                ? 'bg-primary/12 text-foreground shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-primary)_24%,transparent)]'
-                : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+          <div key={link.href} className="relative flex flex-col w-full">
+            {/* Group Headers */}
+            {index === 0 && !collapsed && (
+              <div className="px-8 mb-2 mt-2 text-[10px] font-bold text-sidebar-foreground/40 tracking-wider">MENÚ PRINCIPAL</div>
             )}
-          >
-            <span
-              className={cn(
-                'absolute right-0 top-0 bottom-0 w-1  bg-transparent transition-colors duration-200',
-                active && 'bg-primary'
+            {index === 4 && !collapsed && (
+              <div className="px-8 mb-2 mt-6 text-[10px] font-bold text-sidebar-foreground/40 tracking-wider">OTROS</div>
+            )}
+            {index === 6 && !collapsed && (
+              <div className="px-8 mb-2 mt-6 text-[10px] font-bold text-sidebar-foreground/40 tracking-wider">CUENTA</div>
+            )}
+
+            {/* Link Container */}
+            <div className="relative flex items-center px-4 py-0.5">
+              {/* Floating Left Indicator (Outside the button) */}
+              {active && (
+                <div 
+                  className="absolute left-0 h-[60%] w-[4px] rounded-r-md bg-[#01C5FF] transition-all duration-300" 
+                  style={{ boxShadow: '0 0 10px rgba(1, 197, 255, 0.5)' }}
+                />
               )}
-            />
-            <span
-              className={cn(
-                'relative z-10 flex shrink-0 items-center justify-center text-muted-foreground transition-colors duration-200',
-                active && 'text-primary'
-              )}
-            >
-              <Icon strokeWidth={2.5} className={cn('size-7', !collapsed && 'size-[1.6rem]')} />
-            </span>
-            {!collapsed ? (
-              <span className="relative z-10 text-[1.05rem] font-bold">
-                {link.label}
-              </span>
-            ) : null}
-          </Link>
+
+              <Link
+                href={link.href}
+                title={link.label}
+                aria-label={link.label}
+                className={cn(
+                  'w-full group relative flex items-center transition-all duration-200 ease-out',
+                  collapsed ? 'justify-center p-3 rounded-2xl' : 'gap-3.5 px-4 py-2.5 rounded-[12px]',
+                  active
+                    ? 'bg-white/[0.08] text-white shadow-sm ring-1 ring-white/5'
+                    : 'text-sidebar-foreground/60 hover:bg-white/[0.03] hover:text-white'
+                )}
+              >
+                {/* Icon */}
+                <span
+                  className={cn(
+                    'relative z-10 flex shrink-0 items-center justify-center transition-all duration-200',
+                    active 
+                      ? 'text-[#01C5FF]' 
+                      : 'text-sidebar-foreground/60 group-hover:text-white'
+                  )}
+                >
+                  <Icon strokeWidth={active ? 2.5 : 2} className={cn('size-[1.15rem]', collapsed && 'size-[1.25rem]')} />
+                </span>
+                
+                {/* Label */}
+                {!collapsed && (
+                  <span className={cn(
+                    "relative z-10 text-[0.875rem] font-medium tracking-tight",
+                    active ? "text-white font-semibold" : ""
+                  )}>
+                    {link.label}
+                  </span>
+                )}
+              </Link>
+            </div>
+          </div>
         )
       })}
     </nav>

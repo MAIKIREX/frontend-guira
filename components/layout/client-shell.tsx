@@ -19,28 +19,33 @@ export function ClientShell({
   return (
     <div className="min-h-screen bg-background">
       <div
-        className="grid min-h-screen w-full transition-[grid-template-columns] duration-200 md:[grid-template-columns:var(--sidebar-width)_minmax(0,1fr)]"
+        className="grid min-h-screen w-full transition-[grid-template-columns] duration-[280ms] ease-in-out md:[grid-template-columns:var(--sidebar-width)_minmax(0,1fr)]"
         style={{ ['--sidebar-width' as string]: isCollapsed ? '88px' : '280px' }}
       >
         {/* Mobile Sidebar Overlay */}
         {isMobileOpen && (
           <div
-            className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm md:hidden"
+            className="fixed inset-0 z-50 bg-foreground/20 backdrop-blur-sm md:hidden"
             onClick={() => setIsMobileOpen(false)}
           />
         )}
 
         {/* Mobile Sidebar */}
         <aside className={cn(
-          "fixed inset-y-0 left-0 z-50 w-[280px] bg-background border-r transition-transform duration-300 ease-in-out md:hidden flex flex-col",
+          "fixed inset-y-0 left-0 z-50 w-[280px] bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-transform duration-[280ms] ease-in-out md:hidden flex flex-col",
           isMobileOpen ? "translate-x-0" : "-translate-x-full"
         )}>
-          <div className="flex items-center justify-between border-b px-5 py-4">
+          <div className="flex items-center justify-between border-b border-sidebar-border px-5 py-4">
             <div className="flex items-center gap-2.5 min-w-0">
               <img src="/LOGO GUIRRA ISOTIPO.svg" alt="Guira Logo" className="h-7 w-auto" />
-              <span className="text-[1.35rem] font-bold tracking-tight text-foreground/90">Guira</span>
+              <span className="text-[1.1rem] font-medium tracking-tight text-sidebar-foreground/90">Guira</span>
             </div>
-            <Button variant="ghost" size="icon" onClick={() => setIsMobileOpen(false)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsMobileOpen(false)}
+              className="text-sidebar-foreground/65 hover:bg-white/8 hover:text-sidebar-foreground"
+            >
               <X className="size-5" />
             </Button>
           </div>
@@ -53,26 +58,26 @@ export function ClientShell({
         </aside>
 
         {/* Desktop Sidebar */}
-        <aside className="relative hidden border-r border-border/60  md:block">
+        <aside className="relative hidden bg-sidebar text-sidebar-foreground border-r border-sidebar-border md:block">
           <div className="sticky top-0 flex min-h-screen flex-col">
-            <div className="border-b border-border/55 px-5 py-6">
+            <div className="border-b border-sidebar-border px-5 py-6">
               <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between gap-3'}`}>
                 {!isCollapsed && (
                   <div className="flex items-center gap-2.5 min-w-0">
                     <img src="/LOGO GUIRRA ISOTIPO.svg" alt="Guira Logo" className="h-7 w-auto" />
-                    <span className="text-[1.35rem] font-bold tracking-tight text-foreground/90">Guira</span>
+                    <span className="text-[1.1rem] font-medium tracking-tight text-sidebar-foreground/90">Guira</span>
                   </div>
                 )}
 
                 <Button
                   type="button"
                   variant="ghost"
-                  className="shrink-0 rounded-full border border-border/70 bg-background/70 text-muted-foreground hover:bg-background hover:text-foreground h-10 w-10 p-0 flex items-center justify-center"
+                  className="shrink-0 rounded-full border border-sidebar-border bg-white/8 text-sidebar-foreground/65 hover:bg-white/14 hover:text-sidebar-foreground h-10 w-10 p-0 flex items-center justify-center"
                   onClick={() => setIsCollapsed((value) => !value)}
                   aria-label={isCollapsed ? 'Expandir menu lateral' : 'Colapsar menu lateral'}
                   title={isCollapsed ? 'Expandir menu lateral' : 'Colapsar menu lateral'}
                 >
-                  {isCollapsed ? <PanelLeftOpen strokeWidth={2.5} className="size-6" /> : <PanelLeftClose strokeWidth={2.5} className="size-6" />}
+                  {isCollapsed ? <PanelLeftOpen strokeWidth={2} className="size-5" /> : <PanelLeftClose strokeWidth={2} className="size-5" />}
                 </Button>
               </div>
             </div>
@@ -92,9 +97,9 @@ export function ClientShell({
               variant="outline"
               size="icon"
               onClick={() => setIsMobileOpen(true)}
-              className="border-border/70 bg-background/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80"
+              className="border-border/60 bg-background shadow-sm"
             >
-              <MenuIcon className="size-6" />
+              <MenuIcon className="size-5" />
             </Button>
           </div>
 

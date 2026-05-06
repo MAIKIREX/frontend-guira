@@ -46,10 +46,10 @@ export function UserMenu() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="relative inline-flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
-        <Avatar className="h-10 w-10">
-          <AvatarImage src={avatarUrl} alt={profile.full_name || 'Avatar del usuario'} />
-          <AvatarFallback>{getInitials(profile.full_name)}</AvatarFallback>
+      <DropdownMenuTrigger className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-300 ring-1 ring-sidebar-border hover:ring-white/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+        <Avatar className="h-full w-full rounded-lg">
+          <AvatarImage src={avatarUrl} alt={profile.full_name || 'Avatar del usuario'} className="object-cover" />
+          <AvatarFallback className="rounded-lg bg-white/10 text-white text-xs">{getInitials(profile.full_name)}</AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end">
