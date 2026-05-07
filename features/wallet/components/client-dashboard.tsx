@@ -9,6 +9,7 @@ import {
   TrendingUp,
   Activity,
   Clock,
+  ChevronRight,
 } from 'lucide-react'
 import { GuiraLoadingInline } from '@/components/shared/guira-loading'
 import Flag from 'react-world-flags'
@@ -30,17 +31,12 @@ const SPRING = { type: 'spring' as const, stiffness: 100, damping: 20 }
 
 const staggerContainer = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.12, delayChildren: 0.05 } },
+  visible: { transition: { staggerChildren: 0.08, delayChildren: 0.05 } },
 }
 
 const fadeSlideUp = {
-  hidden: { opacity: 0, y: 24 },
+  hidden: { opacity: 0, y: 16 },
   visible: { opacity: 1, y: 0, transition: SPRING },
-}
-
-const fadeSlideRight = {
-  hidden: { opacity: 0, x: 32 },
-  visible: { opacity: 1, x: 0, transition: { ...SPRING, delay: 0.2 } },
 }
 
 type QuoteAction = 'depositar' | 'enviar'
@@ -166,289 +162,250 @@ export function ClientDashboard({ children }: { children?: React.ReactNode }) {
   const balanceInt = Math.floor(balanceUSD).toLocaleString('en-US')
   const balanceDec = (balanceUSD % 1).toFixed(2).substring(1) // gets ".00"
 
-  // Extract first name correctly from full_name if available
-  const userFirstName = profile?.full_name?.split(' ')[0] || 'Usuario'
-
   return (
     <motion.div
-      className="mx-auto w-full max-w-screen-xl pb-12 pt-8"
+      className="mx-auto w-full max-w-screen-xl pb-12"
       initial="hidden"
       animate="visible"
       variants={staggerContainer}
     >
-      {/* ── Hero Greeting ── */}
-      <motion.div className="space-y-2 mb-10" variants={fadeSlideUp}>
-        <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tighter text-foreground leading-[0.95]">
-          Bienvenido a Guira
-        </h1>
-        <p className="text-4xl sm:text-5xl font-bold tracking-tight text-primary/80 leading-[1]">
-          {userFirstName}
-        </p>
-        <p className="text-sm font-medium text-muted-foreground/60 max-w-md pt-2">
-          Resumen de tu actividad financiera y cuentas operativas
-        </p>
-      </motion.div>
 
-      {/* ── MAIN 2-COLUMN GRID ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] xl:grid-cols-[1fr_420px] gap-10 xl:gap-16 items-start">
-
-        {/* ── LEFT COLUMN ── */}
-        <motion.div className="space-y-8" variants={staggerContainer}>
-
-          {/* ── Balance Hero + Line Chart ── */}
-          <motion.section
-            className="relative overflow-hidden rounded-[2rem] border border-border/40 bg-card/60 p-8 sm:p-10 shadow-[0_8px_40px_-16px_rgba(0,0,0,0.06)]"
-            variants={fadeSlideUp}
-          >
-            {/* Ambient gradient orbs */}
-            <div className="pointer-events-none absolute -top-24 -right-24 size-80 rounded-full bg-primary/[0.06] blur-[100px]" />
-            <div className="pointer-events-none absolute -bottom-16 -left-16 size-60 rounded-full bg-accent/[0.04] blur-[80px]" />
-
-            <div className="relative z-10">
-              {/* Label with live indicator */}
-              <div className="flex items-center gap-2.5 mb-5">
-                <span className="relative flex size-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60 opacity-75" />
-                  <span className="relative inline-flex size-2 rounded-full bg-primary" />
+      {/* ══════════════════════════════════════════════
+          ROW 1: Panorama de cuentas + Posición neta
+         ══════════════════════════════════════════════ */}
+      <motion.div
+        className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 mb-3"
+        variants={fadeSlideUp}
+      >
+        {/* Card 1: Panorama de cuentas */}
+        <div className="bg-card border border-border rounded-2xl shadow-[0_8px_24px_rgba(15,23,42,0.04)] p-6">
+          <div className="flex items-start justify-between gap-6">
+            <div>
+              <h3 className="text-sm font-bold text-foreground mb-0.5">Panorama de cuentas</h3>
+              <p className="text-xs text-muted-foreground mb-4">Saldos totales</p>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-3xl font-bold tracking-tight text-foreground tabular-nums">
+                  USD {balanceInt}
                 </span>
-                <p className="text-[0.68rem] font-extrabold uppercase tracking-[0.2em] text-muted-foreground">
-                  Balance Operativo Total
-                </p>
-              </div>
-
-              {/* Hero balance number */}
-              <div className="flex items-baseline gap-2">
-                <motion.span
-                  className="text-7xl sm:text-[6.5rem] font-extrabold tracking-tighter text-foreground leading-none"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ ...SPRING, delay: 0.15 }}
-                >
-                  ${balanceInt}
-                </motion.span>
-                <span className="text-3xl sm:text-4xl font-medium text-muted-foreground/50 tracking-tight">
+                <span className="text-lg font-medium text-muted-foreground/50 tabular-nums">
                   {balanceDec}
                 </span>
-                <span className="text-lg font-semibold text-muted-foreground/40 ml-1 self-center">
-                  USD
-                </span>
-              </div>
-
-              {/* ── Line Chart: Balance History ── */}
-              <div className="mt-6 -mx-2">
-                <BalanceLineChart currentBalance={balanceUSD} />
               </div>
 
               {/* Inline stat pills */}
-              <div className="flex flex-wrap items-center gap-3 mt-6">
-                <motion.div
-                  className="flex items-center gap-2 rounded-full border border-border/50 bg-card/80 px-4 py-2 shadow-sm"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ ...SPRING, delay: 0.3 }}
-                >
-                  <Activity className="size-3.5 text-success" />
-                  <span className="text-xs font-semibold text-foreground tabular-nums">{ordersThisMonth}</span>
-                  <span className="text-[10px] text-muted-foreground font-medium">operaciones este mes</span>
-                </motion.div>
-
+              <div className="flex flex-wrap items-center gap-2 mt-4">
+                <div className="flex items-center gap-1.5 rounded-full bg-[var(--green-100)] px-3 py-1 text-[#16C784]">
+                  <TrendingUp className="size-3" />
+                  <span className="text-[11px] font-semibold">+{ordersThisMonth} ops este mes</span>
+                </div>
                 {pendingOrders > 0 && (
-                  <motion.div
-                    className="flex items-center gap-2 rounded-full border border-destructive/20 bg-destructive/5 px-4 py-2"
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ ...SPRING, delay: 0.4 }}
-                  >
-                    <Clock className="size-3.5 text-destructive" />
-                    <span className="text-xs font-semibold text-destructive tabular-nums">{pendingOrders}</span>
-                    <span className="text-[10px] text-destructive/70 font-medium">pendientes</span>
-                  </motion.div>
+                  <div className="flex items-center gap-1.5 rounded-full bg-destructive/5 border border-destructive/10 px-3 py-1">
+                    <Clock className="size-3 text-destructive" />
+                    <span className="text-[11px] font-semibold text-destructive">{pendingOrders} pendientes</span>
+                  </div>
                 )}
               </div>
+
+              <button
+                onClick={() => router.push('/cuentas')}
+                className="flex items-center gap-1 mt-4 text-xs font-semibold text-primary hover:text-primary/80 transition-colors cursor-pointer"
+              >
+                Ver todas las cuentas
+                <ChevronRight className="size-3" />
+              </button>
             </div>
-          </motion.section>
 
-          {/* ── Recent Activity Card ── */}
-          <motion.section
-            className="relative overflow-hidden rounded-[2rem] border border-border/40 bg-card/60 p-8 sm:p-10 shadow-[0_8px_40px_-16px_rgba(0,0,0,0.06)]"
-            variants={fadeSlideUp}
-          >
-            <RecentActivityCard />
-          </motion.section>
+            {/* Balance chart sparkline */}
+            <div className="hidden md:block w-[220px] shrink-0">
+              <BalanceLineChart currentBalance={balanceUSD} />
+            </div>
+          </div>
+        </div>
 
-        </motion.div>
+        {/* Card 2: Posición neta */}
+        <div className="bg-card border border-border rounded-2xl shadow-[0_8px_24px_rgba(15,23,42,0.04)] p-6">
+          <h3 className="text-sm font-bold text-foreground mb-0.5">Posición neta (USD)</h3>
+          <p className="text-xs text-muted-foreground mb-4">Este mes</p>
 
-        {/* ── RIGHT COLUMN: Cotizador + Monthly Flows ── */}
-        <motion.div className="space-y-8 sticky top-8" variants={fadeSlideRight}>
+          <div className="flex items-baseline gap-1.5 mb-3">
+            <span className={cn(
+              "text-3xl font-bold tracking-tight tabular-nums",
+              balanceUSD >= 0 ? "text-[#16C784]" : "text-destructive"
+            )}>
+              {balanceUSD >= 0 ? '+' : ''}${balanceInt}
+            </span>
+            <span className="text-lg font-medium text-muted-foreground/50 tabular-nums">
+              {balanceDec}
+            </span>
+          </div>
 
-          {/* ── Cotizador Card ── */}
-          <div className="relative overflow-hidden rounded-[2rem] border border-border/50 bg-card text-foreground shadow-[0_8px_40px_-12px_rgba(0,0,0,0.10)] dark:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.30)]">
-            {/* Ambient gradient orbs */}
-            <div className="pointer-events-none absolute -top-20 -right-20 size-64 rounded-full bg-primary/[0.07] dark:bg-primary/[0.12] blur-[80px]" />
-            <div className="pointer-events-none absolute -bottom-20 -left-20 size-64 rounded-full bg-accent/[0.06] dark:bg-accent/[0.10] blur-[80px]" />
-
-            {/* Header */}
-            <div className="relative z-10 px-8 sm:px-10 pt-8 pb-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60 mb-1">
-                    En tiempo real
-                  </p>
-                  <h2 className="text-2xl font-bold tracking-tight text-foreground">Cotizador</h2>
+          {/* Rate cards inline */}
+          <div className="grid grid-cols-2 gap-3 mt-4">
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <div className="flex size-5 items-center justify-center rounded-md bg-[var(--green-100)] text-[#16C784]">
+                  <TrendingUp className="size-2.5" />
                 </div>
-                <motion.div
-                  className="flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1.5 text-success"
-                  animate={{ opacity: [1, 0.5, 1] }}
-                  transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
-                >
-                  <span className="relative flex size-1.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
-                    <span className="relative inline-flex size-1.5 rounded-full bg-success" />
-                  </span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider">Live</span>
-                </motion.div>
+                <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Compra</span>
               </div>
+              <p className="text-base font-bold tracking-tight text-foreground tabular-nums">
+                {buyRate ? formatNumber(buyRate) : '—'}
+                <span className="text-[10px] font-medium text-muted-foreground/50 ml-1">Bs</span>
+              </p>
             </div>
-
-            {/* Toggle Tabs */}
-            <div className="relative z-10 px-8 sm:px-10 mb-6 flex gap-6 border-b border-border/30">
-              {(['depositar', 'enviar'] as const).map((item) => (
-                <button
-                  key={item}
-                  onClick={() => setAction(item)}
-                  className={cn(
-                    "text-sm font-semibold transition-all duration-300 pb-3 border-b-2 relative -mb-[1px] cursor-pointer",
-                    action === item
-                      ? "text-foreground border-primary"
-                      : "text-muted-foreground/60 border-transparent hover:text-foreground"
-                  )}
-                >
-                  {item === 'depositar' ? 'Depositar' : 'Retirar'}
-                </button>
-              ))}
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <div className="flex size-5 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <TrendingDown className="size-2.5" />
+                </div>
+                <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Venta</span>
+              </div>
+              <p className="text-base font-bold tracking-tight text-foreground tabular-nums">
+                {sellRate ? formatNumber(sellRate) : '—'}
+                <span className="text-[10px] font-medium text-muted-foreground/50 ml-1">Bs</span>
+              </p>
             </div>
+          </div>
+        </div>
+      </motion.div>
 
-            {/* Form Fields */}
-            <div className="relative z-10 px-8 sm:px-10 pb-6">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={action}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ type: 'spring', stiffness: 200, damping: 24 }}
-                >
-                  {/* Origin */}
-                  <div className="rounded-2xl border border-border/40 bg-muted/20 p-5 transition-all duration-300 focus-within:bg-muted/40 focus-within:border-border/60 focus-within:shadow-sm">
-                    <MoneyField
-                      currency={config.originCurrency}
-                      label={config.originLabel}
-                      onChange={setAmountInput}
-                      value={amountInput}
-                    />
-                  </div>
+      {/* ══════════════════════════════════════════════
+          ROW 2: Actividad Reciente + Cotizador
+         ══════════════════════════════════════════════ */}
+      <motion.div
+        className="grid grid-cols-1 lg:grid-cols-[2fr_1.15fr] gap-3 mb-3"
+        variants={fadeSlideUp}
+      >
+        {/* Actividad Reciente */}
+        <div className="bg-card border border-border rounded-2xl shadow-[0_8px_24px_rgba(15,23,42,0.04)] p-6">
+          <RecentActivityCard />
+        </div>
 
-                  {/* Swap Arrow */}
-                  <div className="flex items-center justify-center -my-5 relative z-10">
-                    <motion.div
-                      className="flex size-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg border-[3px] border-card cursor-pointer"
-                      whileHover={{ scale: 1.15, rotate: 180 }}
-                      whileTap={{ scale: 0.92 }}
-                      transition={SPRING}
-                    >
-                      <ArrowDownUp className="size-[18px]" />
-                    </motion.div>
-                  </div>
-
-                  {/* Destination */}
-                  <div className="rounded-2xl border border-border/40 bg-muted/20 p-5">
-                    <ReadOnlyField
-                      currency={config.destinationCurrency}
-                      label={config.destinationLabel}
-                      value={estimate.amountConverted}
-                    />
-                  </div>
-                </motion.div>
-              </AnimatePresence>
-
-              {/* Active Rate */}
-              <div className="pt-5 flex items-center justify-between text-sm text-muted-foreground font-medium">
-                <span className="text-xs">
-                  1 USD = {action === 'depositar' ? formatNumber(sellRate) : (buyRate ? formatNumber(buyRate) : 0)} Bs
+        {/* Cotizador */}
+        <div className="bg-card border border-border rounded-2xl shadow-[0_8px_24px_rgba(15,23,42,0.04)] overflow-hidden">
+          {/* Header */}
+          <div className="px-6 pt-5 pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60 mb-0.5">
+                  En tiempo real
+                </p>
+                <h3 className="text-lg font-bold tracking-tight text-foreground">Cotizador</h3>
+              </div>
+              <motion.div
+                className="flex items-center gap-1.5 rounded-full bg-[var(--green-100)] px-2.5 py-1 text-[#16C784]"
+                animate={{ opacity: [1, 0.5, 1] }}
+                transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                <span className="relative flex size-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#16C784] opacity-75" />
+                  <span className="relative inline-flex size-1.5 rounded-full bg-[#16C784]" />
                 </span>
-                <div className="flex items-center gap-1.5">
-                  <TrendingUp className="size-3 text-success" />
-                  <span className="text-[10px] font-semibold text-success">En vivo</span>
-                </div>
-              </div>
-
-              {/* CTA */}
-              <div className="pt-6">
-                <GuiraButton
-                  onClick={() => router.push(action === 'depositar' ? '/depositar' : '/enviar')}
-                  className="w-full justify-center h-14 rounded-2xl text-base"
-                >
-                  Continuar
-                </GuiraButton>
-              </div>
-            </div>
-
-            {/* Buy / Sell Rate Strip */}
-            <div className="relative z-10 mx-8 sm:mx-10 mb-8 flex items-stretch gap-3">
-              <motion.div
-                className="flex-1 rounded-xl border border-border/30 bg-muted/10 p-4"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ ...SPRING, delay: 0.5 }}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-success/10 text-success">
-                    <TrendingUp className="size-3" />
-                  </div>
-                  <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Compra</p>
-                </div>
-                <p className="text-xl font-bold tracking-tight text-foreground tabular-nums">
-                  {buyRate ? formatNumber(buyRate) : '—'}
-                  <span className="text-xs font-medium text-muted-foreground/60 ml-1">Bs</span>
-                </p>
-              </motion.div>
-
-              <motion.div
-                className="flex-1 rounded-xl border border-border/30 bg-muted/10 p-4"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ ...SPRING, delay: 0.6 }}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                    <TrendingDown className="size-3" />
-                  </div>
-                  <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Venta</p>
-                </div>
-                <p className="text-xl font-bold tracking-tight text-foreground tabular-nums">
-                  {sellRate ? formatNumber(sellRate) : '—'}
-                  <span className="text-xs font-medium text-muted-foreground/60 ml-1">Bs</span>
-                </p>
+                <span className="text-[9px] font-bold uppercase tracking-wider">Live</span>
               </motion.div>
             </div>
           </div>
 
-          {/* ── Monthly Flows Card ── */}
-          <motion.div
-            className="relative overflow-hidden rounded-[2rem] border border-border/40 bg-card/60 p-8 sm:p-10 shadow-[0_8px_40px_-16px_rgba(0,0,0,0.06)]"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ ...SPRING, delay: 0.35 }}
-          >
-            <MonthlyFlowsCard />
-          </motion.div>
+          {/* Toggle Tabs */}
+          <div className="px-6 mb-4 flex gap-6 border-b border-border/30">
+            {(['depositar', 'enviar'] as const).map((item) => (
+              <button
+                key={item}
+                onClick={() => setAction(item)}
+                className={cn(
+                  "text-[13px] font-semibold transition-all duration-300 pb-3 border-b-2 relative -mb-[1px] cursor-pointer",
+                  action === item
+                    ? "text-foreground border-primary"
+                    : "text-muted-foreground/60 border-transparent hover:text-foreground"
+                )}
+              >
+                {item === 'depositar' ? 'Depositar' : 'Retirar'}
+              </button>
+            ))}
+          </div>
 
-        </motion.div>
-      </div>
+          {/* Form Fields */}
+          <div className="px-6 pb-5">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={action}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ type: 'spring', stiffness: 200, damping: 24 }}
+              >
+                {/* Origin */}
+                <div className="rounded-xl border border-border/40 bg-muted/20 p-4 transition-all duration-300 focus-within:bg-muted/40 focus-within:border-border/60 focus-within:shadow-sm">
+                  <MoneyField
+                    currency={config.originCurrency}
+                    label={config.originLabel}
+                    onChange={setAmountInput}
+                    value={amountInput}
+                  />
+                </div>
 
-      {/* ── FULL-WIDTH SECTION: Wallets + Virtual Accounts (children) ── */}
+                {/* Swap Arrow */}
+                <div className="flex items-center justify-center -my-4 relative z-10">
+                  <motion.div
+                    className="flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg border-[3px] border-card cursor-pointer"
+                    whileHover={{ scale: 1.15, rotate: 180 }}
+                    whileTap={{ scale: 0.92 }}
+                    transition={SPRING}
+                  >
+                    <ArrowDownUp className="size-[16px]" />
+                  </motion.div>
+                </div>
+
+                {/* Destination */}
+                <div className="rounded-xl border border-border/40 bg-muted/20 p-4">
+                  <ReadOnlyField
+                    currency={config.destinationCurrency}
+                    label={config.destinationLabel}
+                    value={estimate.amountConverted}
+                  />
+                </div>
+              </motion.div>
+            </AnimatePresence>
+
+            {/* Active Rate */}
+            <div className="pt-4 flex items-center justify-between text-sm text-muted-foreground font-medium">
+              <span className="text-xs">
+                1 USD = {action === 'depositar' ? formatNumber(sellRate) : (buyRate ? formatNumber(buyRate) : 0)} Bs
+              </span>
+              <div className="flex items-center gap-1.5">
+                <Activity className="size-3 text-[#16C784]" />
+                <span className="text-[10px] font-semibold text-[#16C784]">En vivo</span>
+              </div>
+            </div>
+
+            {/* CTA */}
+            <div className="pt-4">
+              <GuiraButton
+                onClick={() => router.push(action === 'depositar' ? '/depositar' : '/enviar')}
+                className="w-full justify-center h-12 rounded-xl text-sm"
+              >
+                Continuar
+              </GuiraButton>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* ══════════════════════════════════════════════
+          ROW 3: Flujo del mes (Analytics)
+         ══════════════════════════════════════════════ */}
+      <motion.div
+        className="bg-card border border-border rounded-2xl shadow-[0_8px_24px_rgba(15,23,42,0.04)] p-6 mb-3"
+        variants={fadeSlideUp}
+      >
+        <MonthlyFlowsCard />
+      </motion.div>
+
+      {/* ══════════════════════════════════════════════
+          ROW 4: Wallets + Virtual Accounts (children)
+         ══════════════════════════════════════════════ */}
       {children && (
-        <motion.section className="mt-12" variants={fadeSlideUp}>
+        <motion.section className="mt-3" variants={fadeSlideUp}>
           {children}
         </motion.section>
       )}
@@ -472,11 +429,11 @@ function MoneyField({
   onChange: (value: string) => void
 }) {
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1">
       <label className="text-[0.6rem] font-bold uppercase tracking-[0.18em] text-muted-foreground/70">{label}</label>
       <div className="flex items-center justify-between gap-3">
         <Input
-          className="h-auto w-full border-0 bg-transparent p-0 text-3xl font-bold tracking-tight text-foreground shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/25"
+          className="h-auto w-full border-0 bg-transparent p-0 text-2xl font-bold tracking-tight text-foreground shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/25"
           inputMode="decimal"
           onChange={(event) => onChange(event.target.value)}
           placeholder="0.00"
@@ -498,10 +455,10 @@ function ReadOnlyField({
   currency: string
 }) {
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1">
       <label className="text-[0.6rem] font-bold uppercase tracking-[0.18em] text-muted-foreground/70">{label}</label>
       <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0 flex-1 truncate text-3xl font-bold tracking-tight text-primary">
+        <div className="min-w-0 flex-1 truncate text-2xl font-bold tracking-tight text-primary">
           {formatNumber(value)}
         </div>
         <CurrencyPill currency={currency} />

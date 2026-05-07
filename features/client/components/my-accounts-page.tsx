@@ -399,7 +399,7 @@ export function MyAccountsPage({ embedded = false }: { embedded?: boolean }) {
     /* ── Embedded mode: inline sections inside the Panel ── */
     if (embedded) {
         return (
-            <div className="space-y-14">
+            <div className="space-y-3">
                 {/* KYC alert (only when not verified) */}
                 {!isApproved && (
                     <motion.div
@@ -423,15 +423,16 @@ export function MyAccountsPage({ embedded = false }: { embedded?: boolean }) {
 
                 {/* ── Wallets Section ── */}
                 <motion.section
+                    className="bg-card border border-border rounded-2xl shadow-[0_8px_24px_rgba(15,23,42,0.04)] p-6"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ ...SPRING, delay: 0.1 }}
                 >
-                    <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center justify-between mb-5">
                         <div>
-                            <h2 className="text-4xl font-extrabold text-foreground tracking-tight">Wallets</h2>
-                            <p className="text-sm text-muted-foreground/60 mt-1.5 font-medium">
-                                Tus balances de activos digitales en tiempo real
+                            <h2 className="text-lg font-bold text-foreground tracking-tight">Cuentas operativas</h2>
+                            <p className="text-xs text-muted-foreground/60 mt-0.5 font-medium">
+                                Balances de activos digitales en tiempo real
                             </p>
                         </div>
                         <div className="flex items-center gap-2 rounded-full bg-primary/5 border border-primary/10 px-3 py-1.5">
@@ -442,11 +443,9 @@ export function MyAccountsPage({ embedded = false }: { embedded?: boolean }) {
                     <WalletsSection isApproved={isApproved} />
                 </motion.section>
 
-                {/* ── Divider ── */}
-                <div className="border-t border-border/30" />
-
                 {/* ── Virtual Accounts Section ── */}
                 <motion.section
+                    className="bg-card border border-border rounded-2xl shadow-[0_8px_24px_rgba(15,23,42,0.04)] p-6"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ ...SPRING, delay: 0.2 }}

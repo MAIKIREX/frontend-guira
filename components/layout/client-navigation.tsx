@@ -5,24 +5,24 @@ import { usePathname } from 'next/navigation'
 import {
   ArrowDownLeft,
   ArrowUpRight,
-  Headset,
   LayoutDashboard,
   Settings,
+  Headset,
   UsersRound,
   Waypoints,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const mainLinks = [
-  { href: '/panel', label: 'Panel', icon: LayoutDashboard },
+  { href: '/panel', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/depositar', label: 'Depositar', icon: ArrowDownLeft },
-  { href: '/enviar', label: 'Enviar / Retirar', icon: ArrowUpRight },
+  { href: '/enviar', label: 'Pagos / Envíos', icon: ArrowUpRight },
   { href: '/proveedores', label: 'Proveedores', icon: UsersRound },
-  { href: '/transacciones', label: 'Transacciones', icon: Waypoints },
+  { href: '/transacciones', label: 'Trazabilidad', icon: Waypoints },
 ]
 
 const utilityLinks = [
-  { href: '/configuracion', label: 'Configuracion', icon: Settings },
+  { href: '/configuracion', label: 'Configuración', icon: Settings },
   { href: '/soporte', label: 'Soporte', icon: Headset },
 ]
 
@@ -42,34 +42,29 @@ function NavLink({
   return (
     <div className="relative flex flex-col w-full">
       <div className="relative flex items-center px-4 py-0.5">
-        {active && (
-          <div
-            className="absolute left-0 h-[55%] w-[3px] rounded-r-full bg-accent transition-all duration-300"
-            style={{ boxShadow: '0 0 8px rgba(0, 214, 255, 0.45)' }}
-          />
-        )}
         <Link
           href={href}
           title={label}
           aria-label={label}
           className={cn(
             'w-full group relative flex items-center transition-all duration-200 ease-out',
-            collapsed ? 'justify-center p-3 rounded-2xl' : 'gap-3.5 px-4 py-2.5 rounded-[12px]',
+            collapsed ? 'justify-center p-3 rounded-2xl' : 'gap-3.5 px-4 py-2.5 rounded-[10px]',
             active
-              ? 'bg-white/[0.07] text-white'
-              : 'text-sidebar-foreground/55 hover:bg-white/[0.04] hover:text-white'
+              ? 'text-white shadow-[0_8px_20px_rgba(0,91,255,0.25)]'
+              : 'text-white/[0.78] hover:bg-white/[0.08] hover:text-white'
           )}
+          style={active ? {
+            background: 'linear-gradient(90deg, #005BFF 0%, #00BFFF 100%)',
+          } : undefined}
         >
           <span
             className={cn(
               'relative z-10 flex shrink-0 items-center justify-center transition-all duration-200',
-              active
-                ? 'text-accent'
-                : 'text-sidebar-foreground/55 group-hover:text-white/80'
+              active ? 'text-white' : 'text-white/[0.78] group-hover:text-white'
             )}
           >
             <Icon
-              strokeWidth={active ? 2.5 : 1.8}
+              strokeWidth={active ? 2.2 : 1.8}
               className={cn('size-[1.1rem]', collapsed && 'size-[1.2rem]')}
             />
           </span>
@@ -100,7 +95,7 @@ export function ClientNavigation({
   return (
     <nav className="flex flex-col h-full py-2">
       {/* Main links */}
-      <div className="flex flex-col flex-1">
+      <div className="flex flex-col flex-1 gap-0.5">
         {mainLinks.map((link) => {
           const active = pathname === link.href || pathname.startsWith(`${link.href}/`)
           return (
@@ -122,7 +117,7 @@ export function ClientNavigation({
       </div>
 
       {/* Utility links */}
-      <div className="flex flex-col">
+      <div className="flex flex-col gap-0.5">
         {!collapsed && (
           <p className="px-8 pb-1.5 text-[0.6rem] font-extrabold uppercase tracking-[0.16em] text-sidebar-foreground/30">
             Ajustes

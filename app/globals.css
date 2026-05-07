@@ -6,14 +6,14 @@
 
 /*
   ╔══════════════════════════════════════════════════════╗
-  ║  GUIRA — "Oceanic Trust" palette                    ║
-  ║  Derivada del punto medio del gradiente del logo:   ║
-  ║    Logo gradient: #0788FF → #01C5FF                 ║
-  ║    Logo solid:    #0150F2  (azul royal)              ║
-  ║    Logo text:     #0A1128  (navy slate)              ║
+  ║  GUIRA — "Hybrid Premium" palette                   ║
+  ║  Propuesta 3 — Híbrida Premium                      ║
+  ║    Primary:   #005BFF (institutional blue)           ║
+  ║    Accent:    #00BFFF (cyan gradient endpoint)       ║
+  ║    Success:   #16C784 (ingresos / positivo)          ║
+  ║    Purple:    #7C3AED (conversión FX / rieles)       ║
+  ║    Sidebar:   #020B2D → #06113A (navy gradient)      ║
   ║                                                      ║
-  ║  Primary = punto medio del gradiente (azul profundo) ║
-  ║  Accent  = teal sofisticado (complemento cálido)     ║
   ║  Light: fondos blancos cálidos, azul institucional   ║
   ║  Dark:  superficies con wash navy, luminosidad baja  ║
   ╚══════════════════════════════════════════════════════╝
@@ -69,13 +69,13 @@
 }
 
 /* ─────────────────────────────────────────────────────
-   LIGHT MODE — Design System
-   Primary: #0055FF · Accent: #00D6FF · Dark: #0A1128
-   Surface: #F4F6FF · Sidebar: always dark (#0A1128)
+   LIGHT MODE — Propuesta 3 Híbrida Premium
+   Primary: #005BFF · Accent: #00BFFF · Dark: #0A1128
+   Surface: #F8FAFC · Sidebar: always dark (#020B2D)
 ───────────────────────────────────────────────────── */
 :root {
   /* Surfaces */
-  --background:          #F4F7FB;
+  --background:          #F8FAFC;
   --foreground:          #0A1128;
 
   --card:                #FFFFFF;
@@ -84,8 +84,8 @@
   --popover:             #FFFFFF;
   --popover-foreground:  #0A1128;
 
-  /* Primary */
-  --primary:             #0055FF;
+  /* Primary — Guira institutional blue */
+  --primary:             #005BFF;
   --primary-foreground:  #FFFFFF;
 
   /* Secondary — light tint of surface */
@@ -96,47 +96,53 @@
   --muted:               #F1F5F9;
   --muted-foreground:    #64748B;
 
-  /* Accent */
-  --accent:              #00D6FF;
+  /* Accent — cyan from Guira gradient */
+  --accent:              #00BFFF;
   --accent-foreground:   #0A1128;
 
   /* Semantic */
-  --destructive:         #E84040;
+  --destructive:         #DC2626;
   --destructive-foreground: #FFFFFF;
 
-  --success:             #1DB87A;
+  --success:             #16C784;
   --success-foreground:  #FFFFFF;
 
   --warning:             #F5A623;
   --warning-foreground:  #0A1128;
 
   /* Chrome */
-  --border:              #E2E8F0;
-  --input:               #E2E8F0;
-  --ring:                #0055FF;
+  --border:              #E5E7EB;
+  --input:               #E5E7EB;
+  --ring:                #005BFF;
 
   /* Charts */
-  --chart-1:             #0055FF;
-  --chart-2:             #00D6FF;
-  --chart-3:             #1DB87A;
+  --chart-1:             #005BFF;
+  --chart-2:             #00BFFF;
+  --chart-3:             #16C784;
   --chart-4:             #F5A623;
-  --chart-5:             #E84040;
+  --chart-5:             #DC2626;
 
   --radius: 0.75rem;
 
   /* Sidebar — always dark per design system */
-  --sidebar:                    #0A1128;
+  --sidebar:                    #020B2D;
   --sidebar-foreground:         #FFFFFF;
-  --sidebar-primary:            #0055FF;
+  --sidebar-primary:            #005BFF;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent:             #0055FF;
+  --sidebar-accent:             #005BFF;
   --sidebar-accent-foreground:  #FFFFFF;
   --sidebar-border:             rgba(255, 255, 255, 0.08);
-  --sidebar-ring:               #0055FF;
+  --sidebar-ring:               #005BFF;
+
+  /* Extended palette — Propuesta 3 */
+  --purple-500:          #7C3AED;
+  --purple-100:          #F1EAFF;
+  --green-100:           #E8F9F1;
+  --cyan-400:            #00BFFF;
 }
 
 /* ─────────────────────────────────────────────────────
-   DARK MODE — Design System
+   DARK MODE — Propuesta 3 Híbrida Premium
    Deep navy surfaces, luminous primary blue.
 ───────────────────────────────────────────────────── */
 .dark {
@@ -163,14 +169,14 @@
   --muted-foreground:    #94A3B8;
 
   /* Accent */
-  --accent:              #00D6FF;
+  --accent:              #00BFFF;
   --accent-foreground:   #0A1128;
 
   /* Semantic */
-  --destructive:         #E84040;
+  --destructive:         #DC2626;
   --destructive-foreground: #FFFFFF;
 
-  --success:             #1DB87A;
+  --success:             #16C784;
   --success-foreground:  #FFFFFF;
 
   --warning:             #F5A623;
@@ -183,13 +189,13 @@
 
   /* Charts */
   --chart-1:             #4D87FF;
-  --chart-2:             #00D6FF;
-  --chart-3:             #1DB87A;
+  --chart-2:             #00BFFF;
+  --chart-3:             #16C784;
   --chart-4:             #F5A623;
-  --chart-5:             #E84040;
+  --chart-5:             #DC2626;
 
   /* Sidebar — deeper dark in dark mode */
-  --sidebar:                    #050A18;
+  --sidebar:                    #020B2D;
   --sidebar-foreground:         #FFFFFF;
   --sidebar-primary:            #4D87FF;
   --sidebar-primary-foreground: #FFFFFF;
@@ -197,6 +203,12 @@
   --sidebar-accent-foreground:  #FFFFFF;
   --sidebar-border:             rgba(255, 255, 255, 0.06);
   --sidebar-ring:               #4D87FF;
+
+  /* Extended palette — Propuesta 3 */
+  --purple-500:          #8B5CF6;
+  --purple-100:          rgba(139, 92, 246, 0.12);
+  --green-100:           rgba(22, 199, 132, 0.12);
+  --cyan-400:            #00BFFF;
 }
 
 @layer base {
