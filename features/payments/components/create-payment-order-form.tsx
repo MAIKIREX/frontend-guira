@@ -64,8 +64,7 @@ import {
 } from '@/features/payments/lib/deposit-instructions'
 import { DepositInstructionCard } from '@/features/payments/components/deposit-instruction-card'
 import { DocumentUploadCard } from '@/components/shared/document-upload-card'
-import { AnimatedNextButton } from '@/components/shared/animated-next-button'
-import { AnimatedBackButton } from '@/components/shared/animated-back-button'
+import { GuiraButton } from '@/components/shared/guira-button'
 import { StepProgressRail } from '@/features/payments/components/step-progress-rail'
 import { WalletRampDetailStep } from '@/features/payments/components/wallet-ramp-detail-step'
 import { WalletWithdrawDetailStep } from '@/features/payments/components/wallet-withdraw-detail-step'
@@ -1144,9 +1143,9 @@ export function CreatePaymentOrderForm({
                     />
 
                     <div className="flex justify-end mt-8">
-                      <AnimatedNextButton disabled={disabled} onClick={handleNext}>
+                      <GuiraButton disabled={disabled} onClick={handleNext} arrowNext>
                         Continuar a metodo
-                      </AnimatedNextButton>
+                      </GuiraButton>
                     </div>
                   </AnimatedStepPanel>
                 ) : null}
@@ -1357,12 +1356,12 @@ export function CreatePaymentOrderForm({
                     ) : null}
 
                     <div className="flex items-center justify-between mt-8">
-                      <AnimatedBackButton onClick={handleBack}>
+                      <GuiraButton variant="secondary" onClick={handleBack} arrowBack>
                         Volver
-                      </AnimatedBackButton>
-                      <AnimatedNextButton disabled={disabled} onClick={handleNext}>
+                      </GuiraButton>
+                      <GuiraButton disabled={disabled} onClick={handleNext} arrowNext>
                         Continuar a detalle
-                      </AnimatedNextButton>
+                      </GuiraButton>
                     </div>
                   </AnimatedStepPanel>
                 ) : null}
@@ -1716,12 +1715,12 @@ export function CreatePaymentOrderForm({
                         </div>
 
                         <div className="flex items-center justify-between mt-8">
-                          <AnimatedBackButton onClick={handleBack}>
+                          <GuiraButton variant="secondary" onClick={handleBack} arrowBack>
                             Volver
-                          </AnimatedBackButton>
-                          <AnimatedNextButton disabled={disabled} onClick={handleNext}>
+                          </GuiraButton>
+                          <GuiraButton disabled={disabled} onClick={handleNext} arrowNext>
                             Revisar expediente
-                          </AnimatedNextButton>
+                          </GuiraButton>
                         </div>
                       </AnimatedStepPanel>
                     )}
@@ -1932,12 +1931,12 @@ export function CreatePaymentOrderForm({
                         </div>
 
                         <div className="flex items-center justify-between mt-8">
-                          <AnimatedBackButton onClick={handleBack}>
+                          <GuiraButton variant="secondary" onClick={handleBack} arrowBack>
                             {detailSubStep === 'supplier' ? 'Volver' : 'Anterior'}
-                          </AnimatedBackButton>
-                          <AnimatedNextButton disabled={disabled} onClick={handleNext}>
+                          </GuiraButton>
+                          <GuiraButton disabled={disabled} onClick={handleNext} arrowNext>
                             {detailSubStep === 'amount' ? 'Revisar expediente' : 'Siguiente'}
-                          </AnimatedNextButton>
+                          </GuiraButton>
                         </div>
                       </AnimatedStepPanel>
                     )}
@@ -2014,12 +2013,12 @@ export function CreatePaymentOrderForm({
                         </div>
 
                         <div className="flex items-center justify-between mt-8">
-                          <AnimatedBackButton onClick={handleBack}>
+                          <GuiraButton variant="secondary" onClick={handleBack} arrowBack>
                             {fiatBoSubStep === 'wallet' ? 'Volver' : 'Anterior'}
-                          </AnimatedBackButton>
-                          <AnimatedNextButton disabled={disabled} onClick={handleNext}>
+                          </GuiraButton>
+                          <GuiraButton disabled={disabled} onClick={handleNext} arrowNext>
                             {fiatBoSubStep === 'amount' ? 'Revisar expediente' : 'Siguiente'}
-                          </AnimatedNextButton>
+                          </GuiraButton>
                         </div>
                       </AnimatedStepPanel>
                     )}
@@ -2093,12 +2092,12 @@ export function CreatePaymentOrderForm({
                         </div>
 
                         <div className="flex items-center justify-between mt-8">
-                          <AnimatedBackButton onClick={handleBack}>
+                          <GuiraButton variant="secondary" onClick={handleBack} arrowBack>
                             {cryptoWithdrawSubStep === 'wallet' ? 'Volver' : 'Anterior'}
-                          </AnimatedBackButton>
-                          <AnimatedNextButton disabled={disabled} onClick={handleNext}>
+                          </GuiraButton>
+                          <GuiraButton disabled={disabled} onClick={handleNext} arrowNext>
                             {cryptoWithdrawSubStep === 'amount' ? 'Revisar expediente' : 'Siguiente'}
-                          </AnimatedNextButton>
+                          </GuiraButton>
                         </div>
                       </AnimatedStepPanel>
                     )}
@@ -2217,12 +2216,12 @@ export function CreatePaymentOrderForm({
                         </div>
 
                         <div className="flex items-center justify-between mt-8">
-                          <AnimatedBackButton onClick={handleBack}>
+                          <GuiraButton variant="secondary" onClick={handleBack} arrowBack>
                             {fiatUsSubStep === 'wallet' ? 'Volver' : 'Anterior'}
-                          </AnimatedBackButton>
-                          <AnimatedNextButton disabled={disabled} onClick={handleNext}>
+                          </GuiraButton>
+                          <GuiraButton disabled={disabled} onClick={handleNext} arrowNext>
                             {fiatUsSubStep === 'amount' ? 'Revisar expediente' : 'Siguiente'}
-                          </AnimatedNextButton>
+                          </GuiraButton>
                         </div>
                       </AnimatedStepPanel>
                     )}
@@ -2287,12 +2286,12 @@ export function CreatePaymentOrderForm({
                         </div>
 
                         <div className="flex items-center justify-between mt-8">
-                          <AnimatedBackButton onClick={handleBack}>
+                          <GuiraButton variant="secondary" onClick={handleBack} arrowBack>
                             {fiatBoDepositSubStep === 'wallet' ? 'Volver' : 'Anterior'}
-                          </AnimatedBackButton>
-                          <AnimatedNextButton disabled={disabled} onClick={handleNext}>
+                          </GuiraButton>
+                          <GuiraButton disabled={disabled} onClick={handleNext} arrowNext>
                             {fiatBoDepositSubStep === 'amount' ? 'Revisar expediente' : 'Siguiente'}
-                          </AnimatedNextButton>
+                          </GuiraButton>
                         </div>
                       </AnimatedStepPanel>
                     )}
@@ -2357,12 +2356,12 @@ export function CreatePaymentOrderForm({
                         </div>
 
                         <div className="flex items-center justify-between mt-8">
-                          <AnimatedBackButton onClick={handleBack}>
+                          <GuiraButton variant="secondary" onClick={handleBack} arrowBack>
                             {rampDepositSubStep === 'wallet' ? 'Volver' : 'Anterior'}
-                          </AnimatedBackButton>
-                          <AnimatedNextButton disabled={disabled} onClick={handleNext}>
+                          </GuiraButton>
+                          <GuiraButton disabled={disabled} onClick={handleNext} arrowNext>
                             {rampDepositSubStep === 'reason' ? 'Revisar expediente' : 'Siguiente'}
-                          </AnimatedNextButton>
+                          </GuiraButton>
                         </div>
                       </AnimatedStepPanel>
                     )}
@@ -2425,12 +2424,12 @@ export function CreatePaymentOrderForm({
                         </div>
 
                         <div className="flex items-center justify-between mt-8">
-                          <AnimatedBackButton onClick={handleBack}>
+                          <GuiraButton variant="secondary" onClick={handleBack} arrowBack>
                             {worldBoliviaSubStep === 'bank' ? 'Volver' : 'Anterior'}
-                          </AnimatedBackButton>
-                          <AnimatedNextButton disabled={disabled} onClick={handleNext}>
+                          </GuiraButton>
+                          <GuiraButton disabled={disabled} onClick={handleNext} arrowNext>
                             {worldBoliviaSubStep === 'amount' ? 'Revisar expediente' : 'Siguiente'}
-                          </AnimatedNextButton>
+                          </GuiraButton>
                         </div>
                       </AnimatedStepPanel>
                     )}
@@ -2453,12 +2452,12 @@ export function CreatePaymentOrderForm({
                       Revisa todos los datos antes de crear. Una vez creado el expediente no se puede modificar.
                     </div>
                     <div className="flex items-center justify-between mt-6">
-                      <AnimatedBackButton onClick={handleBack}>
+                      <GuiraButton variant="secondary" onClick={handleBack} arrowBack>
                         Editar detalle
-                      </AnimatedBackButton>
-                      <AnimatedNextButton disabled={disabled || creatingOrder} onClick={handleNext}>
+                      </GuiraButton>
+                      <GuiraButton disabled={disabled || creatingOrder} onClick={handleNext} arrowNext>
                         {creatingOrder ? 'Creando expediente...' : 'Crear expediente'}
-                      </AnimatedNextButton>
+                      </GuiraButton>
                     </div>
                   </AnimatedStepPanel>
                 ) : null}
@@ -2524,12 +2523,12 @@ export function CreatePaymentOrderForm({
                         </div>
 
                         <div className="flex items-center justify-end mt-8">
-                          <AnimatedNextButton
+                          <GuiraButton
                             disabled={disabled}
                             onClick={() => resetFlow(form, setStep, setSupportFile, setQrFile, setEvidenceFile, setCreatedOrder)}
                           >
                             Cerrar
-                          </AnimatedNextButton>
+                          </GuiraButton>
                         </div>
                       </>
                     ) : route === 'crypto_to_crypto' ? (
@@ -2568,12 +2567,12 @@ export function CreatePaymentOrderForm({
                         </div>
 
                         <div className="flex items-center justify-end mt-8">
-                          <AnimatedNextButton
+                          <GuiraButton
                             disabled={disabled}
                             onClick={() => resetFlow(form, setStep, setSupportFile, setQrFile, setEvidenceFile, setCreatedOrder)}
                           >
                             Cerrar
-                          </AnimatedNextButton>
+                          </GuiraButton>
                         </div>
                       </>
                     ) : (
@@ -2600,15 +2599,15 @@ export function CreatePaymentOrderForm({
                         </div>
 
                         <div className="flex items-center justify-between mt-8">
-                          <AnimatedBackButton
+                          <GuiraButton variant="secondary"
                             disabled={uploadingEvidence}
                             onClick={() => resetFlow(form, setStep, setSupportFile, setQrFile, setEvidenceFile, setCreatedOrder)}
                           >
                             Finalizar despues
-                          </AnimatedBackButton>
-                          <AnimatedNextButton disabled={disabled || uploadingEvidence || !createdOrder} onClick={handleFinishEvidenceUpload}>
+                          </GuiraButton>
+                          <GuiraButton disabled={disabled || uploadingEvidence || !createdOrder} onClick={handleFinishEvidenceUpload} arrowNext>
                             {uploadingEvidence ? 'Adjuntando...' : evidenceFile ? 'Adjuntar y cerrar' : 'Cerrar sin comprobante'}
-                          </AnimatedNextButton>
+                          </GuiraButton>
                         </div>
                       </>
                     )}
@@ -3092,38 +3091,80 @@ function SelectionCard({
   onClick: () => void
   disabled?: boolean
 }) {
+  const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (disabled) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    e.currentTarget.style.setProperty('--spot-x', `${x}px`)
+    e.currentTarget.style.setProperty('--spot-y', `${y}px`)
+  }
+
   return (
-    <button
+    <motion.button
       aria-pressed={isSelected}
       className={cn(
-        'group relative w-full rounded-2xl border text-left transition-all duration-300 ease-out',
+        'group relative w-full rounded-2xl border text-left overflow-hidden',
         'active:scale-[0.98]',
         isSelected
           ? 'border-primary bg-background shadow-[0_8px_30px_rgb(0,0,0,0.06)] ring-1 ring-primary'
-          : 'border-border/50 bg-background hover:border-border/80 hover:shadow-[0_8px_30px_rgb(0,0,0,0.03)]',
+          : 'border-border/50 bg-background',
         disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
       )}
       disabled={disabled}
       onClick={onClick}
+      onMouseMove={handleMouseMove}
       type="button"
+      whileHover={disabled ? {} : { y: -4, scale: 1.015, transition: { type: 'spring', stiffness: 260, damping: 20 } }}
+      whileTap={disabled ? {} : { scale: 0.975 }}
+      style={{
+        // CSS custom properties for the spotlight — updated via onMouseMove
+        '--spot-x': '50%',
+        '--spot-y': '50%',
+      } as React.CSSProperties}
     >
-      <div className="flex flex-col gap-4 p-5 sm:p-6">
+      {/* Spotlight glow overlay — follows cursor position */}
+      {!isSelected && !disabled && (
+        <div
+          className="pointer-events-none absolute inset-0 z-0 rounded-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+          style={{
+            background: 'radial-gradient(320px circle at var(--spot-x) var(--spot-y), hsl(var(--primary) / 0.08), transparent 60%)',
+          }}
+        />
+      )}
+
+      {/* Directional shine sweep on hover */}
+      {!disabled && (
+        <div className="pointer-events-none absolute inset-0 z-0 -translate-x-full skew-x-[-18deg] bg-gradient-to-r from-transparent via-foreground/[0.06] to-transparent transition-transform duration-700 ease-out group-hover:translate-x-full" />
+      )}
+
+      <div className="relative z-10 flex flex-col gap-4 p-5 sm:p-6">
         <div className="flex items-start justify-between">
-          <div className={cn(
-            'flex size-11 shrink-0 items-center justify-center rounded-full transition-colors duration-300',
-            isSelected
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-muted/50 text-muted-foreground group-hover:bg-muted group-hover:text-foreground'
-          )}>
+          <motion.div
+            className={cn(
+              'flex size-11 shrink-0 items-center justify-center rounded-full transition-colors duration-300',
+              isSelected
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted/50 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary'
+            )}
+            whileHover={{ rotate: [0, -8, 8, -4, 0], transition: { duration: 0.5, ease: 'easeInOut' } }}
+          >
             <Icon className="size-[22px]" strokeWidth={1.5} />
-          </div>
+          </motion.div>
           <div className={cn(
             'mt-1 flex size-5 items-center justify-center rounded-full border transition-all duration-300',
             isSelected
               ? 'border-primary bg-primary'
-              : 'border-border/60 bg-transparent group-hover:border-border/80'
+              : 'border-border/60 bg-transparent group-hover:border-primary/40'
           )}>
-            {isSelected && <div className="size-2 rounded-full bg-background" />}
+            {isSelected && (
+              <motion.div
+                className="size-2 rounded-full bg-background"
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 15 }}
+              />
+            )}
           </div>
         </div>
         <div className="space-y-1.5">
@@ -3138,7 +3179,7 @@ function SelectionCard({
           </div>
         </div>
       </div>
-    </button>
+    </motion.button>
   )
 }
 

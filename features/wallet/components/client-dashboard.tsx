@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowDownUp,
   DollarSign,
@@ -21,6 +22,24 @@ import { useExchangeRates } from '@/features/payments/hooks/use-exchange-rates'
 import { WalletService } from '@/services/wallet.service'
 import { PaymentsService } from '@/services/payments.service'
 import { GuiraButton } from '@/components/shared/guira-button'
+
+/* ── Framer Motion orchestration ── */
+const SPRING = { type: 'spring' as const, stiffness: 100, damping: 20 }
+
+const staggerContainer = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.12, delayChildren: 0.05 } },
+}
+
+const fadeSlideUp = {
+  hidden: { opacity: 0, y: 24 },
+  visible: { opacity: 1, y: 0, transition: SPRING },
+}
+
+const fadeSlideRight = {
+  hidden: { opacity: 0, x: 32 },
+  visible: { opacity: 1, x: 0, transition: { ...SPRING, delay: 0.2 } },
+}
 
 const FORM_LABEL_CLASS = 'text-[0.68rem] font-extrabold uppercase tracking-[0.14em] text-muted-foreground'
 
@@ -152,24 +171,33 @@ export function ClientDashboard({ children }: { children?: React.ReactNode }) {
   const userFirstName = profile?.full_name?.split(' ')[0] || profile?.business_name || 'Usuario'
 
   return (
-    <div className="mx-auto w-full max-w-screen-xl pb-12 pt-8">
+    <motion.div
+      className="mx-auto w-full max-w-screen-xl pb-12 pt-8"
+      initial="hidden"
+      animate="visible"
+      variants={staggerContainer}
+    >
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] xl:grid-cols-[1fr_420px] gap-10 xl:gap-16">
         
         {/* ── LEFT COLUMN: Balances & Activity ── */}
-        <div className="space-y-10">
+        <motion.div className="space-y-10" variants={staggerContainer}>
           
           {/* Greeting */}
-          <div className="space-y-1">
+          <motion.div className="space-y-1" variants={fadeSlideUp}>
              <h1 className="text-4xl sm:text-[3rem] font-extrabold tracking-tight text-foreground leading-none">
                ¡Hola, {userFirstName}!
              </h1>
              <p className="text-base font-medium text-muted-foreground mt-2">
                Resumen de tus cuentas operativas
              </p>
-          </div>
+          </motion.div>
 
           {/* Balance Section (Bento Card) */}
-          <section className="rounded-[2.5rem] border border-border/50 bg-card shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] p-8 sm:p-10 relative overflow-hidden">
+          <motion.section
+            className="rounded-[2.5rem] border border-border/50 bg-card shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] p-8 sm:p-10 relative overflow-hidden"
+            variants={fadeSlideUp}
+            whileHover={{ scale: 1.008, transition: { type: 'spring', stiffness: 300, damping: 25 } }}
+          >
             <div className="relative z-10">
               <p className="text-[0.68rem] font-extrabold uppercase tracking-[0.2em] text-muted-foreground mb-3">
                 Balance Operativo Total
@@ -199,25 +227,29 @@ export function ClientDashboard({ children }: { children?: React.ReactNode }) {
                 </div>
               </div>
             </div>
-          </section>
+          </motion.section>
 
           {/* Children slot (Wallets + Virtual Accounts) */}
           {children && (
-            <section className="pt-4">
+            <motion.section className="pt-4" variants={fadeSlideUp}>
               {children}
-            </section>
+            </motion.section>
           )}
-        </div>
+        </motion.div>
 
         {/* ── RIGHT COLUMN: Floating Card (Convertidor) ── */}
-        <div>
+        <motion.div variants={fadeSlideRight}>
           <div className="sticky top-8 overflow-hidden rounded-[2.5rem] border border-border/50 bg-card shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] text-foreground">
             {/* Header */}
             <div className="px-8 sm:px-10 pt-10 pb-6 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <motion.div
+                  className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary"
+                  animate={{ rotate: [0, 360] }}
+                  transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
+                >
                   <RefreshCw className="size-5" />
-                </div>
+                </motion.div>
                 <h2 className="text-2xl font-bold tracking-tight">Convertidor</h2>
               </div>
             </div>
@@ -240,39 +272,58 @@ export function ClientDashboard({ children }: { children?: React.ReactNode }) {
 
             {/* Form Fields */}
             <div className="px-8 sm:px-10 pb-6">
-              {/* Origin */}
-              <div className="rounded-[1.5rem] border border-border/60 bg-muted/30 p-6 transition-colors focus-within:bg-muted/50 focus-within:border-border">
-                <MoneyField
-                  currency={config.originCurrency}
-                  label={config.originLabel}
-                  onChange={setAmountInput}
-                  value={amountInput}
-                />
-              </div>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={action}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ type: 'spring', stiffness: 200, damping: 24 }}
+                >
+                  {/* Origin */}
+                  <div className="rounded-[1.5rem] border border-border/60 bg-muted/30 p-6 transition-colors focus-within:bg-muted/50 focus-within:border-border">
+                    <MoneyField
+                      currency={config.originCurrency}
+                      label={config.originLabel}
+                      onChange={setAmountInput}
+                      value={amountInput}
+                    />
+                  </div>
 
-              {/* Swap Arrow — centered connector between fields */}
-              <div className="flex items-center justify-center -my-5 relative z-10">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md border-[3px] border-card hover:scale-110 active:scale-95 transition-transform cursor-pointer">
-                  <ArrowDownUp className="size-[18px]" />
-                </div>
-              </div>
+                  {/* Swap Arrow — centered connector between fields */}
+                  <div className="flex items-center justify-center -my-5 relative z-10">
+                    <motion.div
+                      className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md border-[3px] border-card cursor-pointer"
+                      whileHover={{ scale: 1.18, rotate: 180 }}
+                      whileTap={{ scale: 0.92 }}
+                      transition={SPRING}
+                    >
+                      <ArrowDownUp className="size-[18px]" />
+                    </motion.div>
+                  </div>
 
-              {/* Destination */}
-              <div className="rounded-[1.5rem] border border-border/60 bg-muted/30 p-6">
-                <ReadOnlyField
-                  currency={config.destinationCurrency}
-                  label={config.destinationLabel}
-                  value={estimate.amountConverted}
-                />
-              </div>
+                  {/* Destination */}
+                  <div className="rounded-[1.5rem] border border-border/60 bg-muted/30 p-6">
+                    <ReadOnlyField
+                      currency={config.destinationCurrency}
+                      label={config.destinationLabel}
+                      value={estimate.amountConverted}
+                    />
+                  </div>
+                </motion.div>
+              </AnimatePresence>
 
               {/* Active Rate */}
               <div className="pt-6 flex items-center justify-between text-sm text-muted-foreground font-medium">
                 <span>Tasa: 1 USD = {action === 'depositar' ? formatNumber(sellRate) : (buyRate ? formatNumber(buyRate) : 0)} Bs</span>
-                <div className="flex items-center gap-1.5 bg-success/10 px-2.5 py-1 rounded-md text-success font-semibold text-xs">
+                <motion.div
+                  className="flex items-center gap-1.5 bg-success/10 px-2.5 py-1 rounded-md text-success font-semibold text-xs"
+                  animate={{ opacity: [1, 0.5, 1] }}
+                  transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+                >
                   <TrendingUp className="size-3.5" />
                   <span>En vivo</span>
-                </div>
+                </motion.div>
               </div>
 
               {/* CTA */}
@@ -287,13 +338,23 @@ export function ClientDashboard({ children }: { children?: React.ReactNode }) {
             </div>
 
             {/* ── Buy / Sell Rate Strip ── */}
-            <div className="mx-8 sm:mx-10 mb-8 rounded-2xl border border-border/40 bg-muted/20 p-5">
+            <motion.div
+              className="mx-8 sm:mx-10 mb-8 rounded-2xl border border-border/40 bg-muted/20 p-5"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...SPRING, delay: 0.5 }}
+            >
               <p className="text-[0.6rem] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-4">
                 Tasas del Dólar Hoy
               </p>
               <div className="grid grid-cols-2 gap-4">
                 {/* Buy */}
-                <div className="flex items-start gap-3">
+                <motion.div
+                  className="flex items-start gap-3"
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ ...SPRING, delay: 0.6 }}
+                >
                   <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-success/10 text-success">
                     <TrendingUp className="size-4" />
                   </div>
@@ -303,9 +364,14 @@ export function ClientDashboard({ children }: { children?: React.ReactNode }) {
                       {buyRate ? formatNumber(buyRate) : '—'} <span className="text-xs font-medium text-muted-foreground">Bs</span>
                     </p>
                   </div>
-                </div>
+                </motion.div>
                 {/* Sell */}
-                <div className="flex items-start gap-3">
+                <motion.div
+                  className="flex items-start gap-3"
+                  initial={{ opacity: 0, x: 12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ ...SPRING, delay: 0.7 }}
+                >
                   <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <TrendingDown className="size-4" />
                   </div>
@@ -315,16 +381,16 @@ export function ClientDashboard({ children }: { children?: React.ReactNode }) {
                       {sellRate ? formatNumber(sellRate) : '—'} <span className="text-xs font-medium text-muted-foreground">Bs</span>
                     </p>
                   </div>
-                </div>
+                </motion.div>
               </div>
-            </div>
+            </motion.div>
             
             {/* Bottom Edge Indicator */}
             <div className="h-1 w-full bg-gradient-to-r from-primary/0 via-primary/50 to-primary/0 opacity-50" />
           </div>
-        </div>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   )
 }
 

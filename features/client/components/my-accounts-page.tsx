@@ -211,12 +211,6 @@ function WalletsSection({ isApproved }: { isApproved: boolean }) {
         }
     });
 
-    // Total balance across all wallets
-    const totalBalance = wallets.reduce(
-        (sum, w) => sum + (w.available_balance ?? 0),
-        0,
-    );
-
     // Wallet info (from first wallet)
     const primaryWallet = wallets[0];
     const walletAddress = primaryWallet?.address ?? null;
@@ -279,7 +273,7 @@ function WalletsSection({ isApproved }: { isApproved: boolean }) {
                 </Card>
             )}
 
-            {/* Token Rows (Replaces Wallet Rows) */}
+            {/* Token Rows */}
             {!loading && !error && wallets.length > 0 && (
                 <div className="pt-2">
                     {DISPLAY_CURRENCIES.filter((cur) => cur !== "USDB" && cur !== "PYUSD").map((cur) => (
@@ -290,96 +284,86 @@ function WalletsSection({ isApproved }: { isApproved: boolean }) {
                         />
                     ))}
 
-                    {/* Separator line (navy/teal line matching design bottom border) */}
-                    <div className="mt-8 mb-6 border-t-[3px] border-primary" />
-
-                    {/* Footer: Total Balance + Wallet info */}
-                    <div className="py-2">
-                        <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-4">
-                            {/* Left: Total balance */}
-                            <div>
-                                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-muted-foreground">
-                                    Valor Total de Activos
-                                </p>
-                                <div className="flex items-baseline gap-2 mt-1">
-                                    <span className="text-5xl text-primary font-semibold tracking-tighter text-foreground tabular-nums leading-none">
-                                        $
-                                        {totalBalance.toLocaleString("en-US", {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2,
-                                        })}
+                    {/* ── Wallet Infrastructure Strip ── */}
+                    <div className="mt-6 pt-5 border-t border-border/40">
+                        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                            {/* Network */}
+                            {walletNetwork && (
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                        Red
+                                    </span>
+                                    <Badge
+                                        variant="outline"
+                                        className="rounded-sm px-1.5 py-0 text-[10px] font-bold uppercase tracking-wider border-primary/30 bg-primary/5 text-primary"
+                                    >
+                                        {networkBadge}
+                                    </Badge>
+                                    <span className="text-xs font-semibold text-foreground">
+                                        {walletNetwork}
                                     </span>
                                 </div>
-                            </div>
+                            )}
 
-                            {/* Right: Wallet info */}
-                            <div className="flex flex-col items-start md:items-end gap-2 text-right">
-                                {walletNetwork && (
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                            Red
-                                        </span>
-                                        <Badge
-                                            variant="outline"
-                                            className="rounded-sm px-1.5 py-0 text-[10px] font-bold uppercase tracking-wider border-primary/30 bg-primary/5 text-primary"
-                                        >
-                                            {networkBadge}
-                                        </Badge>
-                                        <span className="text-xs font-semibold text-foreground">
-                                            {walletNetwork}
-                                        </span>
-                                    </div>
-                                )}
-                                {walletAddress && (
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                            Dirección Wallet
-                                        </span>
-                                        <span className="font-mono text-xs text-foreground">
-                                            {truncateAddress(walletAddress, 6)}
-                                        </span>
-                                        <button
-                                            onClick={async () => {
-                                                try {
-                                                    await navigator.clipboard.writeText(
-                                                        walletAddress,
-                                                    );
-                                                } catch {
-                                                    /* noop */
-                                                }
-                                            }}
-                                            className="text-muted-foreground/40 hover:text-foreground transition-colors"
-                                            title="Copiar dirección"
-                                        >
-                                            <Copy className="size-3" />
-                                        </button>
-                                    </div>
-                                )}
-                                {walletId && (
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                            Nro. Cuenta
-                                        </span>
-                                        <span className="font-mono text-xs text-foreground">
-                                            {walletId.slice(0, 8).toUpperCase()}
-                                            ...
-                                            {walletId.slice(-4).toUpperCase()}
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
+                            {/* Dot separator */}
+                            {walletNetwork && walletAddress && (
+                                <span className="hidden sm:block size-1 rounded-full bg-border" aria-hidden="true" />
+                            )}
+
+                            {/* Wallet Address */}
+                            {walletAddress && (
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                        Wallet
+                                    </span>
+                                    <span className="font-mono text-xs text-foreground tabular-nums">
+                                        {truncateAddress(walletAddress, 6)}
+                                    </span>
+                                    <button
+                                        onClick={async () => {
+                                            try {
+                                                await navigator.clipboard.writeText(
+                                                    walletAddress,
+                                                );
+                                            } catch {
+                                                /* noop */
+                                            }
+                                        }}
+                                        className="text-muted-foreground/40 hover:text-foreground transition-colors"
+                                        title="Copiar dirección"
+                                    >
+                                        <Copy className="size-3" />
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Dot separator */}
+                            {walletAddress && walletId && (
+                                <span className="hidden sm:block size-1 rounded-full bg-border" aria-hidden="true" />
+                            )}
+
+                            {/* Account Number */}
+                            {walletId && (
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                        Cuenta
+                                    </span>
+                                    <span className="font-mono text-xs text-foreground tabular-nums">
+                                        {walletId.slice(0, 8).toUpperCase()}
+                                        ...
+                                        {walletId.slice(-4).toUpperCase()}
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     </div>
-                </div>
-            )}
 
-            {/* Footer */}
-            {!loading && wallets.length > 0 && (
-                <p className="text-center text-[11px] text-muted-foreground pt-4">
-                    Las wallets son administradas por Bridge y respaldadas por
-                    activos digitales reales. Los balances se actualizan en
-                    tiempo real mediante webhooks.
-                </p>
+                    {/* Disclaimer */}
+                    <p className="text-center text-[10px] text-muted-foreground/60 pt-5 leading-relaxed">
+                        Wallets administradas por Bridge, respaldadas por activos digitales reales.
+                        Balances actualizados en tiempo real.
+                    </p>
+                </div>
             )}
         </div>
     );

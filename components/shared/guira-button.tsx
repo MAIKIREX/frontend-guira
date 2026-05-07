@@ -3,6 +3,7 @@
 import React from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { ArrowRight, ArrowLeft, type LucideIcon } from 'lucide-react'
+import { motion, HTMLMotionProps } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
 /* ─────────────────────────────────────────────────────────────
@@ -131,7 +132,7 @@ const guiraButtonVariants = cva(
 )
 
 export interface GuiraButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+  extends Omit<HTMLMotionProps<"button">, "ref">,
     VariantProps<typeof guiraButtonVariants> {
   /** Icono de Lucide al inicio del botón */
   iconStart?: LucideIcon
@@ -177,6 +178,8 @@ export const GuiraButton = React.forwardRef<HTMLButtonElement, GuiraButtonProps>
       iconStart: IconStart,
       iconEnd: IconEnd,
       children,
+      disabled,
+      onMouseMove,
       ...props
     },
     ref
@@ -184,47 +187,79 @@ export const GuiraButton = React.forwardRef<HTMLButtonElement, GuiraButtonProps>
     // Tamaño del icono según el tamaño del botón
     const iconSize = size === 'sm' ? 'size-3.5' : size === 'xl' ? 'size-5' : 'size-4'
 
+    const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>) => {
+      if (disabled) return
+      const rect = e.currentTarget.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const y = e.clientY - rect.top
+      e.currentTarget.style.setProperty('--spot-x', `${x}px`)
+      e.currentTarget.style.setProperty('--spot-y', `${y}px`)
+      if (onMouseMove) onMouseMove(e)
+    }
+
     return (
-      <button
-        ref={ref}
+      <motion.button
+        ref={ref as any}
         type={props.type || 'button'}
+        disabled={disabled}
         className={cn(
           guiraButtonVariants({ variant, size, active, fullWidth }),
           // Si tiene flecha, distribuir con justify-between
           (arrowNext || arrowBack) && 'justify-between',
+          // Overflow hidden needed for the shine effect on primary
+          variant === 'primary' && 'overflow-hidden',
           className
         )}
+        onMouseMove={handleMouseMove}
+        whileHover={disabled ? {} : { scale: 1.015, transition: { type: 'spring', stiffness: 400, damping: 25 } }}
+        whileTap={disabled ? {} : { scale: 0.975 }}
+        style={{
+          '--spot-x': '50%',
+          '--spot-y': '50%',
+        } as React.CSSProperties}
         {...props}
       >
-        {/* ── Flecha back animada */}
-        {arrowBack && (
-          <span className="flex items-center justify-center transition-transform duration-200 ease-in-out group-hover/guira-btn:-translate-x-1 group-disabled/guira-btn:translate-x-0">
-            <ArrowLeft className={cn(iconSize, 'text-current opacity-70 transition-colors duration-200 group-hover/guira-btn:opacity-100')} />
+        {/* Spotlight glow overlay on primary buttons */}
+        {!disabled && variant === 'primary' && (
+          <div
+            className="pointer-events-none absolute inset-0 z-0 opacity-0 transition-opacity duration-300 group-hover/guira-btn:opacity-100"
+            style={{
+              background: 'radial-gradient(120px circle at var(--spot-x) var(--spot-y), rgba(255,255,255,0.15), transparent 60%)',
+            }}
+          />
+        )}
+
+        <div className="relative z-10 flex w-full items-center justify-center gap-[inherit] pointer-events-none" style={{ justifyContent: (arrowNext || arrowBack) ? 'space-between' : 'center' }}>
+          {/* ── Flecha back animada */}
+          {arrowBack && (
+            <span className="flex items-center justify-center transition-transform duration-200 ease-in-out group-hover/guira-btn:-translate-x-1 group-disabled/guira-btn:translate-x-0">
+              <ArrowLeft className={cn(iconSize, 'text-current opacity-70 transition-colors duration-200 group-hover/guira-btn:opacity-100')} />
+            </span>
+          )}
+
+          {/* ── Icono de inicio */}
+          {IconStart && !arrowBack && (
+            <IconStart className={cn(iconSize, 'shrink-0')} />
+          )}
+
+          {/* ── Contenido */}
+          <span className="transition-colors duration-200">
+            {children}
           </span>
-        )}
 
-        {/* ── Icono de inicio */}
-        {IconStart && !arrowBack && (
-          <IconStart className={cn(iconSize, 'shrink-0')} />
-        )}
+          {/* ── Icono de fin */}
+          {IconEnd && !arrowNext && (
+            <IconEnd className={cn(iconSize, 'shrink-0')} />
+          )}
 
-        {/* ── Contenido */}
-        <span className="transition-colors duration-200">
-          {children}
-        </span>
-
-        {/* ── Icono de fin */}
-        {IconEnd && !arrowNext && (
-          <IconEnd className={cn(iconSize, 'shrink-0')} />
-        )}
-
-        {/* ── Flecha next animada */}
-        {arrowNext && (
-          <span className="flex items-center justify-center transition-transform duration-200 ease-in-out group-hover/guira-btn:translate-x-1 group-disabled/guira-btn:translate-x-0">
-            <ArrowRight className={cn(iconSize, 'text-current')} />
-          </span>
-        )}
-      </button>
+          {/* ── Flecha next animada */}
+          {arrowNext && (
+            <span className="flex items-center justify-center transition-transform duration-200 ease-in-out group-hover/guira-btn:translate-x-1 group-disabled/guira-btn:translate-x-0">
+              <ArrowRight className={cn(iconSize, 'text-current')} />
+            </span>
+          )}
+        </div>
+      </motion.button>
     )
   }
 )
