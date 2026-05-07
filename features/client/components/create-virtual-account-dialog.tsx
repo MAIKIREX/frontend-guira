@@ -9,6 +9,8 @@ import {
   Globe,
   Info,
   AlertTriangle,
+  Wallet,
+  ArrowRightLeft,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -82,6 +84,27 @@ function isValidBlockchainAddress(address: string, network?: string): boolean {
   if (/^G[A-Z2-7]{55}$/.test(trimmed)) return true
 
   return trimmed.length >= 26 && trimmed.length <= 256
+}
+
+// ── Sub-components ───────────────────────────────────────────────
+
+function StepBadge({ step }: { step: number }) {
+  return (
+    <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+      {step}
+    </span>
+  )
+}
+
+function StepLabel({ step, children }: { step: number; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2">
+      <StepBadge step={step} />
+      <Label className="text-xs font-semibold tracking-wide text-foreground/80 uppercase">
+        {children}
+      </Label>
+    </div>
+  )
 }
 
 // ── Component ────────────────────────────────────────────────────
@@ -243,65 +266,107 @@ export function CreateVirtualAccountDialog({
         <span>Crear cuenta virtual</span>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Crear cuenta virtual</DialogTitle>
-          <DialogDescription>
-            Genera una cuenta bancaria virtual para recibir depósitos. Los fondos se convertirán automáticamente a la criptomoneda elegida.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-[480px] max-h-[85dvh] flex flex-col gap-0 overflow-hidden p-0">
+        {/* ── Header ── */}
+        <div className="shrink-0 border-b border-border/50 px-6 pt-6 pb-4">
+          <DialogHeader className="gap-1.5">
+            <div className="flex items-center gap-3">
+              <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10">
+                <ArrowRightLeft className="size-4 text-primary" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-semibold tracking-tight">
+                  Crear cuenta virtual
+                </DialogTitle>
+                <DialogDescription className="mt-0.5 text-xs text-muted-foreground">
+                  Genera una cuenta bancaria para recibir depósitos con auto-conversión a crypto.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+        </div>
 
-        <div className="space-y-5 py-2">
-          {/* ── PASO 1: Tipo de destino (ANTES de moneda — Hallazgo 2) ── */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-muted-foreground">
-              ¿Dónde recibir los fondos convertidos?
-            </Label>
-            <div className="grid grid-cols-2 gap-2">
+        {/* ── Body ── */}
+        <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+
+          {/* ── PASO 1: Tipo de destino ── */}
+          <div className="space-y-2.5">
+            <StepLabel step={1}>Destino de fondos</StepLabel>
+            <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => setDestType('internal')}
-                className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-left text-xs transition-colors ${
+                className={`group/card relative flex flex-col items-center gap-2 rounded-xl border px-3 py-4 text-center transition-all duration-200 ${
                   destType === 'internal'
-                    ? 'border-primary/50 bg-primary/5 text-primary'
-                    : 'border-border/60 bg-card text-muted-foreground hover:border-border hover:text-foreground'
+                    ? 'border-primary/40 bg-primary/[0.04] shadow-[0_0_0_1px_rgba(0,85,255,0.12)] dark:bg-primary/[0.06]'
+                    : 'border-border/50 bg-card hover:border-border hover:bg-muted/30'
                 }`}
               >
-                <Landmark className="size-4 shrink-0" />
-                <div>
-                  <p className="font-medium">Wallet Guira</p>
-                  <p className="text-[10px] opacity-70">Fondos en plataforma</p>
+                <div className={`flex size-10 items-center justify-center rounded-xl transition-colors duration-200 ${
+                  destType === 'internal'
+                    ? 'bg-primary/12 text-primary'
+                    : 'bg-muted/60 text-muted-foreground group-hover/card:bg-muted group-hover/card:text-foreground'
+                }`}>
+                  <Landmark className="size-[18px]" />
                 </div>
+                <div>
+                  <p className={`text-[13px] font-semibold transition-colors ${
+                    destType === 'internal' ? 'text-primary' : 'text-foreground'
+                  }`}>Wallet Guira</p>
+                  <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
+                    Fondos en plataforma
+                  </p>
+                </div>
+                {destType === 'internal' && (
+                  <div className="absolute top-2 right-2 size-2 rounded-full bg-primary shadow-[0_0_6px_1px_rgba(0,85,255,0.4)]" />
+                )}
               </button>
+
               <button
                 type="button"
                 onClick={() => setDestType('external')}
-                className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-left text-xs transition-colors ${
+                className={`group/card relative flex flex-col items-center gap-2 rounded-xl border px-3 py-4 text-center transition-all duration-200 ${
                   destType === 'external'
-                    ? 'border-primary/50 bg-primary/5 text-primary'
-                    : 'border-border/60 bg-card text-muted-foreground hover:border-border hover:text-foreground'
+                    ? 'border-primary/40 bg-primary/[0.04] shadow-[0_0_0_1px_rgba(0,85,255,0.12)] dark:bg-primary/[0.06]'
+                    : 'border-border/50 bg-card hover:border-border hover:bg-muted/30'
                 }`}
               >
-                <Globe className="size-4 shrink-0" />
-                <div>
-                  <p className="font-medium">Wallet externa</p>
-                  <p className="text-[10px] opacity-70">Binance, MetaMask, etc.</p>
+                <div className={`flex size-10 items-center justify-center rounded-xl transition-colors duration-200 ${
+                  destType === 'external'
+                    ? 'bg-primary/12 text-primary'
+                    : 'bg-muted/60 text-muted-foreground group-hover/card:bg-muted group-hover/card:text-foreground'
+                }`}>
+                  <Globe className="size-[18px]" />
                 </div>
+                <div>
+                  <p className={`text-[13px] font-semibold transition-colors ${
+                    destType === 'external' ? 'text-primary' : 'text-foreground'
+                  }`}>Wallet externa</p>
+                  <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
+                    Binance, MetaMask, etc.
+                  </p>
+                </div>
+                {destType === 'external' && (
+                  <div className="absolute top-2 right-2 size-2 rounded-full bg-primary shadow-[0_0_6px_1px_rgba(0,85,255,0.4)]" />
+                )}
               </button>
             </div>
           </div>
 
-          {/* ── PASO 2: Moneda de depósito (filtrado dinámico — Hallazgo 1) ── */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-muted-foreground">
-              Moneda de depósito
-            </Label>
+          {/* ── Divider ── */}
+          <div className="h-px bg-border/40" />
+
+          {/* ── PASO 2: Moneda de depósito ── */}
+          <div className="space-y-2.5">
+            <StepLabel step={2}>Moneda de depósito</StepLabel>
             {availableCurrencies.length === 0 ? (
-              <div className="flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-400">
-                <Info className="size-3.5 shrink-0" />
-                {destType === 'internal'
-                  ? 'Ya tienes cuentas virtuales internas para todas las monedas disponibles. Puedes crear cuentas virtuales externas seleccionando "Wallet externa" arriba.'
-                  : 'Ya tienes cuentas virtuales para todas las monedas disponibles.'}
+              <div className="flex items-start gap-2.5 rounded-lg border border-warning/20 bg-warning/[0.04] px-3.5 py-3 text-xs leading-relaxed text-warning dark:border-warning/15">
+                <Info className="mt-0.5 size-3.5 shrink-0" />
+                <span>
+                  {destType === 'internal'
+                    ? 'Ya tienes cuentas virtuales internas para todas las monedas disponibles. Puedes crear cuentas externas seleccionando "Wallet externa".'
+                    : 'Ya tienes cuentas virtuales para todas las monedas disponibles.'}
+                </span>
               </div>
             ) : (
               <Select
@@ -325,28 +390,29 @@ export function CreateVirtualAccountDialog({
 
             {/* Aviso de límite de VAs externas alcanzado */}
             {externalLimitReached && (
-              <div className="flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-                <AlertTriangle className="size-3.5 shrink-0" />
-                Has alcanzado el límite de {DEFAULT_MAX_EXTERNAL_PER_CURRENCY} cuentas virtuales externas para {sourceCurrency.toUpperCase()}. Desactiva alguna antes de crear otra.
+              <div className="flex items-start gap-2.5 rounded-lg border border-destructive/20 bg-destructive/[0.04] px-3.5 py-3 text-xs leading-relaxed text-destructive dark:border-destructive/15">
+                <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                <span>
+                  Has alcanzado el límite de {DEFAULT_MAX_EXTERNAL_PER_CURRENCY} cuentas virtuales externas para {sourceCurrency.toUpperCase()}. Desactiva alguna antes de crear otra.
+                </span>
               </div>
             )}
           </div>
 
           {/* ── PASO 3A: Wallet interna selector ── */}
           {destType === 'internal' && (
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground">
-                Wallet destino
-              </Label>
+            <div className="space-y-2.5">
+              <StepLabel step={3}>Wallet destino</StepLabel>
               {walletsLoading ? (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Loader2 className="size-3 animate-spin" />
-                  Cargando wallets…
+                <div className="flex items-center gap-2.5 py-2 text-xs text-muted-foreground">
+                  <Loader2 className="size-3.5 animate-spin text-primary/60" />
+                  <span>Cargando wallets...</span>
                 </div>
               ) : wallets.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
+                <div className="flex items-center gap-2.5 rounded-lg border border-border/40 bg-muted/20 px-3.5 py-3 text-xs text-muted-foreground">
+                  <Wallet className="size-3.5 shrink-0" />
                   No se encontraron wallets activas.
-                </p>
+                </div>
               ) : (
                 <Select
                   value={destWalletId}
@@ -372,9 +438,10 @@ export function CreateVirtualAccountDialog({
 
           {/* ── PASO 3B: Wallet externa inputs ── */}
           {destType === 'external' && (
-            <div className="space-y-3">
+            <div className="space-y-3.5">
+              <StepLabel step={3}>Wallet externa</StepLabel>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground">
+                <Label className="text-[11px] font-medium text-muted-foreground">
                   Dirección de wallet
                 </Label>
                 <Input
@@ -386,14 +453,14 @@ export function CreateVirtualAccountDialog({
                 />
                 {/* Hallazgo 6: Feedback de validación de dirección */}
                 {showAddressError && (
-                  <p className="text-[11px] text-destructive">
-                    La dirección no parece tener un formato válido. Formatos soportados: EVM (0x…), Solana, Tron, Stellar.
+                  <p className="text-[11px] leading-relaxed text-destructive">
+                    La dirección no parece tener un formato válido. Formatos soportados: EVM (0x...), Solana, Tron, Stellar.
                   </p>
                 )}
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground">
-                  Etiqueta <span className="text-muted-foreground/60">(opcional)</span>
+                <Label className="text-[11px] font-medium text-muted-foreground">
+                  Etiqueta <span className="text-muted-foreground/50">(opcional)</span>
                 </Label>
                 <Input
                   placeholder="ej: Mi Binance"
@@ -407,82 +474,87 @@ export function CreateVirtualAccountDialog({
           )}
 
           {/* ── PASO 4: Moneda crypto + Red ── */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground">
-                Moneda crypto destino
-              </Label>
-              <Select
-                value={destCurrency}
-                onValueChange={(val) => { if (val) setDestCurrency(val as DestinationCurrency) }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar" />
-                </SelectTrigger>
-                <SelectContent>
-                  {DESTINATION_CURRENCY_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {/* Hallazgo 5: Feedback — pre-llenado pero editable */}
-              {destType === 'internal' && (
-                <p className="text-[10px] text-muted-foreground/60">
-                  Pre-seleccionada según tu wallet. Puedes cambiarla.
-                </p>
-              )}
-            </div>
+          <div className="space-y-2.5">
+            <StepLabel step={destType === 'internal' ? 4 : 4}>Conversión crypto</StepLabel>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-medium text-muted-foreground">
+                  Moneda destino
+                </Label>
+                <Select
+                  value={destCurrency}
+                  onValueChange={(val) => { if (val) setDestCurrency(val as DestinationCurrency) }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DESTINATION_CURRENCY_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {/* Hallazgo 5: Feedback — pre-llenado pero editable */}
+                {destType === 'internal' && (
+                  <p className="text-[10px] text-muted-foreground/50">
+                    Pre-seleccionada. Puedes cambiarla.
+                  </p>
+                )}
+              </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground">
-                Red blockchain
-              </Label>
-              <Select
-                value={destRail}
-                onValueChange={(val) => { if (val) setDestRail(val as DestinationRail) }}
-                disabled={destType === 'internal'}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar" />
-                </SelectTrigger>
-                <SelectContent>
-                  {DESTINATION_RAIL_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {/* Hallazgo 5: Feedback para campos deshabilitados */}
-              {destType === 'internal' && (
-                <p className="text-[10px] text-muted-foreground/60">
-                  Se auto-configura según la wallet seleccionada.
-                </p>
-              )}
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-medium text-muted-foreground">
+                  Red blockchain
+                </Label>
+                <Select
+                  value={destRail}
+                  onValueChange={(val) => { if (val) setDestRail(val as DestinationRail) }}
+                  disabled={destType === 'internal'}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DESTINATION_RAIL_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {/* Hallazgo 5: Feedback para campos deshabilitados */}
+                {destType === 'internal' && (
+                  <p className="text-[10px] text-muted-foreground/50">
+                    Auto-configurada por wallet.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Info box */}
-          <div className="flex items-start gap-2 rounded-lg border border-border/40 bg-muted/20 p-3 text-xs text-muted-foreground">
-            <Info className="mt-0.5 size-3.5 shrink-0" />
+          {/* ── Info callout ── */}
+          <div className="flex items-start gap-2.5 rounded-lg border border-primary/10 bg-primary/[0.03] px-3.5 py-3 text-[11px] leading-relaxed text-muted-foreground dark:border-primary/8">
+            <Info className="mt-0.5 size-3.5 shrink-0 text-primary/60" />
             <p>
               {destType === 'internal'
                 ? 'Se creará una cuenta bancaria virtual. Los fondos depositados se convertirán a crypto y se acreditarán en tu wallet Guira.'
-                : 'Se creará una cuenta bancaria virtual. Los fondos depositados se convertirán a crypto y se enviarán directamente a tu wallet externa. No se acreditarán en el balance de Guira.'}
+                : 'Se creará una cuenta bancaria virtual. Los fondos se convertirán a crypto y se enviarán a tu wallet externa. No se acreditarán en el balance de Guira.'}
             </p>
           </div>
 
-          {/* Error */}
+          {/* ── Error ── */}
           {error && (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-              {error}
+            <div className="flex items-start gap-2.5 rounded-lg border border-destructive/20 bg-destructive/[0.04] px-3.5 py-3 text-xs leading-relaxed text-destructive">
+              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+              <span>{error}</span>
             </div>
           )}
         </div>
 
-        <DialogFooter>
+        {/* ── Footer ── */}
+        <DialogFooter className="!mx-0 !mb-0 !rounded-none shrink-0 rounded-b-xl border-t border-border/40 bg-muted/30 px-6 py-4">
           <Button
             variant="outline"
             size="sm"
@@ -497,7 +569,7 @@ export function CreateVirtualAccountDialog({
             disabled={!isValid || submitting}
           >
             {submitting && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
-            {submitting ? 'Creando…' : 'Crear cuenta'}
+            {submitting ? 'Creando...' : 'Crear cuenta'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowLeftRight,
+  ArrowDownUp,
   DollarSign,
   Loader2,
   RefreshCw,
+  TrendingDown,
   TrendingUp,
   Waypoints,
 } from 'lucide-react'
@@ -208,7 +209,7 @@ export function ClientDashboard({ children }: { children?: React.ReactNode }) {
           )}
         </div>
 
-        {/* ── RIGHT COLUMN: Floating Card (Cambio Rápido) ── */}
+        {/* ── RIGHT COLUMN: Floating Card (Convertidor) ── */}
         <div>
           <div className="sticky top-8 overflow-hidden rounded-[2.5rem] border border-border/50 bg-card shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] text-foreground">
             {/* Header */}
@@ -217,7 +218,7 @@ export function ClientDashboard({ children }: { children?: React.ReactNode }) {
                 <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
                   <RefreshCw className="size-5" />
                 </div>
-                <h2 className="text-2xl font-bold tracking-tight">Cambio Rápido</h2>
+                <h2 className="text-2xl font-bold tracking-tight">Convertidor</h2>
               </div>
             </div>
 
@@ -238,7 +239,7 @@ export function ClientDashboard({ children }: { children?: React.ReactNode }) {
             </div>
 
             {/* Form Fields */}
-            <div className="px-8 sm:px-10 pb-10 space-y-3 relative">
+            <div className="px-8 sm:px-10 pb-6">
               {/* Origin */}
               <div className="rounded-[1.5rem] border border-border/60 bg-muted/30 p-6 transition-colors focus-within:bg-muted/50 focus-within:border-border">
                 <MoneyField
@@ -249,9 +250,11 @@ export function ClientDashboard({ children }: { children?: React.ReactNode }) {
                 />
               </div>
 
-              {/* Swap Arrow Overlay */}
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 mt-[2px] z-10 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm border-4 border-card hover:scale-105 transition-transform cursor-pointer">
-                <ArrowLeftRight className="size-5" />
+              {/* Swap Arrow — centered connector between fields */}
+              <div className="flex items-center justify-center -my-5 relative z-10">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md border-[3px] border-card hover:scale-110 active:scale-95 transition-transform cursor-pointer">
+                  <ArrowDownUp className="size-[18px]" />
+                </div>
               </div>
 
               {/* Destination */}
@@ -263,22 +266,56 @@ export function ClientDashboard({ children }: { children?: React.ReactNode }) {
                 />
               </div>
 
-              {/* Rate & Action */}
-              <div className="pt-8 flex flex-col gap-6">
-                <div className="flex items-center justify-between text-sm text-muted-foreground font-medium">
-                  <span>Tasa: 1 USD = {action === 'depositar' ? formatNumber(sellRate) : (buyRate ? formatNumber(1/buyRate) : 0)} Bs</span>
-                  <div className="flex items-center gap-1.5 bg-success/10 px-2.5 py-1 rounded-md text-success font-semibold text-xs">
-                    <TrendingUp className="size-3.5" />
-                    <span>En vivo</span>
-                  </div>
+              {/* Active Rate */}
+              <div className="pt-6 flex items-center justify-between text-sm text-muted-foreground font-medium">
+                <span>Tasa: 1 USD = {action === 'depositar' ? formatNumber(sellRate) : (buyRate ? formatNumber(buyRate) : 0)} Bs</span>
+                <div className="flex items-center gap-1.5 bg-success/10 px-2.5 py-1 rounded-md text-success font-semibold text-xs">
+                  <TrendingUp className="size-3.5" />
+                  <span>En vivo</span>
                 </div>
+              </div>
 
+              {/* CTA */}
+              <div className="pt-6">
                 <GuiraButton
                   onClick={() => router.push(action === 'depositar' ? '/depositar' : '/enviar')}
                   className="w-full justify-center h-14 rounded-2xl text-base"
                 >
                   Continuar
                 </GuiraButton>
+              </div>
+            </div>
+
+            {/* ── Buy / Sell Rate Strip ── */}
+            <div className="mx-8 sm:mx-10 mb-8 rounded-2xl border border-border/40 bg-muted/20 p-5">
+              <p className="text-[0.6rem] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-4">
+                Tasas del Dólar Hoy
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                {/* Buy */}
+                <div className="flex items-start gap-3">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-success/10 text-success">
+                    <TrendingUp className="size-4" />
+                  </div>
+                  <div>
+                    <p className="text-[0.6rem] font-semibold uppercase tracking-wider text-muted-foreground">Compra</p>
+                    <p className="text-lg font-bold tracking-tight text-foreground">
+                      {buyRate ? formatNumber(buyRate) : '—'} <span className="text-xs font-medium text-muted-foreground">Bs</span>
+                    </p>
+                  </div>
+                </div>
+                {/* Sell */}
+                <div className="flex items-start gap-3">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <TrendingDown className="size-4" />
+                  </div>
+                  <div>
+                    <p className="text-[0.6rem] font-semibold uppercase tracking-wider text-muted-foreground">Venta</p>
+                    <p className="text-lg font-bold tracking-tight text-foreground">
+                      {sellRate ? formatNumber(sellRate) : '—'} <span className="text-xs font-medium text-muted-foreground">Bs</span>
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
             
