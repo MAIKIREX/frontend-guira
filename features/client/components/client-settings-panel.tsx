@@ -15,115 +15,162 @@ import {
   UserCircle2,
   Waypoints,
 } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { Button, buttonVariants } from '@/components/ui/button'
-import { cn, interactiveCardClassName } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { useProfileStore } from '@/stores/profile-store'
 import type { Profile } from '@/types/profile'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ProfileService } from '@/services/profile.service'
 import { ClientBankAccountSection } from './client-bank-account-section'
 
+/* ── Framer Motion orchestration (mirrors client-dashboard) ── */
+const SPRING = { type: 'spring' as const, stiffness: 100, damping: 20 }
+
+const staggerContainer = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.1, delayChildren: 0.04 } },
+}
+
+const fadeSlideUp = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: SPRING },
+}
+
+const fadeSlideRight = {
+  hidden: { opacity: 0, x: 24 },
+  visible: { opacity: 1, x: 0, transition: { ...SPRING, delay: 0.18 } },
+}
+
 export function ClientSettingsPanel() {
   const { profile } = useProfileStore()
   const showBankSection = profile?.onboarding_status === 'approved'
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-8">
-      <div className="space-y-2">
-        <h1 className="text-4xl sm:text-[3rem] sm:leading-[1.1] font-extrabold tracking-tight text-foreground">
-          Configuracion de cuenta
+    <motion.div
+      className="mx-auto flex w-full max-w-7xl flex-col gap-10"
+      initial="hidden"
+      animate="visible"
+      variants={staggerContainer}
+    >
+      {/* ── Hero heading ── */}
+      <motion.div variants={fadeSlideUp} className="space-y-0.5">
+        <h1 className="text-5xl sm:text-[3.4rem] font-extrabold tracking-tighter leading-[0.95] text-foreground">
+          Configuracion
         </h1>
-      </div>
+        <p className="text-5xl sm:text-[3.4rem] font-bold tracking-tight text-primary/75 leading-[1]">
+          de cuenta
+        </p>
+        <p className="text-sm font-medium text-muted-foreground/60 max-w-md pt-3">
+          Gestion de perfil, seguridad y accesos de tu cuenta Guira.
+        </p>
+      </motion.div>
 
-      <div className="grid items-start gap-12 xl:gap-0 xl:divide-x xl:divide-border/50 xl:grid-cols-[minmax(0,1.08fr)_360px]">
-        <div className="divide-y divide-border/50 xl:pr-12">
-          <div
-            className={cn(
-              'grid gap-12 pb-10 lg:gap-0 lg:divide-x lg:divide-border/50',
-              'lg:grid-cols-[minmax(300px,0.88fr)_minmax(0,1.12fr)]',
-            )}
+      {/* ── Two-column layout ── */}
+      <div className="grid items-start gap-10 xl:gap-0 xl:divide-x xl:divide-border/40 xl:grid-cols-[minmax(0,1.08fr)_360px]">
+
+        {/* ── LEFT column ── */}
+        <motion.div className="space-y-8 xl:pr-12" variants={staggerContainer}>
+
+          {/* Avatar + Profile data card */}
+          <motion.section
+            className="relative overflow-hidden rounded-[2rem] border border-border/40 bg-card/60 p-8 sm:p-10 shadow-[0_8px_40px_-16px_rgba(0,0,0,0.06)]"
+            variants={fadeSlideUp}
           >
-            <div className="lg:pr-12">
-              <AvatarUploadCard profile={profile} />
+            <div className="pointer-events-none absolute -top-20 -right-20 size-72 rounded-full bg-primary/[0.06] blur-[90px]" aria-hidden />
+            <div className="pointer-events-none absolute -bottom-16 -left-16 size-56 rounded-full bg-accent/[0.04] blur-[70px]" aria-hidden />
+
+            <div className="relative z-10 grid gap-10 lg:gap-0 lg:divide-x lg:divide-border/40 lg:grid-cols-[minmax(280px,0.88fr)_minmax(0,1.12fr)]">
+              <div className="lg:pr-10">
+                <AvatarUploadCard profile={profile} />
+              </div>
+              <div className="space-y-5 lg:pl-10">
+                <div>
+                  <h2 className="text-xl font-semibold tracking-tight text-foreground">Datos de mi perfil</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Resumen de la informacion principal asociada a tu cuenta.
+                  </p>
+                </div>
+                <div className="space-y-0">
+                  <InfoRow icon={UserCircle2} label="Nombre" value={profile?.full_name ?? 'Sin nombre'} />
+                  <InfoRow icon={BellRing} label="Email" value={profile?.email ?? 'Sin email'} />
+                  <InfoRow icon={ShieldCheck} label="Rol" value={formatProfileValue(profile?.role, 'Sin rol')} />
+                  <InfoRow
+                    icon={Settings2}
+                    label="Onboarding"
+                    value={formatProfileValue(profile?.onboarding_status, 'Sin estado')}
+                    isLast
+                  />
+                </div>
+              </div>
             </div>
-            <div className="space-y-6 lg:pl-12">
+          </motion.section>
+
+          {/* Bank account section */}
+          {showBankSection ? (
+            <motion.div variants={fadeSlideUp}>
+              <div className="relative overflow-hidden rounded-[2rem] border border-border/40 bg-card/60 p-8 sm:p-10 shadow-[0_8px_40px_-16px_rgba(0,0,0,0.06)]">
+                <div className="pointer-events-none absolute -top-16 -right-16 size-52 rounded-full bg-primary/[0.05] blur-[80px]" aria-hidden />
+                <div className="relative z-10">
+                  <ClientBankAccountSection />
+                </div>
+              </div>
+            </motion.div>
+          ) : null}
+        </motion.div>
+
+        {/* ── RIGHT aside ── */}
+        <motion.aside
+          className="space-y-6 xl:sticky xl:top-6 xl:pl-12"
+          variants={fadeSlideRight}
+        >
+          {/* Data protection notice */}
+          <div className="relative overflow-hidden rounded-[2rem] border border-blue-500/20 bg-blue-500/[0.04] p-7 shadow-[0_8px_40px_-16px_rgba(0,0,0,0.04)]">
+            <div className="pointer-events-none absolute -top-12 -right-12 size-40 rounded-full bg-blue-500/[0.08] blur-[60px]" aria-hidden />
+            <div className="relative z-10 flex items-start gap-4 text-blue-700 dark:text-blue-400">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10">
+                <Info className="size-4" />
+              </div>
+              <div className="text-sm">
+                <p className="mb-1.5 text-base font-semibold tracking-tight">Proteccion de datos personales</p>
+                <p className="text-[0.8rem] leading-relaxed opacity-80">
+                  Por seguridad y cumplimiento regulatorio, los datos criticos del cliente se
+                  mantienen inmovilizados. Si necesitas modificar informacion sensible, gestionalo
+                  con el equipo mediante un ticket en soporte.
+                </p>
+                <Link
+                  href="/soporte"
+                  className={cn(
+                    buttonVariants({ variant: 'link', size: 'sm' }),
+                    'mt-2 px-0 font-semibold text-blue-700 dark:text-blue-400',
+                  )}
+                >
+                  Ir a Soporte &rarr;
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick access card */}
+          <div className="relative overflow-hidden rounded-[2rem] border border-border/40 bg-card/60 p-7 shadow-[0_8px_40px_-16px_rgba(0,0,0,0.06)]">
+            <div className="pointer-events-none absolute -top-16 -right-16 size-52 rounded-full bg-primary/[0.05] blur-[70px]" aria-hidden />
+            <div className="relative z-10 space-y-5">
               <div>
-                <h2 className="text-xl font-semibold tracking-tight text-foreground">Datos de mi perfil</h2>
+                <h2 className="text-xl font-semibold tracking-tight text-foreground">Accesos de cuenta</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Resumen de la informacion principal asociada a tu cuenta.
+                  Accesos rapidos a las areas principales de tu cuenta.
                 </p>
               </div>
-              <div className="space-y-0">
-                <InfoRow icon={UserCircle2} label="Nombre" value={profile?.full_name ?? 'Sin nombre'} />
-                <InfoRow icon={BellRing} label="Email" value={profile?.email ?? 'Sin email'} />
-                <InfoRow icon={ShieldCheck} label="Rol" value={formatProfileValue(profile?.role, 'Sin rol')} />
-                <InfoRow
-                  icon={Settings2}
-                  label="Onboarding"
-                  value={formatProfileValue(profile?.onboarding_status, 'Sin estado')}
-                  isLast
-                />
+              <div className="space-y-2.5">
+                <ShortcutCard href="/panel" title="Panel" icon={LayoutDashboard} />
+                <ShortcutCard href="/transacciones" title="Transacciones" icon={Waypoints} />
+                <ShortcutCard href="/soporte" title="Soporte" icon={LifeBuoy} />
               </div>
             </div>
           </div>
-
-          {showBankSection ? (
-            <div className="pt-10">
-              <ClientBankAccountSection />
-            </div>
-          ) : null}
-        </div>
-
-        <aside className="divide-y divide-border/50 xl:sticky xl:top-6 xl:pl-12">
-          <div className="flex items-start gap-4 pb-10 text-blue-700 dark:text-blue-400">
-            <Info className="mt-0.5 size-5 shrink-0" />
-            <div className="text-sm">
-              <p className="mb-1 text-base font-semibold">Proteccion de datos personales</p>
-              <p className="leading-relaxed opacity-90">
-                Por seguridad y cumplimiento regulatorio, los datos criticos del cliente se
-                mantienen inmovilizados. Si necesitas modificar informacion sensible, gestionalo
-                con el equipo mediante un ticket en soporte.
-              </p>
-              <Link
-                href="/soporte"
-                className={cn(
-                  buttonVariants({ variant: 'link', size: 'sm' }),
-                  'mt-2 px-0 font-semibold text-blue-700 dark:text-blue-400',
-                )}
-              >
-                Ir a Soporte &rarr;
-              </Link>
-            </div>
-          </div>
-
-          <div className="space-y-6 pt-10">
-            <div>
-              <h2 className="text-xl font-semibold tracking-tight text-foreground">Accesos de cuenta</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Accesos rapidos a las areas principales de tu cuenta.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <ShortcutCard
-                href="/panel"
-                title="Panel"
-                icon={LayoutDashboard}
-              />
-              <ShortcutCard
-                href="/transacciones"
-                title="Transacciones"
-                icon={Waypoints}
-              />
-              <ShortcutCard
-                href="/soporte"
-                title="Soporte"
-                icon={LifeBuoy}
-              />
-            </div>
-          </div>
-        </aside>
+        </motion.aside>
       </div>
-    </div>
+    </motion.div>
   )
 }
 
@@ -141,15 +188,15 @@ function InfoRow({
   return (
     <div
       className={cn(
-        'flex flex-col gap-2 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6',
-        !isLast && 'border-b border-border/40',
+        'flex flex-col gap-1.5 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6',
+        !isLast && 'border-b border-border/30',
       )}
     >
-      <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-muted-foreground sm:min-w-40">
-        <Icon className="size-4 shrink-0" />
+      <div className="flex items-center gap-2 text-[0.6rem] uppercase tracking-[0.18em] text-muted-foreground/70 sm:min-w-40">
+        <Icon className="size-3.5 shrink-0" />
         <span>{label}</span>
       </div>
-      <div className="break-words text-sm font-medium text-foreground sm:text-right">{value}</div>
+      <div className="break-words text-sm font-semibold text-foreground sm:text-right">{value}</div>
     </div>
   )
 }
@@ -166,19 +213,15 @@ function ShortcutCard({
   return (
     <Link
       href={href}
-      className={cn(
-        'group flex min-h-16 items-center justify-between rounded-lg border border-border/50 px-3 py-3 transition-colors hover:bg-muted/40',
-      )}
+      className="group flex items-center justify-between rounded-2xl border border-border/40 bg-muted/10 px-4 py-3.5 transition-all duration-300 hover:bg-muted/30 hover:border-border/60 active:scale-[0.98]"
     >
-      <div className="flex items-center gap-4">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted/50 text-muted-foreground transition-colors group-hover:text-foreground">
-          <Icon className="size-5" />
+      <div className="flex items-center gap-3.5">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border/30 bg-muted/40 text-muted-foreground transition-all group-hover:border-primary/20 group-hover:bg-primary/10 group-hover:text-primary">
+          <Icon className="size-4" />
         </div>
-        <div className="text-base font-medium text-foreground">{title}</div>
+        <span className="text-sm font-semibold text-foreground">{title}</span>
       </div>
-      <div className="flex size-8 shrink-0 items-center justify-center text-muted-foreground transition-colors group-hover:text-foreground">
-          <ChevronRight className="size-5" />
-      </div>
+      <ChevronRight className="size-4 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
     </Link>
   )
 }
@@ -215,69 +258,68 @@ function AvatarUploadCard({ profile }: { profile: Profile | null }) {
 
   return (
     <div className="space-y-6">
-      <div className="text-center">
+      <div>
         <h2 className="text-xl font-semibold tracking-tight text-foreground">Mi avatar de cuenta</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Sube una foto o imagen para identificar tu perfil dentro del panel y mantener esta
-          seccion mas personal y clara.
+          Sube una foto o imagen para identificar tu perfil dentro del panel.
         </p>
       </div>
-      <div className="flex flex-col items-center gap-6 text-center">
-        <div className="relative">
-          <div className="absolute inset-[-14px] rounded-full bg-primary/10 blur-xl" aria-hidden />
-          <Avatar className="relative size-28 border border-border/40 shadow-sm">
+
+      <div className="flex items-center gap-5">
+        <div className="relative shrink-0">
+          <div className="absolute inset-[-12px] rounded-full bg-primary/10 blur-xl" aria-hidden />
+          <Avatar className="relative size-24 border border-border/40 shadow-sm">
             <AvatarImage src={profile?.avatar_url || ''} className="object-cover" />
-            <AvatarFallback className="bg-muted text-2xl text-muted-foreground uppercase">
+            <AvatarFallback className="bg-muted text-xl uppercase text-muted-foreground">
               {getAvatarFallback(profile?.full_name)}
             </AvatarFallback>
           </Avatar>
           {isUploading && (
             <div className="absolute inset-0 flex items-center justify-center rounded-full bg-background/55 backdrop-blur-sm">
-              <Loader2 className="size-7 animate-spin text-primary" />
+              <Loader2 className="size-6 animate-spin text-primary" />
             </div>
           )}
         </div>
 
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <p className="text-lg font-semibold text-foreground">
+        <div className="min-w-0 space-y-2">
+          <div>
+            <p className="truncate text-lg font-semibold text-foreground">
               {profile?.full_name ?? 'Cliente Guira'}
             </p>
-            <p className="text-sm text-muted-foreground">
+            <p className="truncate text-sm text-muted-foreground">
               {profile?.email ?? 'Correo pendiente de sincronizacion'}
             </p>
           </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             <ProfileBadge label={formatProfileValue(profile?.role, 'Sin rol')} />
             <ProfileBadge
               label={`Estado ${formatProfileValue(profile?.onboarding_status, 'pendiente')}`}
             />
           </div>
         </div>
+      </div>
 
-        <input
-          type="file"
-          accept="image/png, image/jpeg, image/jpg, image/webp"
-          className="hidden"
-          ref={fileInputRef}
-          onChange={handleFileChange}
+      <input
+        type="file"
+        accept="image/png, image/jpeg, image/jpg, image/webp"
+        className="hidden"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        disabled={isUploading}
+      />
+      <div className="space-y-2">
+        <Button
+          variant="outline"
+          className="w-full rounded-xl border-border/60 bg-muted/20 transition-transform hover:bg-muted/40 active:scale-[0.98]"
+          onClick={() => fileInputRef.current?.click()}
           disabled={isUploading}
-        />
-        <div className="flex w-full max-w-sm flex-col items-center gap-3">
-          <Button
-            variant="outline"
-            className="w-full sm:w-auto"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
-          >
-            <UploadCloud className="mr-2 size-4" />
-            {isUploading ? 'Actualizando...' : 'Subir nueva foto'}
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            Recomendado: formato 1:1, JPG o PNG y hasta 5MB.
-          </p>
-        </div>
+        >
+          <UploadCloud className="mr-2 size-4" />
+          {isUploading ? 'Actualizando...' : 'Subir nueva foto'}
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          Recomendado: formato 1:1, JPG o PNG y hasta 5MB.
+        </p>
       </div>
     </div>
   )
@@ -285,7 +327,7 @@ function AvatarUploadCard({ profile }: { profile: Profile | null }) {
 
 function ProfileBadge({ label }: { label: string }) {
   return (
-    <span className="rounded-full border border-border/60 bg-background/70 px-3 py-1 text-xs font-medium text-muted-foreground">
+    <span className="flex items-center rounded-full border border-border/50 bg-card/80 px-3 py-1 text-[10px] font-semibold text-muted-foreground shadow-sm">
       {label}
     </span>
   )
