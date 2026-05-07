@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { GuiraLoadingInline } from '@/components/shared/guira-loading'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuthStore } from '@/stores/auth-store'
@@ -81,7 +81,7 @@ export function ClientOperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   if (payments.loading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        <GuiraLoadingInline />
       </div>
     )
   }

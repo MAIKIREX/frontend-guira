@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
-import { Copy, Loader2, ShieldAlert, Wallet } from "lucide-react";
+import { Copy, ShieldAlert, Wallet } from "lucide-react";
+import { GuiraLoadingInline } from '@/components/shared/guira-loading';
 import { WalletsDonutChart } from '@/features/wallet/components/wallets-donut-chart';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -251,7 +252,7 @@ function WalletsSection({ isApproved }: { isApproved: boolean }) {
             {/* Loading */}
             {loading && (
                 <div className="flex min-h-[20vh] items-center justify-center">
-                    <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                    <GuiraLoadingInline />
                 </div>
             )}
 

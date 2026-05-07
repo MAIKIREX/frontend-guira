@@ -6,7 +6,7 @@ import { SupportTicket } from '@/types/support'
 import { useAuthStore } from '@/stores/auth-store'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { Loader2 } from 'lucide-react'
+import { GuiraLoadingInline } from '@/components/shared/guira-loading'
 
 export function SupportList() {
   const { user } = useAuthStore()
@@ -36,7 +36,7 @@ export function SupportList() {
     }
   }
 
-  if (loading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-muted-foreground" /></div>
+  if (loading) return <div className="flex justify-center p-8"><GuiraLoadingInline /></div>
   
   return (
     <div className="space-y-6">

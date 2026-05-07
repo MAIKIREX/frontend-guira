@@ -6,7 +6,7 @@ import { ActivityLog } from '@/types/activity-log'
 import { useAuthStore } from '@/stores/auth-store'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Loader2 } from 'lucide-react'
+import { GuiraLoadingInline } from '@/components/shared/guira-loading'
 
 export function ActivityList() {
   const { user } = useAuthStore()
@@ -28,7 +28,7 @@ export function ActivityList() {
     load()
   }, [user])
 
-  if (loading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>
+  if (loading) return <div className="flex justify-center p-8"><GuiraLoadingInline /></div>
   
   return (
     <Card>

@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Loader2,
   RefreshCw,
   Landmark,
   ArrowDownToLine,
   Plus,
 } from 'lucide-react'
+import { GuiraLoadingInline } from '@/components/shared/guira-loading'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import {
@@ -128,7 +128,7 @@ export function VirtualAccountsSection({ isApproved }: VirtualAccountsSectionPro
       {/* Loading */}
       {isApproved && loading && (
         <div className="flex min-h-[20vh] items-center justify-center">
-          <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          <GuiraLoadingInline />
         </div>
       )}
 

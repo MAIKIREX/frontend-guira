@@ -17,6 +17,7 @@ import {
   UserCheck,
   X,
 } from 'lucide-react'
+import { GuiraLoadingInline } from '@/components/shared/guira-loading'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -109,7 +110,7 @@ export function OnboardingDetailPage({ onboardingId }: { onboardingId: string })
   if (loading) {
     return (
       <div className="flex min-h-[45vh] items-center justify-center">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        <GuiraLoadingInline />
       </div>
     )
   }
@@ -388,7 +389,7 @@ function ActivityTab({
   if (loading) {
     return (
       <div className="flex min-h-[20vh] items-center justify-center">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        <GuiraLoadingInline />
       </div>
     )
   }

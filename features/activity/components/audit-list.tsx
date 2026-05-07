@@ -5,7 +5,7 @@ import { ActivityService } from '@/services/activity.service'
 import { AuditLog } from '@/types/activity-log'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Loader2 } from 'lucide-react'
+import { GuiraLoadingInline } from '@/components/shared/guira-loading'
 
 export function AuditList() {
   const [logs, setLogs] = useState<AuditLog[]>([])
@@ -25,7 +25,7 @@ export function AuditList() {
     load()
   }, [])
 
-  if (loading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>
+  if (loading) return <div className="flex justify-center p-8"><GuiraLoadingInline /></div>
   
   return (
     <Card>

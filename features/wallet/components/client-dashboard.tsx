@@ -5,12 +5,12 @@ import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowDownUp,
-  Loader2,
   TrendingDown,
   TrendingUp,
   Activity,
   Clock,
 } from 'lucide-react'
+import { GuiraLoadingInline } from '@/components/shared/guira-loading'
 import Flag from 'react-world-flags'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -131,7 +131,7 @@ export function ClientDashboard({ children }: { children?: React.ReactNode }) {
   if (loading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        <GuiraLoadingInline />
       </div>
     )
   }

@@ -17,7 +17,6 @@ import {
   CircleDollarSign,
   KeyRound,
   Landmark,
-  Loader2,
   Mail,
   Percent,
   Shield,
@@ -31,6 +30,7 @@ import {
   Globe,
   Wallet,
 } from 'lucide-react'
+import { GuiraLoadingInline } from '@/components/shared/guira-loading'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -89,10 +89,7 @@ export function UserDetailPage({ userId }: { userId: string }) {
   if (loading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="size-6 animate-spin text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Cargando usuario...</p>
-        </div>
+        <GuiraLoadingInline text="Cargando usuario..." />
       </div>
     )
   }

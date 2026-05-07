@@ -1,6 +1,6 @@
 'use client'
 
-import { Loader2 } from 'lucide-react'
+import { GuiraLoadingInline } from '@/components/shared/guira-loading'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useAdminBridgePayouts } from '@/features/staff/hooks/use-admin-bridge-payouts'
@@ -12,7 +12,7 @@ export function AdminBridgePanel() {
   if (loading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        <GuiraLoadingInline />
       </div>
     )
   }

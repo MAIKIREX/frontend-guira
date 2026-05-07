@@ -6,7 +6,7 @@ import { SupportTicket } from '@/types/support'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { Loader2 } from 'lucide-react'
+import { GuiraLoadingInline } from '@/components/shared/guira-loading'
 
 export function StaffSupportList() {
   const [tickets, setTickets] = useState<SupportTicket[]>([])
@@ -34,7 +34,7 @@ case 'resolved': return <Badge variant="outline" className="border-emerald-400/4
     }
   }
 
-  if (loading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>
+  if (loading) return <div className="flex justify-center p-8"><GuiraLoadingInline /></div>
   
   return (
     <Card>
