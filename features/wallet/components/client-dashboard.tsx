@@ -25,6 +25,7 @@ import { GuiraButton } from '@/components/shared/guira-button'
 import { BalanceLineChart } from './balance-line-chart'
 import { RecentActivityCard } from './recent-activity-card'
 import { MonthlyFlowsCard } from './monthly-flows-card'
+import { GlobalPaymentFlowCard } from './global-payment-flow-card'
 
 /* ── Framer Motion orchestration ── */
 const SPRING = { type: 'spring' as const, stiffness: 100, damping: 20 }
@@ -402,7 +403,17 @@ export function ClientDashboard({ children }: { children?: React.ReactNode }) {
       </motion.div>
 
       {/* ══════════════════════════════════════════════
-          ROW 4: Wallets + Virtual Accounts (children)
+          ROW 4: Flujo de pagos globales (Mapa)
+         ══════════════════════════════════════════════ */}
+      <motion.div
+        className="bg-card border border-border rounded-2xl shadow-[0_8px_24px_rgba(15,23,42,0.04)] p-6 mb-3"
+        variants={fadeSlideUp}
+      >
+        <GlobalPaymentFlowCard />
+      </motion.div>
+
+      {/* ══════════════════════════════════════════════
+          ROW 5: Wallets + Virtual Accounts (children)
          ══════════════════════════════════════════════ */}
       {children && (
         <motion.section className="mt-3" variants={fadeSlideUp}>

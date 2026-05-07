@@ -92,105 +92,110 @@ export function StaffNavigation({
         staffNavGroups.map((group) => [group.key, group.key === groupKey])
       ) as Record<string, boolean>
 
-      return {
-        ...current,
-        ...nextState,
-      }
+      return { ...current, ...nextState }
     })
 
     onRequestExpand?.()
   }
 
   return (
-    <nav className="space-y-3">
-      {staffNavGroups.map((group) => {
+    <nav className="flex flex-col gap-0.5 px-3 py-2">
+      {staffNavGroups.map((group, groupIndex) => {
         const groupActive = group.items.some((item) => isLinkActive(pathname, item.href))
         const isOpen = groupActive || !!openGroups[group.key]
         const GroupIcon = group.icon
 
         if (collapsed) {
-          const activeItem = group.items.find((item) => isLinkActive(pathname, item.href))
-
           return (
             <button
               key={group.key}
               type="button"
               onClick={() => openGroupAndExpand(group.key)}
-              title={activeItem ? `${group.label}: ${activeItem.label}` : group.label}
+              title={group.label}
               aria-label={group.label}
               className={cn(
-                'flex w-full flex-col items-center justify-center border px-2 py-4 transition-all duration-200 border-r-2 border-r-primary cursor-pointer',
+                'flex w-full items-center justify-center rounded-2xl p-3 transition-all duration-200 ease-out cursor-pointer',
                 groupActive
-                  ? ' bg-primary/10 text-foreground'
-                  : 'border-0 text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                  ? 'text-white shadow-[0_8px_20px_rgba(0,91,255,0.25)]'
+                  : 'text-white/[0.78] hover:bg-white/[0.08] hover:text-white'
               )}
+              style={groupActive ? { background: 'linear-gradient(90deg, #005BFF 0%, #00BFFF 100%)' } : undefined}
             >
-              <GroupIcon className="size-5 shrink-0" />
+              <GroupIcon strokeWidth={groupActive ? 2.2 : 1.8} className="size-[1.1rem]" />
             </button>
           )
         }
 
         return (
-          <div key={group.key} className="space-y-1.5">
+          <div key={group.key} className={cn('flex flex-col', groupIndex > 0 && 'mt-3')}>
+            {/* Group label */}
             <button
               type="button"
               onClick={() => toggleGroup(group.key)}
-              title={group.label}
-              aria-label={group.label}
               aria-expanded={isOpen}
-              className={cn(
-                'flex w-full items-center justify-between border px-3 py-2.5 text-sm transition-all duration-200 cursor-pointer',
-                groupActive
-                  ? 'border-primary bg-primary/10  text-foreground'
-                  : 'border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground'
-              )}
+              className="flex w-full items-center justify-between px-2 py-1.5 transition-colors duration-200 cursor-pointer"
             >
-              <span className="flex items-center gap-3">
-                <GroupIcon className="size-4 shrink-0" />
-                <span className="text-[0.76rem] font-semibold uppercase tracking-[0.18em]">{group.label}</span>
+              <span className="text-[0.6rem] font-extrabold uppercase tracking-[0.16em] text-white/30">
+                {group.label}
               </span>
-              <ChevronDown className={cn('size-4 transition-transform', isOpen && 'rotate-180')} />
+              <ChevronDown
+                strokeWidth={2}
+                className={cn(
+                  'size-3 text-white/25 transition-transform duration-200',
+                  isOpen && 'rotate-180'
+                )}
+              />
             </button>
 
-            {isOpen ? (
-              <div className="space-y-1 pl-3">
+            {/* Items */}
+            {isOpen && (
+              <div className="mt-0.5 flex flex-col gap-0.5">
                 {group.items.map((item) => {
                   const active = isLinkActive(pathname, item.href)
                   const ItemIcon = item.icon
 
                   return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      title={item.label}
-                      aria-label={item.label}
-                      className={cn(
-                        'group relative flex items-center gap-3 overflow-hidden border-r-2 px-4 py-3 text-sm transition-all duration-200',
-                        active
-                          ? 'border-primary bg-primary/10 text-foreground'
-                          : 'border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground'
-                      )}
-                    >
-                      <span
+                    <div key={item.href} className="relative flex items-center px-0 py-0.5">
+                      <Link
+                        href={item.href}
+                        title={item.label}
+                        aria-label={item.label}
                         className={cn(
-                          'relative z-10 flex shrink-0 items-center justify-center text-muted-foreground transition-colors duration-200',
-                          active && 'text-primary'
+                          'w-full group relative flex items-center gap-3.5 px-4 py-2.5 rounded-[10px] transition-all duration-200 ease-out',
+                          active
+                            ? 'text-white shadow-[0_8px_20px_rgba(0,91,255,0.25)]'
+                            : 'text-white/[0.78] hover:bg-white/[0.08] hover:text-white'
                         )}
+                        style={active ? { background: 'linear-gradient(90deg, #005BFF 0%, #00BFFF 100%)' } : undefined}
                       >
-                        <ItemIcon className="size-4" />
-                      </span>
-                      <span className="relative z-10 text-[0.82rem] font-medium">
-                        {item.label}
-                      </span>
-                    </Link>
+                        <span
+                          className={cn(
+                            'relative z-10 flex shrink-0 items-center justify-center transition-all duration-200',
+                            active ? 'text-white' : 'text-white/[0.78] group-hover:text-white'
+                          )}
+                        >
+                          <ItemIcon
+                            strokeWidth={active ? 2.2 : 1.8}
+                            className="size-[1.1rem]"
+                          />
+                        </span>
+                        <span
+                          className={cn(
+                            'relative z-10 text-[0.85rem] tracking-tight',
+                            active ? 'font-semibold text-white' : 'font-medium'
+                          )}
+                        >
+                          {item.label}
+                        </span>
+                      </Link>
+                    </div>
                   )
                 })}
               </div>
-            ) : null}
+            )}
           </div>
         )
       })}
-
     </nav>
   )
 }
