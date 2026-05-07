@@ -2464,106 +2464,84 @@ export function CreatePaymentOrderForm({
 
                 {step === 'finish' ? (
                   <AnimatedStepPanel key="finish">
-
+                    <div className="flex flex-col items-center justify-center space-y-6 py-8 text-center">
+                      <div className="relative flex size-24 items-center justify-center rounded-full bg-emerald-500/10 ring-1 ring-emerald-500/20">
+                        <div className="absolute inset-0 rounded-full bg-emerald-500/10 blur-xl" />
+                        <CheckCircle2 className="relative size-12 text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />
+                      </div>
+                      <div className="space-y-2 max-w-lg mx-auto">
+                        <h3 className="text-2xl font-semibold tracking-tight text-foreground">
+                          Expediente Creado Exitosamente
+                        </h3>
+                        <p className="text-sm leading-relaxed text-muted-foreground">
+                          {route === 'wallet_ramp_withdraw' 
+                            ? 'Tu solicitud de retiro ha sido recibida y está siendo procesada de forma automática.' 
+                            : route === 'crypto_to_crypto'
+                            ? 'La orden está lista. Esperando el depósito on-chain para completar la transferencia.'
+                            : 'La orden está registrada. Puedes adjuntar tu comprobante ahora o más adelante.'}
+                        </p>
+                      </div>
+                    </div>
 
                     {route === 'wallet_ramp_withdraw' ? (
-                      <>
-                        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-6 text-base space-y-3">
-                          <div className="flex items-center gap-2 font-medium text-emerald-400">
-                            <Loader2 className="size-4 animate-spin" />
-                            Tu retiro está siendo procesado…
-                          </div>
-                          <p className="text-muted-foreground">
-                            {walletRampWithdrawMethod === 'crypto'
-                              ? 'Tu transferencia on-chain fue iniciada desde tu wallet Bridge hacia la dirección destino. Bridge procesará el envío automáticamente y el estado se actualizará cuando se complete.'
-                              : walletRampWithdrawMethod === 'fiat_us'
-                                ? 'Tu retiro fue iniciado desde tu wallet Bridge hacia tu cuenta bancaria estadounidense. Bridge procesará la transferencia vía ACH/Wire automáticamente.'
-                                : 'La transferencia cripto ya fue iniciada desde tu wallet Bridge hacia el PSAV. Una vez que el PSAV reciba los fondos, los convertirá a bolivianos y los depositará en tu cuenta bancaria. El staff confirmará cada etapa.'}
-                          </p>
-                          <div className="mt-4 grid gap-2 text-sm text-muted-foreground">
-                            <div className="flex justify-between rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
-                              <span>Estado actual</span>
-                              <span className="font-medium text-amber-400">En proceso</span>
+                      <div className="space-y-6">
+                        <div className="overflow-hidden rounded-2xl border border-emerald-500/20 bg-gradient-to-b from-emerald-500/5 to-transparent">
+                          <div className="p-6">
+                            <div className="flex items-center gap-3 font-medium text-emerald-700 dark:text-emerald-400 mb-4">
+                              <Loader2 className="size-5 animate-spin" />
+                              <span>Tu retiro está siendo procesado…</span>
                             </div>
-                            {walletRampWithdrawMethod === 'crypto' ? (
-                              <>
-                                <div className="flex justify-between rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
-                                  <span>Dirección destino</span>
-                                  <span className="font-medium text-foreground font-mono text-xs">{form.getValues('crypto_address')?.slice(0, 10)}…{form.getValues('crypto_address')?.slice(-6)}</span>
-                                </div>
-                                <div className="flex justify-between rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
-                                  <span>Red</span>
-                                  <span className="font-medium text-foreground capitalize">{form.getValues('crypto_network')}</span>
-                                </div>
-                              </>
-                            ) : walletRampWithdrawMethod === 'fiat_us' ? (
-                              <div className="flex justify-between rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
-                                <span>Método</span>
-                                <span className="font-medium text-foreground">Cuenta bancaria (USD) vía ACH/Wire</span>
+                            <p className="text-sm leading-relaxed text-muted-foreground mb-6">
+                              {walletRampWithdrawMethod === 'crypto'
+                                ? 'Tu transferencia on-chain fue iniciada desde tu wallet Bridge hacia la dirección destino. Bridge procesará el envío automáticamente y el estado se actualizará cuando se complete.'
+                                : walletRampWithdrawMethod === 'fiat_us'
+                                  ? 'Tu retiro fue iniciado desde tu wallet Bridge hacia tu cuenta bancaria estadounidense. Bridge procesará la transferencia vía ACH/Wire automáticamente.'
+                                  : 'La transferencia cripto ya fue iniciada desde tu wallet Bridge hacia el PSAV. Una vez que el PSAV reciba los fondos, los convertirá a bolivianos y los depositará en tu cuenta bancaria. El staff confirmará cada etapa.'}
+                            </p>
+                            <div className="grid gap-2 text-sm">
+                              <div className="flex items-center justify-between rounded-xl bg-background/50 p-3 ring-1 ring-border/50">
+                                <span className="text-muted-foreground">Estado actual</span>
+                                <span className="font-semibold text-amber-600 dark:text-amber-400">En proceso</span>
                               </div>
-                            ) : (
-                              <>
-                                <div className="flex justify-between rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
-                                  <span>Destino</span>
-                                  <span className="font-medium text-foreground">{form.getValues('withdraw_bank_name')} — ****{form.getValues('withdraw_account_number')?.slice(-4)}</span>
+                              {walletRampWithdrawMethod === 'crypto' ? (
+                                <>
+                                  <div className="flex items-center justify-between rounded-xl bg-background/50 p-3 ring-1 ring-border/50">
+                                    <span className="text-muted-foreground">Dirección destino</span>
+                                    <span className="font-mono text-xs font-medium text-foreground">{form.getValues('crypto_address')?.slice(0, 10)}…{form.getValues('crypto_address')?.slice(-6)}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between rounded-xl bg-background/50 p-3 ring-1 ring-border/50">
+                                    <span className="text-muted-foreground">Red</span>
+                                    <span className="font-medium text-foreground capitalize">{form.getValues('crypto_network')}</span>
+                                  </div>
+                                </>
+                              ) : walletRampWithdrawMethod === 'fiat_us' ? (
+                                <div className="flex items-center justify-between rounded-xl bg-background/50 p-3 ring-1 ring-border/50">
+                                  <span className="text-muted-foreground">Método</span>
+                                  <span className="font-medium text-foreground">Cuenta bancaria (USD) vía ACH/Wire</span>
                                 </div>
-                                <div className="flex justify-between rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
-                                  <span>Titular</span>
-                                  <span className="font-medium text-foreground">{form.getValues('withdraw_account_holder')}</span>
-                                </div>
-                              </>
-                            )}
+                              ) : (
+                                <>
+                                  <div className="flex items-center justify-between rounded-xl bg-background/50 p-3 ring-1 ring-border/50">
+                                    <span className="text-muted-foreground">Destino</span>
+                                    <span className="font-medium text-foreground">{form.getValues('withdraw_bank_name')} — ****{form.getValues('withdraw_account_number')?.slice(-4)}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between rounded-xl bg-background/50 p-3 ring-1 ring-border/50">
+                                    <span className="text-muted-foreground">Titular</span>
+                                    <span className="font-medium text-foreground">{form.getValues('withdraw_account_holder')}</span>
+                                  </div>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
 
-                        <div className="border-l-2 border-border/70 bg-muted/10 px-4 py-4 text-base text-muted-foreground">
-                          {walletRampWithdrawMethod === 'fiat_bo'
-                            ? 'Puedes dar seguimiento a esta orden desde el tab "Seguimiento". No es necesario subir comprobante; el proceso es automático en la primera etapa.'
-                            : 'Tu retiro es procesado automáticamente por Bridge. El estado se actualizará cuando se complete. Puedes dar seguimiento desde el tab "Seguimiento".'}
-                        </div>
-
-                        <div className="flex items-center justify-end mt-8">
-                          <GuiraButton
-                            disabled={disabled}
-                            onClick={() => resetFlow(form, setStep, setSupportFile, setQrFile, setEvidenceFile, setCreatedOrder)}
-                          >
-                            Cerrar
-                          </GuiraButton>
-                        </div>
-                      </>
-                    ) : route === 'crypto_to_crypto' ? (
-                      <>
-                        {/* Instrucciones de depósito Bridge (dirección crypto + red) */}
-                        <div className="grid gap-4 lg:grid-cols-2">
-                          {finalInstructions.map((instruction) => (
-                            <DepositInstructionCard key={instruction.id} instruction={instruction} />
-                          ))}
-                        </div>
-
-                        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-6 text-base space-y-3">
-                          <div className="flex items-center gap-2 font-medium text-emerald-400">
-                            <Loader2 className="size-4 animate-spin" />
-                            Esperando depósito…
-                          </div>
-                          <p className="text-muted-foreground">
-                            Deposita los fondos en la dirección indicada arriba. Bridge detectará
-                            la transacción on-chain automáticamente y la orden se completará
-                            sin necesidad de subir comprobante.
+                        <div className="flex items-start gap-3 rounded-xl border border-border/50 bg-muted/20 p-4 text-sm text-muted-foreground">
+                          <CircleAlert className="size-5 shrink-0 text-muted-foreground/70" />
+                          <p>
+                            {walletRampWithdrawMethod === 'fiat_bo'
+                              ? 'Puedes dar seguimiento a esta orden desde el tab "Seguimiento". No es necesario subir comprobante; el proceso es automático en la primera etapa.'
+                              : 'Tu retiro es procesado automáticamente por Bridge. El estado se actualizará cuando se complete. Puedes dar seguimiento desde el tab "Seguimiento".'}
                           </p>
-                          <div className="mt-4 grid gap-2 text-sm text-muted-foreground">
-                            <div className="flex justify-between rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
-                              <span>Estado actual</span>
-                              <span className="font-medium text-amber-400">Esperando depósito</span>
-                            </div>
-                            <div className="flex justify-between rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
-                              <span>Proveedor destino</span>
-                              <span className="font-medium text-foreground">{suppliers.find(s => s.id === form.getValues('supplier_id'))?.name ?? 'Sin proveedor'}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="border-l-2 border-border/70 bg-muted/10 px-4 py-4 text-base text-muted-foreground">
-                          Puedes dar seguimiento a esta orden desde el tab "Seguimiento". El proceso es completamente automático — Bridge verificará el depósito on-chain y enviará los fondos al destino.
                         </div>
 
                         <div className="flex items-center justify-end mt-8">
@@ -2571,45 +2549,113 @@ export function CreatePaymentOrderForm({
                             disabled={disabled}
                             onClick={() => resetFlow(form, setStep, setSupportFile, setQrFile, setEvidenceFile, setCreatedOrder)}
                           >
-                            Cerrar
+                            Ir al Seguimiento
                           </GuiraButton>
                         </div>
-                      </>
-                    ) : (
-                      <>
+                      </div>
+                    ) : route === 'crypto_to_crypto' ? (
+                      <div className="space-y-6">
                         <div className="grid gap-4 lg:grid-cols-2">
                           {finalInstructions.map((instruction) => (
                             <DepositInstructionCard key={instruction.id} instruction={instruction} />
                           ))}
                         </div>
 
-                        <div className="border-l-2 border-emerald-400/45 bg-emerald-400/10 px-4 py-4 text-base text-emerald-100">
-                          El expediente ya fue creado con estado `waiting_deposit`. Desde aqui puedes dejar el comprobante final o subirlo despues desde Seguimiento.
+                        <div className="overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-b from-amber-500/5 to-transparent">
+                          <div className="p-6">
+                            <div className="flex items-center gap-3 font-medium text-amber-700 dark:text-amber-400 mb-4">
+                              <Loader2 className="size-5 animate-spin" />
+                              <span>Esperando depósito…</span>
+                            </div>
+                            <p className="text-sm leading-relaxed text-muted-foreground mb-6">
+                              Deposita los fondos en la dirección indicada arriba. Bridge detectará
+                              la transacción on-chain automáticamente y la orden se completará
+                              sin necesidad de subir comprobante.
+                            </p>
+                            <div className="grid gap-2 text-sm">
+                              <div className="flex items-center justify-between rounded-xl bg-background/50 p-3 ring-1 ring-border/50">
+                                <span className="text-muted-foreground">Estado actual</span>
+                                <span className="font-semibold text-amber-600 dark:text-amber-400">Esperando depósito</span>
+                              </div>
+                              <div className="flex items-center justify-between rounded-xl bg-background/50 p-3 ring-1 ring-border/50">
+                                <span className="text-muted-foreground">Proveedor destino</span>
+                                <span className="font-medium text-foreground">{suppliers.find(s => s.id === form.getValues('supplier_id'))?.name ?? 'Sin proveedor'}</span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
 
-                        <DocumentInputCard
-                          file={evidenceFile}
-                          label="Comprobante final"
-                          description="Adjunta aqui el comprobante del deposito o fondeo. Se guardara en evidence_url."
-                          onFileChange={setEvidenceFile}
-                        />
+                        <div className="flex items-start gap-3 rounded-xl border border-border/50 bg-muted/20 p-4 text-sm text-muted-foreground">
+                          <CircleAlert className="size-5 shrink-0 text-muted-foreground/70" />
+                          <p>
+                            Puedes dar seguimiento a esta orden desde el tab "Seguimiento". El proceso es completamente automático — Bridge verificará el depósito on-chain y enviará los fondos al destino.
+                          </p>
+                        </div>
 
-                        <div className="border-l-2 border-border/70 bg-muted/10 px-4 py-4 text-base text-muted-foreground">
-                          Cuando el comprobante final quede adjunto y la orden siga en `waiting_deposit`, el sistema la movera a `deposit_received`.
+                        <div className="flex items-center justify-end mt-8">
+                          <GuiraButton
+                            disabled={disabled}
+                            onClick={() => resetFlow(form, setStep, setSupportFile, setQrFile, setEvidenceFile, setCreatedOrder)}
+                          >
+                            Ir al Seguimiento
+                          </GuiraButton>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        <div className="grid gap-4 lg:grid-cols-2">
+                          {finalInstructions.map((instruction) => (
+                            <DepositInstructionCard key={instruction.id} instruction={instruction} />
+                          ))}
+                        </div>
+
+                        <div className="flex items-start gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm text-emerald-800 dark:text-emerald-300">
+                          <FileCheck2 className="size-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                          <p>
+                            El expediente ya fue creado con estado <span className="font-mono text-xs font-semibold text-emerald-700 dark:text-emerald-400">waiting_deposit</span>. 
+                            Desde aquí puedes adjuntar el comprobante final o hacerlo después desde Seguimiento.
+                          </p>
+                        </div>
+
+                        <div className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                          <div className="border-b border-border/50 bg-muted/20 px-5 py-4">
+                            <h4 className="font-semibold text-foreground">Comprobante Final</h4>
+                            <p className="text-xs text-muted-foreground mt-0.5">Adjunta el comprobante del depósito o fondeo para avanzar la orden.</p>
+                          </div>
+                          <div className="p-6">
+                            <DocumentInputCard
+                              file={evidenceFile}
+                              label="Subir comprobante"
+                              description="Formatos soportados: PDF, JPG, PNG"
+                              onFileChange={setEvidenceFile}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-3 rounded-xl border border-border/50 bg-muted/20 p-4 text-sm text-muted-foreground">
+                          <CircleAlert className="size-5 shrink-0 text-muted-foreground/70" />
+                          <p>
+                            Cuando el comprobante final quede adjunto, el sistema revisará el depósito y la orden avanzará a <span className="font-mono text-xs font-semibold">deposit_received</span>.
+                          </p>
                         </div>
 
                         <div className="flex items-center justify-between mt-8">
-                          <GuiraButton variant="secondary"
+                          <GuiraButton 
+                            variant="secondary"
                             disabled={uploadingEvidence}
                             onClick={() => resetFlow(form, setStep, setSupportFile, setQrFile, setEvidenceFile, setCreatedOrder)}
                           >
-                            Finalizar despues
+                            Finalizar después
                           </GuiraButton>
-                          <GuiraButton disabled={disabled || uploadingEvidence || !createdOrder} onClick={handleFinishEvidenceUpload} arrowNext>
+                          <GuiraButton 
+                            disabled={disabled || uploadingEvidence || !createdOrder} 
+                            onClick={handleFinishEvidenceUpload} 
+                            arrowNext
+                          >
                             {uploadingEvidence ? 'Adjuntando...' : evidenceFile ? 'Adjuntar y cerrar' : 'Cerrar sin comprobante'}
                           </GuiraButton>
                         </div>
-                      </>
+                      </div>
                     )}
                   </AnimatedStepPanel>
                 ) : null}

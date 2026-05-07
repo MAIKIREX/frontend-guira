@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import { Copy, Loader2, ShieldAlert, Wallet } from "lucide-react";
+import { WalletsDonutChart } from '@/features/wallet/components/wallets-donut-chart';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -294,17 +295,27 @@ function WalletsSection({ isApproved }: { isApproved: boolean }) {
                 </div>
             )}
 
-            {/* Token Rows */}
+            {/* Token Rows + Donut Chart */}
             {!loading && !error && wallets.length > 0 && (
                 <div className="pt-2">
-                    {DISPLAY_CURRENCIES.filter((cur) => cur !== "USDB" && cur !== "PYUSD").map((cur, index) => (
-                        <TokenRow
-                            key={cur}
-                            currency={cur}
-                            balance={aggregatedTokens[cur]}
-                            index={index}
-                        />
-                    ))}
+                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px] gap-6 items-start">
+                        {/* Left: Token List */}
+                        <div>
+                            {DISPLAY_CURRENCIES.filter((cur) => cur !== "USDB" && cur !== "PYUSD").map((cur, index) => (
+                                <TokenRow
+                                    key={cur}
+                                    currency={cur}
+                                    balance={aggregatedTokens[cur]}
+                                    index={index}
+                                />
+                            ))}
+                        </div>
+
+                        {/* Right: Donut Chart */}
+                        <div className="flex items-center justify-center">
+                            <WalletsDonutChart aggregatedTokens={aggregatedTokens} />
+                        </div>
+                    </div>
 
                     {/* ── Wallet Infrastructure Strip ── */}
                     <div className="mt-6 pt-5 border-t border-border/30">

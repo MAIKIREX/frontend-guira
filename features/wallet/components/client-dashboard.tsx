@@ -5,12 +5,9 @@ import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowDownUp,
-  DollarSign,
   Loader2,
-  RefreshCw,
   TrendingDown,
   TrendingUp,
-  Waypoints,
   Activity,
   Clock,
 } from 'lucide-react'
@@ -24,6 +21,9 @@ import { useExchangeRates } from '@/features/payments/hooks/use-exchange-rates'
 import { WalletService } from '@/services/wallet.service'
 import { PaymentsService } from '@/services/payments.service'
 import { GuiraButton } from '@/components/shared/guira-button'
+import { BalanceLineChart } from './balance-line-chart'
+import { RecentActivityCard } from './recent-activity-card'
+import { MonthlyFlowsCard } from './monthly-flows-card'
 
 /* ── Framer Motion orchestration ── */
 const SPRING = { type: 'spring' as const, stiffness: 100, damping: 20 }
@@ -42,8 +42,6 @@ const fadeSlideRight = {
   hidden: { opacity: 0, x: 32 },
   visible: { opacity: 1, x: 0, transition: { ...SPRING, delay: 0.2 } },
 }
-
-const FORM_LABEL_CLASS = 'text-[0.68rem] font-extrabold uppercase tracking-[0.14em] text-muted-foreground'
 
 type QuoteAction = 'depositar' | 'enviar'
 
@@ -158,7 +156,6 @@ export function ClientDashboard({ children }: { children?: React.ReactNode }) {
   const amountOrigin = parseAmount(amountInput)
   const buyRate = rates.buyRate
   const sellRate = rates.sellRate
-  const visibleBaseRate = action === 'depositar' ? (sellRate ?? 0) : (buyRate ?? 0)
   const estimate = {
     amountConverted: action === 'depositar'
       ? amountOrigin * (sellRate ?? 0)
@@ -179,30 +176,31 @@ export function ClientDashboard({ children }: { children?: React.ReactNode }) {
       animate="visible"
       variants={staggerContainer}
     >
+      {/* ── Hero Greeting ── */}
+      <motion.div className="space-y-2 mb-10" variants={fadeSlideUp}>
+        <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tighter text-foreground leading-[0.95]">
+          Bienvenido a Guira
+        </h1>
+        <p className="text-4xl sm:text-5xl font-bold tracking-tight text-primary/80 leading-[1]">
+          {userFirstName}
+        </p>
+        <p className="text-sm font-medium text-muted-foreground/60 max-w-md pt-2">
+          Resumen de tu actividad financiera y cuentas operativas
+        </p>
+      </motion.div>
+
+      {/* ── MAIN 2-COLUMN GRID ── */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] xl:grid-cols-[1fr_420px] gap-10 xl:gap-16 items-start">
 
-        {/* ── LEFT COLUMN: Balances & Activity ── */}
-        <motion.div className="space-y-12" variants={staggerContainer}>
+        {/* ── LEFT COLUMN ── */}
+        <motion.div className="space-y-8" variants={staggerContainer}>
 
-          {/* ── Hero Greeting ── */}
-          <motion.div className="space-y-2" variants={fadeSlideUp}>
-            <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tighter text-foreground leading-[0.95]">
-              Bienvenido a Guira
-            </h1>
-            <p className="text-4xl sm:text-5xl font-bold tracking-tight text-primary/80 leading-[1]">
-              {userFirstName}
-            </p>
-            <p className="text-sm font-medium text-muted-foreground/60 max-w-md pt-2">
-              Resumen de tu actividad financiera y cuentas operativas
-            </p>
-          </motion.div>
-
-          {/* ── Balance Hero ── */}
+          {/* ── Balance Hero + Line Chart ── */}
           <motion.section
             className="relative overflow-hidden rounded-[2rem] border border-border/40 bg-card/60 p-8 sm:p-10 shadow-[0_8px_40px_-16px_rgba(0,0,0,0.06)]"
             variants={fadeSlideUp}
           >
-            {/* Ambient gradient orb — decorative background */}
+            {/* Ambient gradient orbs */}
             <div className="pointer-events-none absolute -top-24 -right-24 size-80 rounded-full bg-primary/[0.06] blur-[100px]" />
             <div className="pointer-events-none absolute -bottom-16 -left-16 size-60 rounded-full bg-accent/[0.04] blur-[80px]" />
 
@@ -236,8 +234,13 @@ export function ClientDashboard({ children }: { children?: React.ReactNode }) {
                 </span>
               </div>
 
+              {/* ── Line Chart: Balance History ── */}
+              <div className="mt-6 -mx-2">
+                <BalanceLineChart currentBalance={balanceUSD} />
+              </div>
+
               {/* Inline stat pills */}
-              <div className="flex flex-wrap items-center gap-3 mt-8">
+              <div className="flex flex-wrap items-center gap-3 mt-6">
                 <motion.div
                   className="flex items-center gap-2 rounded-full border border-border/50 bg-card/80 px-4 py-2 shadow-sm"
                   initial={{ opacity: 0, scale: 0.9 }}
@@ -265,19 +268,22 @@ export function ClientDashboard({ children }: { children?: React.ReactNode }) {
             </div>
           </motion.section>
 
-          {/* Children slot (Wallets + Virtual Accounts) */}
-          {children && (
-            <motion.section className="pt-2" variants={fadeSlideUp}>
-              {children}
-            </motion.section>
-          )}
+          {/* ── Recent Activity Card ── */}
+          <motion.section
+            className="relative overflow-hidden rounded-[2rem] border border-border/40 bg-card/60 p-8 sm:p-10 shadow-[0_8px_40px_-16px_rgba(0,0,0,0.06)]"
+            variants={fadeSlideUp}
+          >
+            <RecentActivityCard />
+          </motion.section>
+
         </motion.div>
 
-        {/* ── RIGHT COLUMN: Cotizador Card ── */}
-        <motion.div variants={fadeSlideRight} className="sticky top-8">
-          <div className="relative overflow-hidden rounded-[2rem] border border-border/50 bg-card text-foreground shadow-[0_8px_40px_-12px_rgba(0,0,0,0.10)] dark:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.30)]">
+        {/* ── RIGHT COLUMN: Cotizador + Monthly Flows ── */}
+        <motion.div className="space-y-8 sticky top-8" variants={fadeSlideRight}>
 
-            {/* Ambient gradient orbs — visible in light + dark */}
+          {/* ── Cotizador Card ── */}
+          <div className="relative overflow-hidden rounded-[2rem] border border-border/50 bg-card text-foreground shadow-[0_8px_40px_-12px_rgba(0,0,0,0.10)] dark:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.30)]">
+            {/* Ambient gradient orbs */}
             <div className="pointer-events-none absolute -top-20 -right-20 size-64 rounded-full bg-primary/[0.07] dark:bg-primary/[0.12] blur-[80px]" />
             <div className="pointer-events-none absolute -bottom-20 -left-20 size-64 rounded-full bg-accent/[0.06] dark:bg-accent/[0.10] blur-[80px]" />
 
@@ -342,7 +348,7 @@ export function ClientDashboard({ children }: { children?: React.ReactNode }) {
                     />
                   </div>
 
-                  {/* Swap Arrow — centered connector */}
+                  {/* Swap Arrow */}
                   <div className="flex items-center justify-center -my-5 relative z-10">
                     <motion.div
                       className="flex size-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg border-[3px] border-card cursor-pointer"
@@ -387,9 +393,8 @@ export function ClientDashboard({ children }: { children?: React.ReactNode }) {
               </div>
             </div>
 
-            {/* ── Buy / Sell Rate Strip ── */}
+            {/* Buy / Sell Rate Strip */}
             <div className="relative z-10 mx-8 sm:mx-10 mb-8 flex items-stretch gap-3">
-              {/* Buy */}
               <motion.div
                 className="flex-1 rounded-xl border border-border/30 bg-muted/10 p-4"
                 initial={{ opacity: 0, y: 12 }}
@@ -408,7 +413,6 @@ export function ClientDashboard({ children }: { children?: React.ReactNode }) {
                 </p>
               </motion.div>
 
-              {/* Sell */}
               <motion.div
                 className="flex-1 rounded-xl border border-border/30 bg-muted/10 p-4"
                 initial={{ opacity: 0, y: 12 }}
@@ -428,8 +432,26 @@ export function ClientDashboard({ children }: { children?: React.ReactNode }) {
               </motion.div>
             </div>
           </div>
+
+          {/* ── Monthly Flows Card ── */}
+          <motion.div
+            className="relative overflow-hidden rounded-[2rem] border border-border/40 bg-card/60 p-8 sm:p-10 shadow-[0_8px_40px_-16px_rgba(0,0,0,0.06)]"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...SPRING, delay: 0.35 }}
+          >
+            <MonthlyFlowsCard />
+          </motion.div>
+
         </motion.div>
       </div>
+
+      {/* ── FULL-WIDTH SECTION: Wallets + Virtual Accounts (children) ── */}
+      {children && (
+        <motion.section className="mt-12" variants={fadeSlideUp}>
+          {children}
+        </motion.section>
+      )}
     </motion.div>
   )
 }

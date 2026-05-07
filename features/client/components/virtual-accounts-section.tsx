@@ -169,7 +169,7 @@ export function VirtualAccountsSection({ isApproved }: VirtualAccountsSectionPro
 
       {/* Grid de VAs — staggered entry */}
       {isApproved && !loading && !error && accounts.length > 0 && (
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
           {accounts.map((va, index) => (
             <motion.div
               key={va.id}
