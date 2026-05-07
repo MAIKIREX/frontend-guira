@@ -6,7 +6,9 @@ import {
   RefreshCw,
   Landmark,
   ArrowDownToLine,
+  Plus,
 } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -19,6 +21,8 @@ import {
 } from '@/services/bridge.service'
 import { VirtualAccountCard } from './virtual-account-card'
 import { CreateVirtualAccountDialog } from './create-virtual-account-dialog'
+
+const SPRING = { type: 'spring' as const, stiffness: 100, damping: 20 }
 
 interface VirtualAccountsSectionProps {
   isApproved: boolean
@@ -74,19 +78,14 @@ export function VirtualAccountsSection({ isApproved }: VirtualAccountsSectionPro
   }, [])
 
   return (
-    <div className="space-y-5">
-      {/* Sub-header */}
+    <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <div className="flex size-8 items-center justify-center rounded-lg border border-border/60 bg-muted/40">
-            <Landmark className="size-4 text-muted-foreground" />
-          </div>
-          <div>
-            <p className="text-sm font-medium">Cuentas Virtuales</p>
-            <p className="text-xs text-muted-foreground">
-              Cuentas bancarias para recibir depósitos con auto-conversión a crypto
-            </p>
-          </div>
+        <div>
+          <h2 className="text-4xl font-extrabold text-foreground tracking-tight">Cuentas Virtuales</h2>
+          <p className="text-sm text-muted-foreground/60 mt-1.5 font-medium">
+            Cuentas bancarias para recibir depósitos con auto-conversión a crypto
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -95,6 +94,7 @@ export function VirtualAccountsSection({ isApproved }: VirtualAccountsSectionPro
             onClick={() => void loadAccounts()}
             disabled={loading}
             title="Actualizar"
+            className="rounded-full size-8 text-muted-foreground/50 hover:text-foreground"
           >
             <RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
           </Button>
@@ -112,19 +112,17 @@ export function VirtualAccountsSection({ isApproved }: VirtualAccountsSectionPro
 
       {/* No KYC */}
       {!isApproved && (
-        <Card className="border-dashed border-border/40 bg-muted/10 mx-auto max-w-2xl mt-8">
-          <CardContent className="flex min-h-[28vh] flex-col items-center justify-center gap-5 text-center px-4 py-12">
-            <div className="relative flex size-16 items-center justify-center rounded-full border border-border bg-background shadow-sm ring-4 ring-muted/50">
-              <Landmark className="size-6 text-muted-foreground/50" />
-            </div>
-            <div className="max-w-sm">
-              <p className="text-lg font-semibold tracking-tight text-foreground">Verificación requerida</p>
-              <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                Completa tu proceso de verificación KYC/KYB corporativo para habilitar la creación de Cuentas Virtuales y empezar a recibir depósitos bancarios.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="flex min-h-[24vh] flex-col items-center justify-center gap-5 text-center py-12">
+          <div className="relative flex size-16 items-center justify-center rounded-full border border-border/40 bg-muted/20 ring-4 ring-muted/30">
+            <Landmark className="size-6 text-muted-foreground/40" />
+          </div>
+          <div className="max-w-sm">
+            <p className="text-lg font-semibold tracking-tight text-foreground">Verificación requerida</p>
+            <p className="mt-2 text-sm text-muted-foreground/70 leading-relaxed">
+              Completa tu proceso de verificación KYC/KYB corporativo para habilitar la creación de Cuentas Virtuales y empezar a recibir depósitos bancarios.
+            </p>
+          </div>
+        </div>
       )}
 
       {/* Loading */}
@@ -149,44 +147,48 @@ export function VirtualAccountsSection({ isApproved }: VirtualAccountsSectionPro
 
       {/* Empty */}
       {isApproved && !loading && !error && accounts.length === 0 && (
-        <Card className="border-dashed border-border/40 bg-muted/10 mx-auto max-w-2xl mt-8">
-          <CardContent className="flex min-h-[28vh] flex-col items-center justify-center gap-5 text-center px-4 py-12">
-            <div className="relative flex size-16 items-center justify-center rounded-full border border-border bg-background shadow-sm ring-4 ring-muted/50">
-              <ArrowDownToLine className="size-6 text-muted-foreground/50" />
-            </div>
-            <div className="max-w-sm">
-              <p className="text-lg font-semibold tracking-tight text-foreground">No tienes cuentas virtuales aún</p>
-              <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                Crea tu primera cuenta virtual local o internacional. Los depósitos recibidos aquí se convertirán automáticamente a cripto en tus Wallets correspondientes.
-              </p>
-            </div>
-            <Button
-              size="sm"
-              className="mt-4 rounded-full px-6 font-semibold shadow-sm"
-              onClick={() => setDialogOpen(true)}
-            >
-              Crear primera cuenta
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="flex min-h-[24vh] flex-col items-center justify-center gap-5 text-center py-12">
+          <div className="relative flex size-16 items-center justify-center rounded-full border border-border/40 bg-muted/20 ring-4 ring-muted/30">
+            <ArrowDownToLine className="size-6 text-muted-foreground/40" />
+          </div>
+          <div className="max-w-sm">
+            <p className="text-lg font-semibold tracking-tight text-foreground">No tienes cuentas virtuales aún</p>
+            <p className="mt-2 text-sm text-muted-foreground/70 leading-relaxed">
+              Crea tu primera cuenta virtual local o internacional. Los depósitos recibidos aquí se convertirán automáticamente a cripto en tus Wallets correspondientes.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            className="mt-4 rounded-full px-6 font-semibold shadow-sm"
+            onClick={() => setDialogOpen(true)}
+          >
+            Crear primera cuenta
+          </Button>
+        </div>
       )}
 
-      {/* Grid de VAs */}
+      {/* Grid de VAs — staggered entry */}
       {isApproved && !loading && !error && accounts.length > 0 && (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {accounts.map((va) => (
-            <VirtualAccountCard
+        <div className="grid gap-6 lg:grid-cols-2">
+          {accounts.map((va, index) => (
+            <motion.div
               key={va.id}
-              va={va}
-              onDeactivate={handleDeactivate}
-            />
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...SPRING, delay: index * 0.1 }}
+            >
+              <VirtualAccountCard
+                va={va}
+                onDeactivate={handleDeactivate}
+              />
+            </motion.div>
           ))}
         </div>
       )}
 
       {/* Footer note */}
       {isApproved && !loading && accounts.length > 0 && (
-        <p className="text-center text-[11px] text-muted-foreground/60">
+        <p className="text-center text-[10px] text-muted-foreground/40 pt-2">
           Las cuentas virtuales son administradas por Bridge. Cada depósito se convierte automáticamente y se registra en tu historial.
         </p>
       )}

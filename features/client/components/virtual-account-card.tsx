@@ -11,7 +11,6 @@ import {
   ArrowDownToLine,
   Info,
   AlertTriangle,
-  Eye,
   Share2,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -240,14 +239,14 @@ function CopyButton({ value, label }: { value: string; label?: string }) {
     <Button
       variant="ghost"
       size="icon-sm"
-      className="size-6 shrink-0 text-muted-foreground hover:text-foreground"
+      className="size-7 shrink-0 rounded-lg bg-muted/40 text-muted-foreground/70 hover:bg-muted/80 hover:text-foreground transition-all duration-200"
       onClick={handleCopy}
       title={label ? `Copiar ${label}` : 'Copiar'}
     >
       {copied ? (
-        <CheckCheck className="size-3 text-emerald-400" />
+        <CheckCheck className="size-3.5 text-emerald-500" />
       ) : (
-        <Copy className="size-3" />
+        <Copy className="size-3.5" />
       )}
     </Button>
   )
@@ -258,12 +257,14 @@ function CopyButton({ value, label }: { value: string; label?: string }) {
 function InstructionRow({ label, value, isLast }: { label: string; value: string | null | undefined; isLast?: boolean }) {
   if (!value) return null
   return (
-    <div className={`flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted/10 ${!isLast ? 'border-b border-border/30' : ''}`}>
-      <div className="min-w-0">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">{label}</p>
-        <p className="mt-0.5 truncate font-mono text-xs font-semibold text-foreground/90">{value}</p>
+    <div className={`group flex items-start justify-between gap-4 px-5 py-3.5 transition-colors duration-300 hover:bg-muted/20 ${!isLast ? 'border-b border-border/20' : ''}`}>
+      <div className="min-w-0 flex-1">
+        <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60 transition-colors group-hover:text-muted-foreground/80">{label}</p>
+        <p className="mt-1 font-mono text-[13px] font-semibold tracking-tight text-foreground/90 break-words whitespace-normal leading-relaxed">{value}</p>
       </div>
-      <CopyButton value={value} label={label} />
+      <div className="pt-1 shrink-0">
+        <CopyButton value={value} label={label} />
+      </div>
     </div>
   )
 }
@@ -278,6 +279,7 @@ interface VirtualAccountCardProps {
 export function VirtualAccountCard({ va, onDeactivate }: VirtualAccountCardProps) {
   const [deactivating, setDeactivating] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
 
   const currencyFlag = CURRENCY_FLAGS[va.source_currency] ?? '💰'
   const currencyLabel = CURRENCY_LABELS[va.source_currency] ?? va.source_currency.toUpperCase()
@@ -349,12 +351,17 @@ export function VirtualAccountCard({ va, onDeactivate }: VirtualAccountCardProps
   const rotateY = isHovered ? mousePos.x * 6 : 0
 
   return (
-    <div className="flex flex-col gap-3 items-start">
-      {/* ── Premium Credit-Card ── */}
+    <div className="flex flex-col items-start w-full">
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+      {/* ── Premium Credit-Card (clickable) ── */}
       <div
-        className="group [perspective:1400px] w-full max-w-[420px]"
+        className="group [perspective:1400px] w-full max-w-[420px] cursor-pointer"
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
+        onClick={() => setDetailsOpen(true)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setDetailsOpen(true) }}
       >
         <motion.div
           animate={{ rotateY, rotateX, scale: isHovered ? 1.02 : 1 }}
@@ -368,6 +375,7 @@ export function VirtualAccountCard({ va, onDeactivate }: VirtualAccountCardProps
               'bg-gradient-to-br from-[oklch(0.20_0.04_252)] via-[oklch(0.15_0.03_255)] to-[oklch(0.11_0.04_260)]',
               'border-[oklch(0.70_0.17_240/20%)]',
               'shadow-[0_8px_32px_-12px_rgba(0,0,0,0.5)] dark:shadow-[0_8px_32px_-12px_rgba(0,0,0,0.7)]',
+              'transition-shadow duration-300 group-hover:shadow-[0_12px_40px_-8px_rgba(0,0,0,0.6)]',
             )}
           >
             {/* Mesh light overlays */}
@@ -457,160 +465,173 @@ export function VirtualAccountCard({ va, onDeactivate }: VirtualAccountCardProps
         </motion.div>
       </div>
 
-      {/* View details button */}
-      <Dialog>
-        <DialogTrigger render={
-          <Button 
-            className="w-full max-w-[420px] rounded-xl text-sm h-12 font-medium gap-2 bg-primary/[0.03] hover:bg-primary/[0.08] border border-primary/10 hover:border-primary/25 text-primary transition-all duration-300 shadow-sm" 
-            variant="ghost" 
-          />
-        }>
-          <Eye className="size-4 opacity-70" />
-          Ver datos de cuenta
-        </DialogTrigger>
-        <DialogContent className="max-w-md sm:rounded-3xl p-0 overflow-hidden">
-          <DialogHeader className="px-6 py-5 bg-background border-b border-border/40">
-            <DialogTitle className="flex items-center gap-3">
-              <div className="flex size-8 overflow-hidden rounded-full border-2 border-border/40 shadow-sm">
-                <Flag code={getFlagCode(va.source_currency)} className="h-full w-full object-cover" />
-              </div>
-              <div>
-                <span className="block">Cuenta {va.source_currency.toUpperCase()}</span>
-                <span className={`block text-xs font-medium ${accent.text}`}>{depositRailLabel}</span>
-              </div>
-            </DialogTitle>
-            <DialogDescription className="text-xs pt-1">
-              Instrucciones para depositar {va.source_currency.toUpperCase()} hacia tu billetera {destCurrencyLabel}.
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* Scrollable details — currency-filtered */}
-          <div className="max-h-[60vh] overflow-y-auto px-6 py-5 space-y-5">
-
-            {/* Deposit instructions — only relevant fields */}
-            <div>
-              <div className="mb-3 flex flex-row items-center justify-between gap-1.5">
-                <div className="flex items-center gap-1.5">
-                  <Landmark className="size-4 text-muted-foreground" />
-                  <p className="text-sm font-semibold tracking-tight text-foreground">Instrucciones de depósito</p>
+      {/* Hint text */}
+      <p className="w-full max-w-[420px] text-center text-[10px] text-muted-foreground/50 mt-2 font-medium">
+        Haz clic en la tarjeta para ver los datos de la cuenta
+      </p>
+        <DialogContent className="max-w-lg sm:rounded-[2rem] p-0 overflow-hidden border-border/30 shadow-2xl">
+          <div className="relative">
+            {/* Subtle brand glow behind header */}
+            <div className="absolute inset-x-0 top-0 h-32 bg-primary/[0.02]" />
+            
+            <DialogHeader className="relative px-8 pt-8 pb-6 border-b border-border/20">
+              <DialogTitle className="flex items-start sm:items-center gap-4">
+                <div className="flex size-11 shrink-0 overflow-hidden rounded-full border-2 border-border/40 shadow-sm ring-4 ring-background">
+                  <Flag code={getFlagCode(va.source_currency)} className="h-full w-full object-cover" />
                 </div>
-                <Button variant="outline" size="sm" className="h-8 rounded-lg px-3 text-xs gap-1.5 font-semibold text-primary/80 border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors" onClick={handleShareAll}>
-                  <Share2 className="size-3.5" />
-                  Compartir
-                </Button>
-              </div>
-              <div className="overflow-hidden rounded-xl border border-border/40 bg-background shadow-sm">
-                {depositInstructions.map((instr, i) => (
-                  <InstructionRow
-                    key={instr.label}
-                    label={instr.label}
-                    value={instr.value}
-                    isLast={i === depositInstructions.length - 1}
-                  />
-                ))}
-              </div>
-            </div>
+                <div className="text-left">
+                  <span className="block text-2xl font-bold tracking-tight">Cuenta {va.source_currency.toUpperCase()}</span>
+                  <span className={`block text-[10px] font-bold uppercase tracking-[0.15em] mt-1 ${accent.text}`}>{depositRailLabel}</span>
+                </div>
+              </DialogTitle>
+              <DialogDescription className="text-[13px] pt-3 text-muted-foreground/70 leading-relaxed max-w-[95%] break-words whitespace-normal text-left">
+                Instrucciones oficiales para depositar fondos. 
+                Los ingresos serán convertidos y enviados a tu billetera {destCurrencyLabel}.
+              </DialogDescription>
+            </DialogHeader>
 
-            {/* Deposit message — COP / Bre-B critical warning */}
-            {va.deposit_message && (
-              <div className="flex items-start gap-3 rounded-xl border-l-4 border-l-amber-500 border-y border-y-border/40 border-r border-r-border/40 bg-amber-500/10 px-4 py-3 shadow-sm">
-                <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-500" />
-                <div className="min-w-0 pr-1">
-                  <p className="text-sm font-bold text-amber-600 dark:text-amber-500">Referencia Obligatoria</p>
-                  <p className="mt-0.5 text-[11px] font-medium leading-tight text-amber-600/80 dark:text-amber-500/80">
-                    Copia este código y pégalo como &apos;Referencia&apos; o &apos;Mensaje&apos; en tu transferencia bancaria. Sin él, los fondos podrían perderse temporalmente.
-                  </p>
-                  <div className="mt-2.5 flex items-center justify-between gap-3 rounded-lg border border-amber-500/20 bg-background p-2 pl-3 shadow-sm">
-                    <code className="truncate font-mono text-sm font-black text-amber-600 dark:text-amber-500">{va.deposit_message}</code>
-                    <CopyButton value={va.deposit_message} label="Referencia" />
+            {/* Scrollable details */}
+            <div className="max-h-[60vh] overflow-y-auto px-8 py-7">
+              <motion.div 
+                className="space-y-7"
+                initial="hidden"
+                animate="visible"
+                variants={{
+                  hidden: {},
+                  visible: { transition: { staggerChildren: 0.1 } }
+                }}
+              >
+                {/* Deposit instructions */}
+                <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}>
+                  <div className="mb-4 flex flex-row items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex size-6 items-center justify-center rounded-full bg-muted/40">
+                        <Landmark className="size-3 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm font-bold tracking-tight text-foreground">Instrucciones bancarias</p>
+                    </div>
+                    <Button variant="outline" size="sm" className="h-8 rounded-lg px-3 text-xs gap-1.5 font-bold text-primary/80 border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors" onClick={handleShareAll}>
+                      <Share2 className="size-3.5" />
+                      Compartir
+                    </Button>
                   </div>
-                </div>
-              </div>
-            )}
-
-            {/* Destination / conversion info */}
-            <div className="rounded-xl border border-border/40 bg-muted/10 p-4 shadow-sm">
-              <div className="mb-2.5 flex items-center gap-1.5 border-b border-border/30 pb-2">
-                <ArrowDownToLine className="size-3.5 text-muted-foreground" />
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">Destino de conversión</p>
-              </div>
-              <div className="space-y-2 text-xs text-foreground/80">
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Moneda destino</span>
-                  <span className="font-semibold">{destCurrencyLabel}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Red / Rail</span>
-                  <span className="font-semibold">{railLabel}</span>
-                </div>
-                {va.developer_fee_percent != null && (
-                  <div className="flex justify-between items-center text-amber-500/90 font-medium">
-                    <span className="flex items-center gap-1"><Info className="size-3" /> Fee de servicio</span>
-                    <span>{va.developer_fee_percent}%</span>
+                  <div className="overflow-hidden rounded-2xl border border-border/30 bg-card shadow-sm">
+                    {depositInstructions.map((instr, i) => (
+                      <InstructionRow
+                        key={instr.label}
+                        label={instr.label}
+                        value={instr.value}
+                        isLast={i === depositInstructions.length - 1}
+                      />
+                    ))}
                   </div>
+                </motion.div>
+
+                {/* Deposit message — COP / Bre-B critical warning */}
+                {va.deposit_message && (
+                  <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="flex items-start gap-3.5 rounded-2xl border-l-4 border-l-amber-500 border-y border-y-border/20 border-r border-r-border/20 bg-amber-500/[0.04] px-5 py-4 shadow-sm">
+                    <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-500" />
+                    <div className="min-w-0 pr-1">
+                      <p className="text-sm font-bold text-amber-600 dark:text-amber-500 tracking-tight">Referencia Obligatoria</p>
+                      <p className="mt-1 text-xs font-medium leading-relaxed text-amber-600/80 dark:text-amber-500/80">
+                        Copia este código y pégalo como &apos;Referencia&apos; o &apos;Mensaje&apos; en tu transferencia bancaria. Sin él, los fondos podrían retrasarse.
+                      </p>
+                      <div className="mt-3.5 flex items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-background/50 p-2.5 pl-3.5 shadow-sm backdrop-blur-sm">
+                        <code className="truncate font-mono text-sm font-black text-amber-600 dark:text-amber-500 tracking-tight">{va.deposit_message}</code>
+                        <CopyButton value={va.deposit_message} label="Referencia" />
+                      </div>
+                    </div>
+                  </motion.div>
                 )}
 
-                {va.is_external_sweep ? (
-                  <>
-                    <div className="flex justify-between items-center border-t border-border/30 pt-2 mt-2">
-                      <span className="text-muted-foreground">Etiqueta Externa</span>
-                      <span className="font-semibold truncate max-w-[150px]">{va.external_destination_label}</span>
+                {/* Destination / conversion info */}
+                <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="rounded-2xl border border-border/30 bg-muted/20 p-5 shadow-sm">
+                  <div className="mb-3.5 flex items-center gap-2 border-b border-border/20 pb-3">
+                    <div className="flex size-5 items-center justify-center rounded-full bg-muted/60">
+                      <ArrowDownToLine className="size-2.5 text-muted-foreground" />
                     </div>
-                    {va.destination_address && (
-                      <div className="flex justify-between items-center bg-muted/30 p-2 rounded-lg mt-1 border border-border/40">
-                        <span className="font-mono text-[10px] truncate text-muted-foreground">{va.destination_address}</span>
-                        <CopyButton value={va.destination_address} label="dirección" />
+                    <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-muted-foreground/80">Destino de conversión</p>
+                  </div>
+                  <div className="space-y-2.5 text-[13px] text-foreground/80">
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground font-medium">Moneda destino</span>
+                      <span className="font-bold">{destCurrencyLabel}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground font-medium">Red / Rail</span>
+                      <span className="font-bold">{railLabel}</span>
+                    </div>
+                    {va.developer_fee_percent != null && (
+                      <div className="flex justify-between items-center text-amber-500/90 font-medium">
+                        <span className="flex items-center gap-1.5"><Info className="size-3.5" /> Fee de servicio</span>
+                        <span className="font-bold">{va.developer_fee_percent}%</span>
                       </div>
                     )}
-                  </>
-                ) : (
-                  <div className="flex justify-between items-center text-emerald-500 font-semibold border-t border-border/30 pt-2 mt-2">
-                    <span>Direccionado a</span>
-                    <span className="flex items-center gap-1"><Landmark className="size-3" /> Wallet Guira</span>
+
+                    {va.is_external_sweep ? (
+                      <>
+                        <div className="flex flex-wrap gap-2 justify-between items-center border-t border-border/20 pt-3 mt-3">
+                          <span className="text-muted-foreground font-medium">Etiqueta Externa</span>
+                          <span className="font-bold truncate max-w-[200px]">{va.external_destination_label}</span>
+                        </div>
+                        {va.destination_address && (
+                          <div className="flex flex-wrap gap-2 justify-between items-center bg-background/50 p-2.5 rounded-xl mt-1.5 border border-border/30 shadow-sm">
+                            <span className="font-mono text-[11px] font-medium break-all whitespace-normal text-muted-foreground flex-1">{va.destination_address}</span>
+                            <div className="shrink-0">
+                              <CopyButton value={va.destination_address} label="dirección" />
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="flex flex-wrap gap-2 justify-between items-center text-emerald-500 font-bold border-t border-border/20 pt-3 mt-3">
+                        <span>Direccionado a</span>
+                        <span className="flex shrink-0 items-center gap-1.5"><Landmark className="size-3.5" /> Wallet Guira</span>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </div>
+                </motion.div>
 
-            {/* Deactivate option */}
-            <div className="border-t border-border/30 pt-4 pb-2">
-              <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <AlertDialogTrigger render={
-                  <Button
-                    variant="ghost"
-                    className="w-full text-xs font-medium text-destructive/80 hover:text-destructive hover:bg-destructive/10"
-                  />
-                }>
-                  <Trash2 className="mr-1.5 size-3.5" />
-                  Desactivar permanentemente
-                </AlertDialogTrigger>
-                <AlertDialogContent className="sm:rounded-2xl">
-                  <AlertDialogHeader>
-                    <AlertDialogMedia className="bg-destructive/10">
-                      <Trash2 className="size-5 text-destructive" />
-                    </AlertDialogMedia>
-                    <AlertDialogTitle>
-                      ¿Desactivar cuenta virtual?
-                    </AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Esta cuenta virtual dejará de aceptar depósitos. Los fondos ya recibidos no se verán afectados. Esta acción no se puede deshacer.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel className="rounded-full">Cancelar</AlertDialogCancel>
-                    <AlertDialogAction
-                      variant="destructive"
-                      className="rounded-full"
-                      onClick={handleDeactivate}
-                      disabled={deactivating}
-                    >
-                      {deactivating ? 'Desactivando…' : 'Desactivar Cuenta'}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                {/* Deactivate option */}
+                <motion.div variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }} className="border-t border-border/20 pt-2">
+                  <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                    <AlertDialogTrigger render={
+                      <Button
+                        variant="ghost"
+                        className="w-full h-12 rounded-xl text-[13px] font-bold text-destructive/70 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      />
+                    }>
+                      <Trash2 className="mr-2 size-4" />
+                      Desactivar permanentemente
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="sm:rounded-3xl">
+                      <AlertDialogHeader>
+                        <AlertDialogMedia className="bg-destructive/10">
+                          <Trash2 className="size-5 text-destructive" />
+                        </AlertDialogMedia>
+                        <AlertDialogTitle>
+                          ¿Desactivar cuenta virtual?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Esta cuenta virtual dejará de aceptar depósitos. Los fondos ya recibidos no se verán afectados. Esta acción no se puede deshacer.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel className="rounded-full">Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          variant="destructive"
+                          className="rounded-full"
+                          onClick={handleDeactivate}
+                          disabled={deactivating}
+                        >
+                          {deactivating ? 'Desactivando…' : 'Desactivar Cuenta'}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </motion.div>
+              </motion.div>
             </div>
-
           </div>
         </DialogContent>
       </Dialog>

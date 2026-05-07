@@ -1,36 +1,11 @@
 import type { Metadata } from 'next'
-import localFont from 'next/font/local'
+import { Plus_Jakarta_Sans } from 'next/font/google'
 import './globals.css'
 import { Providers } from '@/components/providers'
 
-const gilroy = localFont({
-  src: [
-    {
-      path: '../public/fonts/Gilroy-Regular.ttf',
-      weight: '400',
-      style: 'normal',
-    },
-    {
-      path: '../public/fonts/Gilroy-Medium.ttf',
-      weight: '500',
-      style: 'normal',
-    },
-    {
-      path: '../public/fonts/Gilroy-SemiBold.ttf',
-      weight: '600',
-      style: 'normal',
-    },
-    {
-      path: '../public/fonts/Gilroy-Bold.ttf',
-      weight: '700',
-      style: 'normal',
-    },
-    {
-      path: '../public/fonts/Gilroy-ExtraBold.ttf',
-      weight: '800',
-      style: 'normal',
-    },
-  ],
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700', '800'],
   variable: '--font-sans',
   display: 'swap',
 })
@@ -50,7 +25,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className={`font-sans antialiased ${gilroy.variable}`} suppressHydrationWarning>
+      <body className={`font-sans antialiased ${plusJakartaSans.variable}`} suppressHydrationWarning>
         <Providers>
           {children}
         </Providers>

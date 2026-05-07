@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { motion } from "framer-motion";
 import { Copy, Loader2, ShieldAlert, Wallet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -57,35 +58,57 @@ const TOKEN_LABELS: Record<string, string> = {
 /** Las 5 monedas a mostrar siempre */
 const DISPLAY_CURRENCIES = ["USDC", "USDT", "USDB", "PYUSD", "UERC"] as const;
 
-// ── Token Row (with Icons) ─────────────────────────
+// ── Token Row (with Icons & Animation) ─────────────────────────
 
 const TOKEN_ICONS: Record<string, string> = {
     USDC: "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/svg/color/usdc.svg",
     USDT: "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/svg/color/usdt.svg",
-    USDB: "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/svg/color/usd.svg", // Fallback to generic USD
+    USDB: "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/svg/color/usd.svg",
     PYUSD: "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/svg/color/usd.svg",
     UERC: "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/svg/color/generic.svg",
 };
 
+// Brand accent colors per token for the subtle glow ring
+const TOKEN_ACCENTS: Record<string, string> = {
+    USDC: "ring-blue-400/20 shadow-blue-500/10",
+    USDT: "ring-emerald-400/20 shadow-emerald-500/10",
+    USDB: "ring-sky-400/20 shadow-sky-500/10",
+    PYUSD: "ring-blue-300/20 shadow-blue-400/10",
+    UERC: "ring-violet-400/20 shadow-violet-500/10",
+};
+
+const SPRING = { type: 'spring' as const, stiffness: 100, damping: 20 };
+
 function TokenRow({
     currency,
     balance,
+    index,
 }: {
     currency: string;
     balance: number;
+    index: number;
 }) {
     const tokenLabel = TOKEN_LABELS[currency] ?? currency;
     const iconUrl = TOKEN_ICONS[currency] ?? TOKEN_ICONS["USDB"];
+    const accentClasses = TOKEN_ACCENTS[currency] ?? "ring-border/30";
 
     return (
-        <div className="group border-b border-border/50 last:border-b-0">
-            <div className="flex items-center justify-between gap-4 py-3.5 transition-colors hover:bg-muted/30 px-3 -mx-3 rounded-xl cursor-pointer">
-                <div className="flex items-center gap-3.5 min-w-0">
-                    <div className="relative flex size-10 shrink-0 items-center justify-center rounded-full shadow-sm overflow-hidden bg-background border border-border/60">
+        <motion.div
+            className="group"
+            initial={{ opacity: 0, x: -16 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ ...SPRING, delay: index * 0.08 }}
+        >
+            <div className="flex items-center justify-between gap-4 py-4 px-4 -mx-4 rounded-2xl transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-muted/30 hover:translate-x-1 cursor-pointer">
+                <div className="flex items-center gap-4 min-w-0">
+                    <div className={cn(
+                        "relative flex size-12 shrink-0 items-center justify-center rounded-full overflow-hidden bg-background border border-border/40 ring-2 shadow-lg transition-all duration-300 group-hover:ring-4",
+                        accentClasses,
+                    )}>
                         <img
                             src={iconUrl}
                             alt={currency}
-                            className="size-[65%] object-contain"
+                            className="size-[60%] object-contain"
                             onError={(e) => {
                                 e.currentTarget.style.display = "none";
                                 if (e.currentTarget.nextElementSibling) {
@@ -100,10 +123,10 @@ function TokenRow({
                         </div>
                     </div>
                     <div className="min-w-0 flex flex-col justify-center">
-                        <span className="text-sm font-bold text-foreground leading-tight">
+                        <span className="text-sm font-bold text-foreground leading-tight tracking-tight">
                             {tokenLabel}
                         </span>
-                        <span className="text-[11px] text-muted-foreground mt-0.5 font-medium tracking-wide">
+                        <span className="text-[11px] text-muted-foreground/60 mt-0.5 font-semibold tracking-wide uppercase">
                             {currency}
                         </span>
                     </div>
@@ -112,8 +135,8 @@ function TokenRow({
                 <div className="flex flex-col items-end justify-center shrink-0">
                     <span
                         className={cn(
-                            "text-[15px] font-bold tracking-tight tabular-nums",
-                            balance > 0 ? "text-foreground" : "text-muted-foreground/60"
+                            "text-base font-bold tracking-tight tabular-nums",
+                            balance > 0 ? "text-foreground" : "text-muted-foreground/40"
                         )}
                     >
                         {balance > 0 ? "$" : ""}
@@ -123,13 +146,13 @@ function TokenRow({
                         })}
                     </span>
                     {balance > 0 && (
-                        <span className="text-[9px] text-success font-semibold uppercase tracking-widest mt-0.5">
+                        <span className="text-[9px] text-success font-bold uppercase tracking-[0.15em] mt-0.5">
                             Disponible
                         </span>
                     )}
                 </div>
             </div>
-        </div>
+        </motion.div>
     );
 }
 
@@ -254,69 +277,60 @@ function WalletsSection({ isApproved }: { isApproved: boolean }) {
 
             {/* Empty */}
             {!loading && !error && wallets.length === 0 && (
-                <Card className="border-dashed border-border/40 bg-muted/10 mx-auto max-w-2xl mt-8">
-                    <CardContent className="flex min-h-[28vh] flex-col items-center justify-center gap-5 text-center px-4 py-12">
-                        <div className="relative flex size-16 items-center justify-center rounded-full border border-border bg-background shadow-sm ring-4 ring-muted/50">
-                            <Wallet className="size-6 text-muted-foreground/50" />
-                        </div>
-                        <div className="max-w-sm">
-                            <p className="text-lg font-semibold tracking-tight text-foreground">
-                                No hay wallets activas
-                            </p>
-                            <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                                {isApproved
-                                    ? "Tus wallets se están aprovisionando en nuestra infraestructura blockchain de alta seguridad. Aparecerán aquí en unos instantes."
-                                    : "Para mantener la seguridad de nuestra plataforma, completa tu verificación KYC/KYB para habilitar tus bóvedas y billeteras."}
-                            </p>
-                        </div>
-                    </CardContent>
-                </Card>
+                <div className="flex min-h-[24vh] flex-col items-center justify-center gap-5 text-center py-12">
+                    <div className="relative flex size-16 items-center justify-center rounded-full border border-border/40 bg-muted/20 ring-4 ring-muted/30">
+                        <Wallet className="size-6 text-muted-foreground/40" />
+                    </div>
+                    <div className="max-w-sm">
+                        <p className="text-lg font-semibold tracking-tight text-foreground">
+                            No hay wallets activas
+                        </p>
+                        <p className="mt-2 text-sm text-muted-foreground/70 leading-relaxed">
+                            {isApproved
+                                ? "Tus wallets se están aprovisionando en nuestra infraestructura blockchain de alta seguridad. Aparecerán aquí en unos instantes."
+                                : "Para mantener la seguridad de nuestra plataforma, completa tu verificación KYC/KYB para habilitar tus bóvedas y billeteras."}
+                        </p>
+                    </div>
+                </div>
             )}
 
             {/* Token Rows */}
             {!loading && !error && wallets.length > 0 && (
                 <div className="pt-2">
-                    {DISPLAY_CURRENCIES.filter((cur) => cur !== "USDB" && cur !== "PYUSD").map((cur) => (
+                    {DISPLAY_CURRENCIES.filter((cur) => cur !== "USDB" && cur !== "PYUSD").map((cur, index) => (
                         <TokenRow
                             key={cur}
                             currency={cur}
                             balance={aggregatedTokens[cur]}
+                            index={index}
                         />
                     ))}
 
                     {/* ── Wallet Infrastructure Strip ── */}
-                    <div className="mt-6 pt-5 border-t border-border/40">
-                        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                    <div className="mt-6 pt-5 border-t border-border/30">
+                        <div className="flex flex-wrap items-center gap-3">
                             {/* Network */}
                             {walletNetwork && (
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                        Red
-                                    </span>
+                                <div className="flex items-center gap-2 rounded-full bg-muted/30 border border-border/30 px-3 py-1.5">
                                     <Badge
                                         variant="outline"
-                                        className="rounded-sm px-1.5 py-0 text-[10px] font-bold uppercase tracking-wider border-primary/30 bg-primary/5 text-primary"
+                                        className="rounded-sm px-1.5 py-0 text-[9px] font-bold uppercase tracking-wider border-primary/20 bg-primary/5 text-primary"
                                     >
                                         {networkBadge}
                                     </Badge>
-                                    <span className="text-xs font-semibold text-foreground">
+                                    <span className="text-[11px] font-semibold text-foreground">
                                         {walletNetwork}
                                     </span>
                                 </div>
                             )}
 
-                            {/* Dot separator */}
-                            {walletNetwork && walletAddress && (
-                                <span className="hidden sm:block size-1 rounded-full bg-border" aria-hidden="true" />
-                            )}
-
                             {/* Wallet Address */}
                             {walletAddress && (
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                <div className="flex items-center gap-2 rounded-full bg-muted/30 border border-border/30 px-3 py-1.5">
+                                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
                                         Wallet
                                     </span>
-                                    <span className="font-mono text-xs text-foreground tabular-nums">
+                                    <span className="font-mono text-[11px] text-foreground/80 tabular-nums">
                                         {truncateAddress(walletAddress, 6)}
                                     </span>
                                     <button
@@ -329,7 +343,7 @@ function WalletsSection({ isApproved }: { isApproved: boolean }) {
                                                 /* noop */
                                             }
                                         }}
-                                        className="text-muted-foreground/40 hover:text-foreground transition-colors"
+                                        className="text-muted-foreground/30 hover:text-foreground transition-colors"
                                         title="Copiar dirección"
                                     >
                                         <Copy className="size-3" />
@@ -337,18 +351,13 @@ function WalletsSection({ isApproved }: { isApproved: boolean }) {
                                 </div>
                             )}
 
-                            {/* Dot separator */}
-                            {walletAddress && walletId && (
-                                <span className="hidden sm:block size-1 rounded-full bg-border" aria-hidden="true" />
-                            )}
-
                             {/* Account Number */}
                             {walletId && (
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                <div className="flex items-center gap-2 rounded-full bg-muted/30 border border-border/30 px-3 py-1.5">
+                                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
                                         Cuenta
                                     </span>
-                                    <span className="font-mono text-xs text-foreground tabular-nums">
+                                    <span className="font-mono text-[11px] text-foreground/80 tabular-nums">
                                         {walletId.slice(0, 8).toUpperCase()}
                                         ...
                                         {walletId.slice(-4).toUpperCase()}
@@ -359,7 +368,7 @@ function WalletsSection({ isApproved }: { isApproved: boolean }) {
                     </div>
 
                     {/* Disclaimer */}
-                    <p className="text-center text-[10px] text-muted-foreground/60 pt-5 leading-relaxed">
+                    <p className="text-center text-[10px] text-muted-foreground/40 pt-6 leading-relaxed">
                         Wallets administradas por Bridge, respaldadas por activos digitales reales.
                         Balances actualizados en tiempo real.
                     </p>
@@ -378,42 +387,60 @@ export function MyAccountsPage({ embedded = false }: { embedded?: boolean }) {
     /* ── Embedded mode: inline sections inside the Panel ── */
     if (embedded) {
         return (
-            <div className="space-y-6">
+            <div className="space-y-14">
                 {/* KYC alert (only when not verified) */}
                 {!isApproved && (
-                    <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
+                    <motion.div
+                        className="flex items-start gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5 text-sm"
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={SPRING}
+                    >
                         <ShieldAlert className="mt-0.5 size-4 shrink-0 text-amber-400" />
                         <div>
-                            <p className="font-medium text-foreground">
+                            <p className="font-semibold text-foreground">
                                 Verificación pendiente
                             </p>
-                            <p className="mt-0.5 text-muted-foreground">
+                            <p className="mt-0.5 text-muted-foreground/70">
                                 Las wallets y cuentas virtuales se activan al
                                 aprobar tu verificación KYC/KYB.
                             </p>
                         </div>
-                    </div>
+                    </motion.div>
                 )}
 
-                {/* Wallets — wrapped in a matching card */}
-                <div className="rounded-[2.5rem] border border-border/50 bg-card overflow-hidden shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)]">
-                    <div className="px-8 sm:px-10 pt-8 pb-4 border-b border-border/50">
-                        <h2 className="text-xl font-bold text-foreground tracking-tight">Wallets</h2>
-                        <p className="text-sm text-muted-foreground mt-1">
-                            Tus balances de activos digitales en tiempo real
-                        </p>
+                {/* ── Wallets Section ── */}
+                <motion.section
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ ...SPRING, delay: 0.1 }}
+                >
+                    <div className="flex items-center justify-between mb-6">
+                        <div>
+                            <h2 className="text-4xl font-extrabold text-foreground tracking-tight">Wallets</h2>
+                            <p className="text-sm text-muted-foreground/60 mt-1.5 font-medium">
+                                Tus balances de activos digitales en tiempo real
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2 rounded-full bg-primary/5 border border-primary/10 px-3 py-1.5">
+                            <Wallet className="size-3.5 text-primary/60" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-primary/70">Blockchain</span>
+                        </div>
                     </div>
-                    <div className="px-8 sm:px-10 pb-8">
-                        <WalletsSection isApproved={isApproved} />
-                    </div>
-                </div>
+                    <WalletsSection isApproved={isApproved} />
+                </motion.section>
 
-                {/* Virtual Accounts — wrapped in a matching card */}
-                <div className="rounded-[2.5rem] border border-border/50 bg-card overflow-hidden shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)]">
-                    <div className="px-8 sm:px-10 pt-8 pb-8">
-                        <VirtualAccountsSection isApproved={isApproved} />
-                    </div>
-                </div>
+                {/* ── Divider ── */}
+                <div className="border-t border-border/30" />
+
+                {/* ── Virtual Accounts Section ── */}
+                <motion.section
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ ...SPRING, delay: 0.2 }}
+                >
+                    <VirtualAccountsSection isApproved={isApproved} />
+                </motion.section>
             </div>
         );
     }
@@ -453,7 +480,7 @@ export function MyAccountsPage({ embedded = false }: { embedded?: boolean }) {
                 <TabsList className="mb-0 flex w-full justify-start gap-8 bg-transparent p-0 border-b border-border rounded-none">
                     <TabsTrigger
                         value="wallets"
-                        className="group relative flex-none rounded-none border-0 bg-transparent px-0 pb-3 pt-1 text-xl font-medium text-muted-foreground transition-colors duration-200 hover:text-foreground data-active:text-primary data-active:font-semibold data-active:shadow-none data-active:bg-transparent overflow-hidden cursor-pointer"
+                        className="group relative flex-none rounded-none border-0 bg-transparent px-0 pb-3 pt-1 text-2xl font-medium text-muted-foreground transition-colors duration-200 hover:text-foreground data-active:text-primary data-active:font-semibold data-active:shadow-none data-active:bg-transparent overflow-hidden cursor-pointer"
                     >
                         Wallets
                         <span className="absolute bottom-0 left-0 h-[2px] w-full bg-primary origin-left scale-x-0 transition-transform duration-[250ms] ease-[cubic-bezier(0.4,0,0.2,1)] group-hover:scale-x-100 group-data-active:scale-x-100" />
@@ -461,7 +488,7 @@ export function MyAccountsPage({ embedded = false }: { embedded?: boolean }) {
 
                     <TabsTrigger
                         value="virtual-accounts"
-                        className="group relative flex-none rounded-none border-0 bg-transparent px-0 pb-3 pt-1 text-xl font-medium text-muted-foreground transition-colors duration-200 hover:text-foreground data-active:text-primary data-active:font-semibold data-active:shadow-none data-active:bg-transparent overflow-hidden cursor-pointer"
+                        className="group relative flex-none rounded-none border-0 bg-transparent px-0 pb-3 pt-1 text-2xl font-medium text-muted-foreground transition-colors duration-200 hover:text-foreground data-active:text-primary data-active:font-semibold data-active:shadow-none data-active:bg-transparent overflow-hidden cursor-pointer"
                     >
                         Cuentas Virtuales
                         <span className="absolute bottom-0 left-0 h-[2px] w-full bg-primary origin-left scale-x-0 transition-transform duration-[250ms] ease-[cubic-bezier(0.4,0,0.2,1)] group-hover:scale-x-100 group-data-active:scale-x-100" />
