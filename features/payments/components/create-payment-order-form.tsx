@@ -48,9 +48,11 @@ import {
 } from '@/components/ui/select'
 import {
   buildPaymentOrderPayload,
+  resolveFlowType,
   supportedPaymentRoutes,
   type SupportedPaymentRoute,
 } from '@/features/payments/lib/payment-routes'
+import { usePaymentLimits } from '@/features/payments/hooks/use-payment-limits'
 import {
   getSupplierAchDetails,
   getSupplierSwiftDetails,
@@ -70,6 +72,7 @@ import { WalletRampDetailStep } from '@/features/payments/components/wallet-ramp
 import { WalletWithdrawDetailStep } from '@/features/payments/components/wallet-withdraw-detail-step'
 import { WalletToFiatDetailStep } from '@/features/payments/components/wallet-to-fiat-detail-step'
 import { EstimationSummary } from '@/components/shared/estimation-summary'
+import { useFeePreview } from '@/features/payments/hooks/use-fee-preview'
 import { ACTIVE_CRYPTO_NETWORKS, CRYPTO_NETWORK_LABELS, resolveCryptoNetwork } from '@/features/payments/lib/crypto-networks'
 import { getSupportedSourceCrypto } from '@/features/payments/lib/supported-crypto-rails'
 import {
@@ -84,12 +87,13 @@ import type {
   PsavConfigRow,
   ReceiveVariant,
   UiMethodGroup,
+  OrderReviewRequest,
 } from '@/types/payment-order'
 import type { Supplier } from '@/types/supplier'
 import { ACCEPTED_UPLOADS } from '@/lib/file-validation'
 import { cn, interactiveClickableCardClassName } from '@/lib/utils'
 
-type StepKey = 'route' | 'method' | 'detail' | 'review' | 'finish'
+type StepKey = 'route' | 'method' | 'detail' | 'review' | 'finish' | 'review_requested'
 
 interface CreatePaymentOrderFormProps {
   userId: string
@@ -187,8 +191,12 @@ export function CreatePaymentOrderForm({
   const [qrFile, setQrFile] = useState<File | null>(null)
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null)
   const [createdOrder, setCreatedOrder] = useState<PaymentOrder | null>(null)
+  const [reviewRequest, setReviewRequest] = useState<OrderReviewRequest | null>(null)
+  const [showReviewReasonModal, setShowReviewReasonModal] = useState(false)
+  const [reviewReason, setReviewReason] = useState('')
   const [creatingOrder, setCreatingOrder] = useState(false)
   const [uploadingEvidence, setUploadingEvidence] = useState(false)
+  const [isOverrideFee, setIsOverrideFee] = useState(false)
 
   // Sub-pasos del detalle para rutas con flujo guiado
   type DetailSubStep = 'supplier' | 'funding' | 'reason' | 'amount'
@@ -276,6 +284,19 @@ export function CreatePaymentOrderForm({
   const liveAmountConverted = useWatch({ control: form.control, name: 'amount_converted' })
   const walletRampWithdrawMethod = useWatch({ control: form.control, name: 'wallet_ramp_withdraw_method' })
 
+  const interbankFlowType = useMemo(() => {
+    if (['wallet_ramp_deposit', 'wallet_ramp_withdraw'].includes(route)) return null
+    return resolveFlowType(route as SupportedPaymentRoute, deliveryMethod, undefined, walletRampWithdrawMethod)
+  }, [route, deliveryMethod, walletRampWithdrawMethod])
+  const { limits: interbankLimits } = usePaymentLimits(interbankFlowType)
+
+  // Fee preview desde el servidor — incluye overrides personales del cliente
+  const isWalletRampRoute = route === 'wallet_ramp_deposit' || route === 'wallet_ramp_withdraw'
+  const { preview: feePreview } = useFeePreview(
+    isWalletRampRoute ? null : route,
+    Number(amountOrigin) || 0,
+  )
+
   const currentRoute = useMemo(
     () => routeOptions.find((entry) => entry.key === route) ?? routeOptions[0] ?? supportedPaymentRoutes[0],
     [route, routeOptions]
@@ -320,6 +341,32 @@ export function CreatePaymentOrderForm({
   const isBoliviaToExterior = route === 'bolivia_to_exterior'
   const isCryptoToCrypto = route === 'crypto_to_crypto'
   const hasSubStepFlow = isBoliviaToExterior || isCryptoToCrypto
+
+  // ── Helper: validación de límites interbank (reutilizable en todos los flujos) ──
+  const isInterbankRoute = currentRoute.category === 'interbank'
+  function validateInterbankLimits(): string | null {
+    if (!isInterbankRoute) return null
+    const minUsd = interbankLimits?.min_usd ?? 0
+    const maxUsd = interbankLimits?.max_usd ?? 999999
+
+    // Determinar la moneda de entrada y convertir a USD
+    let amountInUsd = Number(amountOrigin) || 0
+    const inputCurrency = (originCurrency || 'USD').toUpperCase()
+    if (inputCurrency === 'BOB' || isBoliviaToExterior) {
+      const rateData = exchangeRates.find((r: any) => r.pair === 'BOB_USD')
+      const rate = (rateData as any)?.effective_rate ?? (rateData as any)?.rate ?? 1
+      amountInUsd = Number(amountOrigin) / rate
+    }
+    // Stablecoins (USDC, USDT, USDB, PYUSD, EURC) → 1:1 USD
+
+    if (amountInUsd > 0 && amountInUsd < minUsd) {
+      return `El monto mínimo es $${minUsd} USD (tu monto equivale a ~$${amountInUsd.toFixed(2)} USD).`
+    }
+    if (amountInUsd > 0 && amountInUsd > maxUsd) {
+      return `El monto máximo es $${maxUsd.toLocaleString()} USD (tu monto equivale a ~$${amountInUsd.toFixed(2)} USD).`
+    }
+    return null
+  }
   const isFiatBoWithdraw = route === 'wallet_ramp_withdraw' && walletRampWithdrawMethod === 'fiat_bo'
   const isCryptoWithdraw = route === 'wallet_ramp_withdraw' && walletRampWithdrawMethod === 'crypto'
   const isFiatUsWithdraw = route === 'wallet_ramp_withdraw' && walletRampWithdrawMethod === 'fiat_us'
@@ -642,20 +689,68 @@ export function CreatePaymentOrderForm({
     form.setValue('intended_amount', estimate.amountConverted || 0)
   }, [amountOrigin, exchangeRates, currentRoute.key, destinationCurrency, feesConfig, form, originCurrency])
 
-  async function handleCreateOrder() {
+  // Cuando el servidor confirma el fee real (con overrides), sobreescribimos el estimado local.
+  useEffect(() => {
+    if (!feePreview || isWalletRampRoute) return
+
+    const originAmount = Number(amountOrigin) || 0
+    const serverFee = feePreview.fee_amount
+    const currentRate = form.getValues('exchange_rate_applied') || 1
+
+    const netAmount = originAmount - serverFee
+    let converted = netAmount
+    if (currentRate !== 1) {
+      // BOB→USD: dividir. USD→BOB: multiplicar. Misma lógica que estimateRouteValues.
+      const isBobToUsd = currentRoute.key === 'bolivia_to_exterior'
+      converted = isBobToUsd ? netAmount / currentRate : netAmount * currentRate
+    }
+    converted = Math.max(Math.round(converted * 100) / 100, 0)
+
+    form.setValue('fee_total', serverFee)
+    form.setValue('amount_converted', converted)
+    form.setValue('intended_amount', converted)
+    setIsOverrideFee(feePreview.is_override)
+  }, [feePreview, amountOrigin, currentRoute.key, isWalletRampRoute, form])
+
+  async function handleCreateOrder(clientReason?: string) {
     try {
       setCreatingOrder(true)
       const formValues = form.getValues()
       const selectedSup = suppliers.find(s => s.id === formValues.supplier_id)
       const payload = buildPaymentOrderPayload(formValues, userId, selectedSup)
-      console.log('🔍 Payment order payload:', JSON.stringify(payload, null, 2))
-      const order = await onCreateOrder(payload, qrFile, supportFile) as PaymentOrder
-      setCreatedOrder(order)
+      if (clientReason) {
+        (payload as any).client_reason = clientReason
+      }
+      const result = await onCreateOrder(payload, qrFile, supportFile) as any
+
+      // El backend retorna { _type: 'review_request', review } cuando el monto supera el límite
+      if (result?._type === 'review_request') {
+        setReviewRequest(result.review)
+        setShowReviewReasonModal(false)
+        setReviewReason('')
+        setStep('review_requested')
+        toast.info('Tu solicitud fue enviada a revisión. El equipo de Guira la atenderá en breve.')
+        return
+      }
+
+      setCreatedOrder(result as PaymentOrder)
       setStep('finish')
       toast.success('Expediente creado. Ahora puedes adjuntar el comprobante final o hacerlo despues.')
-    } catch (error) {
+    } catch (error: any) {
+      // El backend puede retornar 409 si ya hay una review pendiente para este servicio
+      if (error?.response?.status === 409) {
+        const data = error?.response?.data
+        toast.warning(data?.message ?? 'Ya tienes una solicitud de revisión pendiente para este servicio.')
+        return
+      }
+      // El backend retorna 400 cuando excede el límite y no envió client_reason → mostrar modal
+      const msg = getErrorMessage(error)
+      if (msg.includes('límite máximo') || msg.includes('solicitud de revisión')) {
+        setShowReviewReasonModal(true)
+        return
+      }
       console.error('Failed to create payment order', error)
-      toast.error(`No se pudo crear el expediente: ${getErrorMessage(error)}`)
+      toast.error(`No se pudo crear el expediente: ${msg}`)
     } finally {
       setCreatingOrder(false)
     }
@@ -890,22 +985,10 @@ export function CreatePaymentOrderForm({
         if (detailSubStep === 'amount') {
           const isValid = await form.trigger(['amount_origin'], { shouldFocus: true })
           if (!isValid) return
-          if (isBoliviaToExterior) {
-            const minSetting = appSettings.find(s => s.key === 'MIN_INTERBANK_USD')?.value ?? '0'
-            const maxSetting = appSettings.find(s => s.key === 'MAX_INTERBANK_USD')?.value ?? '999999'
-            const minUsd = parseFloat(String(minSetting))
-            const maxUsd = parseFloat(String(maxSetting))
-            const rateData = exchangeRates.find(r => r.pair === 'BOB_USD')
-            const rate = (rateData as any)?.effective_rate ?? rateData?.rate ?? 1
-            const amountInUsd = Number(amountOrigin) / rate
-            if (amountInUsd < minUsd) {
-              toast.error(`El monto mínimo interbancario es $${minUsd} USD (tu monto de envío equivale a ~$${amountInUsd.toFixed(2)} USD).`)
-              return
-            }
-            if (amountInUsd > maxUsd) {
-              toast.error(`El monto máximo interbancario es $${maxUsd} USD (tu monto de envío equivale a ~$${amountInUsd.toFixed(2)} USD).`)
-              return
-            }
+          const limitError = validateInterbankLimits()
+          if (limitError) {
+            toast.error(limitError)
+            return
           }
           setStep('review')
           return
@@ -933,6 +1016,11 @@ export function CreatePaymentOrderForm({
         if (worldBoliviaSubStep === 'amount') {
           const isValid = await form.trigger(['amount_origin'], { shouldFocus: true })
           if (!isValid) return
+          const limitError = validateInterbankLimits()
+          if (limitError) {
+            toast.error(limitError)
+            return
+          }
         }
       } else {
         if (supplierValidationMessage) {
@@ -952,6 +1040,13 @@ export function CreatePaymentOrderForm({
         }), { shouldFocus: true })
 
         if (!isValidDetail) return
+
+        // Validar límites interbank para flujos genéricos (wallet_to_fiat, etc.)
+        const limitError = validateInterbankLimits()
+        if (limitError) {
+          toast.error(limitError)
+          return
+        }
       }
     }
 
@@ -1405,6 +1500,11 @@ export function CreatePaymentOrderForm({
                           ) : (
                             <>
                               <NumericField control={form.control} disabled={disabled} label={getAmountLabel(currentRoute.key)} name="amount_origin" />
+                              {interbankLimits && (
+                                <p className="text-[11px] text-muted-foreground text-center mt-1">
+                                  Mín: ${interbankLimits.min_usd} USD · Máx: ${interbankLimits.max_usd} USD
+                                </p>
+                              )}
                               <EstimationSummary
                                 amountOrigin={summaryStats.amountOrigin}
                                 originCurrency={summaryStats.originCurrency}
@@ -1415,6 +1515,7 @@ export function CreatePaymentOrderForm({
                                 receivesApprox={summaryStats.netAmountDestination}
                                 receivesCurrency={summaryStats.destinationCurrency}
                                 showAmountOrigin
+                                isOverride={isOverrideFee}
                                 receivesSubtext={
                                   summaryStats.originCurrency.trim().toUpperCase() !== summaryStats.destinationCurrency.trim().toUpperCase()
                                     ? `Después de comisión y conversión a ${summaryStats.destinationCurrency}`
@@ -1902,6 +2003,11 @@ export function CreatePaymentOrderForm({
                             <>
 
                               <NumericField control={form.control} disabled={disabled} label={getAmountLabel(currentRoute.key)} name="amount_origin" />
+                              {interbankLimits && (
+                                <p className="text-[11px] text-muted-foreground text-center mt-1">
+                                  Mín: ${interbankLimits.min_usd} USD · Máx: ${interbankLimits.max_usd} USD
+                                </p>
+                              )}
                               <EstimationSummary
                                 amountOrigin={summaryStats.amountOrigin}
                                 originCurrency={summaryStats.originCurrency}
@@ -1912,17 +2018,15 @@ export function CreatePaymentOrderForm({
                                 receivesApprox={summaryStats.netAmountDestination}
                                 receivesCurrency={summaryStats.destinationCurrency}
                                 showAmountOrigin
+                                isOverride={isOverrideFee}
                                 receivesSubtext={
                                   summaryStats.originCurrency.trim().toUpperCase() !== summaryStats.destinationCurrency.trim().toUpperCase()
                                     ? `Después de comisión y conversión a ${summaryStats.destinationCurrency}`
                                     : 'Después de descontar la comisión'
                                 }
                                 validationError={
-                                  isBoliviaToExterior &&
-                                    summaryStats.amountOrigin > 0 &&
-                                    ((Number(form.watch('amount_origin') || 0)) / ((exchangeRates.find(r => r.pair === 'BOB_USD') as any)?.effective_rate ?? exchangeRates.find(r => r.pair === 'BOB_USD')?.rate ?? 1)) <
-                                    parseFloat(String(appSettings.find(s => s.key === 'MIN_INTERBANK_USD')?.value ?? '0'))
-                                    ? `El envío equivale a ~$${((Number(form.watch('amount_origin') || 0)) / ((exchangeRates.find(r => r.pair === 'BOB_USD') as any)?.effective_rate ?? exchangeRates.find(r => r.pair === 'BOB_USD')?.rate ?? 1)).toFixed(2)} USD. El sistema interbancario exige un mínimo de $${parseFloat(String(appSettings.find(s => s.key === 'MIN_INTERBANK_USD')?.value ?? '0')).toFixed(2)} USD. Ajusta tu monto para continuar.`
+                                  isInterbankRoute && summaryStats.amountOrigin > 0
+                                    ? validateInterbankLimits() ?? undefined
                                     : undefined
                                 }
                               />
@@ -2403,6 +2507,11 @@ export function CreatePaymentOrderForm({
                             <>
 
                               <NumericField control={form.control} disabled={disabled} label={getAmountLabel(currentRoute.key)} name="amount_origin" />
+                              {interbankLimits && (
+                                <p className="text-[11px] text-muted-foreground text-center mt-1">
+                                  Mín: ${interbankLimits.min_usd} USD · Máx: ${interbankLimits.max_usd} USD
+                                </p>
+                              )}
                               <EstimationSummary
                                 amountOrigin={summaryStats.amountOrigin}
                                 originCurrency={summaryStats.originCurrency}
@@ -2413,6 +2522,7 @@ export function CreatePaymentOrderForm({
                                 receivesApprox={summaryStats.netAmountDestination}
                                 receivesCurrency={summaryStats.destinationCurrency}
                                 showAmountOrigin
+                                isOverride={isOverrideFee}
                                 receivesSubtext={
                                   summaryStats.originCurrency.trim().toUpperCase() !== summaryStats.destinationCurrency.trim().toUpperCase()
                                     ? `Después de comisión y conversión a ${summaryStats.destinationCurrency}`
@@ -2659,11 +2769,98 @@ export function CreatePaymentOrderForm({
                     )}
                   </AnimatedStepPanel>
                 ) : null}
+
+                {step === 'review_requested' ? (
+                  <AnimatedStepPanel key="review_requested">
+                    <div className="flex flex-col items-center justify-center space-y-6 py-8 text-center">
+                      <div className="relative flex size-24 items-center justify-center rounded-full bg-amber-500/10 ring-1 ring-amber-500/20">
+                        <div className="absolute inset-0 rounded-full bg-amber-500/10 blur-xl" />
+                        <CircleAlert className="relative size-12 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />
+                      </div>
+                      <div className="space-y-2 max-w-lg mx-auto">
+                        <h3 className="text-2xl font-semibold tracking-tight text-foreground">
+                          Solicitud en Revisión
+                        </h3>
+                        <p className="text-sm leading-relaxed text-muted-foreground">
+                          Tu monto supera el límite configurado para este servicio. El equipo de Guira revisará tu solicitud y te notificará en menos de 48 horas.
+                        </p>
+                      </div>
+                    </div>
+                    {reviewRequest && (
+                      <div className="space-y-3">
+                        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5 space-y-3 text-sm">
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Monto solicitado</span>
+                            <span className="font-semibold">{reviewRequest.amount.toLocaleString()} {reviewRequest.currency}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Equivalente USD</span>
+                            <span className="font-semibold">${reviewRequest.amount_usd_equiv.toLocaleString()}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Límite del servicio</span>
+                            <span className="font-semibold text-amber-600">${reviewRequest.limit_usd.toLocaleString()} USD</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Excede en</span>
+                            <span className="font-semibold text-destructive">${reviewRequest.excess_usd.toLocaleString()} USD</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Expira</span>
+                            <span className="font-semibold">{new Date(reviewRequest.expires_at).toLocaleDateString('es-BO', { dateStyle: 'medium' })}</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground text-center">
+                          Puedes ver el estado de esta solicitud en el historial de expedientes.
+                        </p>
+                      </div>
+                    )}
+                  </AnimatedStepPanel>
+                ) : null}
               </AnimatePresence>
             </form>
           </Form>
         </CardContent>
       </Card>
+
+      {/* Modal de motivo cuando el monto supera el límite */}
+      {showReviewReasonModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl bg-background border border-border shadow-2xl p-6 space-y-5">
+            <div className="flex items-start gap-3">
+              <CircleAlert className="size-6 text-amber-500 shrink-0 mt-0.5" />
+              <div>
+                <h3 className="text-lg font-semibold">Monto supera el límite</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Tu monto excede el límite máximo configurado para este servicio. Para continuar, necesitas enviar una solicitud de revisión al staff con el motivo de la operación.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Motivo de la operación <span className="text-destructive">*</span></label>
+              <textarea
+                className="w-full rounded-xl border border-input bg-muted/30 px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/40 min-h-[100px]"
+                placeholder="Explica brevemente por qué necesitas operar con este monto (mínimo 10 caracteres)…"
+                value={reviewReason}
+                onChange={e => setReviewReason(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">{reviewReason.length} / mínimo 10 caracteres</p>
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => { setShowReviewReasonModal(false); setReviewReason('') }}>
+                Cancelar
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={reviewReason.trim().length < 10 || creatingOrder}
+                onClick={() => handleCreateOrder(reviewReason.trim())}
+              >
+                {creatingOrder ? <><Loader2 className="size-4 animate-spin mr-2" />Enviando…</> : 'Enviar solicitud'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -3242,18 +3439,14 @@ function InfoBlock({ label, value }: { label: string; value: string }) {
   )
 }
 
-function getStepLabel(step: StepKey) {
+function getStepLabel(step: StepKey): string {
   switch (step) {
-    case 'route':
-      return 'Ruta'
-    case 'method':
-      return 'Metodo'
-    case 'detail':
-      return 'Detalle'
-    case 'review':
-      return 'Revision'
-    case 'finish':
-      return 'Finalizacion'
+    case 'route':            return 'Ruta'
+    case 'method':           return 'Metodo'
+    case 'detail':           return 'Detalle'
+    case 'review':           return 'Revision'
+    case 'finish':           return 'Finalizacion'
+    case 'review_requested': return 'En Revision'
   }
 }
 

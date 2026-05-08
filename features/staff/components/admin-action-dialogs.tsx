@@ -47,7 +47,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { AdminService } from '@/services/admin.service'
-import { UsersAdminService, type FeeOverride, type VaFeeMatrixEntry, type AdminVirtualAccount, type UpdateVirtualAccountPayload } from '@/services/admin/users.admin.service'
+import { UsersAdminService, type FeeOverride, type LimitOverride, type CreateLimitOverridePayload, type VaFeeMatrixEntry, type AdminVirtualAccount, type UpdateVirtualAccountPayload } from '@/services/admin/users.admin.service'
 import {
   adminAppSettingSchema,
   adminCreateUserSchema,
@@ -56,6 +56,7 @@ import {
   adminPsavRecordSchema,
   adminChangeRoleSchema,
   adminFeeOverrideSchema,
+  adminLimitOverrideSchema,
 
   type AdminAppSettingValues,
   type AdminCreateUserValues,
@@ -64,6 +65,7 @@ import {
   type AdminPsavRecordValues,
   type AdminChangeRoleValues,
   type AdminFeeOverrideValues,
+  type AdminLimitOverrideValues,
 
   adminRateConfigSchema,
   type AdminRateConfigValues,
@@ -2582,6 +2584,283 @@ function BankAccountReviewDialog({ actor, user }: { actor: StaffActor; user: Pro
         {open ? <BankAccountReviewPanel actor={actor} user={user} /> : null}
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ── Etiquetas legibles para flow types ───────────────────────────────────────
+const FLOW_TYPE_LABELS: Record<string, string> = {
+  bolivia_to_world:          'Bolivia → Exterior (1.1)',
+  bolivia_to_wallet:         'Bolivia → Wallet (1.3)',
+  wallet_to_wallet:          'Wallet → Wallet (1.2)',
+  world_to_bolivia:          'Exterior → Bolivia (1.4)',
+  fiat_bo_to_bridge_wallet:  'Fiat BO → Bridge Wallet (2.1)',
+  crypto_to_bridge_wallet:   'Crypto → Bridge Wallet (2.2)',
+  bridge_wallet_to_fiat_bo:  'Bridge Wallet → Fiat BO (2.4)',
+  bridge_wallet_to_crypto:   'Bridge Wallet → Crypto (2.5)',
+  bridge_wallet_to_fiat_us:  'Bridge Wallet → Fiat US (2.6)',
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  LimitOverridesPanel — Límites personalizados de monto por cliente VIP
+// ═════════════════════════════════════════════════════════════════════════════
+export function LimitOverridesPanel({ actor, user }: { actor: StaffActor; user: Profile }) {
+  const [overrides, setOverrides] = useState<LimitOverride[]>([])
+  const [loading, setLoading] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [showForm, setShowForm] = useState(false)
+
+  const canManage = actor.role === 'admin' || actor.role === 'super_admin'
+  const canDelete = actor.role === 'super_admin'
+
+  const form = useForm<AdminLimitOverrideValues>({
+    resolver: zodResolver(adminLimitOverrideSchema) as Resolver<AdminLimitOverrideValues>,
+    defaultValues: {
+      flow_type: 'bolivia_to_world',
+      min_usd: undefined,
+      max_usd: undefined,
+      valid_from: new Date().toISOString().split('T')[0],
+      valid_until: '',
+      notes: '',
+    },
+  })
+
+  const loadOverrides = async () => {
+    setLoading(true)
+    try {
+      const data = await UsersAdminService.getLimitOverrides(user.id)
+      setOverrides(data)
+    } catch {
+      toast.error('Error al cargar límites personalizados')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadOverrides()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.id])
+
+  const handleToggle = async (override: LimitOverride) => {
+    try {
+      await UsersAdminService.updateLimitOverride(override.id, { is_active: !override.is_active })
+      toast.success(override.is_active ? 'Override desactivado' : 'Override activado')
+      loadOverrides()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al actualizar'
+      toast.error(msg)
+    }
+  }
+
+  const handleDelete = async (override: LimitOverride) => {
+    if (!confirm(`¿Eliminar permanentemente el override de límite para "${FLOW_TYPE_LABELS[override.flow_type] ?? override.flow_type}"?`)) return
+    try {
+      await UsersAdminService.deleteLimitOverride(override.id)
+      toast.success('Override eliminado')
+      loadOverrides()
+    } catch {
+      toast.error('Error al eliminar')
+    }
+  }
+
+  const onSubmit = async (values: AdminLimitOverrideValues) => {
+    setCreating(true)
+    try {
+      const payload: CreateLimitOverridePayload = {
+        user_id: user.id,
+        flow_type: values.flow_type,
+        ...(values.min_usd != null ? { min_usd: values.min_usd } : {}),
+        ...(values.max_usd != null ? { max_usd: values.max_usd } : {}),
+        valid_from: values.valid_from || new Date().toISOString().split('T')[0],
+        ...(values.valid_until ? { valid_until: values.valid_until } : {}),
+        ...(values.notes ? { notes: values.notes } : {}),
+      }
+      await UsersAdminService.createLimitOverride(payload)
+      toast.success('Límite personalizado creado')
+      form.reset()
+      setShowForm(false)
+      loadOverrides()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al crear override'
+      toast.error(msg)
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  if (!canManage) return null
+
+  return (
+    <>
+      {/* ── Lista de overrides existentes ── */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-semibold text-foreground">Límites Personalizados</h4>
+          <Button size="sm" variant="outline" onClick={() => setShowForm(!showForm)} className="gap-1.5 text-xs">
+            {showForm ? 'Cancelar' : '+ Nuevo Límite'}
+          </Button>
+        </div>
+
+        {loading ? (
+          <div className="text-sm text-muted-foreground text-center py-6">Cargando...</div>
+        ) : overrides.length === 0 ? (
+          <div className="text-sm text-muted-foreground text-center py-6 bg-muted/20 rounded-xl border border-dashed border-border/60">
+            Sin límites personalizados. Este usuario usa los límites globales.
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-60 overflow-y-auto">
+            {overrides.map((o) => (
+              <div key={o.id} className={`flex items-center justify-between p-3 rounded-lg border text-sm transition-colors ${o.is_active ? 'bg-blue-500/5 border-blue-500/20' : 'bg-muted/20 border-border/40 opacity-60'}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant={o.is_active ? 'default' : 'secondary'} className="text-[10px] font-mono">
+                      {FLOW_TYPE_LABELS[o.flow_type] ?? o.flow_type}
+                    </Badge>
+                    {o.min_usd != null && (
+                      <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">Mín: ${o.min_usd}</span>
+                    )}
+                    {o.max_usd != null && (
+                      <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">Máx: ${o.max_usd}</span>
+                    )}
+                  </div>
+                  {o.notes && <div className="text-xs text-muted-foreground mt-1 truncate">{o.notes}</div>}
+                  {o.valid_until && <div className="text-[10px] text-muted-foreground mt-0.5">Vigente hasta: {o.valid_until}</div>}
+                </div>
+                <div className="flex items-center gap-2 ml-3 shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <Switch
+                      checked={o.is_active}
+                      onCheckedChange={() => handleToggle(o)}
+                      className="scale-75"
+                    />
+                    <span className="text-[10px] text-muted-foreground w-7">{o.is_active ? 'ON' : 'OFF'}</span>
+                  </div>
+                  {canDelete && (
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive/70 hover:text-destructive hover:bg-destructive/10" onClick={() => handleDelete(o)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Formulario para crear nuevo override ── */}
+      {showForm && (
+        <div className="mt-4 pt-4 border-t border-border/50">
+          <h4 className="text-sm font-semibold text-foreground mb-3">Crear Nuevo Límite</h4>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+              {/* Servicio */}
+              <FormField control={form.control} name="flow_type" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs">Servicio</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl><SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      {Object.entries(FLOW_TYPE_LABELS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <div className="grid grid-cols-2 gap-3">
+                {/* Mínimo USD */}
+                <FormField control={form.control} name="min_usd" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs">Mínimo (USD)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        placeholder="Ej: 50"
+                        className="h-9 text-xs"
+                        {...field}
+                        value={field.value ?? ''}
+                        onChange={(e) => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                {/* Máximo USD */}
+                <FormField control={form.control} name="max_usd" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs">Máximo (USD)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        placeholder="Ej: 100000"
+                        className="h-9 text-xs"
+                        {...field}
+                        value={field.value ?? ''}
+                        onChange={(e) => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {/* Válido desde */}
+                <FormField control={form.control} name="valid_from" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs">Válido desde</FormLabel>
+                    <FormControl>
+                      <Input type="date" className="h-9 text-xs" {...field} value={field.value ?? ''} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                {/* Válido hasta */}
+                <FormField control={form.control} name="valid_until" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs">Válido hasta (opcional)</FormLabel>
+                    <FormControl>
+                      <Input type="date" className="h-9 text-xs" {...field} value={field.value ?? ''} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
+
+              {/* Notas */}
+              <FormField control={form.control} name="notes" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs">Notas / Justificación</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Ej: Cliente VIP con volumen mensual alto. Aprobado por gerencia."
+                      className="text-xs resize-none"
+                      rows={2}
+                      {...field}
+                      value={field.value ?? ''}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <Button type="submit" size="sm" disabled={creating} className="w-full gap-1.5">
+                {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CircleDollarSign className="h-3.5 w-3.5" />}
+                {creating ? 'Creando...' : 'Crear Límite Personalizado'}
+              </Button>
+            </form>
+          </Form>
+        </div>
+      )}
+    </>
   )
 }
 

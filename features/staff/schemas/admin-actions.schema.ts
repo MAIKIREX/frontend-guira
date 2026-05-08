@@ -80,6 +80,25 @@ export const adminVaFeeOverrideSchema = z.object({
   reason: z.string().trim().min(5, 'Ingresa un motivo descriptivo.').max(500),
 })
 
+export const adminLimitOverrideSchema = z.object({
+  flow_type: z.enum([
+    'bolivia_to_world',
+    'bolivia_to_wallet',
+    'wallet_to_wallet',
+    'world_to_bolivia',
+    'fiat_bo_to_bridge_wallet',
+    'crypto_to_bridge_wallet',
+    'bridge_wallet_to_fiat_bo',
+    'bridge_wallet_to_crypto',
+    'bridge_wallet_to_fiat_us',
+  ]),
+  min_usd: z.coerce.number().min(0, 'Debe ser >= 0').optional().nullable(),
+  max_usd: z.coerce.number().min(0, 'Debe ser >= 0').optional().nullable(),
+  valid_from: z.string().optional().or(z.literal('')),
+  valid_until: z.string().optional().or(z.literal('')),
+  notes: z.string().max(500).optional(),
+})
+
 export type AdminCreateUserValues = z.infer<typeof adminCreateUserSchema>
 export type AdminReasonValues = z.infer<typeof adminReasonSchema>
 export type AdminFeeConfigValues = z.infer<typeof adminFeeConfigSchema>
@@ -90,3 +109,4 @@ export type AdminChangeRoleValues = z.infer<typeof adminChangeRoleSchema>
 export type AdminFeeOverrideValues = z.infer<typeof adminFeeOverrideSchema>
 export type AdminRateConfigValues = z.infer<typeof adminRateConfigSchema>
 export type AdminVaFeeOverrideValues = z.infer<typeof adminVaFeeOverrideSchema>
+export type AdminLimitOverrideValues = z.infer<typeof adminLimitOverrideSchema>

@@ -44,6 +44,8 @@ export interface EstimationSummaryProps {
   visible?: boolean
   /** Clases CSS adicionales para el contenedor */
   className?: string
+  /** El fee proviene de un override personal del cliente (no de la tarifa global) */
+  isOverride?: boolean
 }
 
 /**
@@ -67,6 +69,7 @@ export function EstimationSummary({
   useCollapsible = false,
   visible,
   className,
+  isOverride = false,
 }: EstimationSummaryProps) {
   const isVisible = visible ?? amountOrigin > 0
 
@@ -91,7 +94,14 @@ export function EstimationSummary({
 
         {/* Fee estimado */}
         <div className="flex items-center justify-between">
-          <span className={ROW_LABEL}>Comisión</span>
+          <span className={cn(ROW_LABEL, 'flex items-center gap-2')}>
+            Comisión
+            {isOverride && (
+              <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                Personalizada
+              </span>
+            )}
+          </span>
           <span className={cn(ROW_VALUE, 'text-destructive/80')}>
             − {feeTotal.toFixed(2)}{' '}
             <span className="text-sm md:text-base font-medium">{originCurrency}</span>

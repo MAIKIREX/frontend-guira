@@ -13,6 +13,41 @@ export type OrderStatus =
   | 'refunded'
   | 'pending'
 
+export type ReviewRequestStatus =
+  | 'pending_review'
+  | 'approved'
+  | 'rejected'
+  | 'expired'
+  | 'cancelled_by_user'
+
+export interface OrderReviewRequest {
+  id: string
+  user_id: string
+  flow_type: string
+  amount: number
+  currency: string
+  amount_usd_equiv: number
+  limit_usd: number
+  excess_usd: number
+  request_payload: Record<string, unknown>
+  client_reason: string
+  document_url: string | null
+  status: ReviewRequestStatus
+  reviewed_by: string | null
+  reviewed_at: string | null
+  staff_notes: string | null
+  payment_order_id: string | null
+  expires_at: string
+  created_at: string
+  updated_at: string
+  // Expandido cuando se lista desde admin
+  profiles?: { id: string; full_name: string | null; email: string }
+}
+
+export type CreateOrderResult =
+  | { _type: 'order'; data: PaymentOrder }
+  | { _type: 'review_request'; review: OrderReviewRequest }
+
 export type DeliveryMethod = 'swift' | 'ach' | 'crypto'
 export type FundingMethod = 'bs' | 'crypto' | 'ach' | 'wallet'
 export type OrderFileField = 'supporting_document_url' | 'support_document_url' | 'evidence_url'
@@ -192,6 +227,11 @@ export interface AppSettingRow {
   key?: string
   name?: string
   value?: string | number | boolean | null
+  description?: string | null
+  type?: string | null
+  is_public?: boolean | null
+  updated_by?: string | null
+  updated_at?: string | null
   [key: string]: unknown
 }
 

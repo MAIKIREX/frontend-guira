@@ -10,10 +10,21 @@ import { AuthService } from '@/services/auth.service'
 import { toast } from 'sonner'
 import { getErrorMessage } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
+import { Loader2, ShieldCheck } from 'lucide-react'
+import { motion } from 'framer-motion'
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.06, duration: 0.4, ease: [0.16, 1, 0.3, 1] },
+  }),
+}
 
 export function UpdatePasswordForm() {
   const router = useRouter()
-  
+
   const form = useForm<UpdatePasswordFormValues>({
     resolver: zodResolver(updatePasswordSchema),
     defaultValues: { password: '' },
@@ -30,33 +41,67 @@ export function UpdatePasswordForm() {
   }
 
   return (
-    <div className="w-full max-w-sm space-y-6">
-      <div className="space-y-2 text-center">
-        <h1 className="text-3xl font-bold">Nueva contraseña</h1>
-        <p className="text-muted-foreground">Escribe tu nueva contraseña para este correo</p>
-      </div>
+    <motion.div
+      className="w-full max-w-[400px] space-y-8"
+      initial="hidden"
+      animate="show"
+    >
+      {/* ── Header ── */}
+      <motion.div className="space-y-2" custom={0} variants={fadeUp}>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+          Nueva contraseña
+        </h1>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Establece una nueva contraseña segura para tu cuenta
+        </p>
+      </motion.div>
 
+      {/* ── Form ── */}
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Contraseña</FormLabel>
-                <FormControl>
-                  <PasswordInput placeholder="••••••••" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+          <motion.div custom={1} variants={fadeUp}>
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Nueva contraseña
+                  </FormLabel>
+                  <FormControl>
+                    <PasswordInput
+                      placeholder="••••••••"
+                      className="h-11 bg-secondary/40 border-border/50 transition-colors focus:bg-background focus:border-primary/40"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </motion.div>
 
-          <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-            {form.formState.isSubmitting ? 'Guardando...' : 'Cambiar Contraseña'}
-          </Button>
+          <motion.div custom={2} variants={fadeUp}>
+            <Button
+              type="submit"
+              className="relative w-full h-11 font-medium tracking-wide transition-all active:scale-[0.98] active:-translate-y-[1px]"
+              disabled={form.formState.isSubmitting}
+            >
+              {form.formState.isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="mr-2 h-4 w-4" />
+                  Actualizar Contraseña
+                </>
+              )}
+            </Button>
+          </motion.div>
         </form>
       </Form>
-    </div>
+    </motion.div>
   )
 }

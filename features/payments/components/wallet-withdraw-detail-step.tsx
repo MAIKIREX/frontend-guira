@@ -18,10 +18,12 @@ import {
 import { EstimationSummary } from '@/components/shared/estimation-summary'
 import { cn } from '@/lib/utils'
 import { resolveFeeTotal, type ExchangeRateRecord } from '@/features/payments/lib/deposit-instructions'
+import { useFeePreview } from '@/features/payments/hooks/use-fee-preview'
 import type { WalletBalance } from '@/services/wallet.service'
 import type { FeeConfigRow, PsavConfigRow } from '@/types/payment-order'
 import { ClientBankAccountsService, type ClientBankAccount } from '@/services/client-bank-accounts.service'
 import { AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
+import { usePaymentLimits } from '@/features/payments/hooks/use-payment-limits'
 import { NETWORK_LABELS, CRYPTO_CURRENCY_LABELS } from '@/lib/guira-crypto-config'
 import {
   getOffRampMinAmount,
@@ -63,6 +65,14 @@ export function WalletWithdrawDetailStep({
 }: WalletWithdrawDetailStepProps) {
   const prevEstimateRef = useRef<{ feeTotal: number; exchangeRateApplied: number; amountConverted: number } | null>(null)
 
+  const WITHDRAW_FLOW_TYPE_MAP: Record<string, string> = {
+    fiat_bo: 'bridge_wallet_to_fiat_bo',
+    crypto: 'bridge_wallet_to_crypto',
+    fiat_us: 'bridge_wallet_to_fiat_us',
+  }
+  const withdrawFlowType = WITHDRAW_FLOW_TYPE_MAP[method] ?? null
+  const { limits: paymentLimits } = usePaymentLimits(withdrawFlowType)
+
   // ── Bank account state (for fiat_bo) ──
   const [bankAccount, setBankAccount] = useState<ClientBankAccount | null>(null)
   const [bankLoading, setBankLoading] = useState(method === 'fiat_bo')
@@ -74,6 +84,10 @@ export function WalletWithdrawDetailStep({
   const selectedWalletId = form.watch('wallet_ramp_wallet_id') ?? ''
   const selectedWallet = wallets.find((w) => w.id === selectedWalletId)
   const amount = form.watch('amount_origin')
+
+  // ── Fee preview del servidor (considera overrides por usuario) ──
+  const { preview: feePreview } = useFeePreview(withdrawFlowType, Number(amount) || 0)
+  const [isOverrideFee, setIsOverrideFee] = useState(false)
 
   // ── Available source currencies per method ──
   const fiatBoAvailableCurrencies = React.useMemo(() => {
@@ -243,6 +257,32 @@ export function WalletWithdrawDetailStep({
     form.setValue('amount_converted', estimate.amountConverted, { shouldValidate: false, shouldDirty: false, shouldTouch: false })
   }, [estimate, form])
 
+  // ── Sobreescribir con fee del servidor cuando llega (considera overrides) ──
+  React.useEffect(() => {
+    if (!feePreview) return
+    const originAmount = Number(amount) || 0
+    const serverFee = feePreview.fee_amount
+    const netAmount = Math.max(originAmount - serverFee, 0)
+    const serverAmountConverted = method === 'fiat_bo'
+      ? Math.round(netAmount * estimate.exchangeRateApplied * 100) / 100
+      : Math.round(netAmount * 100) / 100
+    form.setValue('fee_total', serverFee, { shouldValidate: false, shouldDirty: false, shouldTouch: false })
+    form.setValue('amount_converted', serverAmountConverted, { shouldValidate: false, shouldDirty: false, shouldTouch: false })
+    setIsOverrideFee(feePreview.is_override)
+  }, [feePreview, amount, method, estimate.exchangeRateApplied, form])
+
+  // ── Display estimate: prefiere fee del servidor sobre el local ──
+  const displayEstimate = React.useMemo(() => {
+    if (!feePreview) return estimate
+    const originAmount = Number(amount) || 0
+    const serverFee = feePreview.fee_amount
+    const netAmount = Math.max(originAmount - serverFee, 0)
+    const serverAmountConverted = method === 'fiat_bo'
+      ? Math.round(netAmount * estimate.exchangeRateApplied * 100) / 100
+      : Math.round(netAmount * 100) / 100
+    return { feeTotal: serverFee, exchangeRateApplied: estimate.exchangeRateApplied, amountConverted: serverAmountConverted }
+  }, [feePreview, estimate, amount, method])
+
   const isFiatBoBlocked = method === 'fiat_bo' && !bankLoading && !bankAccount
 
   // ── Shared fields ────────────────────────────────────────────────
@@ -411,6 +451,11 @@ export function WalletWithdrawDetailStep({
             </p>
           )}
           <FormMessage className="text-center" />
+          {paymentLimits && (
+            <p className="text-[11px] text-muted-foreground text-center">
+              Mín: ${paymentLimits.min_usd} USD · Máx: ${paymentLimits.max_usd} USD
+            </p>
+          )}
         </FormItem>
       )}
     />
@@ -422,14 +467,15 @@ export function WalletWithdrawDetailStep({
     <EstimationSummary
       amountOrigin={Number(amount) || 0}
       originCurrency={displayWithdrawCurrency}
-      feeTotal={estimate.feeTotal}
-      exchangeRate={method === 'fiat_bo' ? estimate.exchangeRateApplied : undefined}
+      feeTotal={displayEstimate.feeTotal}
+      exchangeRate={method === 'fiat_bo' ? displayEstimate.exchangeRateApplied : undefined}
       exchangeRateLabel={method === 'fiat_bo' ? `BOB/${displayWithdrawCurrency}` : undefined}
       exchangeRatePrecision={4}
-      receivesApprox={estimate.amountConverted}
+      receivesApprox={displayEstimate.amountConverted}
       receivesCurrency={receiveCurrency}
       showAmountOrigin
       useCollapsible
+      isOverride={isOverrideFee}
       className="mt-3"
     />
   )

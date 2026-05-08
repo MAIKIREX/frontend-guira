@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import {
   ArrowRightLeft,
   CheckCircle2,
+  Info,
   Loader2,
   Percent,
   RefreshCw,
@@ -28,6 +29,7 @@ const CURRENCY_TO_COUNTRY: Record<string, string> = {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   AppSettingDialog,
@@ -41,6 +43,73 @@ import { cn } from '@/lib/utils'
 import type { StaffDashboardLoadedState } from '@/features/staff/components/staff-dashboard-page'
 import type { AppSettingRow, FeeConfigRow } from '@/types/payment-order'
 import type { StaffActor } from '@/types/staff'
+
+/* ── Etiquetas en español para variables del sistema ── */
+const SETTING_LABELS: Record<string, { label: string; category: string }> = {
+  /* ── General ── */
+  PLATFORM_NAME:               { label: 'Nombre de la Plataforma',              category: 'general' },
+  SUPPORT_EMAIL:               { label: 'Email de Soporte',                     category: 'general' },
+  MAINTENANCE_MODE:            { label: 'Modo Mantenimiento',                   category: 'general' },
+  BRIDGE_ENVIRONMENT:          { label: 'Entorno de Bridge',                    category: 'general' },
+  SUPPORTED_CURRENCIES:        { label: 'Divisas Soportadas',                   category: 'general' },
+
+  /* ── Wallets ── */
+  SUPPORTED_WALLET_CONFIGS:    { label: 'Configuración de Wallets',             category: 'wallets' },
+
+  /* ── Límites por Servicio: Interbancarios ── */
+  MIN_BOLIVIA_TO_WORLD_USD:    { label: 'Mínimo Bolivia → Exterior (USD)',      category: 'limites_interbank' },
+  MAX_BOLIVIA_TO_WORLD_USD:    { label: 'Máximo Bolivia → Exterior (USD)',      category: 'limites_interbank' },
+  MIN_WORLD_TO_BOLIVIA_USD:    { label: 'Mínimo Exterior → Bolivia (USD)',      category: 'limites_interbank' },
+  MAX_WORLD_TO_BOLIVIA_USD:    { label: 'Máximo Exterior → Bolivia (USD)',      category: 'limites_interbank' },
+  MIN_BOLIVIA_TO_WALLET_USD:   { label: 'Mínimo Bolivia → Wallet (USD)',        category: 'limites_interbank' },
+  MAX_BOLIVIA_TO_WALLET_USD:   { label: 'Máximo Bolivia → Wallet (USD)',        category: 'limites_interbank' },
+  MIN_WALLET_TO_WALLET_USD:    { label: 'Mínimo Wallet → Wallet (USD)',         category: 'limites_interbank' },
+  MAX_WALLET_TO_WALLET_USD:    { label: 'Máximo Wallet → Wallet (USD)',         category: 'limites_interbank' },
+
+  /* ── Límites por Servicio: Rampas Bridge ── */
+  MIN_FIAT_BO_TO_BRIDGE_WALLET_USD:    { label: 'Mínimo Fiat BO → Bridge Wallet (USD)',    category: 'limites_bridge' },
+  MAX_FIAT_BO_TO_BRIDGE_WALLET_USD:    { label: 'Máximo Fiat BO → Bridge Wallet (USD)',    category: 'limites_bridge' },
+  MIN_CRYPTO_TO_BRIDGE_WALLET_USD:     { label: 'Mínimo Crypto → Bridge Wallet (USD)',     category: 'limites_bridge' },
+  MAX_CRYPTO_TO_BRIDGE_WALLET_USD:     { label: 'Máximo Crypto → Bridge Wallet (USD)',     category: 'limites_bridge' },
+  MIN_BRIDGE_WALLET_TO_FIAT_BO_USD:    { label: 'Mínimo Bridge Wallet → Fiat BO (USD)',    category: 'limites_bridge' },
+  MAX_BRIDGE_WALLET_TO_FIAT_BO_USD:    { label: 'Máximo Bridge Wallet → Fiat BO (USD)',    category: 'limites_bridge' },
+  MIN_BRIDGE_WALLET_TO_FIAT_US_USD:    { label: 'Mínimo Bridge Wallet → Fiat US (USD)',    category: 'limites_bridge' },
+  MAX_BRIDGE_WALLET_TO_FIAT_US_USD:    { label: 'Máximo Bridge Wallet → Fiat US (USD)',    category: 'limites_bridge' },
+  MIN_BRIDGE_WALLET_TO_CRYPTO_USD:     { label: 'Mínimo Bridge Wallet → Crypto (USD)',     category: 'limites_bridge' },
+  MAX_BRIDGE_WALLET_TO_CRYPTO_USD:     { label: 'Máximo Bridge Wallet → Crypto (USD)',     category: 'limites_bridge' },
+
+  /* ── Seguridad y Compliance ── */
+  PAYOUT_REVIEW_THRESHOLD:     { label: 'Umbral Revisión Retiro (USD)',         category: 'seguridad' },
+  PSAV_REVIEW_THRESHOLD:       { label: 'Umbral Revisión PSAV (USD)',           category: 'seguridad' },
+  ORDER_REVIEW_EXPIRY_HOURS:   { label: 'Expiración Revisión de Orden (horas)', category: 'seguridad' },
+  MAX_PAYMENT_ORDERS_PER_HOUR: { label: 'Máx. Órdenes por Hora',               category: 'seguridad' },
+  KYC_DOCUMENT_EXPIRY_HOURS:   { label: 'Expiración Docs KYC (horas)',         category: 'seguridad' },
+  MAX_UPLOAD_SIZE_MB:          { label: 'Tamaño Máx. Subida (MB)',             category: 'seguridad' },
+
+  /* ── Cuentas Virtuales ── */
+  VA_MAX_EXTERNAL_PER_CURRENCY:{ label: 'Máx. VA Externas por Moneda',         category: 'cuentas_virtuales' },
+  VA_MAX_TOTAL_ACTIVE_PER_USER:{ label: 'Máx. VA Activas por Usuario',         category: 'cuentas_virtuales' },
+}
+
+const CATEGORY_META: Record<string, { title: string; icon: string }> = {
+  general:            { title: 'General',                               icon: '⚙️' },
+  wallets:            { title: 'Configuración de Wallets',              icon: '💼' },
+  limites_interbank:  { title: 'Límites por Servicio — Interbancarios', icon: '🏛️' },
+  limites_bridge:     { title: 'Límites por Servicio — Rampas Bridge',  icon: '🔗' },
+  seguridad:          { title: 'Seguridad y Compliance',                icon: '🛡️' },
+  cuentas_virtuales:  { title: 'Cuentas Virtuales',                     icon: '🏦' },
+  otros:              { title: 'Otros',                                 icon: '📋' },
+}
+
+const CATEGORY_ORDER = [
+  'general',
+  'wallets',
+  'limites_interbank',
+  'limites_bridge',
+  'seguridad',
+  'cuentas_virtuales',
+  'otros',
+]
 
 /* ── Label map ── */
 const OPERATION_LABELS: Record<string, string> = {
@@ -175,11 +244,13 @@ function ConfigPanelInner({
   const fOther = otherFees.filter(matchesFee)
   const totalFiltered = fInterbank.length + fRampOn.length + fRampOff.length + fOther.length
 
-  /* Settings search */
+  /* Settings search — includes Spanish labels for better discoverability */
   const filteredSettings = appSettings.filter((r, i) => {
     const key = String(r.key ?? r.name ?? `setting-${i + 1}`)
     const value = String(r.value ?? '')
-    return textMatches(deferredSettingsQuery, [key, value])
+    const spanishLabel = SETTING_LABELS[key]?.label ?? ''
+    const description = r.description ? String(r.description) : ''
+    return textMatches(deferredSettingsQuery, [key, value, spanishLabel, description])
   })
 
   const tabMeta = {
@@ -294,7 +365,7 @@ function ConfigPanelInner({
           <Input
             value={settingsQuery}
             onChange={(e) => setSettingsQuery(e.target.value)}
-            placeholder="Buscar variable por nombre o valor..."
+            placeholder="Buscar variable por nombre, clave o valor..."
             className="h-10 max-w-md border-border/50 bg-transparent"
           />
           {filteredSettings.length === 0 ? (
@@ -304,29 +375,80 @@ function ConfigPanelInner({
                 : 'Sin variables detectadas.'}
             </p>
           ) : (
-            <div className="flex flex-col">
-              {filteredSettings.map((record, index) => {
-                const key = String(record.key ?? record.name ?? `setting-${index + 1}`)
-                const value = String(record.value ?? 'sin valor')
+            <div className="space-y-10">
+              {CATEGORY_ORDER.map((catKey) => {
+                const catSettings = filteredSettings.filter((r) => {
+                  const key = String(r.key ?? r.name ?? '')
+                  return (SETTING_LABELS[key]?.category ?? 'otros') === catKey
+                })
+                if (catSettings.length === 0) return null
+                const meta = CATEGORY_META[catKey] ?? CATEGORY_META['otros']
                 return (
-                  <div
-                    key={String(record.id ?? key)}
-                    className="flex items-center justify-between gap-4 py-4 group transition-colors hover:bg-muted/10 border-b border-border/80 last:border-0"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="font-mono text-sm font-semibold text-foreground truncate" title={key}>
-                        {key}
-                      </div>
+                  <div key={catKey} className="space-y-2 pt-2">
+                    <div className="flex items-baseline justify-between pb-2">
+                      <h3 className="text-[12px] font-bold uppercase tracking-[0.2em] text-sky-700 dark:text-cyan-400">
+                        {meta.icon} {meta.title}
+                      </h3>
+                      <span className="text-[12px] font-medium tabular-nums text-muted-foreground/60">
+                        {catSettings.length}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-4 shrink-0 max-w-[60%]">
-                      <div className="text-base font-medium text-muted-foreground truncate text-right" title={value}>
-                        {value.length > 60 ? `${value.slice(0, 60)}…` : value}
-                      </div>
-                      {isPrivileged && (
-                        <div className="shrink-0 ml-2">
-                          <AppSettingDialog actor={actor} onUpdated={onUpdateAppSetting} record={record} />
-                        </div>
-                      )}
+                    <div className="flex flex-col">
+                      {catSettings.map((record, index) => {
+                        const key = String(record.key ?? record.name ?? `setting-${index + 1}`)
+                        const value = String(record.value ?? 'sin valor')
+                        const labelMeta = SETTING_LABELS[key]
+                        const spanishLabel = labelMeta?.label ?? key
+                        const description = record.description ? String(record.description) : null
+                        return (
+                          <div
+                            key={String(record.id ?? key)}
+                            className="flex items-center justify-between gap-4 py-4 group transition-colors hover:bg-muted/10 border-b border-border/80 last:border-0"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-base font-semibold text-foreground truncate" title={spanishLabel}>
+                                  {spanishLabel}
+                                </span>
+                                {description && (
+                                  <Popover>
+                                    <PopoverTrigger
+                                      className="inline-flex shrink-0 items-center justify-center rounded-full size-5 text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 transition-colors cursor-help"
+                                    >
+                                      <Info className="size-3.5" />
+                                    </PopoverTrigger>
+                                    <PopoverContent side="top" className="max-w-xs">
+                                      <div className="space-y-1.5">
+                                        <div className="font-medium text-sm text-foreground">{spanishLabel}</div>
+                                        <p className="text-[13px] leading-relaxed text-muted-foreground">{description}</p>
+                                        <div className="flex items-center gap-2 pt-1">
+                                          <code className="font-mono text-[11px] text-muted-foreground/70 bg-muted/30 px-1.5 py-0.5 rounded">{key}</code>
+                                          {record.is_public && (
+                                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-400/40 bg-emerald-400/10 text-emerald-700 dark:text-emerald-300">
+                                              Público
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
+                                )}
+                              </div>
+                              <div className="mt-0.5 font-mono text-[11px] text-muted-foreground/50 truncate">{key}</div>
+                            </div>
+                            <div className="flex items-center gap-4 shrink-0 max-w-[50%]">
+                              <div className="text-base font-medium text-muted-foreground truncate text-right" title={value}>
+                                {value.length > 50 ? `${value.slice(0, 50)}…` : value}
+                              </div>
+                              {isPrivileged && (
+                                <div className="shrink-0 ml-2">
+                                  <AppSettingDialog actor={actor} onUpdated={onUpdateAppSetting} record={record} />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 )
@@ -499,9 +621,9 @@ function VaFeeDefaultsSection({ isPrivileged }: { isPrivileged: boolean }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col">
+      <div className="grid grid-cols-1 lg:grid-cols-2 lg:gap-x-12">
         {data.map((record) => (
-          <div key={record.id} className="flex items-center justify-between gap-4 py-4 group transition-colors hover:bg-muted/10 border-b border-border/80 last:border-0">
+          <div key={record.id} className="flex items-center justify-between gap-4 py-4 group transition-colors hover:bg-muted/10 border-b border-border/80">
             <div className="space-y-1 min-w-0 flex-1">
               <div className="flex items-center gap-2 text-base font-semibold text-foreground">
                 <div className="flex items-center gap-2">

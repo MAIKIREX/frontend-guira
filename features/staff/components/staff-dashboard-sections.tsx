@@ -1,6 +1,6 @@
 'use client'
 
-import { useDeferredValue, useState, useEffect } from 'react'
+import { useDeferredValue, useState, useEffect, useCallback } from 'react'
 import { format } from 'date-fns'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -15,7 +15,7 @@ import { JsonSyntaxHighlight } from '@/components/ui/json-syntax-highlight'
 import {
   AlertTriangle,
   ArrowRightLeft,
-  Bell,
+
   CheckCircle2,
   CircleDollarSign,
   ExternalLink,
@@ -76,6 +76,8 @@ import { useAdminBridgeTransfers } from '@/features/staff/hooks/use-admin-bridge
 import { BridgeAdminService, type AdminBridgePayout } from '@/services/admin/bridge.admin.service'
 import { UsersAdminService, type VaFeeDefault } from '@/services/admin/users.admin.service'
 import type { AdminBridgeTransfer } from '@/types/bridge-transfer'
+import { apiGet, apiPost } from '@/lib/api/client'
+import type { OrderReviewRequest, ReviewRequestStatus } from '@/types/payment-order'
 
 export function StaffOverviewPanel({
   snapshot,
@@ -409,7 +411,7 @@ export function StaffOrdersTable({
   replaceOrder,
 }: Pick<StaffDashboardLoadedState, 'snapshot' | 'actor' | 'replaceOrder'>) {
   const orders = snapshot.orders
-  const [activeTab, setActiveTab] = useState<'orders' | 'payins' | 'transfers'>('orders')
+  const [activeTab, setActiveTab] = useState<'orders' | 'transfers' | 'reviews'>('orders')
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [railFilter, setRailFilter] = useState('all')
@@ -421,14 +423,15 @@ export function StaffOrdersTable({
       description:
         'Staff revisa respaldo y comprobante del cliente, valida el deposito y publica la cotizacion final para mover la orden a processing.',
     },
-    payins: {
-      title: 'Payin routes',
-      description: 'Lectura generica de `payin_routes` hasta documentar sus columnas funcionales.',
-    },
     transfers: {
       title: 'Bridge transfers',
       description:
         'Lectura operativa de `bridge_transfers`. Se mantiene sin acciones por falta de transiciones documentadas.',
+    },
+    reviews: {
+      title: 'Revisión de expedientes',
+      description:
+        'Cola de solicitudes de clientes que exceden el límite máximo por servicio. Aprueba o rechaza cada caso.',
     },
   } as const
   const filteredOrders = orders.filter((order) => {
@@ -454,7 +457,7 @@ export function StaffOrdersTable({
     query.trim().length > 0 || statusFilter !== 'all' || railFilter !== 'all' || typeFilter !== 'all'
 
   return (
-    <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'orders' | 'payins' | 'transfers')} className="gap-4">
+    <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'orders' | 'transfers')} className="gap-4">
       <div className="space-y-4">
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight break-words">{tabCopy[activeTab].title}</h1>
@@ -465,8 +468,8 @@ export function StaffOrdersTable({
           className="w-full flex-wrap justify-start rounded-none border-b bg-transparent p-0"
         >
           <TabsTrigger value="orders" className="rounded-none px-4 py-2">Orders</TabsTrigger>
-          <TabsTrigger value="payins" className="rounded-none px-4 py-2">Payins</TabsTrigger>
           <TabsTrigger value="transfers" className="rounded-none px-4 py-2">Transfers</TabsTrigger>
+          <TabsTrigger value="reviews" className="rounded-none px-4 py-2">Revisiones</TabsTrigger>
         </TabsList>
       </div>
 
@@ -630,30 +633,20 @@ export function StaffOrdersTable({
         </Card>
       </TabsContent>
 
-      <TabsContent value="payins">
-        <StaffPayinsPanel snapshot={snapshot} showHeader={false} />
-      </TabsContent>
+
 
       <TabsContent value="transfers">
         <StaffTransfersPanel snapshot={snapshot} showHeader={false} />
+      </TabsContent>
+
+      <TabsContent value="reviews">
+        <StaffReviewsPanel actor={actor} />
       </TabsContent>
     </Tabs>
   )
 }
 
-export function StaffPayinsPanel({
-  snapshot,
-  showHeader = true,
-}: Pick<StaffDashboardLoadedState, 'snapshot'> & { showHeader?: boolean }) {
-  return (
-    <GenericRecordsCard
-      title="Payin routes"
-      description="Lectura generica de `payin_routes` hasta documentar sus columnas funcionales."
-      records={snapshot.payinRoutes}
-      showHeader={showHeader}
-    />
-  )
-}
+
 
 export function StaffTransfersPanel({
   showHeader = true,
@@ -1091,7 +1084,7 @@ function RoleNotesCard({ isPrivileged }: { isPrivileged: boolean }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <RoleCard title="Notificaciones" body="Los eventos recientes se leen desde auditoria para priorizar expedientes y movimientos que requieren seguimiento." />
-      <RoleCard title="Procesos" body="Payins y Transfers siguen en solo lectura hasta que el contrato documental defina columnas y transiciones seguras." />
+      <RoleCard title="Procesos" body="Transfers opera en solo lectura hasta que el contrato documental defina columnas y transiciones seguras." />
       <RoleCard title="Gobernanza" body="Support, Audit y Users ya viven en su propio espacio para evitar saturar el panel principal." />
       <RoleCard title="Herramientas admin" body={isPrivileged ? 'Config y PSAV mantienen acciones de gestion seguras con trazabilidad.' : 'Estas herramientas existen, pero solo se habilitan con rol admin.'} />
     </div>
@@ -2590,94 +2583,7 @@ function PsavPanel({
   )
 }
 
-function GenericRecordsCard({
-  title,
-  description,
-  records,
-  showHeader = true,
-}: {
-  title: string
-  description: string
-  records: Array<Record<string, unknown>>
-  showHeader?: boolean
-}) {
-  const keys = records.length > 0 ? Object.keys(records[0]).filter(k => k !== 'id').slice(0, 5) : []
 
-  return (
-    <Card className={cn("overflow-hidden", !showHeader && "border-0 bg-background shadow-none ring-0")}>
-      {showHeader ? (
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
-        </CardHeader>
-      ) : null}
-      <CardContent className={cn("space-y-4", !showHeader && "px-0 pb-0")}>
-        {/* Móvil */}
-        <div className="space-y-3 md:hidden">
-          {records.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-center text-sm text-muted-foreground">
-              No hay registros disponibles.
-            </div>
-          ) : (
-            records.map((record, index) => (
-              <Card key={String(record.id ?? index)} className="border-border/70 bg-card/95 shadow-sm">
-                <CardContent className="space-y-4 p-4">
-                  <div className="flex items-center gap-2">
-                    <Bell className="size-4 text-muted-foreground" />
-                    <div className="font-medium text-foreground">Registro #{String(record.id ?? index).slice(0, 8)}</div>
-                  </div>
-                  <pre className="overflow-x-auto rounded-lg bg-muted/30 p-3 text-xs leading-5 text-foreground/85">
-                    {JSON.stringify(record, null, 2)}
-                  </pre>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
-
-        {/* Desktop */}
-        <div className="hidden md:block">
-          {records.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-center text-sm text-muted-foreground">
-              No hay registros disponibles.
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID</TableHead>
-                  {keys.map((key) => (
-                    <TableHead key={key} className="capitalize">{key.replace(/_/g, ' ')}</TableHead>
-                  ))}
-                  <TableHead className="text-right">Detalle Funcional</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {records.map((record, index) => (
-                  <TableRow key={String(record.id ?? index)}>
-                    <TableCell className="font-medium">#{String(record.id ?? index).slice(0, 8)}</TableCell>
-                    {keys.map((key) => {
-                      const val = record[key]
-                      const displayVal = typeof val === 'object' && val !== null ? '{...}' : String(val ?? '-')
-                      return (
-                        <TableCell key={key} className="max-w-[150px] truncate">
-                          {displayVal}
-                        </TableCell>
-                      )
-                    })}
-                    <TableCell className="text-right">
-                      <Badge variant="outline" className="text-[10px]">Pendiente Documentar</Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
 
 function TableFilters({
   query,
@@ -3123,7 +3029,7 @@ function VaFeeDefaultsCard({ isPrivileged }: { isPrivileged: boolean }) {
             <div className="mt-4 flex items-start gap-2 rounded-lg bg-primary/5 p-3 text-xs text-muted-foreground">
                <ShieldCheck className="mt-0.5 size-4 shrink-0 opacity-80" />
                <p className="leading-relaxed">
-                 Estos porcentajes se aplican automáticamente a todas las cuentas virtuales. 
+                 Estos porcentajes se aplican automáticamente a todas las cuentas virtuales.
                  Si un usuario tiene un override configurado (botón "Fee Bridge VA" en usuarios), prevalecerá el override.
                </p>
             </div>
@@ -3131,6 +3037,312 @@ function VaFeeDefaultsCard({ isPrivileged }: { isPrivileged: boolean }) {
         ) : null}
       </CardContent>
     </Card>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════
+//  StaffReviewsPanel — Cola de revisiones por exceso de límite
+// ═══════════════════════════════════════════════════════════
+
+const REVIEW_STATUS_CONFIG: Record<ReviewRequestStatus, { label: string; badgeClass: string }> = {
+  pending_review:    { label: 'Pendiente',         badgeClass: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400' },
+  approved:          { label: 'Aprobada',           badgeClass: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' },
+  rejected:          { label: 'Rechazada',          badgeClass: 'border-destructive/40 bg-destructive/10 text-destructive' },
+  expired:           { label: 'Expirada',           badgeClass: 'border-muted/40 bg-muted/10 text-muted-foreground' },
+  cancelled_by_user: { label: 'Cancelada',          badgeClass: 'border-muted/40 bg-muted/10 text-muted-foreground' },
+}
+
+const FLOW_TYPE_LABELS: Record<string, string> = {
+  bolivia_to_world:           'Bolivia → Mundo',
+  bolivia_to_wallet:          'Bolivia → Wallet',
+  wallet_to_wallet:           'Wallet → Wallet',
+  world_to_bolivia:           'Mundo → Bolivia',
+  fiat_bo_to_bridge_wallet:   'Fiat BO → Bridge Wallet',
+  crypto_to_bridge_wallet:    'Crypto → Bridge Wallet',
+  bridge_wallet_to_fiat_bo:   'Bridge Wallet → Fiat BO',
+  bridge_wallet_to_crypto:    'Bridge Wallet → Crypto',
+  bridge_wallet_to_fiat_us:   'Bridge Wallet → Fiat US',
+}
+
+export function StaffReviewsPanel({ actor }: { actor: StaffActor }) {
+  const isPrivileged = ['admin', 'super_admin'].includes(actor.role)
+
+  const [reviews, setReviews] = useState<OrderReviewRequest[]>([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [statusFilter, setStatusFilter] = useState<string>('pending_review')
+  const [selected, setSelected] = useState<OrderReviewRequest | null>(null)
+  const [staffNotes, setStaffNotes] = useState('')
+  const [actionLoading, setActionLoading] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({ limit: '50' })
+      if (statusFilter !== 'all') params.set('status', statusFilter)
+      const data = await apiGet<{ data: OrderReviewRequest[]; total: number }>(
+        `/admin/payment-orders/order-reviews?${params.toString()}`
+      )
+      setReviews(data.data ?? [])
+      setTotal(data.total ?? 0)
+    } catch (err) {
+      toast.error('No se pudo cargar las solicitudes de revisión')
+    } finally {
+      setLoading(false)
+    }
+  }, [statusFilter])
+
+  useEffect(() => { load() }, [load])
+
+  async function handleApprove() {
+    if (!selected || !isPrivileged) return
+    setActionLoading(true)
+    try {
+      await apiPost(`/admin/payment-orders/order-reviews/${selected.id}/approve`, { staff_notes: staffNotes })
+      toast.success('Solicitud aprobada y expediente creado exitosamente')
+      setSelected(null)
+      setStaffNotes('')
+      load()
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? 'Error al aprobar la solicitud')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  async function handleReject() {
+    if (!selected || !isPrivileged) return
+    if (staffNotes.trim().length < 10) {
+      toast.warning('El motivo de rechazo debe tener al menos 10 caracteres')
+      return
+    }
+    setActionLoading(true)
+    try {
+      await apiPost(`/admin/payment-orders/order-reviews/${selected.id}/reject`, { staff_notes: staffNotes })
+      toast.success('Solicitud rechazada')
+      setSelected(null)
+      setStaffNotes('')
+      load()
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? 'Error al rechazar la solicitud')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <ShieldAlert className="size-5 text-amber-500" />
+                Cola de Revisión — Expedientes sobre Límite
+              </CardTitle>
+              <CardDescription>
+                Solicitudes de clientes que exceden el límite máximo por servicio. Aprueba o rechaza cada caso.
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? 'pending_review')}>
+                <SelectTrigger className="w-44">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending_review">Pendientes</SelectItem>
+                  <SelectItem value="approved">Aprobadas</SelectItem>
+                  <SelectItem value="rejected">Rechazadas</SelectItem>
+                  <SelectItem value="expired">Expiradas</SelectItem>
+                  <SelectItem value="all">Todas</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button size="sm" variant="outline" onClick={load} disabled={loading}>
+                <RefreshCw className={cn('size-4', loading && 'animate-spin')} />
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="flex items-center justify-center py-16 text-muted-foreground gap-2">
+              <Loader2 className="size-5 animate-spin" />
+              <span className="text-sm">Cargando solicitudes…</span>
+            </div>
+          ) : reviews.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
+              <CheckCircle2 className="size-8 opacity-40" />
+              <p className="text-sm">No hay solicitudes en este estado</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Servicio</TableHead>
+                  <TableHead className="text-right">Monto</TableHead>
+                  <TableHead className="text-right">Límite</TableHead>
+                  <TableHead className="text-right">Exceso</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Expira</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {reviews.map(r => {
+                  const cfg = REVIEW_STATUS_CONFIG[r.status]
+                  const profile = (r as any).profiles
+                  return (
+                    <TableRow key={r.id} className="cursor-pointer hover:bg-muted/40" onClick={() => { setSelected(r); setStaffNotes('') }}>
+                      <TableCell>
+                        <div className="text-sm font-medium">{profile?.full_name ?? '—'}</div>
+                        <div className="text-xs text-muted-foreground">{profile?.email ?? r.user_id.slice(0, 8)}</div>
+                      </TableCell>
+                      <TableCell className="text-sm">{FLOW_TYPE_LABELS[r.flow_type] ?? r.flow_type}</TableCell>
+                      <TableCell className="text-right text-sm font-mono">{r.amount.toLocaleString()} {r.currency}</TableCell>
+                      <TableCell className="text-right text-sm font-mono text-amber-600">${r.limit_usd.toLocaleString()}</TableCell>
+                      <TableCell className="text-right text-sm font-mono text-destructive">+${r.excess_usd.toLocaleString()}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={cn('text-xs', cfg.badgeClass)}>{cfg.label}</Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {new Date(r.expires_at).toLocaleDateString('es-BO', { dateStyle: 'short' })}
+                      </TableCell>
+                      <TableCell>
+                        {r.status === 'pending_review' && isPrivileged && (
+                          <Button size="sm" variant="outline" onClick={e => { e.stopPropagation(); setSelected(r); setStaffNotes('') }}>
+                            Revisar
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          )}
+          {total > reviews.length && (
+            <p className="p-4 text-xs text-muted-foreground text-center">Mostrando {reviews.length} de {total} solicitudes</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Panel de detalle / acción */}
+      {selected && (
+        <Card className="border-amber-500/30">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <ShieldAlert className="size-4 text-amber-500" />
+              Solicitud #{selected.id.slice(0, 8)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="rounded-xl bg-muted/30 p-3 space-y-1">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Servicio</p>
+                <p className="font-medium">{FLOW_TYPE_LABELS[selected.flow_type] ?? selected.flow_type}</p>
+              </div>
+              <div className="rounded-xl bg-muted/30 p-3 space-y-1">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Monto</p>
+                <p className="font-medium font-mono">{selected.amount.toLocaleString()} {selected.currency}</p>
+              </div>
+              <div className="rounded-xl bg-muted/30 p-3 space-y-1">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Equiv. USD</p>
+                <p className="font-medium font-mono">${selected.amount_usd_equiv.toLocaleString()}</p>
+              </div>
+              <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3 space-y-1">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Excede el límite en</p>
+                <p className="font-semibold text-amber-600 font-mono">+${selected.excess_usd.toLocaleString()} USD</p>
+              </div>
+            </div>
+
+            {/* Motivo de negocio del expediente original */}
+            {selected.request_payload?.business_purpose && (
+              <div className="rounded-xl bg-muted/30 p-4 space-y-1">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Motivo de pago (expediente)</p>
+                <p className="text-sm leading-relaxed">{selected.request_payload.business_purpose as string}</p>
+              </div>
+            )}
+
+            {/* Documento de respaldo adjunto al expediente */}
+            {selected.request_payload?.supporting_document_url && (
+              <div className="rounded-xl bg-muted/30 p-4 space-y-1">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Documento de respaldo</p>
+                <a
+                  href={selected.request_payload.supporting_document_url as string}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm text-primary underline break-all"
+                >
+                  Ver documento adjunto
+                </a>
+              </div>
+            )}
+
+            {/* Motivo por el que el cliente solicita exceder el límite */}
+            <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-4 space-y-1">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Justificación para exceder el límite</p>
+              <p className="text-sm leading-relaxed">{selected.client_reason}</p>
+            </div>
+
+            {selected.status === 'pending_review' && isPrivileged && (
+              <>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Notas del staff</label>
+                  <textarea
+                    className="w-full rounded-xl border border-input bg-muted/30 px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/40 min-h-[80px]"
+                    placeholder="Opcional para aprobar. Obligatorio (mín. 10 chars) para rechazar…"
+                    value={staffNotes}
+                    onChange={e => setStaffNotes(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <Button variant="outline" className="flex-1" onClick={() => setSelected(null)}>
+                    Cancelar
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    className="flex-1"
+                    disabled={actionLoading || staffNotes.trim().length < 10}
+                    onClick={handleReject}
+                  >
+                    {actionLoading ? <Loader2 className="size-4 animate-spin mr-2" /> : <XCircle className="size-4 mr-2" />}
+                    Rechazar
+                  </Button>
+                  <Button
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                    disabled={actionLoading}
+                    onClick={handleApprove}
+                  >
+                    {actionLoading ? <Loader2 className="size-4 animate-spin mr-2" /> : <CheckCircle2 className="size-4 mr-2" />}
+                    Aprobar y Crear Expediente
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {selected.status !== 'pending_review' && (
+              <div className="rounded-xl bg-muted/30 p-4 space-y-2">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Revisado por</p>
+                <p className="text-sm">{selected.reviewed_by ?? '—'}</p>
+                {selected.staff_notes && (
+                  <>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mt-2">Notas del staff</p>
+                    <p className="text-sm leading-relaxed">{selected.staff_notes}</p>
+                  </>
+                )}
+                {selected.payment_order_id && (
+                  <>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mt-2">Expediente generado</p>
+                    <p className="text-sm font-mono">{selected.payment_order_id}</p>
+                  </>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </div>
   )
 }
 

@@ -39,6 +39,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useUserDetail } from '@/features/staff/hooks/use-user-detail'
 import {
   FeeOverridesPanel,
+  LimitOverridesPanel,
   VaFeeOverridePanel,
   BankAccountReviewPanel,
   ChangeRoleDialog,
@@ -285,6 +286,22 @@ export function UserDetailPage({ userId }: { userId: string }) {
             </CardHeader>
             <CardContent>
               <FeeOverridesPanel actor={actor} user={user} />
+            </CardContent>
+          </Card>
+
+          {/* Limit Overrides */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CircleDollarSign className="h-5 w-5 text-blue-500" />
+                Límites Personalizados
+              </CardTitle>
+              <CardDescription>
+                Overrides de monto mínimo/máximo por servicio para este usuario. Tienen prioridad sobre los límites globales.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <LimitOverridesPanel actor={actor} user={user} />
             </CardContent>
           </Card>
 

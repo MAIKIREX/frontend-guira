@@ -14,7 +14,7 @@
  *   GET /wallets               → lista de wallets del usuario
  *   GET /wallets/balances      → balances consolidados (todos los wallets)
  *   GET /wallets/balances/:currency → balance de un currency específico
- *   GET /wallets/payin-routes  → rutas para "Depositar" (Virtual Accounts, PSAV, etc.)
+
  *   GET /wallets/:id           → detalle de wallet
  *   GET /ledger                → movimientos del ledger
  */
@@ -51,26 +51,7 @@ export interface WalletBalance {
   created_at?: string
 }
 
-export interface PayinRoute {
-  type: 'virtual_account' | 'psav' | 'liquidation_address'
-  currency: string
-  instructions: Record<string, string>
-  /** Para virtual accounts: número de cuenta bancaria, banco, routing number */
-  bank_details?: {
-    bank_name: string
-    account_number: string
-    routing_number?: string
-    iban?: string
-  }
-  /** Para PSAV: datos QR y cuenta concentradora */
-  psav_details?: {
-    account_number: string
-    account_name: string
-    qr_url?: string
-  }
-  /** Para liquidation addresses: dirección crypto */
-  crypto_address?: string
-}
+
 
 export interface LedgerEntry {
   id: string
@@ -117,16 +98,7 @@ export const WalletService = {
     return apiGet<WalletBalance>(`/wallets/balances/${currency}`)
   },
 
-  /**
-   * Rutas de depósito del usuario (para el flujo "Depositar").
-   * El backend retorna dinámicamente:
-   *   - Virtual Account USD (Chase, etc.) si el usuario tiene Bridge wallet
-   *   - Instrucciones PSAV/QR si opera en BOB
-   *   - Liquidation addresses crypto si tiene configuradas
-   */
-  async getPayinRoutes(): Promise<PayinRoute[]> {
-    return apiGet<PayinRoute[]>('/wallets/payin-routes')
-  },
+
 
   /**
    * Detalle completo de un wallet específico.

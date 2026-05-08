@@ -45,7 +45,6 @@ export interface StaffSupportTicket extends SupportTicket {
 
 export interface StaffSnapshot {
   onboarding: StaffOnboardingRecord[]
-  payinRoutes: Array<Record<string, unknown>>
   orders: PaymentOrder[]
   users: StaffUserRecord[]
   support: StaffSupportTicket[]

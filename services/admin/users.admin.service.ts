@@ -175,6 +175,37 @@ export const UsersAdminService = {
   async listUserVirtualAccounts(userId: string): Promise<AdminVirtualAccount[]> {
     return apiGet<AdminVirtualAccount[]>(`/admin/bridge/users/${userId}/virtual-accounts`)
   },
+
+  // ── Limit Overrides (límites personalizados por cliente VIP) ─────
+
+  /**
+   * Lista los overrides de límite de un usuario.
+   */
+  async getLimitOverrides(userId: string): Promise<LimitOverride[]> {
+    return apiGet<LimitOverride[]>(`/admin/payment-orders/limit-overrides/${userId}`)
+  },
+
+  /**
+   * Crea un override de límite para un cliente VIP.
+   * No puede haber dos activos con el mismo flow_type.
+   */
+  async createLimitOverride(data: CreateLimitOverridePayload): Promise<LimitOverride> {
+    return apiPost<LimitOverride>('/admin/payment-orders/limit-overrides', data)
+  },
+
+  /**
+   * Actualiza un override de límite (valores, is_active, valid_until, notes).
+   */
+  async updateLimitOverride(overrideId: string, data: Partial<LimitOverride>): Promise<LimitOverride> {
+    return apiPatch<LimitOverride>(`/admin/payment-orders/limit-overrides/${overrideId}`, data)
+  },
+
+  /**
+   * Elimina un override de límite permanentemente. Solo super_admin.
+   */
+  async deleteLimitOverride(overrideId: string): Promise<void> {
+    return apiDelete<void>(`/admin/payment-orders/limit-overrides/${overrideId}`)
+  },
 }
 
 // ── Tipos ────────────────────────────────────────────────────────
@@ -273,6 +304,42 @@ export interface CreateFeeOverridePayload {
   fee_fixed?: number
   min_fee?: number
   max_fee?: number
+  valid_from?: string
+  valid_until?: string
+  notes?: string
+}
+
+export type LimitOverrideFlowType =
+  | 'bolivia_to_world'
+  | 'bolivia_to_wallet'
+  | 'wallet_to_wallet'
+  | 'world_to_bolivia'
+  | 'fiat_bo_to_bridge_wallet'
+  | 'crypto_to_bridge_wallet'
+  | 'bridge_wallet_to_fiat_bo'
+  | 'bridge_wallet_to_crypto'
+  | 'bridge_wallet_to_fiat_us'
+
+export interface LimitOverride {
+  id: string
+  user_id: string
+  flow_type: LimitOverrideFlowType
+  min_usd?: number | null
+  max_usd?: number | null
+  is_active: boolean
+  valid_from: string
+  valid_until?: string | null
+  notes?: string | null
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateLimitOverridePayload {
+  user_id: string
+  flow_type: LimitOverrideFlowType
+  min_usd?: number | null
+  max_usd?: number | null
   valid_from?: string
   valid_until?: string
   notes?: string

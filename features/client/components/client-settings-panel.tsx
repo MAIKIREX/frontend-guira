@@ -72,7 +72,7 @@ export function ClientSettingsPanel() {
         {/* ── LEFT column ── */}
         <motion.div className="space-y-8 xl:pr-12" variants={staggerContainer}>
 
-          {/* Avatar + Profile data card */}
+          {/* Avatar + Identity hero section */}
           <motion.section
             className="relative overflow-hidden rounded-[2rem] border border-border/40 bg-card/60 p-8 sm:p-10 shadow-[0_8px_40px_-16px_rgba(0,0,0,0.06)]"
             variants={fadeSlideUp}
@@ -80,28 +80,33 @@ export function ClientSettingsPanel() {
             <div className="pointer-events-none absolute -top-20 -right-20 size-72 rounded-full bg-primary/[0.06] blur-[90px]" aria-hidden />
             <div className="pointer-events-none absolute -bottom-16 -left-16 size-56 rounded-full bg-accent/[0.04] blur-[70px]" aria-hidden />
 
-            <div className="relative z-10 grid gap-10 lg:gap-0 lg:divide-x lg:divide-border/40 lg:grid-cols-[minmax(280px,0.88fr)_minmax(0,1.12fr)]">
-              <div className="lg:pr-10">
-                <AvatarUploadCard profile={profile} />
+            <div className="relative z-10">
+              <AvatarUploadCard profile={profile} />
+            </div>
+          </motion.section>
+
+          {/* Profile data grid card */}
+          <motion.section
+            className="relative overflow-hidden rounded-[2rem] border border-border/40 bg-card/60 p-8 sm:p-10 shadow-[0_8px_40px_-16px_rgba(0,0,0,0.06)]"
+            variants={fadeSlideUp}
+          >
+            <div className="pointer-events-none absolute -top-16 -right-16 size-52 rounded-full bg-primary/[0.05] blur-[80px]" aria-hidden />
+            <div className="pointer-events-none absolute -bottom-12 -left-12 size-44 rounded-full bg-accent/[0.04] blur-[60px]" aria-hidden />
+
+            <div className="relative z-10 space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold tracking-tight text-foreground">Datos de mi perfil</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Resumen de la informacion principal asociada a tu cuenta.
+                </p>
               </div>
-              <div className="space-y-5 lg:pl-10">
-                <div>
-                  <h2 className="text-xl font-semibold tracking-tight text-foreground">Datos de mi perfil</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Resumen de la informacion principal asociada a tu cuenta.
-                  </p>
-                </div>
-                <div className="space-y-0">
-                  <InfoRow icon={UserCircle2} label="Nombre" value={profile?.full_name ?? 'Sin nombre'} />
-                  <InfoRow icon={BellRing} label="Email" value={profile?.email ?? 'Sin email'} />
-                  <InfoRow icon={ShieldCheck} label="Rol" value={formatProfileValue(profile?.role, 'Sin rol')} />
-                  <InfoRow
-                    icon={Settings2}
-                    label="Onboarding"
-                    value={formatProfileValue(profile?.onboarding_status, 'Sin estado')}
-                    isLast
-                  />
-                </div>
+
+              {/* 2-column data grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <InfoCard icon={UserCircle2} label="Nombre completo" value={profile?.full_name ?? 'Sin nombre'} />
+                <InfoCard icon={BellRing} label="Correo electronico" value={profile?.email ?? 'Sin email'} />
+                <InfoCard icon={ShieldCheck} label="Rol de cuenta" value={formatProfileValue(profile?.role, 'Sin rol')} />
+                <InfoCard icon={Settings2} label="Estado de onboarding" value={formatProfileValue(profile?.onboarding_status, 'Sin estado')} />
               </div>
             </div>
           </motion.section>
@@ -174,29 +179,31 @@ export function ClientSettingsPanel() {
   )
 }
 
-function InfoRow({
+function InfoCard({
   icon: Icon,
   label,
   value,
-  isLast,
 }: {
   icon: typeof UserCircle2
   label: string
   value: string
-  isLast?: boolean
 }) {
   return (
-    <div
-      className={cn(
-        'flex flex-col gap-1.5 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6',
-        !isLast && 'border-b border-border/30',
-      )}
-    >
-      <div className="flex items-center gap-2 text-[0.6rem] uppercase tracking-[0.18em] text-muted-foreground/70 sm:min-w-40">
-        <Icon className="size-3.5 shrink-0" />
-        <span>{label}</span>
+    <div className="group relative overflow-hidden rounded-2xl border border-border/30 bg-muted/10 p-4 transition-all duration-300 hover:bg-muted/20 hover:border-border/50">
+      <div className="pointer-events-none absolute -top-6 -right-6 size-16 rounded-full bg-primary/[0.04] blur-[30px] transition-opacity group-hover:opacity-100 opacity-0" aria-hidden />
+      <div className="relative z-10 space-y-2.5">
+        <div className="flex items-center gap-2">
+          <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-border/30 bg-muted/40 text-muted-foreground">
+            <Icon className="size-3.5" />
+          </div>
+          <span className="text-[0.65rem] uppercase tracking-[0.16em] font-medium text-muted-foreground/70">
+            {label}
+          </span>
+        </div>
+        <p className="text-sm font-semibold text-foreground break-all leading-relaxed">
+          {value}
+        </p>
       </div>
-      <div className="break-words text-sm font-semibold text-foreground sm:text-right">{value}</div>
     </div>
   )
 }
@@ -265,12 +272,13 @@ function AvatarUploadCard({ profile }: { profile: Profile | null }) {
         </p>
       </div>
 
-      <div className="flex items-center gap-5">
+      {/* Centered avatar hero */}
+      <div className="flex flex-col items-center gap-4 pt-2">
         <div className="relative shrink-0">
-          <div className="absolute inset-[-12px] rounded-full bg-primary/10 blur-xl" aria-hidden />
-          <Avatar className="relative size-24 border border-border/40 shadow-sm">
+          <div className="absolute inset-[-16px] rounded-full bg-primary/10 blur-xl" aria-hidden />
+          <Avatar className="relative size-28 border-2 border-border/40 shadow-md ring-4 ring-primary/[0.06]">
             <AvatarImage src={profile?.avatar_url || ''} className="object-cover" />
-            <AvatarFallback className="bg-muted text-xl uppercase text-muted-foreground">
+            <AvatarFallback className="bg-muted text-2xl uppercase text-muted-foreground">
               {getAvatarFallback(profile?.full_name)}
             </AvatarFallback>
           </Avatar>
@@ -281,21 +289,22 @@ function AvatarUploadCard({ profile }: { profile: Profile | null }) {
           )}
         </div>
 
-        <div className="min-w-0 space-y-2">
-          <div>
-            <p className="truncate text-lg font-semibold text-foreground">
-              {profile?.full_name ?? 'Cliente Guira'}
-            </p>
-            <p className="truncate text-sm text-muted-foreground">
-              {profile?.email ?? 'Correo pendiente de sincronizacion'}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <ProfileBadge label={formatProfileValue(profile?.role, 'Sin rol')} />
-            <ProfileBadge
-              label={`Estado ${formatProfileValue(profile?.onboarding_status, 'pendiente')}`}
-            />
-          </div>
+        {/* Identity text — no truncation */}
+        <div className="text-center space-y-1 max-w-full">
+          <p className="text-lg font-bold text-foreground leading-snug break-words">
+            {profile?.full_name ?? 'Cliente Guira'}
+          </p>
+          <p className="text-sm text-muted-foreground break-all leading-relaxed">
+            {profile?.email ?? 'Correo pendiente de sincronizacion'}
+          </p>
+        </div>
+
+        {/* Badges */}
+        <div className="flex flex-wrap items-center justify-center gap-1.5">
+          <ProfileBadge label={formatProfileValue(profile?.role, 'Sin rol')} />
+          <ProfileBadge
+            label={`Estado ${formatProfileValue(profile?.onboarding_status, 'pendiente')}`}
+          />
         </div>
       </div>
 
@@ -317,7 +326,7 @@ function AvatarUploadCard({ profile }: { profile: Profile | null }) {
           <UploadCloud className="mr-2 size-4" />
           {isUploading ? 'Actualizando...' : 'Subir nueva foto'}
         </Button>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground text-center">
           Recomendado: formato 1:1, JPG o PNG y hasta 5MB.
         </p>
       </div>

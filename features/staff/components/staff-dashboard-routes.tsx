@@ -7,8 +7,9 @@ import {
   StaffOnboardingTable,
   StaffOrdersTable,
   StaffOverviewPanel,
-  StaffPayinsPanel,
+
   StaffPsavPanel,
+  StaffReviewsPanel,
   StaffSupportTable,
   StaffTransfersPanel,
   StaffUsersTable,
@@ -43,13 +44,7 @@ export function StaffOrdersRoute() {
   )
 }
 
-export function StaffPayinsRoute() {
-  return (
-    <StaffDashboardPage>
-      {({ snapshot }) => <StaffPayinsPanel snapshot={snapshot} />}
-    </StaffDashboardPage>
-  )
-}
+
 
 export function StaffTransfersRoute() {
   return (
@@ -121,6 +116,14 @@ export function StaffPsavRoute() {
           removePsavConfig={removePsavConfig}
         />
       )}
+    </StaffDashboardPage>
+  )
+}
+
+export function StaffReviewsRoute() {
+  return (
+    <StaffDashboardPage>
+      {({ actor }) => <StaffReviewsPanel actor={actor} />}
     </StaffDashboardPage>
   )
 }

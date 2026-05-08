@@ -28,7 +28,7 @@
  *   GET /exchange-rates
  */
 import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/api/client'
-import type { PaymentOrder, PsavConfigRow, AppSettingRow } from '@/types/payment-order'
+import type { PaymentOrder, PsavConfigRow, AppSettingRow, OrderReviewRequest } from '@/types/payment-order'
 import type { Supplier, CreateSupplierPayload } from '@/types/supplier'
 import type { ActivityLog } from '@/types/activity-log'
 import type { PaginationParams } from '@/lib/api/types'
@@ -139,6 +139,12 @@ export const PaymentsService = {
    */
   async getRouteCatalog(): Promise<BridgeRouteCatalog> {
     return apiGet<BridgeRouteCatalog>('/payment-orders/route-catalog')
+  },
+
+  async getPaymentLimits(flowType: string): Promise<{ flow_type: string; min_usd: number; max_usd: number }> {
+    return apiGet<{ flow_type: string; min_usd: number; max_usd: number }>(
+      `/payment-orders/limits/${flowType}`,
+    )
   },
 
   // ── Órdenes de pago ──────────────────────────────────────────
@@ -292,6 +298,32 @@ export const PaymentsService = {
   },
 
   /**
+   * Preview del fee que se aplicaría al usuario autenticado para una operación concreta.
+   * Considera overrides personales — usar en el step de monto del formulario.
+   */
+  async getFeePreview(params: {
+    operation_type: string
+    payment_rail: string
+    amount: number
+  }): Promise<{
+    fee_amount: number
+    net_amount: number
+    fee_type: string
+    fee_percent: number
+    fee_fixed: number
+    min_fee: number
+    max_fee: number
+    is_override: boolean
+  }> {
+    const qs = new URLSearchParams({
+      operation_type: params.operation_type,
+      payment_rail: params.payment_rail,
+      amount: String(params.amount),
+    })
+    return apiGet(`/fees/preview?${qs.toString()}`)
+  },
+
+  /**
    * Tasas de cambio actuales (disponibles en el controlador de payment-orders).
    */
   async getExchangeRates(): Promise<unknown[]> {
@@ -354,5 +386,19 @@ export const PaymentsService = {
       console.warn('[PaymentsService] Activity logs endpoint not available')
       return []
     }
+  },
+
+  // ── Solicitudes de revisión por exceso de límite (cliente) ─────
+
+  async getMyReviewRequests(): Promise<OrderReviewRequest[]> {
+    return apiGet<OrderReviewRequest[]>('/payment-orders/review-requests')
+  },
+
+  async getMyReviewRequest(reviewId: string): Promise<OrderReviewRequest> {
+    return apiGet<OrderReviewRequest>(`/payment-orders/review-requests/${reviewId}`)
+  },
+
+  async cancelReviewRequest(reviewId: string): Promise<void> {
+    return apiDelete<void>(`/payment-orders/review-requests/${reviewId}`)
   },
 }

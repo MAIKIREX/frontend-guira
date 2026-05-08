@@ -12,6 +12,17 @@ import {
   InputOTPSlot,
   InputOTPSeparator,
 } from '@/components/ui/input-otp'
+import { ArrowLeft, Loader2, ShieldCheck } from 'lucide-react'
+import { motion } from 'framer-motion'
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.06, duration: 0.4, ease: [0.16, 1, 0.3, 1] },
+  }),
+}
 
 export function VerifyOtpForm() {
   const router = useRouter()
@@ -44,16 +55,34 @@ export function VerifyOtpForm() {
   }
 
   return (
-    <div className="w-full max-w-sm space-y-6">
-      <div className="space-y-2 text-center">
-        <h1 className="text-3xl font-bold">Verifica tu cuenta</h1>
-        <p className="text-muted-foreground text-sm">
-          Hemos enviado un código de 8 dígitos a:
-        </p>
-        <p className="font-medium text-foreground text-sm">{email}</p>
-      </div>
+    <motion.div
+      className="w-full max-w-[400px] space-y-8"
+      initial="hidden"
+      animate="show"
+    >
+      {/* ── Header ── */}
+      <motion.div className="space-y-3 text-center" custom={0} variants={fadeUp}>
+        {/* Icon container */}
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+          <ShieldCheck className="h-6 w-6 text-primary" />
+        </div>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+          Verifica tu cuenta
+        </h1>
+        <div className="space-y-1">
+          <p className="text-sm text-muted-foreground">
+            Hemos enviado un código de 8 dígitos a:
+          </p>
+          <p className="text-sm font-medium text-foreground">{email}</p>
+        </div>
+      </motion.div>
 
-      <div className="flex flex-col items-center gap-4">
+      {/* ── OTP Input ── */}
+      <motion.div
+        className="flex flex-col items-center gap-4"
+        custom={1}
+        variants={fadeUp}
+      >
         <InputOTP
           maxLength={8}
           value={token}
@@ -75,29 +104,44 @@ export function VerifyOtpForm() {
           </InputOTPGroup>
         </InputOTP>
 
-        <p className="text-xs text-muted-foreground text-center">
+        <p className="text-[11px] text-muted-foreground/60 text-center">
           Ingresa el código que recibiste en tu correo electrónico
         </p>
-      </div>
+      </motion.div>
 
-      <Button
-        className="w-full"
-        onClick={handleVerify}
-        disabled={isSubmitting || token.length !== 8}
+      {/* ── Submit ── */}
+      <motion.div custom={2} variants={fadeUp}>
+        <Button
+          className="w-full h-11 font-medium tracking-wide transition-all active:scale-[0.98] active:-translate-y-[1px]"
+          onClick={handleVerify}
+          disabled={isSubmitting || token.length !== 8}
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Verificando...
+            </>
+          ) : (
+            'Verificar código'
+          )}
+        </Button>
+      </motion.div>
+
+      {/* ── Back link ── */}
+      <motion.p
+        className="text-center text-sm text-muted-foreground"
+        custom={3}
+        variants={fadeUp}
       >
-        {isSubmitting ? 'Verificando...' : 'Verificar código'}
-      </Button>
-
-      <p className="text-center text-xs text-muted-foreground">
-        ¿No recibiste el código?{' '}
         <button
           type="button"
           onClick={() => router.push('/registro')}
-          className="text-primary hover:underline"
+          className="inline-flex items-center gap-1.5 font-medium text-primary/80 transition-colors hover:text-primary"
         >
+          <ArrowLeft className="h-3.5 w-3.5" />
           Volver al registro
         </button>
-      </p>
-    </div>
+      </motion.p>
+    </motion.div>
   )
 }

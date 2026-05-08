@@ -33,30 +33,30 @@ type StaffNavGroup = {
 const staffNavGroups: StaffNavGroup[] = [
   {
     key: 'operations',
-    label: 'Operaciones',
+    label: 'Gestión Operativa',
     icon: LayoutDashboard,
     items: [
-      { href: '/admin/onboarding', label: 'Onboarding & Compliance', icon: ShieldCheck },
-      { href: '/admin/orders', label: 'Orders', icon: ReceiptText },
+      { href: '/admin/onboarding', label: 'Cumplimiento y Admisión', icon: ShieldCheck },
+      { href: '/admin/orders', label: 'Gestión de Órdenes', icon: ReceiptText },
     ],
   },
   {
     key: 'governance',
-    label: 'Gobernanza',
+    label: 'Control y Gobernanza',
     icon: ScrollText,
     items: [
-      { href: '/admin/support', label: 'Support', icon: Headset },
-      { href: '/admin/audit', label: 'Audit', icon: ScrollText },
-      { href: '/admin/users', label: 'Users', icon: Users },
+      { href: '/admin/support', label: 'Soporte Corporativo', icon: Headset },
+      { href: '/admin/audit', label: 'Auditoría y Trazabilidad', icon: ScrollText },
+      { href: '/admin/users', label: 'Usuarios', icon: Users },
     ],
   },
   {
     key: 'system',
-    label: 'Sistema',
+    label: 'Gestión de Plataforma',
     icon: Cog,
     items: [
-      { href: '/admin/config', label: 'Config', icon: SlidersHorizontal },
-      { href: '/admin/psav', label: 'PSAV', icon: CircleDollarSign },
+      { href: '/admin/config', label: 'Parámetros del Sistema', icon: SlidersHorizontal },
+      { href: '/admin/psav', label: 'Activos Virtuales (PSAV)', icon: CircleDollarSign },
     ],
   },
 ]

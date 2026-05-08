@@ -75,140 +75,142 @@
 ───────────────────────────────────────────────────── */
 :root {
   /* Surfaces */
-  --background:          #F8FAFC;
-  --foreground:          #0A1128;
+  --background: #F8FAFC;
+  --foreground: #0A1128;
 
-  --card:                #FFFFFF;
-  --card-foreground:     #0A1128;
+  --card: #FFFFFF;
+  --card-foreground: #0A1128;
 
-  --popover:             #FFFFFF;
-  --popover-foreground:  #0A1128;
+  --popover: #FFFFFF;
+  --popover-foreground: #0A1128;
 
   /* Primary — Guira institutional blue */
-  --primary:             #005BFF;
-  --primary-foreground:  #FFFFFF;
+  --primary: #005BFF;
+  --primary-foreground: #FFFFFF;
 
   /* Secondary — light tint of surface */
-  --secondary:           #F1F5F9;
+  --secondary: #F1F5F9;
   --secondary-foreground: #0A1128;
 
   /* Muted — subtle blue-gray */
-  --muted:               #F1F5F9;
-  --muted-foreground:    #64748B;
+  --muted: #F1F5F9;
+  --muted-foreground: #64748B;
 
   /* Accent — cyan from Guira gradient */
-  --accent:              #00BFFF;
-  --accent-foreground:   #0A1128;
+  --accent: #00BFFF;
+  --accent-foreground: #0A1128;
 
   /* Semantic */
-  --destructive:         #DC2626;
+  --destructive: #DC2626;
   --destructive-foreground: #FFFFFF;
 
-  --success:             #16C784;
-  --success-foreground:  #FFFFFF;
+  --success: #16C784;
+  --success-foreground: #FFFFFF;
 
-  --warning:             #F5A623;
-  --warning-foreground:  #0A1128;
+  --warning: #F5A623;
+  --warning-foreground: #0A1128;
 
   /* Chrome */
-  --border:              #E5E7EB;
-  --input:               #E5E7EB;
-  --ring:                #005BFF;
+  --border: #E5E7EB;
+  --input: #E5E7EB;
+  --ring: #005BFF;
 
   /* Charts */
-  --chart-1:             #005BFF;
-  --chart-2:             #00BFFF;
-  --chart-3:             #16C784;
-  --chart-4:             #F5A623;
-  --chart-5:             #DC2626;
+  --chart-1: #005BFF;
+  --chart-2: #00BFFF;
+  --chart-3: #16C784;
+  --chart-4: #F5A623;
+  --chart-5: #DC2626;
 
   --radius: 0.75rem;
 
   /* Sidebar — always dark per design system */
-  --sidebar:                    #020B2D;
-  --sidebar-foreground:         #FFFFFF;
-  --sidebar-primary:            #005BFF;
+  --sidebar: #020B2D;
+  --sidebar-foreground: #FFFFFF;
+  --sidebar-primary: #005BFF;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent:             #005BFF;
-  --sidebar-accent-foreground:  #FFFFFF;
-  --sidebar-border:             rgba(255, 255, 255, 0.08);
-  --sidebar-ring:               #005BFF;
+  --sidebar-accent: #005BFF;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #005BFF;
 
   /* Extended palette — Propuesta 3 */
-  --purple-500:          #7C3AED;
-  --purple-100:          #F1EAFF;
-  --green-100:           #E8F9F1;
-  --cyan-400:            #00BFFF;
+  --purple-500: #7C3AED;
+  --purple-100: #F1EAFF;
+  --green-100: #E8F9F1;
+  --cyan-400: #00BFFF;
 }
 
 /* ─────────────────────────────────────────────────────
    DARK MODE — Propuesta 3 Híbrida Premium
-   Deep navy surfaces, luminous primary blue.
+   Slate scale inverted: same blue-gray temperature as light.
+   Light  slate-50 → white → slate-100
+   Dark   slate-950 → slate-900 → slate-800
 ───────────────────────────────────────────────────── */
 .dark {
-  /* Surfaces */
-  --background:          #0B1120;
-  --foreground:          #F8FAFC;
+  /* Surfaces — Slate scale mirrored from light */
+  --background: #030712;
+  --foreground: #F8FAFC;
 
-  --card:                #0F172A;
-  --card-foreground:     #F8FAFC;
+  --card: #0F172A;
+  --card-foreground: #F1F5F9;
 
-  --popover:             #0F172A;
-  --popover-foreground:  #F8FAFC;
+  --popover: #0F172A;
+  --popover-foreground: #F1F5F9;
 
-  /* Primary — slightly lighter for dark mode readability */
-  --primary:             #4D87FF;
-  --primary-foreground:  #0A1128;
+  /* Primary — institutional blue, lifted for dark readability */
+  --primary: #4D87FF;
+  --primary-foreground: #FFFFFF;
 
-  /* Secondary */
-  --secondary:           #1E293B;
+  /* Secondary — slate-800, mirrors light's slate-100 */
+  --secondary: #1E293B;
   --secondary-foreground: #CBD5E1;
 
-  /* Muted */
-  --muted:               #1E293B;
-  --muted-foreground:    #94A3B8;
+  /* Muted — slate-800 / slate-400 */
+  --muted: #1E293B;
+  --muted-foreground: #94A3B8;
 
-  /* Accent */
-  --accent:              #00BFFF;
-  --accent-foreground:   #0A1128;
+  /* Accent — same cyan as light */
+  --accent: #00BFFF;
+  --accent-foreground: #030712;
 
-  /* Semantic */
-  --destructive:         #DC2626;
+  /* Semantic — same as light mode */
+  --destructive: #DC2626;
   --destructive-foreground: #FFFFFF;
 
-  --success:             #16C784;
-  --success-foreground:  #FFFFFF;
+  --success: #16C784;
+  --success-foreground: #FFFFFF;
 
-  --warning:             #F5A623;
-  --warning-foreground:  #0A1128;
+  --warning: #F5A623;
+  --warning-foreground: #030712;
 
-  /* Chrome */
-  --border:              rgba(148, 163, 184, 0.15);
-  --input:               rgba(148, 163, 184, 0.15);
-  --ring:                #4D87FF;
+  /* Chrome — solid slate borders, mirrors light's #E5E7EB */
+  --border: #1E293B;
+  --input: #1E293B;
+  --ring: #4D87FF;
 
-  /* Charts */
-  --chart-1:             #4D87FF;
-  --chart-2:             #00BFFF;
-  --chart-3:             #16C784;
-  --chart-4:             #F5A623;
-  --chart-5:             #DC2626;
+  /* Charts — same palette, primary lifted */
+  --chart-1: #4D87FF;
+  --chart-2: #00BFFF;
+  --chart-3: #16C784;
+  --chart-4: #F5A623;
+  --chart-5: #DC2626;
 
-  /* Sidebar — deeper dark in dark mode */
-  --sidebar:                    #020B2D;
-  --sidebar-foreground:         #FFFFFF;
-  --sidebar-primary:            #4D87FF;
+  /* Sidebar — slate-950, matches background */
+  --sidebar: #020617;
+  --sidebar-foreground: #FFFFFF;
+  --sidebar-primary: #4D87FF;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent:             #4D87FF;
-  --sidebar-accent-foreground:  #FFFFFF;
-  --sidebar-border:             rgba(255, 255, 255, 0.06);
-  --sidebar-ring:               #4D87FF;
+  --sidebar-accent: #4D87FF;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #1E293B;
+  --sidebar-ring: #4D87FF;
 
   /* Extended palette — Propuesta 3 */
-  --purple-500:          #8B5CF6;
-  --purple-100:          rgba(139, 92, 246, 0.12);
-  --green-100:           rgba(22, 199, 132, 0.12);
-  --cyan-400:            #00BFFF;
+  --purple-500: #8B5CF6;
+  --purple-100: rgba(139, 92, 246, 0.12);
+  --green-100: rgba(22, 199, 132, 0.12);
+  --cyan-400: #00BFFF;
 }
 
 @layer base {
@@ -229,17 +231,35 @@
 [data-slot="collapsible-content"] {
   overflow: hidden;
 }
+
 [data-slot="collapsible-content"]:not([hidden]) {
   animation: collapsible-open 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
 [data-slot="collapsible-content"][data-closed] {
   animation: collapsible-close 0.2s ease-in forwards;
 }
+
 @keyframes collapsible-open {
-  from { height: 0; opacity: 0; }
-  to   { height: var(--collapsible-panel-height); opacity: 1; }
+  from {
+    height: 0;
+    opacity: 0;
+  }
+
+  to {
+    height: var(--collapsible-panel-height);
+    opacity: 1;
+  }
 }
+
 @keyframes collapsible-close {
-  from { height: var(--collapsible-panel-height); opacity: 1; }
-  to   { height: 0; opacity: 0; }
+  from {
+    height: var(--collapsible-panel-height);
+    opacity: 1;
+  }
+
+  to {
+    height: 0;
+    opacity: 0;
+  }
 }

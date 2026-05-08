@@ -32,6 +32,7 @@ import type { WalletBalance } from '@/services/wallet.service'
 import type { VirtualAccount } from '@/services/bridge.service'
 import type { FeeConfigRow } from '@/types/payment-order'
 import { EstimationSummary } from '@/components/shared/estimation-summary'
+import { usePaymentLimits } from '@/features/payments/hooks/use-payment-limits'
 
 const LABEL_CLASS = 'text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground'
 const FORM_TEXT_CLASS = 'tracking-[0.01em]'
@@ -80,6 +81,9 @@ export function WalletRampDetailStep({
 }: WalletRampDetailStepProps) {
   const [vaDialogOpen, setVaDialogOpen] = useState(false)
   const meta = METHOD_META[method]
+
+  const flowType = FLOW_TYPE_MAP[method] ?? null
+  const { limits: paymentLimits } = usePaymentLimits(flowType)
 
   // Ref to track previous estimate values and skip redundant setValue calls
   const prevEstimateRef = useRef<{ feeTotal: number; exchangeRateApplied: number; amountConverted: number } | null>(null)
@@ -376,6 +380,11 @@ export function WalletRampDetailStep({
                 </div>
               </FormControl>
               <FormMessage className="text-center" />
+              {paymentLimits && (
+                <p className="text-[11px] text-muted-foreground text-center">
+                  Mín: ${paymentLimits.min_usd} USD · Máx: ${paymentLimits.max_usd} USD
+                </p>
+              )}
             </FormItem>
           )}
         />
@@ -426,6 +435,11 @@ export function WalletRampDetailStep({
                 </div>
               </FormControl>
               <FormMessage className="text-center" />
+              {paymentLimits && (
+                <p className="text-[11px] text-muted-foreground text-center">
+                  Mín: ${paymentLimits.min_usd} USD · Máx: ${paymentLimits.max_usd} USD
+                </p>
+              )}
             </FormItem>
           )}
         />
