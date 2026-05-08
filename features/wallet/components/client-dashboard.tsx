@@ -9,7 +9,6 @@ import {
   TrendingUp,
   Activity,
   Clock,
-  ChevronRight,
 } from 'lucide-react'
 import { GuiraLoadingInline } from '@/components/shared/guira-loading'
 import Flag from 'react-world-flags'
@@ -178,48 +177,48 @@ export function ClientDashboard({ children }: { children?: React.ReactNode }) {
         className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 mb-3"
         variants={fadeSlideUp}
       >
-        {/* Card 1: Panorama de cuentas */}
-        <div className="bg-card border border-border rounded-2xl shadow-[0_8px_24px_rgba(15,23,42,0.04)] p-6">
-          <div className="flex items-start justify-between gap-6">
-            <div>
-              <h3 className="text-sm font-bold text-foreground mb-0.5">Panorama de cuentas</h3>
-              <p className="text-xs text-muted-foreground mb-4">Saldos totales</p>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-3xl font-bold tracking-tight text-foreground tabular-nums">
-                  USD {balanceInt}
-                </span>
-                <span className="text-lg font-medium text-muted-foreground/50 tabular-nums">
-                  {balanceDec}
-                </span>
-              </div>
+        {/* Card 1: Balance Operativo Total */}
+        <div className="bg-card border border-border rounded-2xl shadow-[0_8px_24px_rgba(15,23,42,0.04)] p-6 pb-5">
+          {/* Header: blue dot + title */}
+          <div className="flex items-center gap-2 mb-5">
+            <span className="inline-block size-2 rounded-full bg-primary" />
+            <h3 className="text-[11px] font-bold uppercase tracking-[0.18em] text-foreground/80">
+              Balance Operativo Total
+            </h3>
+          </div>
 
-              {/* Inline stat pills */}
-              <div className="flex flex-wrap items-center gap-2 mt-4">
-                <div className="flex items-center gap-1.5 rounded-full bg-[var(--green-100)] px-3 py-1 text-[#16C784]">
-                  <TrendingUp className="size-3" />
-                  <span className="text-[11px] font-semibold">+{ordersThisMonth} ops este mes</span>
-                </div>
-                {pendingOrders > 0 && (
-                  <div className="flex items-center gap-1.5 rounded-full bg-destructive/5 border border-destructive/10 px-3 py-1">
-                    <Clock className="size-3 text-destructive" />
-                    <span className="text-[11px] font-semibold text-destructive">{pendingOrders} pendientes</span>
-                  </div>
-                )}
-              </div>
+          {/* Amount: large split typography */}
+          <div className="flex items-baseline gap-1 mb-1">
+            <span className="text-[2.75rem] leading-none font-extrabold tracking-tighter text-foreground tabular-nums">
+              ${balanceInt}
+            </span>
+            <span className="text-lg font-semibold text-muted-foreground/40 tabular-nums leading-none">
+              {balanceDec}
+            </span>
+            <span className="text-sm font-semibold text-muted-foreground/50 ml-1 self-start mt-1.5">
+              USD
+            </span>
+          </div>
 
-              <button
-                onClick={() => router.push('/cuentas')}
-                className="flex items-center gap-1 mt-4 text-xs font-semibold text-primary hover:text-primary/80 transition-colors cursor-pointer"
-              >
-                Ver todas las cuentas
-                <ChevronRight className="size-3" />
-              </button>
+          {/* Chart: full width below amount */}
+          <div className="mt-4 -mx-2">
+            <BalanceLineChart currentBalance={balanceUSD} />
+          </div>
+
+          {/* Stat pills */}
+          <div className="flex flex-wrap items-center gap-2.5 mt-4 pt-4 border-t border-border/40">
+            <div className="flex items-center gap-2 rounded-full border border-border/50 bg-muted/15 px-4 py-2">
+              <TrendingUp className="size-3.5 text-[#16C784]" />
+              <span className="text-[12px] font-bold tabular-nums text-foreground">{ordersThisMonth}</span>
+              <span className="text-[11px] text-muted-foreground font-medium">operaciones este mes</span>
             </div>
-
-            {/* Balance chart sparkline */}
-            <div className="hidden md:block w-[220px] shrink-0">
-              <BalanceLineChart currentBalance={balanceUSD} />
-            </div>
+            {pendingOrders > 0 && (
+              <div className="flex items-center gap-2 rounded-full border border-destructive/15 bg-destructive/5 px-4 py-2">
+                <Clock className="size-3.5 text-destructive" />
+                <span className="text-[12px] font-bold tabular-nums text-destructive">{pendingOrders}</span>
+                <span className="text-[11px] text-destructive/70 font-medium">pendientes</span>
+              </div>
+            )}
           </div>
         </div>
 

@@ -89,13 +89,8 @@ export function BalanceLineChart({ currentBalance }: BalanceLineChartProps) {
       status: 'settled',
       limit: 500,
     } as any)
-      .then((raw: any) => {
-        // Backend returns { entries: [...], pagination: {...} }
-        const items = Array.isArray(raw) ? raw
-          : Array.isArray(raw?.entries) ? raw.entries
-          : Array.isArray(raw?.data) ? raw.data
-          : []
-        setEntries(items)
+      .then((response) => {
+        setEntries(response.entries ?? [])
       })
       .catch((err) => console.error('[BalanceLineChart] Error loading ledger:', err))
       .finally(() => setLoading(false))

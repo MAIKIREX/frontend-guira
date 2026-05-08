@@ -71,7 +71,7 @@ export function GlobalPaymentFlowCard() {
         if (ms.length > 0) setSelectedMonth(ms[0])
       })
       .catch((err) => {
-        console.error('[GlobalPaymentFlowCard] getGlobalFlowMonths error:', err)
+        console.warn('[GlobalPaymentFlowCard] getGlobalFlowMonths unavailable:', err)
         setMonths([])
       })
   }, [])
@@ -88,7 +88,7 @@ export function GlobalPaymentFlowCard() {
         setArcs(built)
       })
       .catch((err) => {
-        console.error('[GlobalPaymentFlowCard] getGlobalFlowStats error:', err)
+        console.warn('[GlobalPaymentFlowCard] getGlobalFlowStats unavailable:', err)
         setArcs([])
       })
       .finally(() => setLoading(false))
