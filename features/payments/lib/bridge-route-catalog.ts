@@ -208,22 +208,23 @@ export const OFF_RAMP_SOURCE_CURRENCIES = ['usdc', 'usdt', 'eurc'] as const
  * { [source_currency]: { [dest_network]: { [dest_currency]: min_amount } } }
  */
 export const BRIDGE_RAMP_OFF_ROUTES: Record<string, Record<string, Record<string, number>>> = {
+  // Source: bridge_wallet (Solana). Multiple destination currencies per network.
   usdc: {
-    ethereum: { pyusd: 1, usdc: 1, usdt: 20 },
-    solana:   { eurc: 1, pyusd: 1, usdb: 1, usdc: 1 },
+    ethereum: { usdc: 1,  pyusd: 1,  usdt: 20 },
+    solana:   { usdc: 1,  eurc: 1,   pyusd: 1, usdb: 1 },
     tron:     { usdt: 2 },
     polygon:  { usdc: 1 },
     stellar:  { usdc: 1 },
   },
   usdt: {
-    ethereum: { pyusd: 2, usdc: 2 },
-    solana:   { usdb: 2, usdc: 2 },
+    ethereum: { usdc: 2,  pyusd: 2 },
+    solana:   { usdc: 2,  usdb: 2 },
     tron:     { usdt: 5 },
     polygon:  { usdc: 2 },
     stellar:  { usdc: 2 },
   },
   usdb: {
-    ethereum: { usdc: 1, usdt: 20 },
+    ethereum: { usdc: 1,  usdt: 20 },
     solana:   { pyusd: 1, usdt: 20 },
     tron:     { usdt: 5 },
     polygon:  { usdc: 1 },
@@ -231,13 +232,13 @@ export const BRIDGE_RAMP_OFF_ROUTES: Record<string, Record<string, Record<string
   },
   pyusd: {
     ethereum: { pyusd: 1 },
-    solana:   { usdc: 1, usdt: 20 },
+    solana:   { usdc: 1,  usdt: 20 },
     polygon:  { usdc: 1 },
     stellar:  { usdc: 1 },
   },
   eurc: {
-    ethereum: { eurc: 1, usdc: 1 },
-    solana:   { eurc: 1, usdb: 1, usdc: 1 },
+    ethereum: { usdc: 1,  eurc: 1 },
+    solana:   { usdc: 1,  eurc: 1,  usdb: 1 },
     polygon:  { usdc: 1 },
     stellar:  { usdc: 1 },
   },
@@ -288,11 +289,8 @@ export function getOffRampSameTokenDestCurrencies(
 
 // ═══════════════════════════════════════════════════════════════════
 //  CATÁLOGO FIAT_BO OFF-RAMP (bridge_wallet_to_fiat_bo)
-//  Subconjunto de BRIDGE_RAMP_OFF_ROUTES filtrado a destinos PSAV
-//  posibles (USDC, USDT en Solana).
-//
-//  EURC excluido (Etapa 1 — requiere validación EUR→BOB)
-//  Derivado de lista_bridge_out.md
+//  Match estricto mismo token: USDT→PSAV USDT, USDC→PSAV USDC.
+//  Si no hay cuenta PSAV activa con esa divisa, el token no aparece.
 // ═══════════════════════════════════════════════════════════════════
 
 /** Tokens próximamente disponibles para off-ramp (se muestran en UI pero no son seleccionables) */
@@ -300,13 +298,12 @@ export const COMING_SOON_OFF_RAMP_SOURCE_CURRENCIES = ['eurc'] as const
 
 /**
  * Rutas off-ramp válidas para bridge_wallet_to_fiat_bo.
- * Solo incluye destinos que pueden existir como PSAV crypto (USDC, USDT).
+ * Match estricto: source_currency == psav.currency.
  * { [source_currency]: { [psav_network]: { [psav_currency]: min_amount } } }
  */
 export const FIAT_BO_OFF_RAMP_ROUTES: Record<string, Record<string, Record<string, number>>> = {
   usdc: { solana: { usdc: 1 } },
-  usdt: { solana: { usdc: 2 } },
-  eurc: { solana: { eurc: 1 } },
+  usdt: { tron:   { usdt: 5 } },
 }
 
 /** Tokens de origen válidos para fiat_bo off-ramp */
@@ -331,15 +328,15 @@ export function getFiatBoStaticMinAmount(sourceCurrency: string): number {
 
 /**
  * Filtra las monedas de origen disponibles para bridge_wallet_to_fiat_bo
- * cruzando el catálogo de rutas Bridge con los PSAV activos.
+ * cruzando el catálogo con los PSAV activos. Match estricto: solo se
+ * incluye un token si existe una cuenta PSAV activa con esa misma divisa.
  *
- * @param psavAccounts — Cuentas PSAV crypto activas (de psavConfigs)
- * @returns Array de tokens origen válidos
+ * @param psavAccounts — Cuentas PSAV crypto activas
+ * @returns Array de tokens origen habilitados
  */
 export function getFiatBoAvailableSourceCurrencies(
   psavAccounts: Array<{ currency: string; crypto_network?: string; type?: string; is_active?: boolean }>
 ): string[] {
-  // Filtrar solo cuentas crypto activas
   const cryptoPsavs = psavAccounts.filter(
     (p) => (p.type === 'crypto' || !p.type) && (p.is_active !== false)
   )
@@ -347,38 +344,35 @@ export function getFiatBoAvailableSourceCurrencies(
   return FIAT_BO_OFF_RAMP_SOURCE_CURRENCIES.filter((srcCurrency) => {
     const routes = FIAT_BO_OFF_RAMP_ROUTES[srcCurrency]
     if (!routes) return false
-    // ¿Algún PSAV activo tiene match con alguna ruta de este token?
+    // Buscar cuenta PSAV con exactamente la misma divisa
     return cryptoPsavs.some((psav) => {
       const net = (psav.crypto_network ?? '').toLowerCase()
       const cur = psav.currency.toLowerCase()
-      return (routes[net]?.[cur] ?? 0) > 0
+      return cur === srcCurrency && (routes[net]?.[cur] ?? 0) > 0
     })
   })
 }
 
 /**
- * Resuelve el monto mínimo para una moneda de origen dada
- * los PSAV activos. Retorna el menor mínimo posible.
+ * Resuelve el monto mínimo para una moneda de origen dada los PSAV activos.
+ * Solo considera la cuenta PSAV con la misma divisa (match estricto).
  */
 export function getFiatBoMinAmountForSource(
   sourceCurrency: string,
   psavAccounts: Array<{ currency: string; crypto_network?: string; type?: string; is_active?: boolean }>
 ): number {
-  const routes = FIAT_BO_OFF_RAMP_ROUTES[sourceCurrency.toLowerCase()]
+  const srcLower = sourceCurrency.toLowerCase()
+  const routes = FIAT_BO_OFF_RAMP_ROUTES[srcLower]
   if (!routes) return 0
 
   const cryptoPsavs = psavAccounts.filter(
     (p) => (p.type === 'crypto' || !p.type) && (p.is_active !== false)
   )
 
-  let minFound = Infinity
-  for (const psav of cryptoPsavs) {
-    const net = (psav.crypto_network ?? '').toLowerCase()
-    const cur = psav.currency.toLowerCase()
-    const min = routes[net]?.[cur] ?? 0
-    if (min > 0 && min < minFound) minFound = min
-  }
+  const psav = cryptoPsavs.find((p) => p.currency.toLowerCase() === srcLower)
+  if (!psav) return 0
 
-  return minFound === Infinity ? 0 : minFound
+  const net = (psav.crypto_network ?? '').toLowerCase()
+  return routes[net]?.[srcLower] ?? 0
 }
 

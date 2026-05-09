@@ -180,9 +180,9 @@ export function WalletWithdrawDetailStep({
     fieldOnChange(network)
     const srcToken = form.getValues('origin_currency')
     if (srcToken) {
-      const sameDests = getOffRampSameTokenDestCurrencies(srcToken, network)
-      if (sameDests.length === 1) {
-        form.setValue('destination_currency', sameDests[0], { shouldValidate: false })
+      const dests = getOffRampSameTokenDestCurrencies(srcToken, network)
+      if (dests.length === 1) {
+        form.setValue('destination_currency', dests[0], { shouldValidate: false })
       } else {
         form.setValue('destination_currency', undefined as any, { shouldValidate: false })
       }
@@ -303,9 +303,9 @@ export function WalletWithdrawDetailStep({
               <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
                 {selectedWallet ? (
                   <span className="flex items-center gap-1.5 truncate">
-                    <span className="font-medium">{selectedWallet.label ?? `${selectedWallet.currency.toUpperCase()} Wallet`}</span>
+                    <span className="font-medium">{selectedWallet.label ?? `${selectedWallet.network?.toUpperCase() ?? 'Wallet'} Wallet`}</span>
                     <span className="text-muted-foreground text-xs">
-                      ({selectedWallet.currency.toUpperCase()} · {selectedWallet.available_balance.toFixed(2)} disponible)
+                      ({selectedWallet.network ?? 'interna'} · {selectedWallet.available_balance.toFixed(2)} disponible)
                     </span>
                   </span>
                 ) : (
@@ -316,9 +316,9 @@ export function WalletWithdrawDetailStep({
             <SelectContent>
               {wallets.map((w) => (
                 <SelectItem key={w.id} value={w.id}>
-                  <span className="font-medium">{w.label ?? `${w.currency.toUpperCase()} Wallet`}</span>
+                  <span className="font-medium">{w.label ?? `${w.network?.toUpperCase() ?? 'Wallet'} Wallet`}</span>
                   <span className="ml-1.5 text-muted-foreground text-xs">
-                    ({w.currency.toUpperCase()} · {w.available_balance.toFixed(2)} disponible)
+                    ({w.network ?? 'interna'} · {w.available_balance.toFixed(2)} disponible)
                   </span>
                 </SelectItem>
               ))}

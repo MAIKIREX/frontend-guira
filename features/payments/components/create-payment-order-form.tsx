@@ -721,6 +721,9 @@ export function CreatePaymentOrderForm({
       if (clientReason) {
         (payload as any).client_reason = clientReason
       }
+      if ((payload as any).flow_type === 'bridge_wallet_to_crypto') {
+        console.log('[DEBUG bridge_wallet_to_crypto] Payload construido en form:', JSON.stringify(payload, null, 2))
+      }
       const result = await onCreateOrder(payload, qrFile, supportFile) as any
 
       // El backend retorna { _type: 'review_request', review } cuando el monto supera el límite
@@ -3723,7 +3726,7 @@ function buildReviewItems(args: {
 
     if (args.values.wallet_ramp_method === 'fiat_bo' || args.values.wallet_ramp_method === 'crypto') {
       const wallet = args.bridgeWallets?.find(w => w.id === args.values.wallet_ramp_wallet_id)
-      const readableWallet = wallet ? `Wallet ${wallet.currency} (${wallet.network})` : (args.values.wallet_ramp_wallet_id || 'Pendiente')
+      const readableWallet = wallet ? `Wallet ${wallet.network}` : (args.values.wallet_ramp_wallet_id || 'Pendiente')
       items.push({ label: 'Tu Billetera Digital Destino', value: readableWallet })
     }
     if (args.values.wallet_ramp_method === 'crypto') {
@@ -3746,17 +3749,25 @@ function buildReviewItems(args: {
 
   if (args.route === 'wallet_ramp_withdraw') {
     const method = args.values.wallet_ramp_withdraw_method || 'fiat_bo'
+    const originCurrency = (args.values.origin_currency || '').toLowerCase()
     const wallet = args.bridgeWallets?.find(w => w.id === args.values.wallet_ramp_wallet_id)
-    const readableWallet = wallet ? `${wallet.currency.toUpperCase()} Wallet (${wallet.available_balance.toFixed(2)} disponible)` : 'Pendiente'
+    const tokenBalance = originCurrency && wallet?.token_balances
+      ? wallet.token_balances.find(t => t.currency.toLowerCase() === originCurrency)
+      : null
+    const displayBalance = tokenBalance
+      ? tokenBalance.available_balance.toFixed(2)
+      : wallet?.available_balance.toFixed(2) ?? '0.00'
+    const displayCurrency = originCurrency ? originCurrency.toUpperCase() : ''
+    const readableWallet = wallet ? `${displayCurrency} Wallet (${displayBalance} disponible)` : 'Pendiente'
     items.push({ label: 'Wallet Bridge Origen', value: readableWallet })
     items.push({ label: 'Método Destino', value: method === 'fiat_bo' ? 'Cuenta bancaria (BOB)' : method === 'crypto' ? 'Wallet cripto externa' : 'Cuenta bancaria (USD)' })
 
     if (args.values.fee_total !== undefined && args.values.fee_total > 0) {
-      items.push({ label: 'Comisión', value: formatMoney(args.values.fee_total, 'USDC') })
+      items.push({ label: 'Comisión', value: formatMoney(args.values.fee_total, displayCurrency) })
     }
 
     if (method === 'fiat_bo') {
-      items.push({ label: 'Tipo de cambio', value: formatExchangeRate(args.values.exchange_rate_applied, 'USDC', 'BOB') })
+      items.push({ label: 'Tipo de cambio', value: formatExchangeRate(args.values.exchange_rate_applied, displayCurrency, 'BOB') })
       if (args.values.amount_converted !== undefined) {
         items.push({ label: 'Recibirás', value: formatMoney(args.values.amount_converted, 'BOB') })
       }
@@ -3765,12 +3776,12 @@ function buildReviewItems(args: {
       items.push({ label: 'Titular', value: (args.values as any).withdraw_account_holder || 'Pendiente' })
     } else if (method === 'crypto') {
       if (args.values.amount_converted !== undefined) {
-        items.push({ label: 'Recibirás', value: formatMoney(args.values.amount_converted, 'USDC') })
+        items.push({ label: 'Recibirás', value: formatMoney(args.values.amount_converted, displayCurrency) })
       }
       items.push({ label: 'Cripto destino', value: args.values.crypto_address || 'Pendiente' })
       items.push({ label: 'Red destino', value: args.values.crypto_network || 'Pendiente' })
     } else if (method === 'fiat_us') {
-      items.push({ label: 'Token de origen', value: (args.values.origin_currency || 'Pendiente').toUpperCase() })
+      items.push({ label: 'Token de origen', value: displayCurrency || 'Pendiente' })
       if (args.values.amount_converted !== undefined) {
         items.push({ label: 'Recibirás', value: formatMoney(args.values.amount_converted, 'USD') })
       }

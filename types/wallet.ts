@@ -3,7 +3,7 @@ export type LedgerEntryType = 'deposit' | 'payout'
 export interface Wallet {
   id: string
   user_id: string
-  currency: string
+  provider_wallet_id?: string | null
 }
 
 export interface LedgerEntry {

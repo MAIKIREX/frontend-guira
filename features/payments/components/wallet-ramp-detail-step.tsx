@@ -94,7 +94,8 @@ export function WalletRampDetailStep({
   const selectedDestCurrency = form.watch('wallet_ramp_destination_currency') ?? ''
 
   const selectedWalletId = form.watch('wallet_ramp_wallet_id') ?? ''
-  const selectedWallet = wallets.find((w) => w.id === selectedWalletId)
+  const bridgeWallets = wallets.filter((w) => w.provider_wallet_id)
+  const selectedWallet = bridgeWallets.find((w) => w.id === selectedWalletId)
 
   const selectedVaId = form.watch('wallet_ramp_va_id') ?? ''
   const selectedVa = virtualAccounts.find((v) => v.id === selectedVaId)
@@ -214,9 +215,9 @@ export function WalletRampDetailStep({
                   <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
                     {selectedWallet ? (
                       <span className="flex items-center gap-1.5 truncate">
-                        <span className="font-medium">{selectedWallet.label ?? `${selectedWallet.currency.toUpperCase()} Wallet`}</span>
+                        <span className="font-medium">{selectedWallet.label ?? `${selectedWallet.network?.toUpperCase() ?? 'Wallet'} Wallet`}</span>
                         <span className="text-muted-foreground text-xs">
-                          ({selectedWallet.currency.toUpperCase()} · {selectedWallet.network ?? 'interna'} · {selectedWallet.available_balance.toFixed(2)} disponible)
+                          ({selectedWallet.network ?? 'interna'} · {selectedWallet.available_balance.toFixed(2)} disponible)
                         </span>
                       </span>
                     ) : (
@@ -225,11 +226,11 @@ export function WalletRampDetailStep({
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {wallets.map((w) => (
+                  {bridgeWallets.map((w) => (
                     <SelectItem key={w.id} value={w.id}>
-                      <span className="font-medium">{w.label ?? `${w.currency.toUpperCase()} Wallet`}</span>
+                      <span className="font-medium">{w.label ?? `${w.network?.toUpperCase() ?? 'Wallet'} Wallet`}</span>
                       <span className="ml-1.5 text-muted-foreground text-xs">
-                        ({w.currency.toUpperCase()} · {w.network ?? 'interna'} · {w.available_balance.toFixed(2)} disponible)
+                        ({w.network ?? 'interna'} · {w.available_balance.toFixed(2)} disponible)
                       </span>
                     </SelectItem>
                   ))}
@@ -527,9 +528,9 @@ export function WalletRampDetailStep({
                   <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
                     {selectedWallet ? (
                       <span className="flex items-center gap-1.5 truncate">
-                        <span className="font-medium">{selectedWallet.label ?? `${selectedWallet.currency.toUpperCase()} Wallet`}</span>
+                        <span className="font-medium">{selectedWallet.label ?? `${selectedWallet.network?.toUpperCase() ?? 'Wallet'} Wallet`}</span>
                         <span className="text-muted-foreground text-xs">
-                          ({selectedWallet.currency.toUpperCase()} · {selectedWallet.network ?? 'interna'} · {selectedWallet.available_balance.toFixed(2)} disponible)
+                          ({selectedWallet.network ?? 'interna'} · {selectedWallet.available_balance.toFixed(2)} disponible)
                         </span>
                       </span>
                     ) : (
@@ -538,11 +539,11 @@ export function WalletRampDetailStep({
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {wallets.map((w) => (
+                  {bridgeWallets.map((w) => (
                     <SelectItem key={w.id} value={w.id}>
-                      <span className="font-medium">{w.label ?? `${w.currency.toUpperCase()} Wallet`}</span>
+                      <span className="font-medium">{w.label ?? `${w.network?.toUpperCase() ?? 'Wallet'} Wallet`}</span>
                       <span className="ml-1.5 text-muted-foreground text-xs">
-                        ({w.currency.toUpperCase()} · {w.network ?? 'interna'} · {w.available_balance.toFixed(2)} disponible)
+                        ({w.network ?? 'interna'} · {w.available_balance.toFixed(2)} disponible)
                       </span>
                     </SelectItem>
                   ))}
