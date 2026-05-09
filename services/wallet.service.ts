@@ -38,6 +38,8 @@ export interface WalletBalance {
   address: string | null
   /** Red blockchain (ethereum, polygon, solana, etc.) */
   network: string | null
+  /** ID de la wallet en Bridge (necesario para crear transfers) */
+  provider_wallet_id: string | null
   /** Balances individuales por token (multi-stablecoin) */
   token_balances: TokenBalance[]
   /** Balance total agregado (suma de todos los tokens) */
