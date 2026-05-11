@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { ALLOWED_NETWORKS, validateCryptoAddress, ADDRESS_VALIDATORS, type AllowedNetwork } from '@/lib/guira-crypto-config'
-import { isValidRoute, isValidOffRampRoute, getOffRampMinAmount, FIAT_BO_ALLOWED_DESTINATION_CURRENCIES, getFiatBoStaticMinAmount } from '@/features/payments/lib/bridge-route-catalog'
+import { isValidOnRampSourceForDest, isValidOffRampRoute, getOffRampMinAmount, FIAT_BO_ALLOWED_DESTINATION_CURRENCIES, getFiatBoStaticMinAmount } from '@/features/payments/lib/bridge-route-catalog'
 
 export const paymentOrderSchema = z
   .object({
@@ -111,6 +111,9 @@ export const paymentOrderSchema = z
         if (!value.wallet_ramp_source_network) {
           ctx.addIssue({ code: 'custom', message: 'Selecciona la red de origen.', path: ['wallet_ramp_source_network'] })
         }
+        if (!value.origin_currency) {
+          ctx.addIssue({ code: 'custom', message: 'Selecciona el token de origen.', path: ['origin_currency'] })
+        }
         // source_address ya no es requerido: Bridge acepta depósitos desde cualquier
         // dirección gracias a features.allow_any_from_address = true.
       }
@@ -136,10 +139,10 @@ export const paymentOrderSchema = z
         value.origin_currency &&
         value.wallet_ramp_destination_currency
       ) {
-        if (!isValidRoute(
+        if (!isValidOnRampSourceForDest(
+          value.wallet_ramp_destination_currency.toLowerCase(),
           value.wallet_ramp_source_network,
-          value.origin_currency.toLowerCase(),
-          value.wallet_ramp_destination_currency.toLowerCase()
+          value.origin_currency.toLowerCase()
         )) {
           ctx.addIssue({
             code: 'custom',

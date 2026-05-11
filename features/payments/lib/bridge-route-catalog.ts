@@ -170,6 +170,19 @@ export function getMinAmountByDest(
   return match?.min ?? 1
 }
 
+/** Valida si una combinación origen→destino es permitida según el catálogo */
+export function isValidOnRampSourceForDest(
+  destCurrency: string | null | undefined,
+  sourceNetwork: string | null | undefined,
+  sourceCurrency: string | null | undefined,
+): boolean {
+  if (!destCurrency || !sourceNetwork || !sourceCurrency) return false
+  const sources = BRIDGE_ON_RAMP_ALLOWED_SOURCES_BY_DEST[destCurrency.toLowerCase()] ?? []
+  return sources.some(
+    (s) => s.network === sourceNetwork.toLowerCase() && s.currency === sourceCurrency.toLowerCase(),
+  )
+}
+
 /** Tokens destino que tienen al menos una ruta de origen válida */
 export function getCryptoDestCurrenciesWithSources(): string[] {
   return Object.entries(BRIDGE_ON_RAMP_ALLOWED_SOURCES_BY_DEST)
