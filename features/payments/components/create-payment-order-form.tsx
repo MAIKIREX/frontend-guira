@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   useForm,
@@ -101,6 +102,11 @@ interface CreatePaymentOrderFormProps {
   defaultRoute: SupportedPaymentRoute
   allowedRoutes?: SupportedPaymentRoute[]
   disabled?: boolean
+  /** Bloqueo exclusivo: si el usuario tiene un expediente activo en los 5 servicios exclusivos */
+  exclusiveBlock?: {
+    has_active: boolean
+    active_order?: { id: string; flow_type: string; status: string; created_at: string }
+  }
   mode?: 'depositar' | 'enviar'
   onCreateOrder: (
     input: CreatePaymentOrderInput,
@@ -180,11 +186,13 @@ export function CreatePaymentOrderForm({
   mode,
   onCreateOrder,
   onUploadOrderFile,
+  exclusiveBlock,
   feesConfig,
   appSettings,
   psavConfigs,
   exchangeRates,
 }: CreatePaymentOrderFormProps) {
+  const router = useRouter()
   const [step, setStep] = useState<StepKey>('route')
   const [supportFile, setSupportFile] = useState<File | null>(null)
   const [showSupportFileError, setShowSupportFileError] = useState(false)
@@ -283,6 +291,18 @@ export function CreatePaymentOrderForm({
   const liveFeeTotal = useWatch({ control: form.control, name: 'fee_total' })
   const liveAmountConverted = useWatch({ control: form.control, name: 'amount_converted' })
   const walletRampWithdrawMethod = useWatch({ control: form.control, name: 'wallet_ramp_withdraw_method' })
+  const walletRampDestCurrency = useWatch({ control: form.control, name: 'wallet_ramp_destination_currency' as any })
+
+  // Sync wallet_ramp_destination_currency → destination_currency for wallet_ramp_deposit
+  useEffect(() => {
+    if (route !== 'wallet_ramp_deposit') return
+    if (walletRampDestCurrency && typeof walletRampDestCurrency === 'string') {
+      const normalized = walletRampDestCurrency.toUpperCase()
+      if (normalized !== destinationCurrency) {
+        form.setValue('destination_currency', normalized, { shouldValidate: false, shouldDirty: false })
+      }
+    }
+  }, [route, walletRampDestCurrency, destinationCurrency, form])
 
   const interbankFlowType = useMemo(() => {
     if (['wallet_ramp_deposit', 'wallet_ramp_withdraw'].includes(route)) return null
@@ -466,12 +486,16 @@ export function CreatePaymentOrderForm({
         }] as DepositInstruction[];
       }
 
+      const depositAddress = bridgeDeposit.to_address ?? bridgeDeposit.address ?? ''
       return [{
         id: 'bridge-deposit',
         title: bridgeDeposit.label || 'Instrucciones de Fondeo (Bridge API)',
         kind: 'wallet',
-        detail: [bridgeDeposit.payment_rail ?? bridgeDeposit.chain ?? 'crypto', bridgeDeposit.to_address ?? bridgeDeposit.address].filter(Boolean).join(' | '),
-        accent: 'sky',
+        detail: depositAddress || [bridgeDeposit.payment_rail ?? bridgeDeposit.chain ?? 'crypto'].filter(Boolean).join(' | '),
+        accent: 'emerald',
+        qrValue: depositAddress || undefined,
+        network: bridgeDeposit.chain || bridgeDeposit.payment_rail || undefined,
+        currency: bridgeDeposit.currency || bridgeDeposit.source_currency || createdOrder?.source_currency || createdOrder?.currency || undefined,
       }] as DepositInstruction[];
     }
 
@@ -1137,13 +1161,40 @@ export function CreatePaymentOrderForm({
               {isDepositRouteActive ? 'Fondeo de expediente' : 'Transferencia de expediente'}
             </span>
             <CardTitle className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground leading-tight">
-              {isDepositRouteActive ? 'Retirar fondos' : 'Enviar fondos'}
+              {mode === 'depositar' ? 'Depositar' : (isDepositRouteActive ? 'Retirar fondos' : 'Enviar fondos')}
             </CardTitle>
             <CardDescription className="mt-1 text-sm text-muted-foreground leading-relaxed max-w-[65ch]">
               Selecciona ruta, metodo y detalle. La orden se crea antes de cualquier instruccion de pago.
             </CardDescription>
           </div>
         </CardHeader>
+
+        {/* ── Banner de bloqueo exclusivo ────────────────────────────── */}
+        {exclusiveBlock?.has_active && exclusiveBlock?.active_order && (
+          <div className="mx-4 mt-4 sm:mx-8 rounded-lg border border-amber-500/30 bg-amber-50 dark:bg-amber-950/20 p-4">
+            <div className="flex items-start gap-3">
+              <CircleAlert className="h-5 w-5 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+              <div className="flex-1 space-y-2">
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                  Ya tienes un expediente activo ({exclusiveBlock.active_order.id.slice(0, 8)}) en el
+                  servicio &quot;{exclusiveBlock.active_order.flow_type.replace(/_/g, ' ')}&quot; con
+                  estado &quot;{exclusiveBlock.active_order.status}&quot;.
+                </p>
+                <p className="text-xs text-amber-700 dark:text-amber-400/80">
+                  Completa o cancela ese expediente antes de crear uno nuevo en estos servicios.
+                </p>
+                <Link
+                  href="/transacciones"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
+                >
+                  <ArrowRightLeft className="h-3.5 w-3.5" />
+                  Ir a Transacciones
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+
         <CardContent className="space-y-6 sm:space-y-8 px-4 py-6 sm:px-8 lg:px-10">
           <StepProgressRail currentStep={step} getStepLabel={getStepLabel} steps={STEP_ORDER} />
 
@@ -2568,7 +2619,7 @@ export function CreatePaymentOrderForm({
                       <GuiraButton variant="secondary" onClick={handleBack} arrowBack>
                         Editar detalle
                       </GuiraButton>
-                      <GuiraButton disabled={disabled || creatingOrder} onClick={handleNext} arrowNext>
+                      <GuiraButton disabled={disabled || creatingOrder || exclusiveBlock?.has_active} onClick={handleNext} arrowNext>
                         {creatingOrder ? 'Creando expediente...' : 'Crear expediente'}
                       </GuiraButton>
                     </div>
@@ -2660,7 +2711,7 @@ export function CreatePaymentOrderForm({
                         <div className="flex items-center justify-end mt-8">
                           <GuiraButton
                             disabled={disabled}
-                            onClick={() => resetFlow(form, setStep, setSupportFile, setQrFile, setEvidenceFile, setCreatedOrder)}
+                            onClick={() => { resetFlow(form, setStep, setSupportFile, setQrFile, setEvidenceFile, setCreatedOrder); router.push('/transacciones') }}
                           >
                             Ir al Seguimiento
                           </GuiraButton>
@@ -2708,7 +2759,7 @@ export function CreatePaymentOrderForm({
                         <div className="flex items-center justify-end mt-8">
                           <GuiraButton
                             disabled={disabled}
-                            onClick={() => resetFlow(form, setStep, setSupportFile, setQrFile, setEvidenceFile, setCreatedOrder)}
+                            onClick={() => { resetFlow(form, setStep, setSupportFile, setQrFile, setEvidenceFile, setCreatedOrder); router.push('/transacciones') }}
                           >
                             Ir al Seguimiento
                           </GuiraButton>
@@ -3721,7 +3772,10 @@ function buildReviewItems(args: {
     }
 
     if (args.values.amount_converted !== undefined) {
-      items.push({ label: 'Recibirás', value: formatMoney(args.values.amount_converted, args.values.destination_currency) })
+      const rampDestCurrency = (args.values as any).wallet_ramp_destination_currency
+        ? ((args.values as any).wallet_ramp_destination_currency as string).toUpperCase()
+        : args.values.destination_currency
+      items.push({ label: 'Recibirás', value: formatMoney(args.values.amount_converted, rampDestCurrency) })
     }
 
     if (args.values.wallet_ramp_method === 'fiat_bo' || args.values.wallet_ramp_method === 'crypto') {

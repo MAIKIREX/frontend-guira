@@ -33,6 +33,11 @@ export interface PaymentsModuleState {
   exchangeRates: unknown[]
   /** Siempre vacío en la nueva arquitectura (el backend ya no retorna gaps) */
   gaps: string[]
+  /** Bloqueo exclusivo: si el usuario tiene un expediente activo en los 5 servicios exclusivos */
+  exclusiveBlock: {
+    has_active: boolean
+    active_order?: { id: string; flow_type: string; status: string; created_at: string }
+  }
 }
 
 export function usePaymentsModule() {
@@ -62,10 +67,11 @@ export function usePaymentsModule() {
       const exchangeRates = ratesResult.status === 'fulfilled' ? ratesResult.value : []
 
       // Carga paralela — queries secundarias (opcionales, no bloquean la vista)
-      const [activityResult, psavResult, settingsResult] = await Promise.allSettled([
+      const [activityResult, psavResult, settingsResult, exclusiveResult] = await Promise.allSettled([
         PaymentsService.getActivityLogs(),
         PaymentsService.getPsavConfigs(),
         PaymentsService.getAppSettings(),
+        PaymentsService.getActiveExclusiveOrder(),
       ])
 
       // Normalize: backend may return a wrapped object { data: [...] } or { items: [...] }
@@ -80,6 +86,9 @@ export function usePaymentsModule() {
       const activityLogs = activityResult.status === 'fulfilled' ? activityResult.value : []
       const psavConfigs = psavResult.status === 'fulfilled' ? psavResult.value : []
       const appSettings = settingsResult.status === 'fulfilled' ? settingsResult.value : []
+      const exclusiveBlock = exclusiveResult.status === 'fulfilled'
+        ? exclusiveResult.value
+        : { has_active: false }
 
       setState({
         orders,
@@ -90,6 +99,7 @@ export function usePaymentsModule() {
         appSettings,
         exchangeRates,
         gaps: [],
+        exclusiveBlock,
       })
     } catch (err) {
       console.error('Failed to load payments module', err)
@@ -202,6 +212,13 @@ export function usePaymentsModule() {
     }
 
     mergeOrder(order)
+
+    // Refrescar bloqueo exclusivo después de crear una orden
+    try {
+      const newBlock = await PaymentsService.getActiveExclusiveOrder()
+      setState((current) => current ? { ...current, exclusiveBlock: newBlock } : current)
+    } catch { /* silent */ }
+
     return order
   }, [mergeOrder])
 
@@ -247,6 +264,13 @@ export function usePaymentsModule() {
     const orderId = typeof orderOrId === 'string' ? orderOrId : orderOrId.id
     const updatedOrder = await PaymentsService.cancelOrder(orderId)
     mergeOrder(updatedOrder)
+
+    // Refrescar bloqueo exclusivo después de cancelar
+    try {
+      const newBlock = await PaymentsService.getActiveExclusiveOrder()
+      setState((current) => current ? { ...current, exclusiveBlock: newBlock } : current)
+    } catch { /* silent */ }
+
     return updatedOrder
   }, [mergeOrder])
 

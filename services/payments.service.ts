@@ -147,6 +147,21 @@ export const PaymentsService = {
     )
   },
 
+  /**
+   * Consulta si el usuario tiene un expediente exclusivo activo.
+   * Los 5 servicios exclusivos son: bolivia_to_world, bolivia_to_wallet,
+   * wallet_to_wallet, fiat_bo_to_bridge_wallet, crypto_to_bridge_wallet.
+   */
+  async getActiveExclusiveOrder(): Promise<{
+    has_active: boolean
+    active_order?: { id: string; flow_type: string; status: string; created_at: string }
+  }> {
+    return apiGet<{
+      has_active: boolean
+      active_order?: { id: string; flow_type: string; status: string; created_at: string }
+    }>('/payment-orders/active-exclusive')
+  },
+
   // ── Órdenes de pago ──────────────────────────────────────────
 
   /**

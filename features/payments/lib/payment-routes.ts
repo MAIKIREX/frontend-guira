@@ -145,8 +145,8 @@ export function buildPaymentOrderPayload(
     case 'bolivia_to_wallet':
       // 1.3 Crypto (Fondeo fiat local entonces no necesita source network)
       payload.destination_address = values.crypto_address || supplier?.bank_details?.wallet_address
-      payload.destination_network = values.crypto_network || supplier?.bank_details?.wallet_network
-      payload.destination_currency = values.destination_currency
+      payload.destination_network = (values.crypto_network || supplier?.bank_details?.wallet_network)?.toLowerCase()
+      payload.destination_currency = values.destination_currency?.toLowerCase()
       break
     case 'wallet_to_wallet':
       // 1.2 Crypto to Crypto — destino resuelto en backend desde supplier_id
@@ -168,13 +168,13 @@ export function buildPaymentOrderPayload(
       break
     case 'fiat_bo_to_bridge_wallet':
       payload.wallet_id = values.wallet_ramp_wallet_id
-      payload.destination_currency = values.wallet_ramp_destination_currency ?? values.destination_currency
+      payload.destination_currency = (values.wallet_ramp_destination_currency ?? values.destination_currency)?.toLowerCase()
       break
     case 'crypto_to_bridge_wallet':
       payload.wallet_id = values.wallet_ramp_wallet_id
       payload.source_network = values.wallet_ramp_source_network
-      payload.source_currency = values.origin_currency
-      payload.destination_currency = values.wallet_ramp_destination_currency ?? values.destination_currency
+      payload.source_currency = values.origin_currency?.toLowerCase()
+      payload.destination_currency = (values.wallet_ramp_destination_currency ?? values.destination_currency)?.toLowerCase()
       payload.amount = 0 // flexible_amount: Bridge acepta cualquier monto; se actualiza por webhook
       break
     case 'fiat_us_to_bridge_wallet':
@@ -182,28 +182,28 @@ export function buildPaymentOrderPayload(
       break
     case 'bridge_wallet_to_fiat_bo':
       payload.wallet_id = values.wallet_ramp_wallet_id
-      payload.source_currency = values.origin_currency
+      payload.source_currency = values.origin_currency?.toLowerCase()
       // Los datos bancarios (bank_name, account_number, account_holder)
       // ahora se leen del perfil del usuario en el backend (client_bank_accounts).
       // No se envían desde el formulario.
       break
     case 'bridge_wallet_to_crypto':
       payload.wallet_id = values.wallet_ramp_wallet_id
-      payload.source_currency = values.origin_currency
+      payload.source_currency = values.origin_currency?.toLowerCase()
       payload.destination_address = values.crypto_address
-      payload.destination_network = values.crypto_network
-      payload.destination_currency = values.destination_currency
+      payload.destination_network = values.crypto_network?.toLowerCase()
+      payload.destination_currency = values.destination_currency?.toLowerCase()
       break
     case 'bridge_wallet_to_fiat_us':
       payload.wallet_id = values.wallet_ramp_wallet_id
-      payload.source_currency = values.origin_currency
+      payload.source_currency = values.origin_currency?.toLowerCase()
       // El backend resuelve la external_account a través del supplier (mismo patrón que wallet_to_fiat).
       payload.supplier_id = supplier?.id || undefined
       break
     case 'wallet_to_fiat':
-      payload.source_network = (values as any).wallet_to_fiat_source_network
+      payload.source_network = (values as any).wallet_to_fiat_source_network?.toLowerCase()
       payload.source_address = (values as any).wallet_to_fiat_source_address
-      payload.source_currency = (values as any).wallet_to_fiat_source_currency
+      payload.source_currency = (values as any).wallet_to_fiat_source_currency?.toLowerCase()
       payload.supplier_id = supplier?.id
       payload.business_purpose = values.payment_reason
       break
