@@ -31,6 +31,7 @@ import {
   CircleDollarSign,
   BadgeDollarSign,
   Building2,
+  Lock,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { getErrorMessage } from '@/lib/utils'
@@ -1211,6 +1212,15 @@ export function CreatePaymentOrderForm({
                         const interbankRoutes = routeOptions.filter(r => r.category === 'interbank' || !r.category)
                         const rampRoutes = routeOptions.filter(r => r.category === 'ramp')
 
+                        // Rutas UI que participan en el bloqueo exclusivo (mapean a los 5 flow_types)
+                        const EXCLUSIVE_UI_ROUTES: SupportedPaymentRoute[] = [
+                          'bolivia_to_exterior',  // → bolivia_to_world | bolivia_to_wallet
+                          'crypto_to_crypto',     // → wallet_to_wallet
+                          'wallet_ramp_deposit',  // → fiat_bo_to_bridge_wallet | crypto_to_bridge_wallet
+                        ]
+                        const isRouteExclusiveBlocked = (routeKey: SupportedPaymentRoute) =>
+                          Boolean(exclusiveBlock?.has_active && EXCLUSIVE_UI_ROUTES.includes(routeKey))
+
                         return (
                           <FormItem>
                             <FormLabel className={FORM_LABEL_CLASS}>Ruta soportada</FormLabel>
@@ -1226,27 +1236,31 @@ export function CreatePaymentOrderForm({
                                       <div className="h-px flex-1 bg-border/40" />
                                     </div>
                                     <div className="grid gap-3 sm:grid-cols-2">
-                                      {interbankRoutes.map((entry) => (
-                                        <SelectionCard
-                                          key={entry.key}
-                                          description={entry.description}
-                                          disabled={disabled || entry.disabled}
-                                          icon={
-                                            entry.key === 'bolivia_to_exterior' ? Send :
-                                              entry.key === 'world_to_bolivia' ? Earth :
-                                                entry.key === 'crypto_to_crypto' ? ArrowRightLeft :
-                                                  Landmark
-                                          }
-                                          isSelected={field.value === entry.key}
-                                          onClick={() => {
-                                            field.onChange(entry.key)
-                                            setCreatedOrder(null)
-                                            setSupportFile(null)
-                                            setEvidenceFile(null)
-                                          }}
-                                          title={entry.label}
-                                        />
-                                      ))}
+                                      {interbankRoutes.map((entry) => {
+                                        const isBlocked = isRouteExclusiveBlocked(entry.key)
+                                        return (
+                                          <SelectionCard
+                                            key={entry.key}
+                                            description={entry.description}
+                                            disabled={disabled || entry.disabled || isBlocked}
+                                            exclusiveBlocked={isBlocked}
+                                            icon={
+                                              entry.key === 'bolivia_to_exterior' ? Send :
+                                                entry.key === 'world_to_bolivia' ? Earth :
+                                                  entry.key === 'crypto_to_crypto' ? ArrowRightLeft :
+                                                    Landmark
+                                            }
+                                            isSelected={field.value === entry.key}
+                                            onClick={() => {
+                                              field.onChange(entry.key)
+                                              setCreatedOrder(null)
+                                              setSupportFile(null)
+                                              setEvidenceFile(null)
+                                            }}
+                                            title={entry.label}
+                                          />
+                                        )
+                                      })}
                                     </div>
                                   </div>
                                 )}
@@ -1260,26 +1274,30 @@ export function CreatePaymentOrderForm({
                                       <div className="h-px flex-1 bg-border/40" />
                                     </div>
                                     <div className="grid gap-3 sm:grid-cols-2">
-                                      {rampRoutes.map((entry) => (
-                                        <SelectionCard
-                                          key={entry.key}
-                                          description={entry.description}
-                                          disabled={disabled || entry.disabled}
-                                          icon={
-                                            entry.key === 'wallet_ramp_deposit' ? WalletMinimal :
-                                              entry.key === 'wallet_ramp_withdraw' ? ArrowUpRight :
-                                                Wallet
-                                          }
-                                          isSelected={field.value === entry.key}
-                                          onClick={() => {
-                                            field.onChange(entry.key)
-                                            setCreatedOrder(null)
-                                            setSupportFile(null)
-                                            setEvidenceFile(null)
-                                          }}
-                                          title={entry.label}
-                                        />
-                                      ))}
+                                      {rampRoutes.map((entry) => {
+                                        const isBlocked = isRouteExclusiveBlocked(entry.key)
+                                        return (
+                                          <SelectionCard
+                                            key={entry.key}
+                                            description={entry.description}
+                                            disabled={disabled || entry.disabled || isBlocked}
+                                            exclusiveBlocked={isBlocked}
+                                            icon={
+                                              entry.key === 'wallet_ramp_deposit' ? WalletMinimal :
+                                                entry.key === 'wallet_ramp_withdraw' ? ArrowUpRight :
+                                                  Wallet
+                                            }
+                                            isSelected={field.value === entry.key}
+                                            onClick={() => {
+                                              field.onChange(entry.key)
+                                              setCreatedOrder(null)
+                                              setSupportFile(null)
+                                              setEvidenceFile(null)
+                                            }}
+                                            title={entry.label}
+                                          />
+                                        )
+                                      })}
                                     </div>
                                   </div>
                                 )}
@@ -3380,6 +3398,7 @@ function SelectionCard({
   isSelected,
   onClick,
   disabled,
+  exclusiveBlocked,
 }: {
   title: string
   description: string
@@ -3387,6 +3406,7 @@ function SelectionCard({
   isSelected: boolean
   onClick: () => void
   disabled?: boolean
+  exclusiveBlocked?: boolean
 }) {
   const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (disabled) return
@@ -3403,10 +3423,13 @@ function SelectionCard({
       className={cn(
         'group relative w-full rounded-2xl border text-left overflow-hidden',
         'active:scale-[0.98]',
-        isSelected
-          ? 'border-primary bg-background shadow-[0_8px_30px_rgb(0,0,0,0.06)] ring-1 ring-primary'
-          : 'border-border/50 bg-background',
-        disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+        exclusiveBlocked
+          ? 'border-amber-500/60 bg-amber-50/30 dark:bg-amber-950/10 cursor-not-allowed opacity-60'
+          : isSelected
+            ? 'border-primary bg-background shadow-[0_8px_30px_rgb(0,0,0,0.06)] ring-1 ring-primary'
+            : 'border-border/50 bg-background',
+        disabled && !exclusiveBlocked ? 'cursor-not-allowed opacity-50' : '',
+        !disabled ? 'cursor-pointer' : ''
       )}
       disabled={disabled}
       onClick={onClick}
@@ -3420,6 +3443,14 @@ function SelectionCard({
         '--spot-y': '50%',
       } as React.CSSProperties}
     >
+      {/* Exclusive blocked indicator badge */}
+      {exclusiveBlocked && (
+        <div className="absolute top-3 right-3 z-20 flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5">
+          <Lock className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+          <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300">En espera</span>
+        </div>
+      )}
+
       {/* Spotlight glow overlay — follows cursor position */}
       {!isSelected && !disabled && (
         <div
@@ -3440,9 +3471,11 @@ function SelectionCard({
           <motion.div
             className={cn(
               'flex size-11 shrink-0 items-center justify-center rounded-full transition-colors duration-300',
-              isSelected
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted/50 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary'
+              exclusiveBlocked
+                ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
+                : isSelected
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted/50 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary'
             )}
             whileHover={{ rotate: [0, -8, 8, -4, 0], transition: { duration: 0.5, ease: 'easeInOut' } }}
           >
@@ -3450,9 +3483,11 @@ function SelectionCard({
           </motion.div>
           <div className={cn(
             'mt-1 flex size-5 items-center justify-center rounded-full border transition-all duration-300',
-            isSelected
-              ? 'border-primary bg-primary'
-              : 'border-border/60 bg-transparent group-hover:border-primary/40'
+            exclusiveBlocked
+              ? 'border-amber-400/60 bg-transparent'
+              : isSelected
+                ? 'border-primary bg-primary'
+                : 'border-border/60 bg-transparent group-hover:border-primary/40'
           )}>
             {isSelected && (
               <motion.div
@@ -3467,7 +3502,9 @@ function SelectionCard({
         <div className="space-y-1.5">
           <div className={cn(
             'text-base font-semibold tracking-tight transition-colors duration-300',
-            isSelected ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'
+            exclusiveBlocked
+              ? 'text-amber-800 dark:text-amber-300'
+              : isSelected ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'
           )}>
             {title}
           </div>
