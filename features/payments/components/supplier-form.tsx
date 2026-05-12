@@ -1,9 +1,9 @@
 'use client'
 
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, ArrowRight, Building2, Landmark, Wallet, Globe, Bitcoin } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Building2, Landmark, Wallet, Globe, Bitcoin, AlertTriangle } from 'lucide-react'
 import Flag from 'react-world-flags'
 import { Button } from '@/components/ui/button'
 import { GuiraButton } from '@/components/shared/guira-button'
@@ -16,12 +16,22 @@ import { interactiveClickableCardClassName, cn } from '@/lib/utils'
 import { ALLOWED_NETWORKS, NETWORK_LABELS, ADDRESS_VALIDATORS, validateCryptoAddress } from '@/lib/guira-crypto-config'
 import type { AllowedNetwork } from '@/lib/guira-crypto-config'
 import type { Supplier, PaymentRail, CreateSupplierPayload } from '@/types/supplier'
+import type { AddingRailTo } from '@/features/payments/components/suppliers-section'
+import { PaymentsService } from '@/services/payments.service'
+
+interface DuplicateInfo {
+  supplierName: string
+  usedRails: string[]
+  usedNetworks: string[]
+}
 
 interface SupplierFormProps {
   editingSupplier?: Supplier | null
+  addingRailTo?: AddingRailTo | null
   disabled?: boolean
   onBack: () => void
   onSubmitSupplier: (supplier: CreateSupplierPayload, supplierId?: string) => Promise<void>
+  onSwitchToAddRail?: (email: string, info: DuplicateInfo) => void
 }
 
 type FormStep = 'general' | 'accounts'
@@ -242,11 +252,15 @@ const COUNTRY_OPTIONS = [
 
 export function SupplierForm({
   editingSupplier,
+  addingRailTo,
   disabled,
   onBack,
   onSubmitSupplier,
+  onSwitchToAddRail,
 }: SupplierFormProps) {
   const [currentStep, setCurrentStep] = useState<FormStep>('general')
+  const [duplicateInfo, setDuplicateInfo] = useState<DuplicateInfo | null>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const initialData = useMemo(() => {
     if (!editingSupplier) return defaultValues
@@ -313,6 +327,47 @@ export function SupplierForm({
   const pixMode = useWatch({ control: form.control, name: 'pix_mode' })
   const addressCountry = useWatch({ control: form.control, name: 'address_country' })
   const selectedWalletNetwork = useWatch({ control: form.control, name: 'wallet_network' })
+  const watchEmail = useWatch({ control: form.control, name: 'contact_email' })
+
+  // Pre-rellenar nombre y email cuando se está añadiendo un rail a un contacto existente
+  useEffect(() => {
+    if (!addingRailTo) return
+    form.setValue('name', addingRailTo.name)
+    form.setValue('contact_email', addingRailTo.email)
+  }, [addingRailTo, form])
+
+  // Debounce check de duplicado (solo para modo "nuevo proveedor", no edición ni añadir rail)
+  useEffect(() => {
+    if (editingSupplier || addingRailTo) return
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+
+    const emailValid = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(watchEmail ?? '')
+    if (!emailValid) {
+      setDuplicateInfo(null)
+      return
+    }
+
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const result = await PaymentsService.checkDuplicateRails(watchEmail)
+        if (result.exists) {
+          setDuplicateInfo({
+            supplierName: result.supplierName ?? '',
+            usedRails: result.usedRails,
+            usedNetworks: result.usedNetworks,
+          })
+        } else {
+          setDuplicateInfo(null)
+        }
+      } catch {
+        setDuplicateInfo(null)
+      }
+    }, 600)
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [watchEmail, editingSupplier, addingRailTo])
 
   // Regla de moneda para proveedores crypto:
   // Tron → USDT (único token soportado sin exchange rate en Bridge)
@@ -474,8 +529,14 @@ export function SupplierForm({
             <ArrowLeft className="size-4" />
           </Button>
           <div>
-            <h2 className="text-xl font-semibold">{editingSupplier ? 'Editar Proveedor' : 'Nuevo Proveedor'}</h2>
-            <p className="text-sm text-muted-foreground">Configura los datos del destinatario para futuros pagos.</p>
+            <h2 className="text-xl font-semibold">
+              {editingSupplier ? 'Editar Proveedor' : addingRailTo ? 'Añadir método de cobro' : 'Nuevo Proveedor'}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {addingRailTo
+                ? `Agrega un nuevo rail de pago a ${addingRailTo.name}.`
+                : 'Configura los datos del destinatario para futuros pagos.'}
+            </p>
           </div>
         </div>
 
@@ -502,10 +563,7 @@ export function SupplierForm({
                     name="name"
                     rules={{
                       required: 'El nombre es requerido',
-                      minLength: {
-                        value: 3,
-                        message: 'Mínimo 3 caracteres',
-                      },
+                      minLength: { value: 3, message: 'Mínimo 3 caracteres' },
                       maxLength: {
                         value: ['ach', 'wire'].includes(selectedRail) ? 35 : 200,
                         message: ['ach', 'wire'].includes(selectedRail)
@@ -518,9 +576,10 @@ export function SupplierForm({
                         <FormLabel>Nombre o Razón Social</FormLabel>
                         <FormControl>
                           <Input
-                            disabled={disabled}
+                            disabled={disabled || !!addingRailTo}
                             placeholder="Ej. Tech Corp S.A."
                             maxLength={['ach', 'wire'].includes(selectedRail) ? 35 : 200}
+                            className={addingRailTo ? 'bg-muted/50 cursor-not-allowed' : ''}
                             {...field}
                           />
                         </FormControl>
@@ -540,14 +599,50 @@ export function SupplierForm({
                       name="contact_email"
                       rules={{
                         required: 'El correo es requerido',
-                        pattern: { value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i, message: 'Correo inválido' }
+                        pattern: { value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i, message: 'Correo inválido' },
                       }}
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Correo de Contacto</FormLabel>
                           <FormControl>
-                            <Input disabled={disabled} placeholder="contacto@techcorp.com" type="email" {...field} />
+                            <Input
+                              disabled={disabled || !!addingRailTo}
+                              placeholder="contacto@techcorp.com"
+                              type="email"
+                              className={addingRailTo ? 'bg-muted/50 cursor-not-allowed' : ''}
+                              {...field}
+                            />
                           </FormControl>
+                          {addingRailTo && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Añadiendo método de cobro a <strong>{addingRailTo.email}</strong>
+                            </p>
+                          )}
+                          {/* Aviso de duplicado — solo en modo "nuevo proveedor" */}
+                          {duplicateInfo && !editingSupplier && !addingRailTo && (
+                            <div className="mt-2 flex gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
+                              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-500" />
+                              <div className="space-y-1.5">
+                                <p className="text-sm font-semibold text-amber-700">Contacto ya registrado</p>
+                                <p className="text-sm text-amber-700/80">
+                                  <strong>{duplicateInfo.supplierName}</strong> ya tiene:{' '}
+                                  {[
+                                    ...duplicateInfo.usedRails.map((r) => r.toUpperCase()),
+                                    ...duplicateInfo.usedNetworks.map((n) => `Crypto (${n})`),
+                                  ].join(', ')}
+                                </p>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 border-amber-500/50 text-xs text-amber-700 hover:bg-amber-500/10"
+                                  onClick={() => onSwitchToAddRail?.(watchEmail, duplicateInfo)}
+                                >
+                                  Añadir método a este contacto →
+                                </Button>
+                              </div>
+                            </div>
+                          )}
                           <FormMessage />
                         </FormItem>
                       )}
@@ -592,38 +687,49 @@ export function SupplierForm({
                       <FormItem>
                         <FormLabel>Tipo de Pago Principal</FormLabel>
                         <div className="grid gap-4 md:grid-cols-2">
-                          {RAIL_OPTIONS.map((option) => (
-                            <div
-                              key={option.value}
-                              className={cn(
-                                'flex cursor-pointer items-start gap-4 rounded-xl border p-4 transition-all',
-                                interactiveClickableCardClassName,
-                                field.value === option.value && 'border-primary ring-1 ring-primary/50 bg-primary/5'
-                              )}
-                              onClick={() => {
-                                if (!disabled) field.onChange(option.value)
-                              }}
-                            >
+                          {RAIL_OPTIONS.map((option) => {
+                            const isUsedFiat = addingRailTo && option.value !== 'crypto' && addingRailTo.usedRails.includes(option.value)
+                            // Crypto se deshabilita solo si TODAS las redes están usadas (verificación en el selector de red)
+                            const isDisabled = disabled || !!isUsedFiat
+
+                            return (
                               <div
+                                key={option.value}
+                                title={isUsedFiat ? 'Ya configurado para este contacto' : undefined}
                                 className={cn(
-                                  'flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border',
-                                  typeof option.icon !== 'string' && option.value === 'crypto'
-                                    ? 'bg-primary border-primary text-primary-foreground shadow-sm'
-                                    : 'bg-background text-muted-foreground'
+                                  'flex items-start gap-4 rounded-xl border p-4 transition-all',
+                                  isDisabled
+                                    ? 'cursor-not-allowed opacity-50 bg-muted/20'
+                                    : cn('cursor-pointer', interactiveClickableCardClassName),
+                                  field.value === option.value && !isDisabled && 'border-primary ring-1 ring-primary/50 bg-primary/5'
                                 )}
+                                onClick={() => {
+                                  if (!isDisabled) field.onChange(option.value)
+                                }}
                               >
-                                {typeof option.icon === 'string' ? (
-                                  <Flag code={option.icon} className="h-full w-full object-cover" fallback={<span className="text-xl leading-none">{option.icon}</span>} />
-                                ) : (
-                                  <option.icon className="size-5" />
-                                )}
+                                <div
+                                  className={cn(
+                                    'flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border',
+                                    typeof option.icon !== 'string' && option.value === 'crypto'
+                                      ? 'bg-primary border-primary text-primary-foreground shadow-sm'
+                                      : 'bg-background text-muted-foreground'
+                                  )}
+                                >
+                                  {typeof option.icon === 'string' ? (
+                                    <Flag code={option.icon} className="h-full w-full object-cover" fallback={<span className="text-xl leading-none">{option.icon}</span>} />
+                                  ) : (
+                                    <option.icon className="size-5" />
+                                  )}
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <span className="text-sm font-medium leading-none tracking-tight">{option.label}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {isUsedFiat ? '✓ Ya configurado' : option.description}
+                                  </span>
+                                </div>
                               </div>
-                              <div className="flex flex-col gap-1">
-                                <span className={cn('text-sm font-medium leading-none tracking-tight')}>{option.label}</span>
-                                <span className="text-xs text-muted-foreground">{option.description}</span>
-                              </div>
-                            </div>
-                          ))}
+                            )
+                          })}
                         </div>
                         <FormMessage />
                       </FormItem>
@@ -1366,11 +1472,14 @@ export function SupplierForm({
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  {ALLOWED_NETWORKS.map((net) => (
-                                    <SelectItem key={net} value={net}>
-                                      {NETWORK_LABELS[net]}
-                                    </SelectItem>
-                                  ))}
+                                  {ALLOWED_NETWORKS.map((net) => {
+                                    const isUsedNetwork = addingRailTo?.usedNetworks.includes(net)
+                                    return (
+                                      <SelectItem key={net} value={net} disabled={!!isUsedNetwork}>
+                                        {NETWORK_LABELS[net]}{isUsedNetwork ? ' — ya configurado' : ''}
+                                      </SelectItem>
+                                    )
+                                  })}
                                 </SelectContent>
                               </Select>
                               <FormMessage />

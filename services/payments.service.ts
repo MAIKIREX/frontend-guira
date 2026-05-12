@@ -31,7 +31,7 @@ import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/api/client'
 import type { PaymentOrder, PsavConfigRow, AppSettingRow, OrderReviewRequest } from '@/types/payment-order'
 import type { Supplier, CreateSupplierPayload } from '@/types/supplier'
 import type { ActivityLog } from '@/types/activity-log'
-import type { PaginationParams } from '@/lib/api/types'
+import type { PaginationParams, PaginatedResponse } from '@/lib/api/types'
 
 // ── DTOs de entrada ───────────────────────────────────────────────
 
@@ -147,28 +147,13 @@ export const PaymentsService = {
     )
   },
 
-  /**
-   * Consulta si el usuario tiene un expediente exclusivo activo.
-   * Los 5 servicios exclusivos son: bolivia_to_world, bolivia_to_wallet,
-   * wallet_to_wallet, fiat_bo_to_bridge_wallet, crypto_to_bridge_wallet.
-   */
-  async getActiveExclusiveOrder(): Promise<{
-    has_active: boolean
-    active_order?: { id: string; flow_type: string; status: string; created_at: string }
-  }> {
-    return apiGet<{
-      has_active: boolean
-      active_order?: { id: string; flow_type: string; status: string; created_at: string }
-    }>('/payment-orders/active-exclusive')
-  },
-
   // ── Órdenes de pago ──────────────────────────────────────────
 
   /**
    * Lista órdenes de pago del usuario autenticado.
    */
-  async getOrders(params?: OrderFilter): Promise<PaymentOrder[]> {
-    return apiGet<PaymentOrder[]>('/payment-orders', { params })
+  async getOrders(params?: OrderFilter): Promise<PaginatedResponse<PaymentOrder>> {
+    return apiGet<PaginatedResponse<PaymentOrder>>('/payment-orders', { params })
   },
 
   /**
@@ -301,6 +286,19 @@ export const PaymentsService = {
    */
   async deleteSupplier(supplierId: string): Promise<void> {
     return apiDelete<void>(`/suppliers/${supplierId}`)
+  },
+
+  /**
+   * Consulta los rails ya registrados para un email dado.
+   * Usado para validación en tiempo real en el formulario de nuevo proveedor.
+   */
+  async checkDuplicateRails(email: string): Promise<{
+    exists: boolean
+    supplierName?: string
+    usedRails: string[]
+    usedNetworks: string[]
+  }> {
+    return apiGet(`/suppliers/check-duplicate?email=${encodeURIComponent(email)}`)
   },
 
   // ── Fees / Tasas / Exchange Rates (para UI informativa) ─────────────────

@@ -114,7 +114,6 @@ export function ClientOperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
           defaultRoute={config.defaultRoute!}
           disabled={!canOperate}
           exchangeRates={(payments.snapshot as any)?.exchangeRates ?? []}
-          exclusiveBlock={payments.state?.exclusiveBlock ?? { has_active: false }}
           feesConfig={payments.snapshot?.feesConfig ?? []}
           onCreateOrder={handleCreateOrder}
           onUploadOrderFile={handleUploadOrderFile}
@@ -145,6 +144,10 @@ export function ClientOperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
             onUploadOrderFile={handleUploadOrderFile}
             orders={payments.snapshot.paymentOrders}
             suppliers={payments.snapshot.suppliers}
+            pagination={payments.pagination
+              ? { ...payments.pagination, onPageChange: payments.goToOrdersPage }
+              : null
+            }
           />
         </div>
       ) : null}

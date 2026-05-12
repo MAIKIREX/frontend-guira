@@ -31,7 +31,6 @@ import {
   CircleDollarSign,
   BadgeDollarSign,
   Building2,
-  Lock,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { getErrorMessage } from '@/lib/utils'
@@ -103,11 +102,6 @@ interface CreatePaymentOrderFormProps {
   defaultRoute: SupportedPaymentRoute
   allowedRoutes?: SupportedPaymentRoute[]
   disabled?: boolean
-  /** Bloqueo exclusivo: si el usuario tiene un expediente activo en los 5 servicios exclusivos */
-  exclusiveBlock?: {
-    has_active: boolean
-    active_order?: { id: string; flow_type: string; status: string; created_at: string }
-  }
   mode?: 'depositar' | 'enviar'
   onCreateOrder: (
     input: CreatePaymentOrderInput,
@@ -187,7 +181,6 @@ export function CreatePaymentOrderForm({
   mode,
   onCreateOrder,
   onUploadOrderFile,
-  exclusiveBlock,
   feesConfig,
   appSettings,
   psavConfigs,
@@ -1170,32 +1163,6 @@ export function CreatePaymentOrderForm({
           </div>
         </CardHeader>
 
-        {/* ── Banner de bloqueo exclusivo ────────────────────────────── */}
-        {exclusiveBlock?.has_active && exclusiveBlock?.active_order && (
-          <div className="mx-4 mt-4 sm:mx-8 rounded-lg border border-amber-500/30 bg-amber-50 dark:bg-amber-950/20 p-4">
-            <div className="flex items-start gap-3">
-              <CircleAlert className="h-5 w-5 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
-              <div className="flex-1 space-y-2">
-                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
-                  Ya tienes un expediente activo ({exclusiveBlock.active_order.id.slice(0, 8)}) en el
-                  servicio &quot;{exclusiveBlock.active_order.flow_type.replace(/_/g, ' ')}&quot; con
-                  estado &quot;{exclusiveBlock.active_order.status}&quot;.
-                </p>
-                <p className="text-xs text-amber-700 dark:text-amber-400/80">
-                  Completa o cancela ese expediente antes de crear uno nuevo en estos servicios.
-                </p>
-                <Link
-                  href="/transacciones"
-                  className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
-                >
-                  <ArrowRightLeft className="h-3.5 w-3.5" />
-                  Ir a Transacciones
-                </Link>
-              </div>
-            </div>
-          </div>
-        )}
-
         <CardContent className="space-y-6 sm:space-y-8 px-4 py-6 sm:px-8 lg:px-10">
           <StepProgressRail currentStep={step} getStepLabel={getStepLabel} steps={STEP_ORDER} />
 
@@ -1211,16 +1178,6 @@ export function CreatePaymentOrderForm({
                       render={({ field }) => {
                         const interbankRoutes = routeOptions.filter(r => r.category === 'interbank' || !r.category)
                         const rampRoutes = routeOptions.filter(r => r.category === 'ramp')
-
-                        // Rutas UI que participan en el bloqueo exclusivo (mapean a los 5 flow_types)
-                        const EXCLUSIVE_UI_ROUTES: SupportedPaymentRoute[] = [
-                          'bolivia_to_exterior',  // → bolivia_to_world | bolivia_to_wallet
-                          'crypto_to_crypto',     // → wallet_to_wallet
-                          'wallet_ramp_deposit',  // → fiat_bo_to_bridge_wallet | crypto_to_bridge_wallet
-                        ]
-                        const isRouteExclusiveBlocked = (routeKey: SupportedPaymentRoute) =>
-                          Boolean(exclusiveBlock?.has_active && EXCLUSIVE_UI_ROUTES.includes(routeKey))
-
                         return (
                           <FormItem>
                             <FormLabel className={FORM_LABEL_CLASS}>Ruta soportada</FormLabel>
@@ -1236,14 +1193,11 @@ export function CreatePaymentOrderForm({
                                       <div className="h-px flex-1 bg-border/40" />
                                     </div>
                                     <div className="grid gap-3 sm:grid-cols-2">
-                                      {interbankRoutes.map((entry) => {
-                                        const isBlocked = isRouteExclusiveBlocked(entry.key)
-                                        return (
+                                      {interbankRoutes.map((entry) => (
                                           <SelectionCard
                                             key={entry.key}
                                             description={entry.description}
-                                            disabled={disabled || entry.disabled || isBlocked}
-                                            exclusiveBlocked={isBlocked}
+                                            disabled={disabled || entry.disabled}
                                             icon={
                                               entry.key === 'bolivia_to_exterior' ? Send :
                                                 entry.key === 'world_to_bolivia' ? Earth :
@@ -1259,8 +1213,7 @@ export function CreatePaymentOrderForm({
                                             }}
                                             title={entry.label}
                                           />
-                                        )
-                                      })}
+                                      ))}
                                     </div>
                                   </div>
                                 )}
@@ -1274,14 +1227,11 @@ export function CreatePaymentOrderForm({
                                       <div className="h-px flex-1 bg-border/40" />
                                     </div>
                                     <div className="grid gap-3 sm:grid-cols-2">
-                                      {rampRoutes.map((entry) => {
-                                        const isBlocked = isRouteExclusiveBlocked(entry.key)
-                                        return (
+                                      {rampRoutes.map((entry) => (
                                           <SelectionCard
                                             key={entry.key}
                                             description={entry.description}
-                                            disabled={disabled || entry.disabled || isBlocked}
-                                            exclusiveBlocked={isBlocked}
+                                            disabled={disabled || entry.disabled}
                                             icon={
                                               entry.key === 'wallet_ramp_deposit' ? WalletMinimal :
                                                 entry.key === 'wallet_ramp_withdraw' ? ArrowUpRight :
@@ -1296,8 +1246,7 @@ export function CreatePaymentOrderForm({
                                             }}
                                             title={entry.label}
                                           />
-                                        )
-                                      })}
+                                      ))}
                                     </div>
                                   </div>
                                 )}
@@ -2637,7 +2586,7 @@ export function CreatePaymentOrderForm({
                       <GuiraButton variant="secondary" onClick={handleBack} arrowBack>
                         Editar detalle
                       </GuiraButton>
-                      <GuiraButton disabled={disabled || creatingOrder || exclusiveBlock?.has_active} onClick={handleNext} arrowNext>
+                      <GuiraButton disabled={disabled || creatingOrder} onClick={handleNext} arrowNext>
                         {creatingOrder ? 'Creando expediente...' : 'Crear expediente'}
                       </GuiraButton>
                     </div>
@@ -2656,10 +2605,12 @@ export function CreatePaymentOrderForm({
                           Expediente Creado Exitosamente
                         </h3>
                         <p className="text-sm leading-relaxed text-muted-foreground">
-                          {route === 'wallet_ramp_withdraw' 
-                            ? 'Tu solicitud de retiro ha sido recibida y está siendo procesada de forma automática.' 
+                          {route === 'wallet_ramp_withdraw'
+                            ? 'Tu solicitud de retiro ha sido recibida y está siendo procesada de forma automática.'
                             : route === 'crypto_to_crypto'
                             ? 'La orden está lista. Esperando el depósito on-chain para completar la transferencia.'
+                            : isRampDepositWithSubSteps
+                            ? 'La orden está lista. Envía el cripto a la dirección indicada — Bridge detectará el depósito on-chain y cerrará el expediente automáticamente.'
                             : 'La orden está registrada. Puedes adjuntar tu comprobante ahora o más adelante.'}
                         </p>
                       </div>
@@ -2771,6 +2722,54 @@ export function CreatePaymentOrderForm({
                           <CircleAlert className="size-5 shrink-0 text-muted-foreground/70" />
                           <p>
                             Puedes dar seguimiento a esta orden desde el tab "Seguimiento". El proceso es completamente automático — Bridge verificará el depósito on-chain y enviará los fondos al destino.
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-end mt-8">
+                          <GuiraButton
+                            disabled={disabled}
+                            onClick={() => { resetFlow(form, setStep, setSupportFile, setQrFile, setEvidenceFile, setCreatedOrder); router.push('/transacciones') }}
+                          >
+                            Ir al Seguimiento
+                          </GuiraButton>
+                        </div>
+                      </div>
+                    ) : isRampDepositWithSubSteps ? (
+                      <div className="space-y-6">
+                        <div className="grid gap-4 lg:grid-cols-2">
+                          {finalInstructions.map((instruction) => (
+                            <DepositInstructionCard key={instruction.id} instruction={instruction} />
+                          ))}
+                        </div>
+
+                        <div className="overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-b from-amber-500/5 to-transparent">
+                          <div className="p-6">
+                            <div className="flex items-center gap-3 font-medium text-amber-700 dark:text-amber-400 mb-4">
+                              <Loader2 className="size-5 animate-spin" />
+                              <span>Esperando depósito on-chain…</span>
+                            </div>
+                            <p className="text-sm leading-relaxed text-muted-foreground mb-6">
+                              Envía el cripto a la dirección de liquidación indicada arriba. Bridge
+                              detectará la transacción on-chain automáticamente y cerrará el
+                              expediente sin necesidad de subir comprobante.
+                            </p>
+                            <div className="grid gap-2 text-sm">
+                              <div className="flex items-center justify-between rounded-xl bg-background/50 p-3 ring-1 ring-border/50">
+                                <span className="text-muted-foreground">Estado actual</span>
+                                <span className="font-semibold text-amber-600 dark:text-amber-400">Esperando depósito</span>
+                              </div>
+                              <div className="flex items-center justify-between rounded-xl bg-background/50 p-3 ring-1 ring-border/50">
+                                <span className="text-muted-foreground">Red origen</span>
+                                <span className="font-medium text-foreground capitalize">{form.getValues('wallet_ramp_source_network') ?? '—'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-3 rounded-xl border border-border/50 bg-muted/20 p-4 text-sm text-muted-foreground">
+                          <CircleAlert className="size-5 shrink-0 text-muted-foreground/70" />
+                          <p>
+                            Puedes dar seguimiento a esta orden desde el tab "Seguimiento". El proceso es completamente automático — Bridge verificará el depósito on-chain y actualizará el saldo de tu wallet.
                           </p>
                         </div>
 
@@ -3398,7 +3397,6 @@ function SelectionCard({
   isSelected,
   onClick,
   disabled,
-  exclusiveBlocked,
 }: {
   title: string
   description: string
@@ -3406,7 +3404,6 @@ function SelectionCard({
   isSelected: boolean
   onClick: () => void
   disabled?: boolean
-  exclusiveBlocked?: boolean
 }) {
   const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (disabled) return
@@ -3423,12 +3420,10 @@ function SelectionCard({
       className={cn(
         'group relative w-full rounded-2xl border text-left overflow-hidden',
         'active:scale-[0.98]',
-        exclusiveBlocked
-          ? 'border-amber-500/60 bg-amber-50/30 dark:bg-amber-950/10 cursor-not-allowed opacity-60'
-          : isSelected
-            ? 'border-primary bg-background shadow-[0_8px_30px_rgb(0,0,0,0.06)] ring-1 ring-primary'
-            : 'border-border/50 bg-background',
-        disabled && !exclusiveBlocked ? 'cursor-not-allowed opacity-50' : '',
+        isSelected
+          ? 'border-primary bg-background shadow-[0_8px_30px_rgb(0,0,0,0.06)] ring-1 ring-primary'
+          : 'border-border/50 bg-background',
+        disabled ? 'cursor-not-allowed opacity-50' : '',
         !disabled ? 'cursor-pointer' : ''
       )}
       disabled={disabled}
@@ -3443,14 +3438,6 @@ function SelectionCard({
         '--spot-y': '50%',
       } as React.CSSProperties}
     >
-      {/* Exclusive blocked indicator badge */}
-      {exclusiveBlocked && (
-        <div className="absolute top-3 right-3 z-20 flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5">
-          <Lock className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-          <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300">En espera</span>
-        </div>
-      )}
-
       {/* Spotlight glow overlay — follows cursor position */}
       {!isSelected && !disabled && (
         <div
@@ -3471,11 +3458,9 @@ function SelectionCard({
           <motion.div
             className={cn(
               'flex size-11 shrink-0 items-center justify-center rounded-full transition-colors duration-300',
-              exclusiveBlocked
-                ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
-                : isSelected
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted/50 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary'
+              isSelected
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted/50 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary'
             )}
             whileHover={{ rotate: [0, -8, 8, -4, 0], transition: { duration: 0.5, ease: 'easeInOut' } }}
           >
@@ -3483,11 +3468,9 @@ function SelectionCard({
           </motion.div>
           <div className={cn(
             'mt-1 flex size-5 items-center justify-center rounded-full border transition-all duration-300',
-            exclusiveBlocked
-              ? 'border-amber-400/60 bg-transparent'
-              : isSelected
-                ? 'border-primary bg-primary'
-                : 'border-border/60 bg-transparent group-hover:border-primary/40'
+            isSelected
+              ? 'border-primary bg-primary'
+              : 'border-border/60 bg-transparent group-hover:border-primary/40'
           )}>
             {isSelected && (
               <motion.div
@@ -3502,9 +3485,7 @@ function SelectionCard({
         <div className="space-y-1.5">
           <div className={cn(
             'text-base font-semibold tracking-tight transition-colors duration-300',
-            exclusiveBlocked
-              ? 'text-amber-800 dark:text-amber-300'
-              : isSelected ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'
+            isSelected ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'
           )}>
             {title}
           </div>
@@ -3990,4 +3971,3 @@ function formatConversionPreview(args: {
 
   return `${formatMoney(amount, origin)} -> ${formatMoney(converted, destination)}`
 }
-

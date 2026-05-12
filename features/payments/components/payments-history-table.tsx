@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction, useCallback } from 'react'
 import { format } from 'date-fns'
 import { motion } from 'framer-motion'
-import { ChevronDown, Download, FileSpreadsheet, FileText, Loader2, Search, ShieldAlert, XCircle } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Download, FileSpreadsheet, FileText, Loader2, Search, ShieldAlert, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { DocumentUploadCard } from '@/components/shared/document-upload-card'
@@ -91,11 +91,19 @@ const STATUS_FILTER_LABELS: Record<string, string> = {
   refunded: 'Reembolsado',
 }
 
+interface PaginationProps {
+  page: number
+  totalPages: number
+  total: number
+  onPageChange: (page: number) => void
+}
+
 interface PaymentsHistoryTableProps {
   orders: PaymentOrder[]
   suppliers: Supplier[]
   activityLogs: ActivityLog[]
   disabled?: boolean
+  pagination?: PaginationProps | null
   onUploadOrderFile: (orderId: string, field: OrderFileField, file: File) => Promise<unknown>
   onCancelOrder: (order: PaymentOrder) => Promise<unknown>
 }
@@ -105,6 +113,7 @@ export function PaymentsHistoryTable({
   suppliers,
   activityLogs,
   disabled,
+  pagination,
   onUploadOrderFile,
   onCancelOrder,
 }: PaymentsHistoryTableProps) {
@@ -391,6 +400,48 @@ export function PaymentsHistoryTable({
               })}
             </TableBody>
           </Table>
+        </div>
+      )}
+
+      {/* ── Pagination ── */}
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between border-t border-border/50 px-6 py-3 bg-muted/[0.02]">
+          <p className="text-xs text-muted-foreground">
+            Página <span className="font-semibold text-foreground">{pagination.page}</span> de{' '}
+            <span className="font-semibold text-foreground">{pagination.totalPages}</span>
+            {' '}· <span className="font-semibold text-foreground">{pagination.total}</span> expedientes en total
+          </p>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              className="h-8 w-8 p-0 rounded-lg border-border/60"
+              disabled={pagination.page <= 1}
+              onClick={() => pagination.onPageChange(pagination.page - 1)}
+              type="button"
+            >
+              <ChevronLeft className="size-3.5" />
+            </Button>
+            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((p) => (
+              <Button
+                key={p}
+                variant={p === pagination.page ? 'default' : 'outline'}
+                className="h-8 w-8 p-0 rounded-lg border-border/60 text-xs font-semibold"
+                onClick={() => pagination.onPageChange(p)}
+                type="button"
+              >
+                {p}
+              </Button>
+            ))}
+            <Button
+              variant="outline"
+              className="h-8 w-8 p-0 rounded-lg border-border/60"
+              disabled={pagination.page >= pagination.totalPages}
+              onClick={() => pagination.onPageChange(pagination.page + 1)}
+              type="button"
+            >
+              <ChevronRight className="size-3.5" />
+            </Button>
+          </div>
         </div>
       )}
 

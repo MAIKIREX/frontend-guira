@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { SupplierForm } from '@/features/payments/components/supplier-form'
-import { cn, interactiveCardClassName } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import type { Supplier, PaymentRail, CreateSupplierPayload } from '@/types/supplier'
 
 interface SuppliersSectionProps {
@@ -21,6 +21,13 @@ interface SuppliersSectionProps {
   onCreateSupplier: (input: CreateSupplierPayload) => Promise<unknown>
   onUpdateSupplier: (supplierId: string, input: Partial<CreateSupplierPayload>) => Promise<unknown>
   onDeleteSupplier: (supplierId: string) => Promise<unknown>
+}
+
+export interface AddingRailTo {
+  email: string
+  name: string
+  usedRails: string[]
+  usedNetworks: string[]
 }
 
 const RAIL_LABELS: Record<PaymentRail, string> = {
@@ -47,6 +54,73 @@ const RAIL_FLAG_CODES: Record<PaymentRail, string | null> = {
   crypto: null,
 }
 
+interface SupplierGroup {
+  key: string
+  name: string
+  email?: string
+  country: string
+  rails: Supplier[]
+}
+
+function RailChip({
+  supplier,
+  disabled,
+  onEdit,
+  onDelete,
+}: {
+  supplier: Supplier
+  disabled?: boolean
+  onEdit: () => void
+  onDelete: () => void
+}) {
+  const isCrypto = supplier.payment_rail === 'crypto'
+  const network = isCrypto ? (supplier.bank_details?.wallet_network as string) : null
+  const currency = isCrypto ? (supplier.bank_details?.wallet_currency as string)?.toUpperCase() : null
+  const flagCode = RAIL_FLAG_CODES[supplier.payment_rail]
+
+  return (
+    <div className="group/chip flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/20 px-3 py-1.5 text-sm transition-colors hover:border-border hover:bg-muted/40">
+      <span className="flex size-4 shrink-0 items-center justify-center">
+        {isCrypto ? (
+          <Bitcoin className="size-3.5 text-primary" />
+        ) : flagCode ? (
+          <Flag code={flagCode} className="h-full w-full rounded-sm object-cover" />
+        ) : (
+          <UserRound className="size-3.5 text-muted-foreground" />
+        )}
+      </span>
+      <span className="font-medium">
+        {isCrypto
+          ? `${network ? network.charAt(0).toUpperCase() + network.slice(1) : 'Crypto'} · ${currency ?? 'USDC'}`
+          : RAIL_LABELS[supplier.payment_rail]}
+      </span>
+      {supplier.bridge_external_account_id && (
+        <CheckCircle2 className="size-3 text-emerald-500" />
+      )}
+      <div className="ml-0.5 hidden items-center gap-0.5 group-hover/chip:flex">
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={onEdit}
+          className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-background hover:text-foreground disabled:opacity-50"
+          title="Editar"
+        >
+          <Pencil className="size-3" />
+        </button>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={onDelete}
+          className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+          title="Eliminar"
+        >
+          <Trash2 className="size-3" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function SuppliersSection({
   userId,
   suppliers,
@@ -56,24 +130,36 @@ export function SuppliersSection({
   onDeleteSupplier,
 }: SuppliersSectionProps) {
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null)
+  const [addingRailTo, setAddingRailTo] = useState<AddingRailTo | null>(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [methodFilter, setMethodFilter] = useState<'all' | PaymentRail>('all')
 
-  const filteredSuppliers = useMemo(() => {
+  const groupedSuppliers = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase()
 
-    return suppliers.filter((supplier) => {
-      const matchesFilter = methodFilter === 'all' || supplier.payment_rail === methodFilter
+    const filtered = suppliers.filter((s) => {
+      const matchesFilter = methodFilter === 'all' || s.payment_rail === methodFilter
       const matchesSearch =
         normalizedSearch.length === 0 ||
-        supplier.name.toLowerCase().includes(normalizedSearch) ||
-        (supplier.contact_email ?? '').toLowerCase().includes(normalizedSearch) ||
-        supplier.country.toLowerCase().includes(normalizedSearch)
-
+        s.name.toLowerCase().includes(normalizedSearch) ||
+        (s.contact_email ?? '').toLowerCase().includes(normalizedSearch) ||
+        s.country.toLowerCase().includes(normalizedSearch)
       return matchesFilter && matchesSearch
     })
-  }, [methodFilter, searchTerm, suppliers])
+
+    const map = new Map<string, SupplierGroup>()
+    for (const s of filtered) {
+      // Proveedores sin email son grupos individuales (no se agrupan entre sí)
+      const key = s.contact_email || `__noemail__${s.id}`
+      if (!map.has(key)) {
+        map.set(key, { key, name: s.name, email: s.contact_email, country: s.country, rails: [] })
+      }
+      map.get(key)!.rails.push(s)
+    }
+
+    return [...map.values()]
+  }, [suppliers, searchTerm, methodFilter])
 
   async function handleSubmit(input: CreateSupplierPayload, supplierId?: string) {
     try {
@@ -84,9 +170,9 @@ export function SuppliersSection({
         await onCreateSupplier(input)
         toast.success('Proveedor creado exitosamente.')
       }
-
       setIsFormOpen(false)
       setEditingSupplier(null)
+      setAddingRailTo(null)
     } catch (error: any) {
       console.error('Failed to persist supplier', error)
       toast.error(error?.message || 'No se pudo guardar el proveedor.')
@@ -94,15 +180,12 @@ export function SuppliersSection({
   }
 
   async function handleDelete(supplier: Supplier) {
-    if (!supplier.id || !confirm(`¿Eliminar a ${supplier.name}?`)) {
+    if (!supplier.id || !confirm(`¿Eliminar "${supplier.name}" (${RAIL_LABELS[supplier.payment_rail]})?`)) {
       return
     }
-
     try {
       await onDeleteSupplier(supplier.id)
-      if (editingSupplier?.id === supplier.id) {
-        setEditingSupplier(null)
-      }
+      if (editingSupplier?.id === supplier.id) setEditingSupplier(null)
       toast.success('Proveedor eliminado.')
     } catch (error) {
       console.error('Failed to delete supplier', error)
@@ -112,16 +195,40 @@ export function SuppliersSection({
 
   function handleCreate() {
     setEditingSupplier(null)
+    setAddingRailTo(null)
     setIsFormOpen(true)
   }
 
   function handleEdit(supplier: Supplier) {
     setEditingSupplier(supplier)
+    setAddingRailTo(null)
+    setIsFormOpen(true)
+  }
+
+  function handleAddRail(group: SupplierGroup) {
+    const usedRails = group.rails
+      .filter((s) => s.payment_rail !== 'crypto')
+      .map((s) => s.payment_rail as string)
+    const usedNetworks = group.rails
+      .filter((s) => s.payment_rail === 'crypto')
+      .map((s) => (s.bank_details?.wallet_network as string))
+      .filter(Boolean)
+
+    setAddingRailTo({ email: group.email!, name: group.name, usedRails, usedNetworks })
+    setEditingSupplier(null)
     setIsFormOpen(true)
   }
 
   function handleBackToAgenda() {
     setIsFormOpen(false)
+    setEditingSupplier(null)
+    setAddingRailTo(null)
+  }
+
+  // Cuando el formulario de nuevo proveedor detecta un email ya existente,
+  // puede redirigir al flujo "añadir rail" directamente.
+  function handleSwitchToAddRail(email: string, info: { supplierName: string; usedRails: string[]; usedNetworks: string[] }) {
+    setAddingRailTo({ email, name: info.supplierName, usedRails: info.usedRails, usedNetworks: info.usedNetworks })
     setEditingSupplier(null)
   }
 
@@ -131,13 +238,15 @@ export function SuppliersSection({
         <SupplierForm
           disabled={disabled}
           editingSupplier={editingSupplier}
-          key={editingSupplier?.id ?? 'new'}
+          addingRailTo={addingRailTo}
+          key={editingSupplier?.id ?? (addingRailTo ? `rail-${addingRailTo.email}` : 'new')}
           onBack={handleBackToAgenda}
           onSubmitSupplier={handleSubmit}
+          onSwitchToAddRail={handleSwitchToAddRail}
         />
       ) : (
         <>
-          <section className="flex flex-col gap-4  p-6 ">
+          <section className="flex flex-col gap-4 p-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div className="space-y-2">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Proveedores</div>
@@ -154,14 +263,14 @@ export function SuppliersSection({
             <div className="grid gap-3 md:grid-cols-[1fr_220px]">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input 
-                  className="h-10 pl-9" 
-                  onChange={(event) => setSearchTerm(event.target.value)} 
-                  placeholder="Buscar proveedores..." 
-                  value={searchTerm} 
+                <Input
+                  className="h-10 pl-9"
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Buscar proveedores..."
+                  value={searchTerm}
                 />
               </div>
-              <Select value={methodFilter} onValueChange={(value) => setMethodFilter(value as 'all' | PaymentRail)}>
+              <Select value={methodFilter} onValueChange={(v) => setMethodFilter(v as 'all' | PaymentRail)}>
                 <SelectTrigger className="h-10 w-full">
                   <SelectValue placeholder="Todos los tipos" />
                 </SelectTrigger>
@@ -179,87 +288,78 @@ export function SuppliersSection({
             <CardHeader className="px-6 py-6 sm:px-8">
               <CardTitle className="text-xl font-bold tracking-tight">Destinatarios guardados</CardTitle>
               <CardDescription className="text-sm">
-                Lista de todos los proveedores listos para recibir pagos a través de los diversos métodos.
+                Cada contacto agrupa todos sus métodos de cobro. Usa "Añadir método" para registrar una nueva cuenta o red.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-2 px-6 pb-6 sm:px-8 sm:pb-8">
-              {filteredSuppliers.length === 0 ? (
+            <CardContent className="space-y-3 px-6 pb-6 sm:px-8 sm:pb-8">
+              {groupedSuppliers.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-border/70 p-8 text-center text-sm text-muted-foreground">
                   {suppliers.length === 0
                     ? 'Aún no hay proveedores registrados. Usa el botón superior para crear el primero.'
                     : 'No encontramos proveedores con ese criterio de búsqueda.'}
                 </div>
               ) : (
-                filteredSuppliers.map((supplier) => (
-                  <div
-                    key={supplier.id}
-                    className="group flex cursor-pointer flex-col gap-4 rounded-2xl border border-transparent p-3 transition-all duration-300 hover:border-border/60 hover:bg-muted/20 hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] md:flex-row md:items-center md:justify-between"
-                  >
-                    <div className="flex items-start gap-4 min-w-0 w-full md:w-auto">
-                      {(() => {
-                        const flagCode = RAIL_FLAG_CODES[supplier.payment_rail]
-                        if (flagCode) {
-                          return (
-                            <div className="flex size-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/70 bg-muted/30">
-                              <Flag code={flagCode} className="h-full w-full object-cover" fallback={<UserRound className="size-5 text-muted-foreground" />} />
-                            </div>
-                          )
-                        }
-                        return (
-                          <div className="flex size-11 flex-shrink-0 items-center justify-center rounded-full border border-primary bg-primary shadow-sm">
+                groupedSuppliers.map((group) => {
+                  const firstRail = group.rails[0]
+                  const flagCode = RAIL_FLAG_CODES[firstRail.payment_rail]
+                  const hasEmail = !!group.email
+
+                  return (
+                    <div
+                      key={group.key}
+                      className="rounded-2xl border border-border/40 bg-background p-4 transition-all duration-200 hover:border-border/70 hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.06)]"
+                    >
+                      {/* Cabecera del contacto */}
+                      <div className="mb-3 flex items-center gap-3">
+                        <div className={cn(
+                          'flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border',
+                          flagCode
+                            ? 'border-border/70 bg-muted/30'
+                            : 'border-primary bg-primary shadow-sm'
+                        )}>
+                          {flagCode ? (
+                            <Flag code={flagCode} className="h-full w-full object-cover" fallback={<UserRound className="size-5 text-muted-foreground" />} />
+                          ) : (
                             <Bitcoin className="size-5 text-primary-foreground" />
-                          </div>
-                        )
-                      })()}
-                      <div className="flex min-w-0 flex-col gap-3 md:flex-row md:gap-8 md:items-center">
-                        <div className="min-w-0">
-                          <div className="truncate text-xl font-semibold">{supplier.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {supplier.bank_details?.bank_name as string ?? (supplier.payment_rail === 'crypto' ? 'Billetera Externa' : 'Cuenta Bancaria')}
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-start gap-2 shrink-0 md:flex-row md:items-center">
-                          <Badge variant="outline">
-                            {RAIL_LABELS[supplier.payment_rail] || supplier.payment_rail}
-                          </Badge>
-                          {supplier.bridge_external_account_id && (
-                            <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border-emerald-500/20">
-                              <CheckCircle2 className="mr-1 h-3 w-3" />
-                              En Bridge
-                            </Badge>
                           )}
                         </div>
-                        <div className="grid min-w-0 gap-1 text-sm text-muted-foreground md:border-l md:border-border/50 md:pl-8">
-                          <div className="truncate">{supplier.country}</div>
-                          {supplier.contact_email && <div className="truncate">{supplier.contact_email}</div>}
+                        <div className="min-w-0">
+                          <div className="truncate text-base font-semibold">{group.name}</div>
+                          {group.email && (
+                            <div className="truncate text-sm text-muted-foreground">{group.email}</div>
+                          )}
                         </div>
                       </div>
-                    </div>
 
-                    <div className="mt-2 flex items-center justify-end gap-1 md:mt-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                      <Button
-                        className="text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer rounded-full"
-                        disabled={disabled}
-                        onClick={() => handleEdit(supplier)}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <Pencil className="size-4" />
-                      </Button>
-                      <Button
-                        className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive cursor-pointer rounded-full"
-                        disabled={disabled}
-                        onClick={() => handleDelete(supplier)}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
+                      {/* Rails del contacto */}
+                      <div className="flex flex-wrap gap-2">
+                        {group.rails.map((supplier) => (
+                          <RailChip
+                            key={supplier.id}
+                            supplier={supplier}
+                            disabled={disabled}
+                            onEdit={() => handleEdit(supplier)}
+                            onDelete={() => handleDelete(supplier)}
+                          />
+                        ))}
+
+                        {hasEmail && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={disabled}
+                            onClick={() => handleAddRail(group)}
+                            className="h-8 rounded-full border-dashed px-3 text-xs text-muted-foreground hover:border-primary/50 hover:text-primary"
+                          >
+                            <Plus className="mr-1 size-3" />
+                            Añadir método
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))
+                  )
+                })
               )}
             </CardContent>
           </Card>

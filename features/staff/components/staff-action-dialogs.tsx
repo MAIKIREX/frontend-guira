@@ -500,8 +500,8 @@ export function OrderDetailDialog({ actor, onUpdated, order }: { actor: StaffAct
               ))}
             </div>
 
-            {/* QR (conditional) */}
-            {liquidationQR && (
+            {/* QR (conditional) — only visible once order reaches processing to avoid premature deposits */}
+            {liquidationQR && ['processing', 'sent', 'completed'].includes(order.status) && (
               <div className="border-b border-border/30 px-5 py-4">
                 <div className="flex flex-col items-center gap-3">
                   <div className="w-full rounded-lg bg-amber-500/8 px-3 py-2 text-center">

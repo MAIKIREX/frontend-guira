@@ -24,6 +24,9 @@ import type { ActivityLog } from '@/types/activity-log'
 // (PaymentSnapshot era un antipatrón: acoplaba 6 entidades en un solo blob)
 export interface PaymentsModuleState {
   orders: PaymentOrder[]
+  ordersTotal: number
+  ordersPage: number
+  ordersTotalPages: number
   suppliers: Supplier[]
   activityLogs: ActivityLog[]
   /** Configuración de fees, tasas PSAV y app settings cargados del backend */
@@ -33,11 +36,6 @@ export interface PaymentsModuleState {
   exchangeRates: unknown[]
   /** Siempre vacío en la nueva arquitectura (el backend ya no retorna gaps) */
   gaps: string[]
-  /** Bloqueo exclusivo: si el usuario tiene un expediente activo en los 5 servicios exclusivos */
-  exclusiveBlock: {
-    has_active: boolean
-    active_order?: { id: string; flow_type: string; status: string; created_at: string }
-  }
 }
 
 export function usePaymentsModule() {
@@ -45,14 +43,13 @@ export function usePaymentsModule() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (page = 1) => {
     setLoading(true)
     setError(null)
 
     try {
-      // Carga paralela — queries principales
       const [ordersResult, suppliersResult, feesResult, ratesResult] = await Promise.allSettled([
-        PaymentsService.getOrders(),
+        PaymentsService.getOrders({ page, limit: 50 }),
         PaymentsService.getSuppliers(),
         PaymentsService.getFeesConfig(),
         PaymentsService.getExchangeRates(),
@@ -61,37 +58,31 @@ export function usePaymentsModule() {
       if (ordersResult.status === 'rejected') throw ordersResult.reason
       if (suppliersResult.status === 'rejected') throw suppliersResult.reason
 
-      const rawOrders = ordersResult.value
+      const ordersResponse = ordersResult.value
       const suppliers = suppliersResult.value
       const feesConfig = feesResult.status === 'fulfilled' ? feesResult.value : []
       const exchangeRates = ratesResult.status === 'fulfilled' ? ratesResult.value : []
 
-      // Carga paralela — queries secundarias (opcionales, no bloquean la vista)
-      const [activityResult, psavResult, settingsResult, exclusiveResult] = await Promise.allSettled([
+      const orders: PaymentOrder[] = Array.isArray(ordersResponse.data) ? ordersResponse.data : []
+      const ordersTotal = ordersResponse.total ?? 0
+      const ordersPage = ordersResponse.page ?? page
+      const ordersTotalPages = Math.max(1, Math.ceil(ordersTotal / (ordersResponse.limit ?? 50)))
+
+      const [activityResult, psavResult, settingsResult] = await Promise.allSettled([
         PaymentsService.getActivityLogs(),
         PaymentsService.getPsavConfigs(),
         PaymentsService.getAppSettings(),
-        PaymentsService.getActiveExclusiveOrder(),
       ])
-
-      // Normalize: backend may return a wrapped object { data: [...] } or { items: [...] }
-      const orders: PaymentOrder[] = Array.isArray(rawOrders)
-        ? rawOrders
-        : Array.isArray((rawOrders as any)?.data)
-          ? (rawOrders as any).data
-          : Array.isArray((rawOrders as any)?.items)
-            ? (rawOrders as any).items
-            : []
 
       const activityLogs = activityResult.status === 'fulfilled' ? activityResult.value : []
       const psavConfigs = psavResult.status === 'fulfilled' ? psavResult.value : []
       const appSettings = settingsResult.status === 'fulfilled' ? settingsResult.value : []
-      const exclusiveBlock = exclusiveResult.status === 'fulfilled'
-        ? exclusiveResult.value
-        : { has_active: false }
 
       setState({
         orders,
+        ordersTotal,
+        ordersPage,
+        ordersTotalPages,
         suppliers,
         activityLogs,
         feesConfig: feesConfig as FeeConfigRow[],
@@ -99,7 +90,6 @@ export function usePaymentsModule() {
         appSettings,
         exchangeRates,
         gaps: [],
-        exclusiveBlock,
       })
     } catch (err) {
       console.error('Failed to load payments module', err)
@@ -213,12 +203,6 @@ export function usePaymentsModule() {
 
     mergeOrder(order)
 
-    // Refrescar bloqueo exclusivo después de crear una orden
-    try {
-      const newBlock = await PaymentsService.getActiveExclusiveOrder()
-      setState((current) => current ? { ...current, exclusiveBlock: newBlock } : current)
-    } catch { /* silent */ }
-
     return order
   }, [mergeOrder])
 
@@ -265,14 +249,12 @@ export function usePaymentsModule() {
     const updatedOrder = await PaymentsService.cancelOrder(orderId)
     mergeOrder(updatedOrder)
 
-    // Refrescar bloqueo exclusivo después de cancelar
-    try {
-      const newBlock = await PaymentsService.getActiveExclusiveOrder()
-      setState((current) => current ? { ...current, exclusiveBlock: newBlock } : current)
-    } catch { /* silent */ }
-
     return updatedOrder
   }, [mergeOrder])
+
+  const goToOrdersPage = useCallback((page: number) => {
+    load(page)
+  }, [load])
 
   return {
     /** @deprecated Usar state directamente. snapshot se mantiene para compatibilidad temporal. */
@@ -290,6 +272,10 @@ export function usePaymentsModule() {
     loading,
     error,
     reload: load,
+    goToOrdersPage,
+    pagination: state
+      ? { page: state.ordersPage, totalPages: state.ordersTotalPages, total: state.ordersTotal }
+      : null,
     createSupplier,
     updateSupplier,
     deleteSupplier,
