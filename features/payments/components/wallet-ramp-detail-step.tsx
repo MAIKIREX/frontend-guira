@@ -42,21 +42,19 @@ const FORM_UNDERLINE_SELECT_CLASS = 'h-11 w-full rounded-none border-0 border-b 
 const METHOD_META: Record<string, { originCurrency: string }> = {
   fiat_bo: { originCurrency: 'BOB' },
   crypto: { originCurrency: '' }, // dinámico según selector
-  fiat_us: { originCurrency: 'USD' },
 }
 
 // Hoisted outside the component so the reference is stable across renders
 const FLOW_TYPE_MAP: Record<string, string> = {
   fiat_bo: 'fiat_bo_to_bridge_wallet',
   crypto: 'crypto_to_bridge_wallet',
-  fiat_us: 'fiat_us_to_bridge_wallet',
 }
 
 export type RampDepositSubStep = 'wallet' | 'network' | 'amount'
 
 interface WalletRampDetailStepProps {
   form: any
-  method: 'fiat_bo' | 'crypto' | 'fiat_us'
+  method: 'fiat_bo' | 'crypto'
   wallets: WalletBalance[]
   virtualAccounts: VirtualAccount[]
   loadingVirtualAccounts: boolean
@@ -600,105 +598,6 @@ export function WalletRampDetailStep({
             </FormItem>
           )}
         />
-      )}
-
-      {method === 'fiat_us' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <p className={LABEL_CLASS}>Virtual Account (USD)</p>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-8 gap-1.5 text-xs"
-              onClick={() => setVaDialogOpen(true)}
-              disabled={disabled}
-            >
-              <Plus className="size-3" />
-              Nueva VA
-            </Button>
-          </div>
-
-          {loadingVirtualAccounts ? (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Loader2 className="size-3.5 animate-spin" />
-              Cargando cuentas virtuales…
-            </div>
-          ) : virtualAccounts.length === 0 ? (
-            <div className="flex flex-col items-start gap-4 rounded-2xl border border-dashed border-border/60 bg-muted/20 p-5">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <CircleAlert className="size-4" />
-                <span>No tienes ninguna Virtual Account activa.</span>
-              </div>
-              <p className="text-xs text-muted-foreground/80">
-                Las Virtual Accounts son cuentas bancarias en USD vinculadas a tu wallet Bridge.
-                Crea una para recibir depósitos ACH/Wire desde EE.UU.
-              </p>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => setVaDialogOpen(true)}
-                disabled={disabled}
-                className="gap-1.5"
-              >
-                <Plus className="size-3.5" />
-                Crear Virtual Account
-              </Button>
-            </div>
-          ) : (
-            <FormField
-              control={form.control}
-              name="wallet_ramp_va_id"
-              render={({ field }) => (
-                <FormItem>
-                  <Select
-                    value={field.value ?? ''}
-                    onValueChange={field.onChange}
-                    disabled={disabled}
-                  >
-                    <FormControl>
-                      <SelectTrigger className={cn(FORM_UNDERLINE_SELECT_CLASS, FORM_TEXT_CLASS)}>
-                        {selectedVa ? (
-                          <span className="flex items-center gap-1.5 truncate">
-                            <span className="font-medium">
-                              {selectedVa.bank_name ?? 'Banco VA'} — {selectedVa.account_number ?? selectedVa.id.slice(0, 8)}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              ({selectedVa.source_currency.toUpperCase()} → {selectedVa.destination_currency.toUpperCase()})
-                            </span>
-                          </span>
-                        ) : (
-                          <SelectValue placeholder="Seleccionar cuenta virtual" />
-                        )}
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {virtualAccounts.map((va) => (
-                        <SelectItem key={va.id} value={va.id}>
-                          <span className="font-medium">
-                            {va.bank_name ?? 'Banco VA'} — {va.account_number ?? va.id.slice(0, 8)}
-                          </span>
-                          <span className="ml-1.5 text-xs text-muted-foreground">
-                            ({va.source_currency.toUpperCase()} → {va.destination_currency.toUpperCase()})
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
-
-          <CreateVirtualAccountDialog
-            open={vaDialogOpen}
-            onOpenChange={setVaDialogOpen}
-            internalCurrencies={virtualAccounts.filter((va) => !va.is_external_sweep).map((va) => va.source_currency)}
-            externalCountBySource={virtualAccounts.filter((va) => va.is_external_sweep).reduce<Record<string, number>>((acc, va) => { acc[va.source_currency] = (acc[va.source_currency] ?? 0) + 1; return acc }, {})}
-            onCreated={onVaCreated}
-          />
-        </div>
       )}
 
       {Number(amount) > 0 && (

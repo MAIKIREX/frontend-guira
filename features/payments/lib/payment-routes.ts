@@ -100,8 +100,7 @@ export function resolveFlowType(route: SupportedPaymentRoute, deliveryMethod?: s
       return 'wallet_to_wallet'
     case 'wallet_ramp_deposit':
       if (walletRampMethod === 'fiat_bo') return 'fiat_bo_to_bridge_wallet'
-      if (walletRampMethod === 'crypto') return 'crypto_to_bridge_wallet'
-      return 'fiat_us_to_bridge_wallet'
+      return 'crypto_to_bridge_wallet'
     case 'wallet_ramp_withdraw':
       if (walletRampWithdrawMethod === 'crypto') return 'bridge_wallet_to_crypto'
       if (walletRampWithdrawMethod === 'fiat_us') return 'bridge_wallet_to_fiat_us'
@@ -118,7 +117,7 @@ export function buildPaymentOrderPayload(
 ): any {
   const flowType = resolveFlowType(values.route, values.delivery_method, values.wallet_ramp_method, values.wallet_ramp_withdraw_method)
   const isWalletRamp = [
-    'fiat_bo_to_bridge_wallet', 'crypto_to_bridge_wallet', 'fiat_us_to_bridge_wallet',
+    'fiat_bo_to_bridge_wallet', 'crypto_to_bridge_wallet',
     'bridge_wallet_to_fiat_bo', 'bridge_wallet_to_crypto', 'bridge_wallet_to_fiat_us',
     'wallet_to_fiat',
   ].includes(flowType)
@@ -176,9 +175,6 @@ export function buildPaymentOrderPayload(
       payload.source_currency = values.origin_currency?.toLowerCase()
       payload.destination_currency = (values.wallet_ramp_destination_currency ?? values.destination_currency)?.toLowerCase()
       payload.amount = 0 // flexible_amount: Bridge acepta cualquier monto; se actualiza por webhook
-      break
-    case 'fiat_us_to_bridge_wallet':
-      payload.virtual_account_id = values.wallet_ramp_va_id
       break
     case 'bridge_wallet_to_fiat_bo':
       payload.wallet_id = values.wallet_ramp_wallet_id

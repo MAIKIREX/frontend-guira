@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { personalOnboardingSchema, type PersonalOnboardingValues } from '../schemas/personal-onboarding.schema'
 import { Button } from '@/components/ui/button'
+import { GuiraButton } from '@/components/shared/guira-button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
@@ -13,7 +14,7 @@ import { OnboardingService } from '@/services/onboarding.service'
 import { toast } from 'sonner'
 import { useState, useEffect, useRef } from 'react'
 import { FileDropzone } from '@/components/shared/file-dropzone'
-import { Loader2, CheckCircle2, FileText } from 'lucide-react'
+import { Loader2, CheckCircle2, FileText, Eye, Paperclip } from 'lucide-react'
 import { FieldObservationAlert } from './field-observation-alert'
 import { TosIframeModal } from './tos-iframe-modal'
 import Flag from 'react-world-flags'
@@ -51,6 +52,19 @@ export function PersonalForm({
   // Documentos ya subidos previamente al servidor (para mostrar estado "ya adjuntado")
   const [existingDocs, setExistingDocs] = useState<Record<string, { fileName: string; id: string }>>({})
   const [docsLoaded, setDocsLoaded] = useState(false)
+  const [previewLoading, setPreviewLoading] = useState<Record<string, boolean>>({})
+
+  const handlePreviewDoc = async (docKey: string, docId: string) => {
+    setPreviewLoading(prev => ({ ...prev, [docKey]: true }))
+    try {
+      const { signed_url } = await OnboardingService.getDocumentSignedUrl(docId)
+      window.open(signed_url, '_blank', 'noopener,noreferrer')
+    } catch {
+      toast.error('No se pudo obtener el enlace del documento')
+    } finally {
+      setPreviewLoading(prev => ({ ...prev, [docKey]: false }))
+    }
+  }
 
   const form = useForm<PersonalOnboardingValues>({
 
@@ -433,7 +447,7 @@ export function PersonalForm({
               )} />
             </div>
             <div className="flex justify-end pt-4">
-              <Button type="button" onClick={handleNext}>Siguiente</Button>
+              <GuiraButton type="button" arrowNext onClick={handleNext}>Siguiente</GuiraButton>
             </div>
           </div>
         )}
@@ -515,8 +529,8 @@ export function PersonalForm({
               )} />
             </div>
             <div className="flex justify-between pt-4">
-              <Button type="button" variant="outline" onClick={() => setStep(step - 1)}>Atrás</Button>
-              <Button type="button" onClick={handleNext}>Siguiente</Button>
+              <GuiraButton type="button" variant="secondary" arrowBack onClick={() => setStep(step - 1)}>Atrás</GuiraButton>
+              <GuiraButton type="button" arrowNext onClick={handleNext}>Siguiente</GuiraButton>
             </div>
           </div>
         )}
@@ -647,8 +661,8 @@ export function PersonalForm({
               )} />
             </div>
             <div className="flex justify-between pt-4">
-              <Button type="button" variant="outline" onClick={() => setStep(step - 1)}>Atrás</Button>
-              <Button type="button" onClick={handleNext}>Siguiente</Button>
+              <GuiraButton type="button" variant="secondary" arrowBack onClick={() => setStep(step - 1)}>Atrás</GuiraButton>
+              <GuiraButton type="button" arrowNext onClick={handleNext}>Siguiente</GuiraButton>
             </div>
           </div>
         )}
@@ -668,14 +682,13 @@ export function PersonalForm({
                   <label className="block text-sm font-medium mb-2">
                     {title}
                     {pendingFiles[id] && <span className="ml-2 text-emerald-500 text-xs">✓ Nuevo adjuntado</span>}
-                    {!pendingFiles[id] && existingDocs[id] && (
-                      <span className="ml-2 text-sky-500 text-xs">📎 Ya subido: {existingDocs[id].fileName}</span>
-                    )}
                   </label>
                   {!pendingFiles[id] && existingDocs[id] && (
-                    <p className="text-xs text-muted-foreground mb-2">
-                      Ya tienes un documento de este tipo subido. Si deseas reemplazarlo, selecciona uno nuevo.
-                    </p>
+                    <ExistingDocPreview
+                      fileName={existingDocs[id].fileName}
+                      loading={!!previewLoading[id]}
+                      onView={() => handlePreviewDoc(id, existingDocs[id].id)}
+                    />
                   )}
                   <FileDropzone
                     accept={accept || 'image/*,.pdf'}
@@ -692,14 +705,13 @@ export function PersonalForm({
                 <label className="block text-sm font-medium mb-2">
                   Comprobante de Domicilio
                   {pendingFiles['proof_of_address'] && <span className="ml-2 text-emerald-500 text-xs">✓ Nuevo adjuntado</span>}
-                  {!pendingFiles['proof_of_address'] && existingDocs['proof_of_address'] && (
-                    <span className="ml-2 text-sky-500 text-xs">📎 Ya subido: {existingDocs['proof_of_address'].fileName}</span>
-                  )}
                 </label>
                 {!pendingFiles['proof_of_address'] && existingDocs['proof_of_address'] && (
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Ya tienes un comprobante subido. Si deseas reemplazarlo, selecciona uno nuevo.
-                  </p>
+                  <ExistingDocPreview
+                    fileName={existingDocs['proof_of_address'].fileName}
+                    loading={!!previewLoading['proof_of_address']}
+                    onView={() => handlePreviewDoc('proof_of_address', existingDocs['proof_of_address'].id)}
+                  />
                 )}
                 <FileDropzone
                   accept="image/*,.pdf"
@@ -743,19 +755,15 @@ export function PersonalForm({
                 </div>
               ) : (
                 /* ── Estado: pendiente ── */
-                <Button
+                <GuiraButton
                   type="button"
                   variant="outline"
                   disabled={tosLoading}
                   onClick={handleOpenTosModal}
-                  className="gap-2"
+                  iconStart={tosLoading ? undefined : FileText}
                 >
-                  {tosLoading
-                    ? <Loader2 className="w-4 h-4 animate-spin" />
-                    : <FileText className="w-4 h-4" />
-                  }
-                  {tosLoading ? 'Cargando…' : 'Revisar y Aceptar Términos de Servicio'}
-                </Button>
+                  {tosLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Cargando…</> : 'Revisar y Aceptar Términos de Servicio'}
+                </GuiraButton>
               )}
 
               {/* Modal con iframe de Bridge */}
@@ -770,20 +778,52 @@ export function PersonalForm({
             </div>
 
             <div className="flex justify-between pt-4">
-              <Button type="button" variant="outline" onClick={() => setStep(step - 1)}>Atrás</Button>
-              <Button
+              <GuiraButton type="button" variant="secondary" arrowBack onClick={() => setStep(step - 1)}>Atrás</GuiraButton>
+              <GuiraButton
                 type="submit"
+                arrowNext
                 disabled={isUploading || form.formState.isSubmitting || !tosContractId}
               >
                 {form.formState.isSubmitting
                   ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Enviando...</>
                   : 'Enviar Solicitud KYC'}
-              </Button>
+              </GuiraButton>
             </div>
           </div>
         )}
 
       </form>
     </Form>
+  )
+}
+
+function ExistingDocPreview({
+  fileName,
+  loading,
+  onView,
+}: {
+  fileName: string
+  loading: boolean
+  onView: () => void
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-lg border border-sky-200/60 bg-sky-50/50 dark:bg-sky-950/20 dark:border-sky-800/40 px-3 py-2 mb-3 gap-3">
+      <div className="flex items-center gap-2 min-w-0">
+        <Paperclip className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+        <span className="text-xs font-medium text-sky-700 dark:text-sky-400 truncate">{fileName}</span>
+      </div>
+      <button
+        type="button"
+        onClick={onView}
+        disabled={loading}
+        className="flex items-center gap-1.5 text-xs font-semibold text-sky-600 dark:text-sky-400 hover:text-sky-900 dark:hover:text-sky-200 disabled:opacity-50 shrink-0 transition-colors"
+      >
+        {loading
+          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          : <Eye className="w-3.5 h-3.5" />
+        }
+        {loading ? 'Cargando…' : 'Ver documento'}
+      </button>
+    </div>
   )
 }

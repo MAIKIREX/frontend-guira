@@ -42,7 +42,7 @@ export const paymentOrderSchema = z
     source_crypto_address: z.string().trim().optional(),
     destination_account_holder: z.string().trim().optional(),
     destination_qr_url: z.string().trim().optional(),
-    wallet_ramp_method: z.enum(['fiat_bo', 'crypto', 'fiat_us']).optional(),
+    wallet_ramp_method: z.enum(['fiat_bo', 'crypto']).optional(),
     wallet_ramp_wallet_id: z.string().optional(),
     wallet_ramp_va_id: z.string().optional(),
     wallet_ramp_source_network: z.string().optional(),
@@ -98,12 +98,6 @@ export const paymentOrderSchema = z
       if (value.wallet_ramp_method === 'fiat_bo' || value.wallet_ramp_method === 'crypto') {
         if (!value.wallet_ramp_wallet_id) {
           ctx.addIssue({ code: 'custom', message: 'Selecciona una billetera destino.', path: ['wallet_ramp_wallet_id'] })
-        }
-      }
-
-      if (value.wallet_ramp_method === 'fiat_us') {
-        if (!value.wallet_ramp_va_id) {
-          ctx.addIssue({ code: 'custom', message: 'Selecciona tu cuenta virtual origen.', path: ['wallet_ramp_va_id'] })
         }
       }
 

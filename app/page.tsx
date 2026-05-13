@@ -1,10 +1,11 @@
 'use client'
 
-import Link from 'next/link'
 import Image from 'next/image'
-import { ArrowRight, ShieldCheck, BarChart3, Globe2 } from 'lucide-react'
+import { ShieldCheck, BarChart3, Globe2 } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { useRouter } from 'next/navigation'
 import { ThemeToggle } from '@/components/theme/theme-toggle'
+import { GuiraButton } from '@/components/shared/guira-button'
 
 /* ── Animation variants ── */
 const fadeUp = {
@@ -34,6 +35,7 @@ const scaleIn = {
 }
 
 export default function HomePage() {
+  const router = useRouter()
   return (
     <div className="min-h-[100dvh] grid grid-cols-1 lg:grid-cols-[1fr_1.15fr]">
       {/* ═══════════════════════════════════════════════════
@@ -144,12 +146,9 @@ export default function HomePage() {
           <div className="hidden lg:block" />
           <div className="flex items-center gap-3">
             <ThemeToggle />
-            <Link
-              href="/login"
-              className="inline-flex h-9 items-center justify-center rounded-lg border border-border/60 bg-card/60 px-4 text-[13px] font-medium text-foreground transition-all hover:bg-secondary/80 active:scale-[0.98]"
-            >
+            <GuiraButton variant="outline" size="sm" onClick={() => router.push('/login')}>
               Ingresar
-            </Link>
+            </GuiraButton>
           </div>
         </header>
 
@@ -196,19 +195,12 @@ export default function HomePage() {
               custom={3}
               variants={fadeUp}
             >
-              <Link
-                href="/login"
-                className="group inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-6 text-[14px] font-medium text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98] active:-translate-y-[1px]"
-              >
+              <GuiraButton arrowNext onClick={() => router.push('/login')}>
                 Ir al login
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-              </Link>
-              <Link
-                href="/registro"
-                className="inline-flex h-11 items-center justify-center rounded-lg border border-border/60 bg-secondary/30 px-6 text-[14px] font-medium text-foreground transition-all hover:bg-secondary/60 active:scale-[0.98] active:-translate-y-[1px]"
-              >
+              </GuiraButton>
+              <GuiraButton variant="secondary" onClick={() => router.push('/registro')}>
                 Crear cuenta
-              </Link>
+              </GuiraButton>
             </motion.div>
 
             {/* Feature list — minimal, no card boxes */}

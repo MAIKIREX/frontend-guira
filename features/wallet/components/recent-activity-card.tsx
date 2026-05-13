@@ -29,7 +29,7 @@ const FLOW_LABELS: Record<string, string> = {
 }
 
 const INFLOW_FLOWS = new Set([
-  'fiat_bo_to_bridge_wallet', 'fiat_us_to_bridge_wallet',
+  'fiat_bo_to_bridge_wallet',
   'crypto_to_bridge_wallet', 'world_to_bolivia', 'world_to_wallet',
 ])
 

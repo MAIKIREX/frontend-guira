@@ -141,8 +141,6 @@ function getDepositInstructions(va: VirtualAccount): { label: string; value: str
         ...common,
         { label: 'Banco', value: va.bank_name },
         { label: 'Dirección del Banco', value: va.bank_address },
-        { label: 'Beneficiario', value: va.beneficiary_name },
-        { label: 'Dirección del Beneficiario', value: va.beneficiary_address },
         { label: 'Routing Number', value: va.routing_number },
         { label: 'Núm. Cuenta', value: va.account_number },
       ]

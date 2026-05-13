@@ -42,6 +42,7 @@ type InlineDocument = {
 type SummaryRow = {
   label: string
   value: string
+  fieldName?: string
 }
 
 type DetailSection = {
@@ -146,6 +147,34 @@ export function OnboardingDetailPage({ onboardingId }: { onboardingId: string })
   )
 }
 
+const DRAFT_KEY = (id: string) => `guira_audit_draft_${id}`
+
+function loadDraft(reviewId: string): { fieldObservations: Record<string, string>; reason: string } {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY(reviewId))
+    if (!raw) return { fieldObservations: {}, reason: '' }
+    return JSON.parse(raw)
+  } catch {
+    return { fieldObservations: {}, reason: '' }
+  }
+}
+
+function saveDraft(reviewId: string, fieldObservations: Record<string, string>, reason: string) {
+  try {
+    localStorage.setItem(DRAFT_KEY(reviewId), JSON.stringify({ fieldObservations, reason }))
+  } catch {
+    // localStorage no disponible
+  }
+}
+
+function clearDraft(reviewId: string) {
+  try {
+    localStorage.removeItem(DRAFT_KEY(reviewId))
+  } catch {
+    // ignorar
+  }
+}
+
 function OnboardingDetailScene({
   actor,
   detail,
@@ -163,23 +192,34 @@ function OnboardingDetailScene({
   const sections = useMemo(() => buildStructuredSections(record, data), [record, data])
   const mergedDocuments = useMemo(() => mergeDocuments(documents, data, record.created_at), [documents, data, record.created_at])
 
-  // ── Audit Mode State ──
-  const [fieldObservations, setFieldObservations] = useState<Record<string, string>>({})
-  const [auditGlobalReason, setAuditGlobalReason] = useState('')
+  // ── Audit Mode State — cargado desde borrador localStorage al montar ──
+  const initialDraft = useMemo(() => loadDraft(reviewId), [reviewId])
+  const [fieldObservations, setFieldObservations] = useState<Record<string, string>>(initialDraft.fieldObservations)
+  const [auditGlobalReason, setAuditGlobalReason] = useState(initialDraft.reason)
   const [submittingAudit, setSubmittingAudit] = useState(false)
   const auditCount = Object.keys(fieldObservations).length
 
   const addObservation = useCallback((key: string, message: string) => {
-    setFieldObservations(prev => ({ ...prev, [key]: message }))
-  }, [])
+    setFieldObservations(prev => {
+      const next = { ...prev, [key]: message }
+      saveDraft(reviewId, next, auditGlobalReason)
+      return next
+    })
+  }, [reviewId, auditGlobalReason])
 
   const removeObservation = useCallback((key: string) => {
     setFieldObservations(prev => {
       const next = { ...prev }
       delete next[key]
+      saveDraft(reviewId, next, auditGlobalReason)
       return next
     })
-  }, [])
+  }, [reviewId, auditGlobalReason])
+
+  function handleReasonChange(value: string) {
+    setAuditGlobalReason(value)
+    saveDraft(reviewId, fieldObservations, value)
+  }
 
   async function submitCorrections() {
     if (auditCount === 0) return
@@ -193,6 +233,7 @@ function OnboardingDetailScene({
         fieldObservations,
       })
       toast.success('Solicitud de correcciones enviada.')
+      clearDraft(reviewId)
       setFieldObservations({})
       setAuditGlobalReason('')
       onUpdated(updatedRecord)
@@ -286,14 +327,14 @@ function OnboardingDetailScene({
               className="h-9 flex-1 rounded-lg border border-border/50 bg-background/80 px-3 text-[13px] placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
               placeholder="Mensaje general al cliente (opcional)..."
               value={auditGlobalReason}
-              onChange={(e) => setAuditGlobalReason(e.target.value)}
+              onChange={(e) => handleReasonChange(e.target.value)}
             />
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
                 size="sm"
                 className="text-muted-foreground"
-                onClick={() => { setFieldObservations({}); setAuditGlobalReason('') }}
+                onClick={() => { clearDraft(reviewId); setFieldObservations({}); setAuditGlobalReason('') }}
               >
                 Descartar
               </Button>
@@ -572,7 +613,7 @@ function CompactInfoList({ rows, fieldObservations = {}, onAddObservation, onRem
       {rows.map((row) => (
         <AuditableRow
           key={row.label}
-          fieldKey={row.label}
+          fieldKey={row.fieldName ?? row.label}
           label={row.label}
           value={row.value}
           observation={fieldObservations[row.label]}
@@ -753,7 +794,7 @@ function DocumentBlock({
   document: InlineDocument
   caseTypeLabel: string
 } & AuditProps) {
-  const docKey = `doc:${document.doc_type}`
+  const docKey = document.doc_type
   const observation = fieldObservations[docKey]
   const isRejected = observation !== undefined
   const [editing, setEditing] = useState(false)
@@ -989,9 +1030,9 @@ function buildStructuredSections(record: StaffOnboardingRecord, data: Record<str
         title: 'Identidad societaria',
         description: 'Datos principales enviados en el registro empresarial.',
         rows: compactRows([
-          row('Razon social', data.company_legal_name),
-          row('Numero de registro', data.registration_number),
-          row('NIT / Tax ID', data.tax_id),
+          row('Razon social', data.company_legal_name, 'legal_name'),
+          row('Numero de registro', data.registration_number, 'registration_number'),
+          row('NIT / Tax ID', data.tax_id, 'tax_id'),
           row('Tipo de entidad', data.entity_type),
           row('Fecha de constitucion', data.incorporation_date),
           row('Pais de constitucion', data.country_of_incorporation),
@@ -1002,11 +1043,11 @@ function buildStructuredSections(record: StaffOnboardingRecord, data: Record<str
         title: 'Direccion legal y representante',
         description: 'Datos operativos del domicilio empresarial y del representante legal.',
         rows: compactRows([
-          row('Direccion legal', data.business_street),
-          row('Ciudad', data.business_city),
-          row('Pais', data.business_country),
-          row('Nombres representante', data.legal_rep_first_names),
-          row('Apellidos representante', data.legal_rep_last_names),
+          row('Direccion legal', data.business_street, 'address1'),
+          row('Ciudad', data.business_city, 'city'),
+          row('Pais', data.business_country, 'country'),
+          row('Nombres representante', data.legal_rep_first_names, 'legal_rep_first_name'),
+          row('Apellidos representante', data.legal_rep_last_names, 'legal_rep_last_name'),
           row('Cargo', data.legal_rep_position),
           row('Documento representante', data.legal_rep_id_number),
         ]),
@@ -1015,9 +1056,9 @@ function buildStructuredSections(record: StaffOnboardingRecord, data: Record<str
         title: 'Perfil financiero',
         description: 'Motivo de uso, origen de fondos y volumen estimado declarado por el cliente.',
         rows: compactRows([
-          row('Proposito de la cuenta', data.purpose),
-          row('Origen de fondos', data.source_of_funds),
-          row('Volumen mensual estimado', data.estimated_monthly_volume),
+          row('Proposito de la cuenta', data.purpose, 'account_purpose'),
+          row('Origen de fondos', data.source_of_funds, 'source_of_funds'),
+          row('Volumen mensual estimado', data.estimated_monthly_volume, 'expected_monthly_payments_usd'),
         ]),
       },
       {
@@ -1052,34 +1093,42 @@ function buildStructuredSections(record: StaffOnboardingRecord, data: Record<str
       title: 'Identidad personal',
       description: 'Informacion de identificacion enviada por el usuario en su onboarding.',
       rows: compactRows([
-        row('Nombres', data.first_names),
-        row('Apellidos', data.last_names),
-        row('Fecha de nacimiento', data.dob),
-        row('Nacionalidad', data.nationality),
-        row('Tipo de documento', data.id_document_type),
-        row('Numero de documento', data.id_number),
-        row('Vencimiento del documento', data.id_expiry),
+        row('Nombres', data.first_names, 'first_name'),
+        row('Segundo nombre', data.middle_name, 'middle_name'),
+        row('Apellidos', data.last_names, 'last_name'),
+        row('Fecha de nacimiento', data.dob, 'date_of_birth'),
+        row('Nacionalidad', data.nationality, 'nationality'),
+        row('Tipo de documento', data.id_document_type, 'id_type'),
+        row('Numero de documento', data.id_number, 'id_number'),
+        row('Vencimiento del documento', data.id_expiry, 'id_expiry_date'),
+        row('Tax ID', data.tax_id),
+        row('Telefono', data.phone),
       ]),
     },
     {
       title: 'Direccion declarada',
       description: 'Ubicacion residencial o de referencia cargada en el formulario.',
       rows: compactRows([
-        row('Direccion', data.street),
-        row('Ciudad', data.city),
-        row('Estado / provincia', data.state_province),
-        row('Pais', data.country),
-        row('Codigo postal', data.postal_code),
+        row('Direccion', data.street, 'address1'),
+        row('Direccion adicional', data.street2),
+        row('Ciudad', data.city, 'city'),
+        row('Estado / provincia', data.state_province, 'state'),
+        row('Pais', data.country, 'country'),
+        row('Codigo postal', data.postal_code, 'postal_code'),
+        row('Pais de residencia', data.country_of_residence),
       ]),
     },
     {
       title: 'Perfil financiero',
       description: 'Motivo de uso, ocupacion, origen de fondos y volumen estimado.',
       rows: compactRows([
-        row('Ocupacion', data.occupation),
-        row('Proposito de la cuenta', data.purpose),
-        row('Origen de fondos', data.source_of_funds),
-        row('Volumen mensual estimado', data.estimated_monthly_volume),
+        row('Ocupacion', data.occupation, 'most_recent_occupation'),
+        row('Estatus laboral', data.employment_status),
+        row('Proposito de la cuenta', data.purpose, 'account_purpose'),
+        row('Proposito (especificacion)', data.purpose_other),
+        row('Origen de fondos', data.source_of_funds, 'source_of_funds'),
+        row('Volumen mensual estimado', data.estimated_monthly_volume, 'expected_monthly_payments_usd'),
+        row('Es PEP', data.is_pep != null ? (data.is_pep ? 'Sí' : 'No') : null),
       ]),
     },
   ]
@@ -1169,15 +1218,15 @@ function joinName(first: unknown, last: unknown) {
   return full || 'No disponible'
 }
 
-function row(label: string, value: unknown): SummaryRow | null {
+function row(label: string, value: unknown, fieldName?: string): SummaryRow | null {
   if (value == null) return null
   if (typeof value === 'string') {
     const trimmed = value.trim()
     if (!trimmed) return null
-    return { label, value: trimmed }
+    return { label, value: trimmed, fieldName }
   }
 
-  return { label, value: String(value) }
+  return { label, value: String(value), fieldName }
 }
 
 function compactRows(rows: Array<SummaryRow | null>) {

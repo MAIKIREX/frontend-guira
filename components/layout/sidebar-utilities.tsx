@@ -53,52 +53,50 @@ export function SidebarUtilities({
       )}
     >
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
+        <DropdownMenuTrigger
+          className={cn(
+            'w-full text-left rounded-xl border border-white/[0.08] bg-white/[0.04] transition-all duration-200 hover:bg-white/[0.08] outline-none',
+            collapsed ? 'p-2' : 'p-3'
+          )}
+        >
+          <div
             className={cn(
-              'w-full text-left rounded-xl border border-white/[0.08] bg-white/[0.04] transition-all duration-200 hover:bg-white/[0.08] outline-none',
-              collapsed ? 'p-2' : 'p-3'
+              'flex items-center',
+              collapsed ? 'justify-center' : 'gap-3'
             )}
           >
-            <div
-              className={cn(
-                'flex items-center',
-                collapsed ? 'justify-center' : 'gap-3'
-              )}
-            >
-              <div className="relative">
-                <Avatar className="size-9 border border-white/10 bg-[#005BFF]/20">
-                  <AvatarImage src={(profile as any)?.avatar_url || ''} alt={displayName} />
-                  <AvatarFallback className="bg-transparent text-white font-bold text-xs">
-                    {initials || 'U'}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-[#16C784] border-2 border-[#020B2D]" />
-              </div>
-
-              {!collapsed && !mobile && (
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-semibold text-white truncate leading-tight">
-                    {displayName}
-                  </p>
-                  <p className="text-[10px] font-medium text-white/40 mt-0.5">
-                    {role}
-                  </p>
-                </div>
-              )}
-
-              {mobile && (
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-semibold text-white truncate leading-tight">
-                    {displayName}
-                  </p>
-                  <p className="text-[10px] font-medium text-white/40 mt-0.5">
-                    {role}
-                  </p>
-                </div>
-              )}
+            <div className="relative">
+              <Avatar className="size-9 border border-white/10 bg-[#005BFF]/20">
+                <AvatarImage src={(profile as any)?.avatar_url || ''} alt={displayName} />
+                <AvatarFallback className="bg-transparent text-white font-bold text-xs">
+                  {initials || 'U'}
+                </AvatarFallback>
+              </Avatar>
+              <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-[#16C784] border-2 border-[#020B2D]" />
             </div>
-          </button>
+
+            {!collapsed && !mobile && (
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-semibold text-white truncate leading-tight">
+                  {displayName}
+                </p>
+                <p className="text-[10px] font-medium text-white/40 mt-0.5">
+                  {role}
+                </p>
+              </div>
+            )}
+
+            {mobile && (
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-semibold text-white truncate leading-tight">
+                  {displayName}
+                </p>
+                <p className="text-[10px] font-medium text-white/40 mt-0.5">
+                  {role}
+                </p>
+              </div>
+            )}
+          </div>
         </DropdownMenuTrigger>
         <DropdownMenuContent 
           align="end" 

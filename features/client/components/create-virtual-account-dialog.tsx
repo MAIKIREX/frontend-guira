@@ -44,6 +44,20 @@ import {
 } from '@/services/bridge.service'
 import { WalletService, type WalletBalance } from '@/services/wallet.service'
 import { GuiraButton } from '@/components/shared/guira-button'
+import Flag from 'react-world-flags'
+
+const CURRENCY_TO_ISO: Record<string, string> = {
+  usd: 'US',
+  eur: 'EU',
+  gbp: 'GB',
+  mxn: 'MX',
+  cop: 'CO',
+  brl: 'BR',
+}
+
+function getFlagCode(currency: string) {
+  return CURRENCY_TO_ISO[currency.toLowerCase()] ?? 'UN'
+}
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -51,6 +65,9 @@ type DestinationType = 'internal' | 'external'
 
 /** Límite por defecto de VAs externas por moneda (debe coincidir con VA_MAX_EXTERNAL_PER_CURRENCY en backend) */
 const DEFAULT_MAX_EXTERNAL_PER_CURRENCY = 3
+
+/** Monedas destino temporalmente deshabilitadas (solo USDC y USDT operativos por ahora) */
+const DISABLED_DEST_CURRENCIES = new Set(['usdb', 'pyusd', 'eurc'])
 
 interface CreateVirtualAccountDialogProps {
   open: boolean
@@ -177,7 +194,7 @@ export function CreateVirtualAccountDialog({
     if (destType === 'internal' && destWalletId && wallets.length > 0) {
       const selectedWallet = wallets.find((w) => w.id === destWalletId)
       if (selectedWallet) {
-        const walletCurrency = selectedWallet.currency.toLowerCase()
+        const walletCurrency = selectedWallet.currency?.toLowerCase() || ''
         const isCurrencyValid = DESTINATION_CURRENCY_OPTIONS.some(c => c.value === walletCurrency)
         if (isCurrencyValid) {
           setDestCurrency(walletCurrency as DestinationCurrency)
@@ -380,12 +397,23 @@ export function CreateVirtualAccountDialog({
                 onValueChange={(val) => { if (val) setSourceCurrency(val as SourceCurrency) }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar moneda" />
+                  {sourceCurrency ? (
+                    <span className="flex flex-1 items-center gap-2 text-left text-sm">
+                      <span className="inline-flex shrink-0 overflow-hidden rounded-full size-[18px]">
+                        <Flag code={getFlagCode(sourceCurrency)} className="h-full w-full object-cover" fallback={<span className="text-[10px] flex h-full w-full items-center justify-center bg-muted/30">{availableCurrencies.find(c => c.value === sourceCurrency)?.flag}</span>} />
+                      </span>
+                      {(() => { const opt = availableCurrencies.find(c => c.value === sourceCurrency); return opt ? `${opt.value.toUpperCase()} — ${opt.label} (${opt.railLabel})` : sourceCurrency.toUpperCase() })()}
+                    </span>
+                  ) : (
+                    <SelectValue placeholder="Seleccionar moneda" />
+                  )}
                 </SelectTrigger>
                 <SelectContent>
                   {availableCurrencies.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
-                      <span className="mr-1.5">{opt.flag}</span>
+                      <span className="mr-2 inline-flex shrink-0 overflow-hidden rounded-full size-[18px]">
+                        <Flag code={getFlagCode(opt.value)} className="h-full w-full object-cover" fallback={<span className="text-[10px] flex h-full w-full items-center justify-center bg-muted/30">{opt.flag}</span>} />
+                      </span>
                       {opt.value.toUpperCase()} — {opt.label}
                       <span className="ml-1 text-muted-foreground">({opt.railLabel})</span>
                     </SelectItem>
@@ -425,17 +453,33 @@ export function CreateVirtualAccountDialog({
                   onValueChange={(val) => { if (val) setDestWalletId(val) }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar wallet" />
+                    {destWalletId ? (() => {
+                      const sel = wallets.find(w => w.id === destWalletId)
+                      if (!sel) return <SelectValue placeholder="Seleccionar wallet" />
+                      const cd = sel.currency ? sel.currency.toUpperCase() : 'WALLET'
+                      return (
+                        <span className="flex flex-1 items-center gap-2 text-left text-sm">
+                          <Wallet className="size-3.5 shrink-0 text-primary/60" />
+                          {sel.label ?? `${cd} Wallet`}
+                          <span className="text-muted-foreground">({cd} · {sel.network ?? 'interna'})</span>
+                        </span>
+                      )
+                    })() : (
+                      <SelectValue placeholder="Seleccionar wallet" />
+                    )}
                   </SelectTrigger>
                   <SelectContent>
-                    {wallets.map((w) => (
-                      <SelectItem key={w.id} value={w.id}>
-                        {w.label ?? `${w.currency.toUpperCase()} Wallet`}
-                        <span className="ml-1 text-muted-foreground">
-                          ({w.currency.toUpperCase()} · {w.network ?? 'interna'})
-                        </span>
-                      </SelectItem>
-                    ))}
+                    {wallets.map((w) => {
+                      const currencyDisplay = w.currency ? w.currency.toUpperCase() : 'WALLET';
+                      return (
+                        <SelectItem key={w.id} value={w.id}>
+                          {w.label ?? `${currencyDisplay} Wallet`}
+                          <span className="ml-1 text-muted-foreground">
+                            ({currencyDisplay} · {w.network ?? 'interna'})
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               )}
@@ -495,11 +539,19 @@ export function CreateVirtualAccountDialog({
                     <SelectValue placeholder="Seleccionar" />
                   </SelectTrigger>
                   <SelectContent>
-                    {DESTINATION_CURRENCY_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
+                    {DESTINATION_CURRENCY_OPTIONS.map((opt) => {
+                      const isDisabled = DISABLED_DEST_CURRENCIES.has(opt.value)
+                      return (
+                        <SelectItem key={opt.value} value={opt.value} disabled={isDisabled}>
+                          {opt.label}
+                          {isDisabled && (
+                            <span className="ml-1.5 rounded-sm bg-muted px-1.5 py-px text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                              Próximamente
+                            </span>
+                          )}
+                        </SelectItem>
+                      )
+                    })}
                   </SelectContent>
                 </Select>
                 {/* Hallazgo 5: Feedback — pre-llenado pero editable */}

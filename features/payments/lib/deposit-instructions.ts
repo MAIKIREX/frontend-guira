@@ -317,7 +317,7 @@ function convertBridgePayloadToInstructions(
     ]
   }
 
-  // Virtual account (fiat_us_to_bridge_wallet)
+  // Virtual account (órdenes históricas legacy)
   if (type === 'virtual_account') {
     const bankName = str(payload, 'bank_name') || 'Banco de VA'
     const accountName = str(payload, 'account_name') || 'Cuenta Virtual'
@@ -498,7 +498,6 @@ export function resolveFeeTotal(fees: FeeConfigRow[], amountOrigin: number, rout
   // Wallet ramp deposit flows (2.1, 2.2, 2.3)
   else if ((route as string) === 'fiat_bo_to_bridge_wallet') targetOperation = 'ramp_on_bo'
   else if ((route as string) === 'crypto_to_bridge_wallet') targetOperation = 'ramp_on_crypto'
-  else if ((route as string) === 'fiat_us_to_bridge_wallet') targetOperation = 'ramp_on_fiat_us'
   // Wallet ramp withdraw flows (2.4, 2.5, 2.6)
   else if ((route as string) === 'bridge_wallet_to_fiat_bo') targetOperation = 'ramp_off_bo'
   else if ((route as string) === 'bridge_wallet_to_crypto') targetOperation = 'ramp_off_crypto'

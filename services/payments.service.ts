@@ -60,7 +60,6 @@ export interface CreateInterbankOrderDto {
 export type WalletRampFlowType =
   | 'fiat_bo_to_bridge_wallet'
   | 'crypto_to_bridge_wallet'
-  | 'fiat_us_to_bridge_wallet'
   | 'bridge_wallet_to_fiat_bo'
   | 'bridge_wallet_to_crypto'
   | 'bridge_wallet_to_fiat_us'
@@ -77,7 +76,6 @@ export interface CreateWalletRampOrderDto {
   
   // Newly typed fields from payload mapping
   wallet_id?: string
-  virtual_account_id?: string
   source_network?: string
   source_address?: string
   source_currency?: string

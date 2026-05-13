@@ -1454,7 +1454,7 @@ function isDepositOrder(order: PaymentOrder) {
       'bolivia_to_world', 'bolivia_to_wallet',
       'world_to_bolivia', 'world_to_wallet',
       'wallet_to_wallet',
-      'fiat_us_to_bridge_wallet', 'fiat_bo_to_bridge_wallet',
+      'fiat_bo_to_bridge_wallet',
       'crypto_to_bridge_wallet',
     ]
     return depositFlows.includes(order.flow_type)

@@ -7,9 +7,10 @@ interface StepProgressRailProps<T extends string> {
   currentStep: T
   steps: T[]
   getStepLabel: (step: T) => string
+  stepsWithAlerts?: Set<T>
 }
 
-export function StepProgressRail<T extends string>({ currentStep, steps, getStepLabel }: StepProgressRailProps<T>) {
+export function StepProgressRail<T extends string>({ currentStep, steps, getStepLabel, stepsWithAlerts }: StepProgressRailProps<T>) {
   const currentIndex = steps.indexOf(currentStep)
 
   return (
@@ -45,6 +46,7 @@ export function StepProgressRail<T extends string>({ currentStep, steps, getStep
             const isReached = currentIndex >= index
             const isComplete = currentIndex > index
             const lineFilled = currentIndex > index ? '100%' : '0%'
+            const hasAlert = stepsWithAlerts?.has(step) ?? false
 
             return (
               <div
@@ -66,6 +68,12 @@ export function StepProgressRail<T extends string>({ currentStep, steps, getStep
                 ) : null}
 
                 <div className="relative flex items-center justify-center">
+                  {/* Alert dot for steps with field observations */}
+                  {hasAlert && (
+                    <span className="absolute -right-0.5 -top-0.5 z-20 flex size-3.5 items-center justify-center rounded-full bg-amber-500 shadow-sm">
+                      <span className="size-1.5 rounded-full bg-white" />
+                    </span>
+                  )}
                   {/* Step circle - Glassmorphism */}
                   <motion.div
                     animate={{

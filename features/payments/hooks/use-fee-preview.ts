@@ -25,7 +25,6 @@ const ROUTE_FEE_PARAMS: Record<string, { operation_type: string; payment_rail: s
   // Wallet ramp — on-ramp
   fiat_bo_to_bridge_wallet: { operation_type: 'ramp_on_bo',         payment_rail: 'psav'   },
   crypto_to_bridge_wallet:  { operation_type: 'ramp_on_crypto',     payment_rail: 'bridge' },
-  fiat_us_to_bridge_wallet: { operation_type: 'ramp_on_fiat_us',    payment_rail: 'bridge' },
   // Wallet ramp — off-ramp
   bridge_wallet_to_fiat_bo: { operation_type: 'ramp_off_bo',        payment_rail: 'psav'   },
   bridge_wallet_to_crypto:  { operation_type: 'ramp_off_crypto',    payment_rail: 'bridge' },

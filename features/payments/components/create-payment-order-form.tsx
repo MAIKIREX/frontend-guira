@@ -1393,21 +1393,6 @@ export function CreatePaymentOrderForm({
                                   }}
                                   title="Con Crypto"
                                 />
-                                {/* Hidden from UI — set to true to re-enable */}
-                                {false && (
-                                  <SelectionCard
-                                    description="Fondeo automático usando tu cuenta bancaria en EE.UU."
-                                    disabled={true}
-                                    icon={Landmark}
-                                    isSelected={field.value === 'fiat_us'}
-                                    onClick={() => {
-                                      field.onChange('fiat_us')
-                                      form.setValue('origin_currency', 'USD')
-                                      form.setValue('destination_currency', 'USDC')
-                                    }}
-                                    title="Con Dólares (USD)"
-                                  />
-                                )}
                               </div>
                             </FormControl>
                             <FormMessage />
@@ -3779,7 +3764,7 @@ function buildReviewItems(args: {
   }
 
   if (args.route === 'wallet_ramp_deposit') {
-    items.push({ label: 'Método de Fondeo', value: args.values.wallet_ramp_method === 'fiat_bo' ? 'Fiat BO' : args.values.wallet_ramp_method === 'fiat_us' ? 'Fiat US' : 'Crypto' })
+    items.push({ label: 'Método de Fondeo', value: args.values.wallet_ramp_method === 'fiat_bo' ? 'Fiat BO' : 'Crypto' })
 
     if (args.values.fee_total !== undefined) {
       items.push({ label: 'Comisión', value: formatMoney(args.values.fee_total, args.values.origin_currency) })
@@ -3803,13 +3788,6 @@ function buildReviewItems(args: {
     }
     if (args.values.wallet_ramp_method === 'crypto') {
       items.push({ label: 'Red Cripto Origen', value: args.values.wallet_ramp_source_network || 'Pendiente' })
-    }
-    if (args.values.wallet_ramp_method === 'fiat_us') {
-      const vaSelected = args.virtualAccounts?.find(va => va.id === args.values.wallet_ramp_va_id)
-      const vaReadable = vaSelected
-        ? `${vaSelected.bank_name ?? 'Banco VA'} — ****${vaSelected.account_number?.slice(-4) ?? ''}`
-        : (args.values.wallet_ramp_va_id || 'Pendiente')
-      items.push({ label: 'Virtual Account Origen', value: vaReadable })
     }
 
     // Motivo y documento de respaldo para fiat_bo y crypto
