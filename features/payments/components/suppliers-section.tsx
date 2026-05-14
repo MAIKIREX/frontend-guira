@@ -97,7 +97,7 @@ function RailChip({
       {supplier.bridge_external_account_id && (
         <CheckCircle2 className="size-3 text-emerald-500" />
       )}
-      <div className="ml-0.5 hidden items-center gap-0.5 group-hover/chip:flex">
+      <div className="ml-0.5 flex items-center gap-0.5 md:hidden md:group-hover/chip:flex">
         <button
           type="button"
           disabled={disabled}
