@@ -2,7 +2,7 @@
 
 import { useFieldArray, useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { companyOnboardingSchema, type CompanyOnboardingValues } from '../schemas/company-onboarding.schema'
+import { companyOnboardingSchema, type CompanyOnboardingValues, type UBOValues } from '../schemas/company-onboarding.schema'
 import { Button } from '@/components/ui/button'
 import { GuiraButton } from '@/components/shared/guira-button'
 import { Input } from '@/components/ui/input'
@@ -1053,7 +1053,7 @@ export function CompanyForm({
                   // FIX N-05: date_of_birth required by Bridge AssociatedPerson schema
                   date_of_birth: '', email: '',
                   is_pep: false, has_control: false, position: '', nationality: undefined,
-                  address1: '', city: '', country: '' as CompanyOnboardingValues['ubos'][number]['country']
+                  address1: '', city: '', country: '' as UBOValues['country']
                 })}
               >
                 <PlusCircle className="w-4 h-4 mr-1" /> Agregar UBO
