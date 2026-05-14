@@ -245,6 +245,22 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
     };
     const loadHandler = () => setIsLoaded(true);
 
+    let errorFired = false;
+    const errorHandler = () => {
+      if (!errorFired) {
+        errorFired = true;
+        // Primary style failed (CDN unreachable). Fall back to OSM raster tiles so
+        // the canvas isn't blank, then let the load/styledata events take over.
+        try {
+          map.setStyle("https://tiles.openfreemap.org/styles/liberty");
+          return;
+        } catch {
+          // setStyle itself failed; just dismiss the loader
+        }
+      }
+      setIsLoaded(true);
+    };
+
     // Viewport change handler - skip if triggered by internal update
     const handleMove = () => {
       if (internalUpdateRef.current) return;
@@ -253,6 +269,7 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
 
     map.on("load", loadHandler);
     map.on("styledata", styleDataHandler);
+    map.on("error", errorHandler);
     map.on("move", handleMove);
     setMapInstance(map);
 
@@ -260,6 +277,7 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
       clearStyleTimeout();
       map.off("load", loadHandler);
       map.off("styledata", styleDataHandler);
+      map.off("error", errorHandler);
       map.off("move", handleMove);
       map.remove();
       setIsLoaded(false);

@@ -21,10 +21,24 @@ export const AuthService = {
   },
 
   async login({ email, password }: { email: string; password: string }) {
+    // Hallazgo A07-04: Login a través del backend para aplicar rate limiting,
+    // logging de intentos fallidos y auditoría de eventos de autenticación.
+    const result = await apiPost<{
+      access_token: string
+      refresh_token: string
+      expires_in: number
+      user_id: string
+    }>('/auth/login', { email, password })
+
+    // Establecer la sesión en el cliente Supabase local con los tokens recibidos
     const supabase = createClient()
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw error
-    return data.session
+    await supabase.auth.setSession({
+      access_token: result.access_token,
+      refresh_token: result.refresh_token,
+    })
+
+    const { data: { session } } = await supabase.auth.getSession()
+    return session
   },
 
   async loginWithGoogle() {
@@ -32,7 +46,7 @@ export const AuthService = {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/panel`,
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     })
     if (error) throw error
@@ -139,8 +153,9 @@ export const AuthService = {
   },
 
   async updatePassword(password: string) {
-    const supabase = createClient()
-    const { error } = await supabase.auth.updateUser({ password })
-    if (error) throw error
+    // Hallazgo A07-02: Enviar la actualización de contraseña a través del backend
+    // para aplicar la validación de complejidad server-side (@IsStrongPassword)
+    // en vez de llamar supabase.auth.updateUser() directamente desde el cliente.
+    await apiPost('/auth/reset-password', { new_password: password })
   },
 }
