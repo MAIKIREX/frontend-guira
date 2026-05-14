@@ -78,7 +78,7 @@ export function StaffDashboardPage({
   return (
     <>
       {children({
-        snapshot: snapshot as any,
+        snapshot: snapshot as unknown as StaffSnapshot,
         actor,
         isAdmin: actor.role === 'admin' || actor.role === 'super_admin',
         isPrivileged: actor.role === 'admin' || actor.role === 'staff' || actor.role === 'super_admin',

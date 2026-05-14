@@ -20,6 +20,8 @@ import { useProfileStore } from '@/stores/profile-store'
 import { useExchangeRates } from '@/features/payments/hooks/use-exchange-rates'
 import { WalletService } from '@/services/wallet.service'
 import { PaymentsService } from '@/services/payments.service'
+import type { PaymentOrder } from '@/types/payment-order'
+import type { PaginatedResponse } from '@/lib/api/types'
 import { GuiraButton } from '@/components/shared/guira-button'
 import { BalanceLineChart } from './balance-line-chart'
 import { RecentActivityCard } from './recent-activity-card'
@@ -96,8 +98,8 @@ export function ClientDashboard({ children }: { children?: React.ReactNode }) {
       console.error('[Dashboard] Error cargando wallets:', err)
     })
 
-    PaymentsService.getOrders({ limit: 50 } as any).then((rawResponse: any) => {
-      let orders: any[] = []
+    PaymentsService.getOrders({ limit: 50 }).then((rawResponse: PaginatedResponse<PaymentOrder>) => {
+      let orders: PaymentOrder[] = []
       let totalFromBackend = 0
 
       if (Array.isArray(rawResponse)) {
@@ -105,20 +107,20 @@ export function ClientDashboard({ children }: { children?: React.ReactNode }) {
         totalFromBackend = rawResponse.length
       } else if (rawResponse && typeof rawResponse === 'object') {
         orders = Array.isArray(rawResponse.data) ? rawResponse.data
-          : Array.isArray(rawResponse.items) ? rawResponse.items
+          : Array.isArray((rawResponse as unknown as { items?: PaymentOrder[] }).items) ? (rawResponse as unknown as { items: PaymentOrder[] }).items
             : []
         totalFromBackend = rawResponse.total ?? orders.length
       }
 
       const now = new Date()
-      const thisMonth = orders.filter((o: any) => {
+      const thisMonth = orders.filter((o) => {
         if (!o.created_at) return false
         const d = new Date(o.created_at)
         return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
       })
       setOrdersThisMonth(thisMonth.length > 0 ? thisMonth.length : totalFromBackend)
       const pendingStatuses = ['pending', 'created', 'processing', 'waiting_deposit', 'deposit_received']
-      setPendingOrders(orders.filter((o: any) => pendingStatuses.includes(o.status)).length)
+      setPendingOrders(orders.filter((o) => pendingStatuses.includes(o.status)).length)
     }).catch(err => {
       console.error('[Dashboard] Error cargando órdenes:', err)
     })

@@ -199,7 +199,7 @@ export const GuiraButton = React.forwardRef<HTMLButtonElement, GuiraButtonProps>
 
     return (
       <motion.button
-        ref={ref as any}
+        ref={ref as React.Ref<HTMLButtonElement>}
         type={props.type || 'button'}
         disabled={disabled}
         className={cn(

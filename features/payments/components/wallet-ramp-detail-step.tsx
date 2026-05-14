@@ -28,6 +28,9 @@ import {
 } from '@/features/payments/lib/bridge-route-catalog'
 import { CreateVirtualAccountDialog } from '@/features/client/components/create-virtual-account-dialog'
 import { resolveFeeTotal, type ExchangeRateRecord } from '@/features/payments/lib/deposit-instructions'
+import type { UseFormReturn } from 'react-hook-form'
+import type { PaymentOrderFormValues } from '@/features/payments/schemas/payment-order.schema'
+import type { SupportedPaymentRoute } from '@/features/payments/lib/payment-routes'
 import type { WalletBalance } from '@/services/wallet.service'
 import type { VirtualAccount } from '@/services/bridge.service'
 import type { FeeConfigRow } from '@/types/payment-order'
@@ -53,7 +56,7 @@ const FLOW_TYPE_MAP: Record<string, string> = {
 export type RampDepositSubStep = 'wallet' | 'network' | 'amount'
 
 interface WalletRampDetailStepProps {
-  form: any
+  form: UseFormReturn<PaymentOrderFormValues>
   method: 'fiat_bo' | 'crypto'
   wallets: WalletBalance[]
   virtualAccounts: VirtualAccount[]
@@ -138,7 +141,7 @@ export function WalletRampDetailStep({
       if (newSourceCurrencies.length === 1) {
         form.setValue('origin_currency', newSourceCurrencies[0], { shouldValidate: false })
       } else {
-        form.setValue('origin_currency', undefined as any, { shouldValidate: false })
+        form.setValue('origin_currency', '', { shouldValidate: false })
       }
     }
   }, [form])
@@ -152,7 +155,7 @@ export function WalletRampDetailStep({
   const displayDestCurrency = (selectedDestCurrency || 'USDC').toUpperCase()
 
   const estimate = React.useMemo(() => {
-    const feeTotal = resolveFeeTotal(feesConfig, Number(amount) || 0, FLOW_TYPE_MAP[method] as any)
+    const feeTotal = resolveFeeTotal(feesConfig, Number(amount) || 0, FLOW_TYPE_MAP[method] as SupportedPaymentRoute)
     let exchangeRateApplied = 1
 
     if (method === 'fiat_bo') {

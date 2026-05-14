@@ -17,6 +17,8 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { resolveFeeTotal, type ExchangeRateRecord } from '@/features/payments/lib/deposit-instructions'
+import type { UseFormReturn } from 'react-hook-form'
+import type { PaymentOrderFormValues } from '@/features/payments/schemas/payment-order.schema'
 import type { FeeConfigRow } from '@/types/payment-order'
 import { CRYPTO_CURRENCY_LABELS } from '@/lib/guira-crypto-config'
 import { EstimationSummary } from '@/components/shared/estimation-summary'
@@ -42,7 +44,7 @@ const WALLET_TO_FIAT_NETWORKS = [
 const SOURCE_CURRENCIES = ['usdc', 'usdt'] as const
 
 interface WalletToFiatDetailStepProps {
-  form: any
+  form: UseFormReturn<PaymentOrderFormValues>
   feesConfig: FeeConfigRow[]
   exchangeRates?: ExchangeRateRecord[]
   disabled?: boolean
@@ -62,7 +64,7 @@ export function WalletToFiatDetailStep({
 
   // ── Estimación en vivo ──
   const estimate = React.useMemo(() => {
-    const feeTotal = resolveFeeTotal(feesConfig, Number(amount) || 0, 'wallet_to_fiat' as any)
+    const feeTotal = resolveFeeTotal(feesConfig, Number(amount) || 0, 'wallet_to_fiat')
     const amountConverted = Math.max((Number(amount) || 0) - feeTotal, 0)
     return { feeTotal, amountConverted }
   }, [amount, feesConfig])

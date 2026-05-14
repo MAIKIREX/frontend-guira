@@ -82,7 +82,9 @@ export function TosIframeModal({
   // ── Resetear estado al abrir/cerrar ────────────────────────────────
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIframeLoading(true)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAccepted(false)
       acceptedRef.current = false
     }

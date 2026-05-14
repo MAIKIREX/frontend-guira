@@ -140,7 +140,7 @@ export function StaffOnboardingTable({
   // can include 'open'/'closed' (compliance_review.status fallback) beyond OnboardingStatus.
   const pendingKycs = records.filter((r) => r.type === 'personal' && ((r.status as string) === 'in_review' || (r.status as string) === 'kyc_submitted' || (r.status as string) === 'submitted' || (r.status as string) === 'open')).length
   const pendingKybs = records.filter((r) => r.type === 'company' && ((r.status as string) === 'in_review' || (r.status as string) === 'kyb_submitted' || (r.status as string) === 'submitted' || (r.status as string) === 'open')).length
-  const pendingPayouts = records.filter((r) => (r as any).subject_type === 'payout_request' && ((r.status as string) === 'open' || (r.status as string) === 'pending')).length
+  const pendingPayouts = records.filter((r) => (r as { subject_type?: string }).subject_type === 'payout_request' && ((r.status as string) === 'open' || (r.status as string) === 'pending')).length
 
   // Resubmissions: records that have observations from a previous NEEDS_CHANGES decision
   // AND are now back in a review-pending status (the client has corrected and re-submitted).
@@ -414,7 +414,7 @@ export function StaffOrdersTable({
   const [activeTab, setActiveTab] = useState<'orders' | 'transfers' | 'reviews'>('orders')
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
-  const [railFilter, setRailFilter] = useState('all')
+
   const [typeFilter, setTypeFilter] = useState('all')
   const deferredQuery = useDeferredValue(query)
   const tabCopy = {
@@ -436,25 +436,22 @@ export function StaffOrdersTable({
   } as const
   const filteredOrders = orders.filter((order) => {
     const resolvedType = order.flow_type ?? order.order_type
-    const resolvedRail = order.processing_rail ?? order.flow_type
     const matchesStatus = matchesFilterValue(order.status, statusFilter)
-    const matchesRail = matchesFilterValue(resolvedRail, railFilter)
     const matchesType = matchesFilterValue(resolvedType, typeFilter)
     const matchesSearch = matchesQuery(deferredQuery, [
       order.id,
       order.user_id,
       resolvedType,
-      resolvedRail,
       order.status,
       order.currency ?? order.origin_currency,
       order.destination_currency,
       order.metadata?.reference,
     ])
 
-    return matchesStatus && matchesRail && matchesType && matchesSearch
+    return matchesStatus && matchesType && matchesSearch
   })
   const hasActiveFilters =
-    query.trim().length > 0 || statusFilter !== 'all' || railFilter !== 'all' || typeFilter !== 'all'
+    query.trim().length > 0 || statusFilter !== 'all' || typeFilter !== 'all'
 
   return (
     <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'orders' | 'transfers')} className="gap-4">
@@ -479,19 +476,13 @@ export function StaffOrdersTable({
             <TableFilters
               query={query}
               onQueryChange={setQuery}
-              searchPlaceholder="Buscar por ID, estado, rail o moneda"
+              searchPlaceholder="Buscar por ID, estado, tipo o moneda"
               filters={[
                 {
                   label: 'Estado',
                   value: statusFilter,
                   onChange: setStatusFilter,
                   options: buildOptions(orders, (order) => order.status),
-                },
-                {
-                  label: 'Rail',
-                  value: railFilter,
-                  onChange: setRailFilter,
-                  options: buildOptions(orders, (order) => order.processing_rail ?? order.flow_type),
                 },
                 {
                   label: 'Tipo',
@@ -503,7 +494,6 @@ export function StaffOrdersTable({
               onReset={() => {
                 setQuery('')
                 setStatusFilter('all')
-                setRailFilter('all')
                 setTypeFilter('all')
               }}
               resultsCount={filteredOrders.length}
@@ -540,10 +530,7 @@ export function StaffOrdersTable({
                           <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Tipo</div>
                           <div className="text-sm font-medium text-foreground">{order.flow_type ?? order.order_type ?? '—'}</div>
                         </div>
-                        <div className="space-y-1">
-                          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Rail</div>
-                          <div className="text-sm font-medium text-foreground">{order.processing_rail ?? order.flow_type ?? '—'}</div>
-                        </div>
+
                         <div className="space-y-1 sm:col-span-2">
                           <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Monto</div>
                           <div className="text-sm font-medium text-foreground">
@@ -577,7 +564,7 @@ export function StaffOrdersTable({
                   <TableRow>
                     <TableHead>ID</TableHead>
                     <TableHead>Tipo</TableHead>
-                    <TableHead>Rail</TableHead>
+
                     <TableHead>Monto</TableHead>
                     <TableHead>Estado</TableHead>
                     <TableHead>Archivos</TableHead>
@@ -586,9 +573,9 @@ export function StaffOrdersTable({
                 </TableHeader>
                 <TableBody>
                   {orders.length === 0 ? (
-                    <EmptyRow colSpan={7} message="No hay ordenes disponibles." />
+                    <EmptyRow colSpan={6} message="No hay ordenes disponibles." />
                   ) : hasActiveFilters && filteredOrders.length === 0 ? (
-                    <EmptyRow colSpan={7} message="No hay resultados con los filtros actuales." />
+                    <EmptyRow colSpan={6} message="No hay resultados con los filtros actuales." />
                   ) : (
                     filteredOrders.map((order) => (
                       <TableRow key={order.id}>
@@ -597,7 +584,7 @@ export function StaffOrdersTable({
                           <div className="text-xs text-muted-foreground">{formatDate(order.created_at)}</div>
                         </TableCell>
                         <TableCell>{order.flow_type ?? order.order_type ?? '—'}</TableCell>
-                        <TableCell>{order.processing_rail ?? order.flow_type ?? '—'}</TableCell>
+
                         <TableCell>
                           {order.amount ?? order.amount_origin ?? '—'}{' '}
                           {order.currency ?? order.origin_currency ?? ''}
@@ -1818,8 +1805,8 @@ function AdminBridgePayoutsTable({
       await BridgeAdminService.approvePayout(payout.id, { notes: 'Aprobado desde dashboard Staff' })
       toast.success('Payout aprobado con éxito')
       reload()
-    } catch (err: any) {
-      toast.error('Error al aprobar: ' + (err.message || 'Desconocido'))
+    } catch (err: unknown) {
+      toast.error('Error al aprobar: ' + ((err as { message?: string }).message || 'Desconocido'))
     } finally {
       setProcessingId(null)
     }
@@ -1838,8 +1825,8 @@ function AdminBridgePayoutsTable({
       await BridgeAdminService.rejectPayout(payout.id, { rejection_reason: reason })
       toast.success('Payout rechazado y saldo retornado')
       reload()
-    } catch (err: any) {
-      toast.error('Error al rechazar: ' + (err.message || 'Desconocido'))
+    } catch (err: unknown) {
+      toast.error('Error al rechazar: ' + ((err as { message?: string }).message || 'Desconocido'))
     } finally {
       setProcessingId(null)
     }
@@ -2140,8 +2127,8 @@ function ConfigPanel({
 }) {
   const [isSyncingRates, setIsSyncingRates] = useState(false)
   const { rates, reload: reloadRates } = useExchangeRates()
-  const buyRate = rates.rawRates.find((r: any) => r.pair === 'BOB_USD')?.rate
-  const sellRate = rates.rawRates.find((r: any) => r.pair === 'USD_BOB')?.rate
+  const buyRate = rates.rawRates.find((r) => r.pair === 'BOB_USD')?.rate
+  const sellRate = rates.rawRates.find((r) => r.pair === 'USD_BOB')?.rate
 
   async function handleSyncParallelRates() {
     try {
@@ -2276,7 +2263,7 @@ function ConfigPanel({
           <CardContent className="space-y-4 p-6">
             {!isPrivileged ? <AdminOnlyNotice /> : null}
             <div className="grid gap-3 sm:grid-cols-2">
-              {rates.rawRates.map((record: any) => (
+              {rates.rawRates.map((record) => (
                 <div key={record.id || record.pair} className="rounded-xl border border-border/70 bg-muted/20 p-4 relative group">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
@@ -3030,7 +3017,7 @@ function VaFeeDefaultsCard({ isPrivileged }: { isPrivileged: boolean }) {
                <ShieldCheck className="mt-0.5 size-4 shrink-0 opacity-80" />
                <p className="leading-relaxed">
                  Estos porcentajes se aplican automáticamente a todas las cuentas virtuales.
-                 Si un usuario tiene un override configurado (botón "Fee Bridge VA" en usuarios), prevalecerá el override.
+                 Si un usuario tiene un override configurado (botón &quot;Fee Bridge VA&quot; en usuarios), prevalecerá el override.
                </p>
             </div>
           </div>
@@ -3103,8 +3090,8 @@ export function StaffReviewsPanel({ actor }: { actor: StaffActor }) {
       setSelected(null)
       setStaffNotes('')
       load()
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? 'Error al aprobar la solicitud')
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Error al aprobar la solicitud')
     } finally {
       setActionLoading(false)
     }
@@ -3123,8 +3110,8 @@ export function StaffReviewsPanel({ actor }: { actor: StaffActor }) {
       setSelected(null)
       setStaffNotes('')
       load()
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? 'Error al rechazar la solicitud')
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Error al rechazar la solicitud')
     } finally {
       setActionLoading(false)
     }
@@ -3191,7 +3178,7 @@ export function StaffReviewsPanel({ actor }: { actor: StaffActor }) {
               <TableBody>
                 {reviews.map(r => {
                   const cfg = REVIEW_STATUS_CONFIG[r.status]
-                  const profile = (r as any).profiles
+                  const profile = r.profiles
                   return (
                     <TableRow key={r.id} className="cursor-pointer hover:bg-muted/40" onClick={() => { setSelected(r); setStaffNotes('') }}>
                       <TableCell>

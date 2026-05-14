@@ -111,7 +111,7 @@ export function ClientShell({
         </aside>
 
         {/* Main Content Area */}
-        <div className="flex min-h-screen flex-col">
+        <div className="flex min-h-screen flex-col min-w-0">
 
           {/* ── Topbar ── */}
           <header

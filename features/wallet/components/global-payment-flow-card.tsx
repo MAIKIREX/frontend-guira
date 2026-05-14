@@ -79,7 +79,9 @@ export function GlobalPaymentFlowCard() {
   // Load arc data whenever the month changes
   useEffect(() => {
     if (!selectedMonth && months.length > 0) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelected(null)
     getGlobalFlowStats(selectedMonth || undefined)
       .then((stats) => {

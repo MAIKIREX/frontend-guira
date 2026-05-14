@@ -173,9 +173,9 @@ export function SuppliersSection({
       setIsFormOpen(false)
       setEditingSupplier(null)
       setAddingRailTo(null)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to persist supplier', error)
-      toast.error(error?.message || 'No se pudo guardar el proveedor.')
+      toast.error((error as { message?: string })?.message || 'No se pudo guardar el proveedor.')
     }
   }
 
@@ -288,7 +288,7 @@ export function SuppliersSection({
             <CardHeader className="px-6 py-6 sm:px-8">
               <CardTitle className="text-xl font-bold tracking-tight">Destinatarios guardados</CardTitle>
               <CardDescription className="text-sm">
-                Cada contacto agrupa todos sus métodos de cobro. Usa "Añadir método" para registrar una nueva cuenta o red.
+                Cada contacto agrupa todos sus métodos de cobro. Usa &quot;Añadir método&quot; para registrar una nueva cuenta o red.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 px-6 pb-6 sm:px-8 sm:pb-8">

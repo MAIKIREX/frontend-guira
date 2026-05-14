@@ -87,7 +87,7 @@ export async function handleResponseError(error: unknown): Promise<never> {
   const status = response.status
 
   // ── 401: Token expirado → Refresh + Retry ──────────
-  if (status === 401 && originalConfig && !(originalConfig as any).__isRetry) {
+  if (status === 401 && originalConfig && !(originalConfig as Record<string, unknown>).__isRetry) {
     if (isRefreshing) {
       // Ya hay un refresh en curso, encolar este request
       return new Promise((resolve, reject) => {
@@ -100,7 +100,7 @@ export async function handleResponseError(error: unknown): Promise<never> {
     }
 
     isRefreshing = true
-    ;(originalConfig as any).__isRetry = true
+    ;(originalConfig as Record<string, unknown>).__isRetry = true
 
     try {
       const supabase = createClient()

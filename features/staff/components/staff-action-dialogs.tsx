@@ -1090,7 +1090,7 @@ function formatNumericValue(value: unknown) {
 function OrderReasonActionDialog({ actor, action, blockedReason, label, onUpdated, order }: { actor: StaffActor; action: 'failed'; blockedReason?: string | null; label: string; onUpdated: (order: PaymentOrder) => Promise<void> | void; order: PaymentOrder }) {
   const [open, setOpen] = useState(false)
   const form = useForm<StaffReasonValues>({
-    resolver: zodResolver(staffReasonSchema) as any,
+    resolver: zodResolver(staffReasonSchema),
     defaultValues: { reason: '', notify_user: true }
   })
 

@@ -103,7 +103,7 @@ export function ClientOperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
   const canOperate = profile?.role === 'client' && profile.onboarding_status === 'approved'
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
 
 
       {/* ── Formulario interbanc (world_to_bolivia en depositar; flujos enviar en enviar) */}
@@ -113,7 +113,7 @@ export function ClientOperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
           allowedRoutes={config.allowedRoutes}
           defaultRoute={config.defaultRoute!}
           disabled={!canOperate}
-          exchangeRates={(payments.snapshot as any)?.exchangeRates ?? []}
+          exchangeRates={[]}
           feesConfig={payments.snapshot?.feesConfig ?? []}
           onCreateOrder={handleCreateOrder}
           onUploadOrderFile={handleUploadOrderFile}
@@ -127,9 +127,9 @@ export function ClientOperationsWorkspace({ mode }: { mode: WorkspaceMode }) {
       {mode === 'proveedores' ? (
         <SuppliersSection
           disabled={!canOperate}
-          onCreateSupplier={(input) => payments.createSupplier(input as any)}
+          onCreateSupplier={(input) => payments.createSupplier(input as unknown as Parameters<typeof payments.createSupplier>[0])}
           onDeleteSupplier={payments.deleteSupplier}
-          onUpdateSupplier={(id, input) => payments.updateSupplier(id, input as any)}
+          onUpdateSupplier={(id, input) => payments.updateSupplier(id, input as unknown as Parameters<typeof payments.updateSupplier>[1])}
           suppliers={payments.snapshot.suppliers}
           userId={user.id}
         />

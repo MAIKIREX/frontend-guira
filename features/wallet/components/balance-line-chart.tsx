@@ -88,7 +88,7 @@ export function BalanceLineChart({ currentBalance }: BalanceLineChartProps) {
       to: `${toDate}T23:59:59`,
       status: 'settled',
       limit: 500,
-    } as any)
+    })
       .then((response) => {
         setEntries(response.entries ?? [])
       })

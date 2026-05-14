@@ -70,8 +70,8 @@ export const ComplianceAdminService = {
    * Obtiene los events y comments de un review para el tab de Actividad.
    * Reutiliza el endpoint de detalle.
    */
-  async getReviewActivity(reviewId: string): Promise<{ events: any[]; comments: any[] }> {
-    const raw = await apiGet<any>(`/admin/compliance/reviews/${reviewId}`)
+  async getReviewActivity(reviewId: string): Promise<{ events: unknown[]; comments: unknown[] }> {
+    const raw = await apiGet<{ events?: unknown[]; comments?: unknown[] }>(`/admin/compliance/reviews/${reviewId}`)
     return {
       events: raw.events ?? [],
       comments: raw.comments ?? [],
@@ -86,7 +86,7 @@ export const ComplianceAdminService = {
    * C3 FIX: 1 sola llamada REST en lugar de 1 REST + 5 Supabase directas.
    */
   async getOnboardingDetail(reviewId: string): Promise<StaffOnboardingDetail> {
-    const raw = await apiGet<any>(`/admin/compliance/reviews/${reviewId}`)
+    const raw = await apiGet<Record<string, unknown>>(`/admin/compliance/reviews/${reviewId}`)
 
     // C10 FIX: Usamos profile.onboarding_status (valor BD correcto)
     // en lugar de review.status ('open'/'closed').
@@ -110,7 +110,7 @@ export const ComplianceAdminService = {
         : null,
     }
 
-    const documents: StaffDocumentRecord[] = (raw.documents ?? []).map((doc: any) => ({
+    const documents: StaffDocumentRecord[] = ((raw.documents as Record<string, unknown>[] | undefined) ?? []).map((doc) => ({
       id: doc.id,
       onboarding_id: reviewId,
       user_id: doc.user_id,
@@ -195,7 +195,7 @@ export const ComplianceAdminService = {
   /**
    * Agrega un comentario interno a un review.
    */
-  async addComment(reviewId: string, body: string, isInternal = true): Promise<any> {
+  async addComment(reviewId: string, body: string, isInternal = true): Promise<unknown> {
     return apiPost(`/admin/compliance/reviews/${reviewId}/comments`, {
       body,
       is_internal: isInternal,

@@ -392,7 +392,7 @@ export const PaymentsService = {
   async getActivityLogs(): Promise<ActivityLog[]> {
     try {
       const raw = await apiGet<ActivityLog[] | { data: ActivityLog[] }>('/activity')
-      return Array.isArray(raw) ? raw : Array.isArray((raw as any)?.data) ? (raw as any).data : []
+      return Array.isArray(raw) ? raw : Array.isArray((raw as { data: ActivityLog[] })?.data) ? (raw as { data: ActivityLog[] }).data : []
     } catch {
       console.warn('[PaymentsService] Activity logs endpoint not available')
       return []

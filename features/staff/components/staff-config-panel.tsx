@@ -280,7 +280,7 @@ function ConfigPanelInner({
         <div className="space-y-12 pt-12 pb-16 flex flex-col items-center max-w-3xl mx-auto">
           {!isPrivileged && <div className="w-full"><AdminOnlyNotice /></div>}
           <div className="grid w-full gap-16 sm:grid-cols-2">
-            {rates.rawRates.map((record: any) => {
+            {rates.rawRates.map((record) => {
               const baseRate = record.rate
               const effectiveRate = record.effective_rate ?? record.rate
 

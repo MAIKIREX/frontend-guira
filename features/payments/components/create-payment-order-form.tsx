@@ -285,7 +285,7 @@ export function CreatePaymentOrderForm({
   const liveFeeTotal = useWatch({ control: form.control, name: 'fee_total' })
   const liveAmountConverted = useWatch({ control: form.control, name: 'amount_converted' })
   const walletRampWithdrawMethod = useWatch({ control: form.control, name: 'wallet_ramp_withdraw_method' })
-  const walletRampDestCurrency = useWatch({ control: form.control, name: 'wallet_ramp_destination_currency' as any })
+  const walletRampDestCurrency = useWatch({ control: form.control, name: 'wallet_ramp_destination_currency' })
 
   // Sync wallet_ramp_destination_currency → destination_currency for wallet_ramp_deposit
   useEffect(() => {
@@ -367,8 +367,8 @@ export function CreatePaymentOrderForm({
     let amountInUsd = Number(amountOrigin) || 0
     const inputCurrency = (originCurrency || 'USD').toUpperCase()
     if (inputCurrency === 'BOB' || isBoliviaToExterior) {
-      const rateData = exchangeRates.find((r: any) => r.pair === 'BOB_USD')
-      const rate = (rateData as any)?.effective_rate ?? (rateData as any)?.rate ?? 1
+      const rateData = exchangeRates.find((r) => r.pair === 'BOB_USD')
+      const rate = rateData?.effective_rate ?? rateData?.rate ?? 1
       amountInUsd = Number(amountOrigin) / rate
     }
     // Stablecoins (USDC, USDT, USDB, PYUSD, EURC) → 1:1 USD
@@ -461,7 +461,7 @@ export function CreatePaymentOrderForm({
     // El cliente debe ver psav_deposit_instructions (cuenta bancaria boliviana donde depositar BOB).
     const isFiatBo = createdOrder?.flow_type === 'fiat_bo_to_bridge_wallet'
 
-    const bridgeDeposit = (createdOrder as any)?.bridge_source_deposit_instructions;
+    const bridgeDeposit = createdOrder?.bridge_source_deposit_instructions;
     if (!isFiatBo && bridgeDeposit && Object.keys(bridgeDeposit).length > 0) {
       if (bridgeDeposit.type === 'virtual_account') {
         return [{
@@ -680,8 +680,8 @@ export function CreatePaymentOrderForm({
       if (route === 'crypto_to_crypto' && selectedSupplier.bank_details.wallet_currency) {
         form.setValue('destination_currency', String(selectedSupplier.bank_details.wallet_currency).toUpperCase() as PaymentOrderFormValues['destination_currency'])
         // Resetear selecciones de origen al cambiar proveedor
-        form.setValue('source_crypto_network', '' as any)
-        form.setValue('origin_currency', '' as any)
+        form.setValue('source_crypto_network', '')
+        form.setValue('origin_currency', '')
       }
     }
   }, [deliveryMethod, form, route, selectedSupplier, supplierAchDetails, supplierSwiftDetails])
@@ -737,12 +737,12 @@ export function CreatePaymentOrderForm({
       const selectedSup = suppliers.find(s => s.id === formValues.supplier_id)
       const payload = buildPaymentOrderPayload(formValues, userId, selectedSup)
       if (clientReason) {
-        (payload as any).client_reason = clientReason
+        payload.client_reason = clientReason
       }
-      if ((payload as any).flow_type === 'bridge_wallet_to_crypto') {
+      if (payload.flow_type === 'bridge_wallet_to_crypto') {
         console.log('[DEBUG bridge_wallet_to_crypto] Payload construido en form:', JSON.stringify(payload, null, 2))
       }
-      const result = await onCreateOrder(payload, qrFile, supportFile) as any
+      const result = await onCreateOrder(payload, qrFile, supportFile) as PaymentOrder & { _type?: string; review?: unknown }
 
       // El backend retorna { _type: 'review_request', review } cuando el monto supera el límite
       if (result?._type === 'review_request') {
@@ -757,10 +757,11 @@ export function CreatePaymentOrderForm({
       setCreatedOrder(result as PaymentOrder)
       setStep('finish')
       toast.success('Expediente creado. Ahora puedes adjuntar el comprobante final o hacerlo despues.')
-    } catch (error: any) {
+    } catch (error: unknown) {
       // El backend puede retornar 409 si ya hay una review pendiente para este servicio
-      if (error?.response?.status === 409) {
-        const data = error?.response?.data
+      const axiosErr = error as { response?: { status?: number; data?: { message?: string } } }
+      if (axiosErr?.response?.status === 409) {
+        const data = axiosErr?.response?.data
         toast.warning(data?.message ?? 'Ya tienes una solicitud de revisión pendiente para este servicio.')
         return
       }
@@ -2706,7 +2707,7 @@ export function CreatePaymentOrderForm({
                         <div className="flex items-start gap-3 rounded-xl border border-border/50 bg-muted/20 p-4 text-sm text-muted-foreground">
                           <CircleAlert className="size-5 shrink-0 text-muted-foreground/70" />
                           <p>
-                            Puedes dar seguimiento a esta orden desde el tab "Seguimiento". El proceso es completamente automático — Bridge verificará el depósito on-chain y enviará los fondos al destino.
+                            Puedes dar seguimiento a esta orden desde el tab &quot;Seguimiento&quot;. El proceso es completamente automático — Bridge verificará el depósito on-chain y enviará los fondos al destino.
                           </p>
                         </div>
 
@@ -2754,7 +2755,7 @@ export function CreatePaymentOrderForm({
                         <div className="flex items-start gap-3 rounded-xl border border-border/50 bg-muted/20 p-4 text-sm text-muted-foreground">
                           <CircleAlert className="size-5 shrink-0 text-muted-foreground/70" />
                           <p>
-                            Puedes dar seguimiento a esta orden desde el tab "Seguimiento". El proceso es completamente automático — Bridge verificará el depósito on-chain y actualizará el saldo de tu wallet.
+                            Puedes dar seguimiento a esta orden desde el tab &quot;Seguimiento&quot;. El proceso es completamente automático — Bridge verificará el depósito on-chain y actualizará el saldo de tu wallet.
                           </p>
                         </div>
 
@@ -3015,7 +3016,7 @@ function getDefaultValues(route: SupportedPaymentRoute): PaymentOrderFormValues 
       intended_amount: 0,
       destination_address: '',
       stablecoin: 'USDC',
-    } as any
+    } as PaymentOrderFormValues
   }
 
   if (route === 'wallet_ramp_withdraw') {
@@ -3035,7 +3036,7 @@ function getDefaultValues(route: SupportedPaymentRoute): PaymentOrderFormValues 
       withdraw_bank_name: '',
       withdraw_account_number: '',
       withdraw_account_holder: '',
-    } as any
+    } as PaymentOrderFormValues
   }
 
   return {
@@ -3625,9 +3626,9 @@ function getDetailStepFields({
   if (route === 'wallet_to_fiat') {
     return [
       'amount_origin',
-      'wallet_to_fiat_source_network' as any,
-      'wallet_to_fiat_source_currency' as any,
-      'wallet_to_fiat_source_address' as any,
+      'wallet_to_fiat_source_network',
+      'wallet_to_fiat_source_currency',
+      'wallet_to_fiat_source_address',
       'supplier_id',
       'payment_reason',
     ]
@@ -3775,8 +3776,8 @@ function buildReviewItems(args: {
     }
 
     if (args.values.amount_converted !== undefined) {
-      const rampDestCurrency = (args.values as any).wallet_ramp_destination_currency
-        ? ((args.values as any).wallet_ramp_destination_currency as string).toUpperCase()
+      const rampDestCurrency = args.values.wallet_ramp_destination_currency
+        ? args.values.wallet_ramp_destination_currency.toUpperCase()
         : args.values.destination_currency
       items.push({ label: 'Recibirás', value: formatMoney(args.values.amount_converted, rampDestCurrency) })
     }
@@ -3821,9 +3822,9 @@ function buildReviewItems(args: {
       if (args.values.amount_converted !== undefined) {
         items.push({ label: 'Recibirás', value: formatMoney(args.values.amount_converted, 'BOB') })
       }
-      items.push({ label: 'Banco destino', value: (args.values as any).withdraw_bank_name || 'Pendiente' })
-      items.push({ label: 'Cuenta destino', value: (args.values as any).withdraw_account_number || 'Pendiente' })
-      items.push({ label: 'Titular', value: (args.values as any).withdraw_account_holder || 'Pendiente' })
+      items.push({ label: 'Banco destino', value: args.values.withdraw_bank_name || 'Pendiente' })
+      items.push({ label: 'Cuenta destino', value: args.values.withdraw_account_number || 'Pendiente' })
+      items.push({ label: 'Titular', value: args.values.withdraw_account_holder || 'Pendiente' })
     } else if (method === 'crypto') {
       if (args.values.amount_converted !== undefined) {
         items.push({ label: 'Recibirás', value: formatMoney(args.values.amount_converted, displayCurrency) })

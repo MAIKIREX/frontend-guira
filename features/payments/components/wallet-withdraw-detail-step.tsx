@@ -18,6 +18,9 @@ import {
 import { EstimationSummary } from '@/components/shared/estimation-summary'
 import { cn } from '@/lib/utils'
 import { resolveFeeTotal, type ExchangeRateRecord } from '@/features/payments/lib/deposit-instructions'
+import type { UseFormReturn } from 'react-hook-form'
+import type { PaymentOrderFormValues } from '@/features/payments/schemas/payment-order.schema'
+import type { SupportedPaymentRoute } from '@/features/payments/lib/payment-routes'
 import { useFeePreview } from '@/features/payments/hooks/use-fee-preview'
 import type { WalletBalance } from '@/services/wallet.service'
 import type { FeeConfigRow, PsavConfigRow } from '@/types/payment-order'
@@ -43,7 +46,7 @@ const FORM_UNDERLINE_SELECT_CLASS = 'h-11 w-full rounded-none border-0 border-b 
 export type WithdrawSubStep = 'wallet' | 'bank' | 'dest_wallet' | 'reason' | 'amount'
 
 interface WalletWithdrawDetailStepProps {
-  form: any
+  form: UseFormReturn<PaymentOrderFormValues>
   method?: string
   wallets: WalletBalance[]
   exchangeRates: ExchangeRateRecord[]
@@ -92,7 +95,7 @@ export function WalletWithdrawDetailStep({
   // ── Available source currencies per method ──
   const fiatBoAvailableCurrencies = React.useMemo(() => {
     if (method !== 'fiat_bo') return []
-    const routeValid = getFiatBoAvailableSourceCurrencies(psavConfigs as any[])
+    const routeValid = getFiatBoAvailableSourceCurrencies(psavConfigs)
     let active = routeValid
     if (selectedWallet?.token_balances?.length) {
       active = routeValid.filter((cur) => {
@@ -139,7 +142,7 @@ export function WalletWithdrawDetailStep({
 
   const fiatBoMinAmount = React.useMemo(() => {
     if (method !== 'fiat_bo' || !selectedOriginCurrency) return 0
-    return getFiatBoMinAmountForSource(selectedOriginCurrency, psavConfigs as any[])
+    return getFiatBoMinAmountForSource(selectedOriginCurrency, psavConfigs)
   }, [method, selectedOriginCurrency, psavConfigs])
 
   const availableNetworks = React.useMemo(() => {
@@ -163,13 +166,13 @@ export function WalletWithdrawDetailStep({
     const newNetworks = getOffRampSameTokenNetworks(token)
     const currentNetwork = form.getValues('crypto_network')
     if (currentNetwork && !newNetworks.includes(currentNetwork)) {
-      form.setValue('crypto_network', undefined as any, { shouldValidate: false })
-      form.setValue('destination_currency', undefined as any, { shouldValidate: false })
+      form.setValue('crypto_network', '', { shouldValidate: false })
+      form.setValue('destination_currency', '', { shouldValidate: false })
     } else if (currentNetwork) {
       const newDests = getOffRampSameTokenDestCurrencies(token, currentNetwork)
       const currentDest = form.getValues('destination_currency')
       if (currentDest && !newDests.includes(currentDest.toLowerCase())) {
-        form.setValue('destination_currency', undefined as any, { shouldValidate: false })
+        form.setValue('destination_currency', '', { shouldValidate: false })
       } else if (newDests.length === 1) {
         form.setValue('destination_currency', newDests[0], { shouldValidate: false })
       }
@@ -184,7 +187,7 @@ export function WalletWithdrawDetailStep({
       if (dests.length === 1) {
         form.setValue('destination_currency', dests[0], { shouldValidate: false })
       } else {
-        form.setValue('destination_currency', undefined as any, { shouldValidate: false })
+        form.setValue('destination_currency', '', { shouldValidate: false })
       }
     }
   }, [form])
@@ -200,6 +203,7 @@ export function WalletWithdrawDetailStep({
 
   useEffect(() => {
     if (method !== 'fiat_bo') return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setBankLoading(true)
     ClientBankAccountsService.getPrimary()
       .then((data) => setBankAccount(data))
@@ -222,7 +226,7 @@ export function WalletWithdrawDetailStep({
     let amountConverted = Number(amount) || 0
 
     if (method === 'fiat_bo') {
-      feeTotal = resolveFeeTotal(feesConfig, Number(amount) || 0, 'bridge_wallet_to_fiat_bo' as any)
+      feeTotal = resolveFeeTotal(feesConfig, Number(amount) || 0, 'bridge_wallet_to_fiat_bo' as SupportedPaymentRoute)
       const rateRecord = exchangeRates.find((r) => r.pair?.toUpperCase() === 'USD_BOB')
       exchangeRateApplied = 6.96
       if (rateRecord) {
@@ -231,10 +235,10 @@ export function WalletWithdrawDetailStep({
       const netUsdc = Math.max((Number(amount) || 0) - feeTotal, 0)
       amountConverted = netUsdc * exchangeRateApplied
     } else if (method === 'crypto') {
-      feeTotal = resolveFeeTotal(feesConfig, Number(amount) || 0, 'bridge_wallet_to_crypto' as any)
+      feeTotal = resolveFeeTotal(feesConfig, Number(amount) || 0, 'bridge_wallet_to_crypto' as SupportedPaymentRoute)
       amountConverted = Math.max((Number(amount) || 0) - feeTotal, 0)
     } else if (method === 'fiat_us') {
-      feeTotal = resolveFeeTotal(feesConfig, Number(amount) || 0, 'bridge_wallet_to_fiat_us' as any)
+      feeTotal = resolveFeeTotal(feesConfig, Number(amount) || 0, 'bridge_wallet_to_fiat_us' as SupportedPaymentRoute)
       amountConverted = Math.max((Number(amount) || 0) - feeTotal, 0)
     }
 

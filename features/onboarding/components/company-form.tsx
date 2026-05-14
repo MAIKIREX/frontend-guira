@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { useOnboardingStore } from '@/stores/onboarding-store'
-import { OnboardingService } from '@/services/onboarding.service'
+import { OnboardingService, type CreateBusinessDto } from '@/services/onboarding.service'
 import { toast } from 'sonner'
 import { useState, useEffect } from 'react'
 import { FileDropzone } from '@/components/shared/file-dropzone'
@@ -74,15 +74,15 @@ export function CompanyForm({
   }
 
   const form = useForm<CompanyOnboardingValues>({
-    resolver: zodResolver(companyOnboardingSchema) as any,
+    resolver: zodResolver(companyOnboardingSchema),
     defaultValues: {
       legal_name:                     (formData.legal_name as string) || '',
       trade_name:                     (formData.trade_name as string) || '',
       registration_number:            (formData.registration_number as string) || '',
       tax_id:                         (formData.tax_id as string) || '',
-      entity_type:                    (formData.entity_type as any) || ('' as any),
+      entity_type:                    (formData.entity_type as CompanyOnboardingValues['entity_type']) || undefined,
       incorporation_date:             (formData.incorporation_date as string) || '',
-      country_of_incorporation:       (formData.country_of_incorporation as any) || ('' as any),
+      country_of_incorporation:       (formData.country_of_incorporation as CompanyOnboardingValues['country_of_incorporation']) || undefined,
       business_description:           (formData.business_description as string) || '',
       business_industry:              (formData.business_industry as string[]) || [],
       primary_website:                (formData.primary_website as string) || '',
@@ -93,23 +93,23 @@ export function CompanyForm({
       city:                           (formData.city as string) || '',
       state:                          (formData.state as string) || '',
       postal_code:                    (formData.postal_code as string) || '',
-      country:                        (formData.country as any) || ('' as any),
+      country:                        (formData.country as CompanyOnboardingValues['country']) || undefined,
       // F8: physical address
       physical_address1:              (formData.physical_address1 as string) || '',
       physical_address2:              (formData.physical_address2 as string) || '',
       physical_city:                  (formData.physical_city as string) || '',
       physical_state:                 (formData.physical_state as string) || '',
       physical_postal_code:           (formData.physical_postal_code as string) || '',
-      physical_country:               (formData.physical_country as any) || undefined,
-      account_purpose:                (formData.account_purpose as any) || ('' as any),
+      physical_country:               (formData.physical_country as CompanyOnboardingValues['physical_country']) || undefined,
+      account_purpose:                (formData.account_purpose as CompanyOnboardingValues['account_purpose']) || undefined,
       account_purpose_other:          (formData.account_purpose_other as string) || '',
-      source_of_funds:                (formData.source_of_funds as any) || ('' as any),
+      source_of_funds:                (formData.source_of_funds as CompanyOnboardingValues['source_of_funds']) || undefined,
       // F3: renombrado estimated_monthly_volume → expected_monthly_payments_usd
-      expected_monthly_payments_usd:  (formData.expected_monthly_payments_usd as any),
+      expected_monthly_payments_usd:  (formData.expected_monthly_payments_usd as CompanyOnboardingValues['expected_monthly_payments_usd']),
       conducts_money_services:        (formData.conducts_money_services as boolean) ?? false,
       uses_bridge_for_money_services: (formData.uses_bridge_for_money_services as boolean) ?? false,
       // F6: annual revenue (P1)
-      estimated_annual_revenue_usd:   (formData.estimated_annual_revenue_usd as any) || undefined,
+      estimated_annual_revenue_usd:   (formData.estimated_annual_revenue_usd as CompanyOnboardingValues['estimated_annual_revenue_usd']) || undefined,
       // F7: high_risk_activities (P1)
       high_risk_activities:           (formData.high_risk_activities as string[]) || [],
       legal_rep_first_name:           (formData.legal_rep_first_name as string) || '',
@@ -180,7 +180,7 @@ export function CompanyForm({
         'legal_rep_first_name', 'legal_rep_last_name', 'legal_rep_position', 'legal_rep_id_number',
       ])
     } else if (step === 4) {
-      const fieldsToValidate: any = ['account_purpose', 'source_of_funds', 'expected_monthly_payments_usd']
+      const fieldsToValidate: (keyof CompanyOnboardingValues)[] = ['account_purpose', 'source_of_funds', 'expected_monthly_payments_usd']
       if (form.getValues('account_purpose') === 'other') {
         fieldsToValidate.push('account_purpose_other')
       }
@@ -293,7 +293,7 @@ export function CompanyForm({
         trade_name:                     data.trade_name || undefined,
         registration_number:            data.registration_number || undefined,
         tax_id:                         data.tax_id,
-        entity_type:                    data.entity_type as any,
+        entity_type:                    data.entity_type as CreateBusinessDto['entity_type'],
         incorporation_date:             data.incorporation_date || undefined,
         country_of_incorporation:       data.country_of_incorporation,
         business_description:           data.business_description || undefined,
@@ -314,15 +314,15 @@ export function CompanyForm({
         physical_state:                 data.physical_state || undefined,
         physical_postal_code:           data.physical_postal_code || undefined,
         physical_country:               data.physical_country || undefined,
-        account_purpose:                data.account_purpose as any,
+        account_purpose:                data.account_purpose as CreateBusinessDto['account_purpose'],
         account_purpose_other:          data.account_purpose === 'other' ? (data.account_purpose_other || undefined) : undefined,
-        source_of_funds:                data.source_of_funds as any,
+        source_of_funds:                data.source_of_funds as CreateBusinessDto['source_of_funds'],
         // F3: campo renombrado
-        expected_monthly_payments_usd:  (data.expected_monthly_payments_usd || undefined) as any,
+        expected_monthly_payments_usd:  data.expected_monthly_payments_usd || undefined,
         conducts_money_services:        data.conducts_money_services,
         uses_bridge_for_money_services: data.uses_bridge_for_money_services,
         // F6: annual revenue (P1)
-        estimated_annual_revenue_usd:   (data.estimated_annual_revenue_usd || undefined) as any,
+        estimated_annual_revenue_usd:   data.estimated_annual_revenue_usd as CreateBusinessDto['estimated_annual_revenue_usd'] || undefined,
         // F7: high_risk_activities (P1)
         high_risk_activities:           data.high_risk_activities,
       })
@@ -390,27 +390,27 @@ export function CompanyForm({
 
   return (
     <Form {...form}>
-      <form className="space-y-6" onSubmit={form.handleSubmit(onFinalSubmit as any)}>
+      <form className="space-y-6" onSubmit={form.handleSubmit(onFinalSubmit)}>
 
         {/* ──────────── STEP 2: Datos de la Empresa ──────────── */}
         {step === 2 && (
           <div className="space-y-4">
             <h2 className="text-xl font-medium">Información de la Empresa</h2>
             <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control as any} name="legal_name" render={({ field }) => (
+              <FormField control={form.control} name="legal_name" render={({ field }) => (
                 <FormItem><FormLabel>Razón Social</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="legal_name" fieldObservations={fieldObservations} /></FormItem>
               )} />
-              <FormField control={form.control as any} name="trade_name" render={({ field }) => (
+              <FormField control={form.control} name="trade_name" render={({ field }) => (
                 <FormItem><FormLabel>Nombre Comercial (opcional)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="trade_name" fieldObservations={fieldObservations} /></FormItem>
               )} />
-              <FormField control={form.control as any} name="registration_number" render={({ field }) => (
+              <FormField control={form.control} name="registration_number" render={({ field }) => (
                 <FormItem><FormLabel>Nro. de Registro</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="registration_number" fieldObservations={fieldObservations} /></FormItem>
               )} />
-              <FormField control={form.control as any} name="tax_id" render={({ field }) => (
+              <FormField control={form.control} name="tax_id" render={({ field }) => (
                 <FormItem><FormLabel>NIT / Tax ID</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="tax_id" fieldObservations={fieldObservations} /></FormItem>
               )} />
 
-              <FormField control={form.control as any} name="entity_type" render={({ field }) => (
+              <FormField control={form.control} name="entity_type" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Tipo de Entidad</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || ''}>
@@ -431,11 +431,11 @@ export function CompanyForm({
                 </FormItem>
               )} />
 
-              <FormField control={form.control as any} name="incorporation_date" render={({ field }) => (
+              <FormField control={form.control} name="incorporation_date" render={({ field }) => (
                 <FormItem><FormLabel>Fecha de Constitución</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
 
-              <FormField control={form.control as any} name="country_of_incorporation" render={({ field }) => (
+              <FormField control={form.control} name="country_of_incorporation" render={({ field }) => (
                 <FormItem>
                   <FormLabel>País de Constitución</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || ''}>
@@ -467,7 +467,7 @@ export function CompanyForm({
                 </FormItem>
               )} />
 
-              <FormField control={form.control as any} name="business_industry" render={({ field }) => (
+              <FormField control={form.control} name="business_industry" render={({ field }) => (
                 <FormItem className="col-span-2">
                   <FormLabel>Industria / Sector (NAICS)</FormLabel>
                   <Select
@@ -509,18 +509,18 @@ export function CompanyForm({
                 </FormItem>
               )} />
 
-              <FormField control={form.control as any} name="primary_website" render={({ field }) => (
+              <FormField control={form.control} name="primary_website" render={({ field }) => (
                 <FormItem><FormLabel>Sitio Web (opcional)</FormLabel><FormControl><Input type="url" placeholder="https://www.ejemplo.com" {...field} /></FormControl><FormDescription className="text-xs">Mejora la velocidad de aprobación KYB</FormDescription><FormMessage /></FormItem>
               )} />
 
-              <FormField control={form.control as any} name="business_description" render={({ field }) => (
+              <FormField control={form.control} name="business_description" render={({ field }) => (
                 <FormItem className="col-span-2"><FormLabel>Descripción de Actividad</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
 
-              <FormField control={form.control as any} name="email" render={({ field }) => (
+              <FormField control={form.control} name="email" render={({ field }) => (
                 <FormItem><FormLabel>Email Corporativo</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="email" fieldObservations={fieldObservations} /></FormItem>
               )} />
-              <FormField control={form.control as any} name="phone" render={({ field }) => (
+              <FormField control={form.control} name="phone" render={({ field }) => (
                 <FormItem><FormLabel>Teléfono (opcional)</FormLabel><FormControl><Input placeholder="+1 415 555 0100" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
             </div>
@@ -537,13 +537,13 @@ export function CompanyForm({
             <h3 className="text-base font-medium text-muted-foreground">Dirección Empresarial (Registrada)</h3>
             <p className="text-xs text-muted-foreground">Domicilio legal de la empresa según el registro mercantil.</p>
             <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control as any} name="address1" render={({ field }) => (
+              <FormField control={form.control} name="address1" render={({ field }) => (
                 <FormItem className="col-span-2"><FormLabel>Calle y Número</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="address1" fieldObservations={fieldObservations} /></FormItem>
               )} />
-              <FormField control={form.control as any} name="city" render={({ field }) => (
+              <FormField control={form.control} name="city" render={({ field }) => (
                 <FormItem><FormLabel>Ciudad</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="city" fieldObservations={fieldObservations} /></FormItem>
               )} />
-              <FormField control={form.control as any} name="state" render={({ field }) => (
+              <FormField control={form.control} name="state" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Estado / Provincia</FormLabel>
                   {subdivisions.length > 0 ? (
@@ -567,10 +567,10 @@ export function CompanyForm({
                   <FormMessage />
                 </FormItem>
               )} />
-              <FormField control={form.control as any} name="postal_code" render={({ field }) => (
+              <FormField control={form.control} name="postal_code" render={({ field }) => (
                 <FormItem><FormLabel>Código Postal</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-              <FormField control={form.control as any} name="country" render={({ field }) => (
+              <FormField control={form.control} name="country" render={({ field }) => (
                 <FormItem>
                   <FormLabel>País</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || ''}>
@@ -607,13 +607,13 @@ export function CompanyForm({
             <h3 className="text-base font-medium text-muted-foreground pt-4">Dirección Operacional <span className="text-xs font-normal">(opcional — si es distinta a la registrada)</span></h3>
             <p className="text-xs text-muted-foreground">Bridge la utiliza como <code>physical_address</code>. Completa solo si la operación ocurre en un lugar diferente a la sede legal.</p>
             <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control as any} name="physical_address1" render={({ field }) => (
+              <FormField control={form.control} name="physical_address1" render={({ field }) => (
                 <FormItem className="col-span-2"><FormLabel>Calle y Número (operacional)</FormLabel><FormControl><Input placeholder="Calle Industria 55" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-              <FormField control={form.control as any} name="physical_city" render={({ field }) => (
+              <FormField control={form.control} name="physical_city" render={({ field }) => (
                 <FormItem><FormLabel>Ciudad (operacional)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-              <FormField control={form.control as any} name="physical_state" render={({ field }) => (
+              <FormField control={form.control} name="physical_state" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Estado / Provincia (operacional)</FormLabel>
                   {physicalSubdivisions.length > 0 ? (
@@ -637,10 +637,10 @@ export function CompanyForm({
                   <FormMessage />
                 </FormItem>
               )} />
-              <FormField control={form.control as any} name="physical_postal_code" render={({ field }) => (
+              <FormField control={form.control} name="physical_postal_code" render={({ field }) => (
                 <FormItem><FormLabel>Código Postal (operacional)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-              <FormField control={form.control as any} name="physical_country" render={({ field }) => (
+              <FormField control={form.control} name="physical_country" render={({ field }) => (
                 <FormItem>
                   <FormLabel>País (operacional)</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || ''}>
@@ -676,16 +676,16 @@ export function CompanyForm({
             <h3 className="text-base font-medium text-muted-foreground pt-4">Representante Legal</h3>
             <p className="text-xs text-muted-foreground">Será registrado como director firmante en el expediente KYB.</p>
             <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control as any} name="legal_rep_first_name" render={({ field }) => (
+              <FormField control={form.control} name="legal_rep_first_name" render={({ field }) => (
                 <FormItem><FormLabel>Nombres</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="legal_rep_first_name" fieldObservations={fieldObservations} /></FormItem>
               )} />
-              <FormField control={form.control as any} name="legal_rep_last_name" render={({ field }) => (
+              <FormField control={form.control} name="legal_rep_last_name" render={({ field }) => (
                 <FormItem><FormLabel>Apellidos</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /><FieldObservationAlert fieldName="legal_rep_last_name" fieldObservations={fieldObservations} /></FormItem>
               )} />
-              <FormField control={form.control as any} name="legal_rep_position" render={({ field }) => (
+              <FormField control={form.control} name="legal_rep_position" render={({ field }) => (
                 <FormItem><FormLabel>Cargo</FormLabel><FormControl><Input placeholder="CEO, Director, etc." {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-              <FormField control={form.control as any} name="legal_rep_id_type" render={({ field }) => (
+              <FormField control={form.control} name="legal_rep_id_type" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Tipo de Documento</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || ''}>
@@ -705,23 +705,23 @@ export function CompanyForm({
                   <FormMessage />
                 </FormItem>
               )} />
-              <FormField control={form.control as any} name="legal_rep_id_number" render={({ field }) => (
+              <FormField control={form.control} name="legal_rep_id_number" render={({ field }) => (
                 <FormItem><FormLabel>Nro. Documento</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-              <FormField control={form.control as any} name="legal_rep_email" render={({ field }) => (
+              <FormField control={form.control} name="legal_rep_email" render={({ field }) => (
                 <FormItem><FormLabel>Email Rep. Legal</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
               {/* FIX N-05: date_of_birth required by Bridge AssociatedPerson schema */}
-              <FormField control={form.control as any} name="legal_rep_date_of_birth" render={({ field }) => (
+              <FormField control={form.control} name="legal_rep_date_of_birth" render={({ field }) => (
                 <FormItem><FormLabel>Fecha de Nacimiento Rep. Legal</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-              <FormField control={form.control as any} name="legal_rep_address1" render={({ field }) => (
+              <FormField control={form.control} name="legal_rep_address1" render={({ field }) => (
                 <FormItem className="col-span-2"><FormLabel>Dirección Residencial</FormLabel><FormControl><Input placeholder="P.ej. Calle 123" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-              <FormField control={form.control as any} name="legal_rep_city" render={({ field }) => (
+              <FormField control={form.control} name="legal_rep_city" render={({ field }) => (
                 <FormItem><FormLabel>Ciudad Residencial</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-              <FormField control={form.control as any} name="legal_rep_country" render={({ field }) => (
+              <FormField control={form.control} name="legal_rep_country" render={({ field }) => (
                 <FormItem>
                   <FormLabel>País Residencial</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || ''}>
@@ -752,7 +752,7 @@ export function CompanyForm({
                   <FormMessage />
                 </FormItem>
               )} />
-              <FormField control={form.control as any} name="legal_rep_is_pep" render={({ field }) => (
+              <FormField control={form.control} name="legal_rep_is_pep" render={({ field }) => (
                 <FormItem className="flex flex-row items-start gap-3 rounded-lg border p-3">
                   <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                   <FormLabel className="font-normal text-sm">Representante Legal es PEP (Persona Expuesta Políticamente)</FormLabel>
@@ -771,7 +771,7 @@ export function CompanyForm({
           <div className="space-y-4">
             <h2 className="text-xl font-medium">Información Financiera y Compliance</h2>
             <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control as any} name="account_purpose" render={({ field }) => (
+              <FormField control={form.control} name="account_purpose" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Propósito de la cuenta</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || ''}>
@@ -794,7 +794,7 @@ export function CompanyForm({
 
               {/* P1-A: conditional field when account_purpose = 'other' */}
               {form.watch('account_purpose') === 'other' && (
-                <FormField control={form.control as any} name="account_purpose_other" render={({ field }) => (
+                <FormField control={form.control} name="account_purpose_other" render={({ field }) => (
                   <FormItem className="col-span-2">
                     <FormLabel>Especifica el propósito de la cuenta</FormLabel>
                     <FormControl>
@@ -805,7 +805,7 @@ export function CompanyForm({
                 )} />
               )}
 
-              <FormField control={form.control as any} name="source_of_funds" render={({ field }) => (
+              <FormField control={form.control} name="source_of_funds" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Origen de fondos</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || ''}>
@@ -827,7 +827,7 @@ export function CompanyForm({
               )} />
 
               {/* F3: campo renombrado */}
-              <FormField control={form.control as any} name="expected_monthly_payments_usd" render={({ field }) => (
+              <FormField control={form.control} name="expected_monthly_payments_usd" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Volumen Mensual Estimado (USD/mes)</FormLabel>
                   <FormControl>
@@ -847,7 +847,7 @@ export function CompanyForm({
               )} />
 
               {/* F6: Ingresos anuales estimados (P1 — high-risk) */}
-              <FormField control={form.control as any} name="estimated_annual_revenue_usd" render={({ field }) => (
+              <FormField control={form.control} name="estimated_annual_revenue_usd" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Ingresos Anuales Estimados <span className="text-muted-foreground text-xs font-normal">(opcional)</span></FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || ''}>
@@ -868,7 +868,7 @@ export function CompanyForm({
                 </FormItem>
               )} />
 
-              <FormField control={form.control as any} name="conducts_money_services" render={({ field }) => (
+              <FormField control={form.control} name="conducts_money_services" render={({ field }) => (
                 <FormItem className="col-span-2 flex flex-row items-start gap-3 rounded-lg border p-3">
                   <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                   <div>
@@ -877,7 +877,7 @@ export function CompanyForm({
                   </div>
                 </FormItem>
               )} />
-              <FormField control={form.control as any} name="uses_bridge_for_money_services" render={({ field }) => (
+              <FormField control={form.control} name="uses_bridge_for_money_services" render={({ field }) => (
                 <FormItem className="col-span-2 flex flex-row items-start gap-3 rounded-lg border p-3">
                   <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                   <div>
@@ -890,7 +890,7 @@ export function CompanyForm({
 
             {/* conducts_money_services_description — requerido por Bridge cuando MSB=true */}
             {form.watch('conducts_money_services') && (
-              <FormField control={form.control as any} name="conducts_money_services_description" render={({ field }) => (
+              <FormField control={form.control} name="conducts_money_services_description" render={({ field }) => (
                 <FormItem className="col-span-2">
                   <FormLabel>Descripción de servicios de dinero <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
@@ -914,7 +914,7 @@ export function CompanyForm({
                   Selecciona si la empresa opera en alguna de las siguientes áreas. Requerido para procesos de EDD.
                 </p>
                 <FormField
-                  control={form.control as any}
+                  control={form.control}
                   name="high_risk_activities"
                   render={({ field }) => (
                     <FormItem>
@@ -1053,7 +1053,7 @@ export function CompanyForm({
                   // FIX N-05: date_of_birth required by Bridge AssociatedPerson schema
                   date_of_birth: '', email: '',
                   is_pep: false, has_control: false, position: '', nationality: undefined,
-                  address1: '', city: '', country: undefined as any
+                  address1: '', city: '', country: '' as CompanyOnboardingValues['ubos'][number]['country']
                 })}
               >
                 <PlusCircle className="w-4 h-4 mr-1" /> Agregar UBO
@@ -1073,13 +1073,13 @@ export function CompanyForm({
                 </Button>
                 <h4 className="font-semibold">Socio #{index + 1}</h4>
                 <div className="grid grid-cols-2 gap-4">
-                  <FormField control={form.control as any} name={`ubos.${index}.first_name`} render={({ field }) => (
+                  <FormField control={form.control} name={`ubos.${index}.first_name`} render={({ field }) => (
                     <FormItem><FormLabel>Nombre(s)</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
                   )} />
-                  <FormField control={form.control as any} name={`ubos.${index}.last_name`} render={({ field }) => (
+                  <FormField control={form.control} name={`ubos.${index}.last_name`} render={({ field }) => (
                     <FormItem><FormLabel>Apellido(s)</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
                   )} />
-                  <FormField control={form.control as any} name={`ubos.${index}.ownership_percent`} render={({ field }) => (
+                  <FormField control={form.control} name={`ubos.${index}.ownership_percent`} render={({ field }) => (
                     <FormItem>
                       <FormLabel>% de Participación</FormLabel>
                       <FormControl>
@@ -1095,10 +1095,10 @@ export function CompanyForm({
                     </FormItem>
                   )} />
                   {/* FIX N-05: date_of_birth required by Bridge AssociatedPerson schema */}
-                  <FormField control={form.control as any} name={`ubos.${index}.date_of_birth`} render={({ field }) => (
+                  <FormField control={form.control} name={`ubos.${index}.date_of_birth`} render={({ field }) => (
                     <FormItem><FormLabel>Fecha de Nacimiento</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
-                  <FormField control={form.control as any} name={`ubos.${index}.nationality`} render={({ field }) => (
+                  <FormField control={form.control} name={`ubos.${index}.nationality`} render={({ field }) => (
                     <FormItem>
                       <FormLabel>Nacionalidad</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value || ''}>
@@ -1128,7 +1128,7 @@ export function CompanyForm({
                       </Select>
                     </FormItem>
                   )} />
-                  <FormField control={form.control as any} name={`ubos.${index}.id_type`} render={({ field }) => (
+                  <FormField control={form.control} name={`ubos.${index}.id_type`} render={({ field }) => (
                     <FormItem>
                       <FormLabel>Tipo de Documento</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value || ''}>
@@ -1147,19 +1147,19 @@ export function CompanyForm({
                       </Select>
                     </FormItem>
                   )} />
-                  <FormField control={form.control as any} name={`ubos.${index}.id_number`} render={({ field }) => (
+                  <FormField control={form.control} name={`ubos.${index}.id_number`} render={({ field }) => (
                     <FormItem><FormLabel>Nro. Documento</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
                   )} />
-                  <FormField control={form.control as any} name={`ubos.${index}.email`} render={({ field }) => (
+                  <FormField control={form.control} name={`ubos.${index}.email`} render={({ field }) => (
                     <FormItem><FormLabel>Email UBO <span className="text-destructive text-xs">*</span></FormLabel><FormControl><Input type="email" placeholder="contacto@empresa.com" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
-                  <FormField control={form.control as any} name={`ubos.${index}.address1`} render={({ field }) => (
+                  <FormField control={form.control} name={`ubos.${index}.address1`} render={({ field }) => (
                     <FormItem className="col-span-2"><FormLabel>Dirección Residencial</FormLabel><FormControl><Input placeholder="Calle, Nro, etc." {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
-                  <FormField control={form.control as any} name={`ubos.${index}.city`} render={({ field }) => (
+                  <FormField control={form.control} name={`ubos.${index}.city`} render={({ field }) => (
                     <FormItem><FormLabel>Ciudad Residencial</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
-                  <FormField control={form.control as any} name={`ubos.${index}.country`} render={({ field }) => (
+                  <FormField control={form.control} name={`ubos.${index}.country`} render={({ field }) => (
                     <FormItem>
                       <FormLabel>País Residencial</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value || ''}>
@@ -1190,14 +1190,14 @@ export function CompanyForm({
                       <FormMessage />
                     </FormItem>
                   )} />
-                  <FormField control={form.control as any} name={`ubos.${index}.is_pep`} render={({ field }) => (
+                  <FormField control={form.control} name={`ubos.${index}.is_pep`} render={({ field }) => (
                     <FormItem className="flex flex-row items-start gap-3 rounded border p-3">
                       <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                       <FormLabel className="font-normal text-sm">Este UBO es PEP</FormLabel>
                     </FormItem>
                   )} />
                   {/* F9: has_control — UBO con control operacional (no solo ownership) */}
-                  <FormField control={form.control as any} name={`ubos.${index}.has_control`} render={({ field }) => (
+                  <FormField control={form.control} name={`ubos.${index}.has_control`} render={({ field }) => (
                     <FormItem className="flex flex-row items-start gap-3 rounded border p-3">
                       <FormControl><Checkbox checked={!!field.value} onCheckedChange={field.onChange} /></FormControl>
                       <div>
@@ -1208,7 +1208,7 @@ export function CompanyForm({
                   )} />
                   {/* P2-A: position/title — required by Bridge when has_control is true */}
                   {form.watch(`ubos.${index}.has_control`) && (
-                    <FormField control={form.control as any} name={`ubos.${index}.position`} render={({ field }) => (
+                    <FormField control={form.control} name={`ubos.${index}.position`} render={({ field }) => (
                       <FormItem>
                         <FormLabel>Cargo en la empresa *</FormLabel>
                         <FormControl>

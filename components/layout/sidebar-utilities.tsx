@@ -67,7 +67,7 @@ export function SidebarUtilities({
           >
             <div className="relative">
               <Avatar className="size-9 border border-white/10 bg-[#005BFF]/20">
-                <AvatarImage src={(profile as any)?.avatar_url || ''} alt={displayName} />
+                <AvatarImage src={profile?.avatar_url || ''} alt={displayName} />
                 <AvatarFallback className="bg-transparent text-white font-bold text-xs">
                   {initials || 'U'}
                 </AvatarFallback>

@@ -37,7 +37,7 @@ export const ActivityService = {
   /**
    * Obtiene todos los logs de auditoria del sistema (staff actions, etc).
    */
-  async getAuditLogs(params?: PaginationParams): Promise<any[]> {
-    return apiGet<any[]>('/admin/audit-logs', { params })
+  async getAuditLogs(params?: PaginationParams): Promise<unknown[]> {
+    return apiGet<unknown[]>('/admin/audit-logs', { params })
   },
 }

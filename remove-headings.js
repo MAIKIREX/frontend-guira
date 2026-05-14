@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const fs = require('fs');
 const filePath = 'c:/Users/WitronVentas/Desktop/Aplicaciones/Guira/backend/m-guira/features/payments/components/create-payment-order-form.tsx';
 let content = fs.readFileSync(filePath, 'utf8');

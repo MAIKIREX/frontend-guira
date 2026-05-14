@@ -70,7 +70,7 @@ export function estimateRouteValues(args: {
     ? args.exchangeRates.find((r) => r.pair?.toUpperCase() === ratePair)
     : null
 
-  let selectedBaseRate = rateRecord?.effective_rate ?? rateRecord?.rate ?? 1
+  const selectedBaseRate = rateRecord?.effective_rate ?? rateRecord?.rate ?? 1
 
   // Con la nueva semántica, la tasa siempre es "BOB por 1 USD"
   // BOB→USD: dividir. USD→BOB: multiplicar.

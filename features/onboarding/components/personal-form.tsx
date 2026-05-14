@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { useOnboardingStore } from '@/stores/onboarding-store'
-import { OnboardingService } from '@/services/onboarding.service'
+import { OnboardingService, type CreatePersonDto } from '@/services/onboarding.service'
 import { toast } from 'sonner'
 import { useState, useEffect, useRef } from 'react'
 import { FileDropzone } from '@/components/shared/file-dropzone'
@@ -74,9 +74,9 @@ export function PersonalForm({
       middle_name:                   (formData.middle_name as string) || '',
       last_name:                     (formData.last_name as string) || '',
       date_of_birth:                 (formData.date_of_birth as string) || '',
-      nationality:                   (formData.nationality as any) || ('' as any),
-      country_of_residence:          (formData.country_of_residence as any) || ('' as any),
-      id_type:                       (formData.id_type as any) || ('' as any),
+      nationality:                   (formData.nationality as PersonalOnboardingValues['nationality']) || undefined,
+      country_of_residence:          (formData.country_of_residence as PersonalOnboardingValues['country_of_residence']) || undefined,
+      id_type:                       (formData.id_type as PersonalOnboardingValues['id_type']) || undefined,
       id_number:                     (formData.id_number as string) || '',
       id_expiry_date:                (formData.id_expiry_date as string) || '',
       email:                         (formData.email as string) || '',
@@ -86,17 +86,17 @@ export function PersonalForm({
       city:                          (formData.city as string) || '',
       state:                         (formData.state as string) || '',
       postal_code:                   (formData.postal_code as string) || '',
-      country:                       (formData.country as any) || ('' as any),
-      most_recent_occupation:        (formData.most_recent_occupation as any) || undefined,
-      account_purpose:               (formData.account_purpose as any) || ('' as any),
+      country:                       (formData.country as PersonalOnboardingValues['country']) || undefined,
+      most_recent_occupation:        (formData.most_recent_occupation as string) || undefined,
+      account_purpose:               (formData.account_purpose as PersonalOnboardingValues['account_purpose']) || undefined,
       account_purpose_other:         (formData.account_purpose_other as string) || '',
-      source_of_funds:               (formData.source_of_funds as any) || ('' as any),
+      source_of_funds:               (formData.source_of_funds as PersonalOnboardingValues['source_of_funds']) || undefined,
       // F3: campo renombrado de estimated_monthly_volume a expected_monthly_payments_usd
-      expected_monthly_payments_usd: (formData.expected_monthly_payments_usd as any) || ('' as any),
+      expected_monthly_payments_usd: (formData.expected_monthly_payments_usd as PersonalOnboardingValues['expected_monthly_payments_usd']) || undefined,
       tax_id:                        (formData.tax_id as string) || '',
       is_pep:                        (formData.is_pep as boolean) ?? false,
       // F5: employment_status (P1 high-risk, opcional)
-      employment_status:             (formData.employment_status as any) || undefined,
+      employment_status:             (formData.employment_status as PersonalOnboardingValues['employment_status']) || undefined,
     },
   })
 
@@ -156,7 +156,7 @@ export function PersonalForm({
       isValid = await form.trigger(['address1', 'city', 'country', 'state'])
     } else if (step === 4) {
       // F3: campo renombrado
-      const fieldsToValidate: any = ['most_recent_occupation', 'account_purpose', 'source_of_funds', 'expected_monthly_payments_usd']
+      const fieldsToValidate: (keyof PersonalOnboardingValues)[] = ['most_recent_occupation', 'account_purpose', 'source_of_funds', 'expected_monthly_payments_usd']
       if (form.getValues('account_purpose') === 'other') {
         fieldsToValidate.push('account_purpose_other')
       }
@@ -257,16 +257,16 @@ export function PersonalForm({
         postal_code:                   data.postal_code || undefined,
         country:                       data.country,
         tax_id:                        data.tax_id || undefined,
-        source_of_funds:               data.source_of_funds as any,
-        account_purpose:               data.account_purpose as any,
+        source_of_funds:               data.source_of_funds as string,
+        account_purpose:               data.account_purpose as string,
         account_purpose_other:         data.account_purpose === 'other' ? (data.account_purpose_other || undefined) : undefined,
         is_pep:                        data.is_pep,
         // F3: campo renombrado — se envía como expected_monthly_payments_usd al backend
-        expected_monthly_payments_usd: data.expected_monthly_payments_usd as any,
+        expected_monthly_payments_usd: data.expected_monthly_payments_usd as CreatePersonDto['expected_monthly_payments_usd'],
         // F5: employment_status (P1, opcional)
-        employment_status:             (data.employment_status || undefined) as any,
+        employment_status:             data.employment_status || undefined,
         // F-OCC: most_recent_occupation reemplaza el campo de texto libre anterior
-        most_recent_occupation:        (data.most_recent_occupation || undefined) as any,
+        most_recent_occupation:        data.most_recent_occupation || undefined,
       })
 
       // Paso 2: Crear expediente (idempotente — si ya existe lo devuelve)

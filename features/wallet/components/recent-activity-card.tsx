@@ -95,8 +95,8 @@ export function RecentActivityCard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    PaymentsService.getOrders({ limit: 5 } as any)
-      .then((raw: any) => {
+    PaymentsService.getOrders({ limit: 5 })
+      .then((raw) => {
         const items: PaymentOrder[] = Array.isArray(raw) ? raw
           : Array.isArray(raw?.data) ? raw.data
           : Array.isArray(raw?.items) ? raw.items : []

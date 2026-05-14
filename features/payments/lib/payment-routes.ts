@@ -113,8 +113,8 @@ export function resolveFlowType(route: SupportedPaymentRoute, deliveryMethod?: s
 export function buildPaymentOrderPayload(
   values: PaymentOrderFormValues,
   userId: string,
-  supplier?: any
-): any {
+  supplier?: Record<string, unknown>
+): Record<string, unknown> {
   const flowType = resolveFlowType(values.route, values.delivery_method, values.wallet_ramp_method, values.wallet_ramp_withdraw_method)
   const isWalletRamp = [
     'fiat_bo_to_bridge_wallet', 'crypto_to_bridge_wallet',
@@ -122,7 +122,7 @@ export function buildPaymentOrderPayload(
     'wallet_to_fiat',
   ].includes(flowType)
 
-  const payload: any = {
+  const payload: Record<string, unknown> = {
     flow_type: flowType,
     amount: values.amount_origin,
     business_purpose: values.payment_reason || 'Operación interbancaria',
@@ -197,9 +197,9 @@ export function buildPaymentOrderPayload(
       payload.supplier_id = supplier?.id || undefined
       break
     case 'wallet_to_fiat':
-      payload.source_network = (values as any).wallet_to_fiat_source_network?.toLowerCase()
-      payload.source_address = (values as any).wallet_to_fiat_source_address
-      payload.source_currency = (values as any).wallet_to_fiat_source_currency?.toLowerCase()
+      payload.source_network = values.wallet_to_fiat_source_network?.toLowerCase()
+      payload.source_address = values.wallet_to_fiat_source_address
+      payload.source_currency = values.wallet_to_fiat_source_currency?.toLowerCase()
       payload.supplier_id = supplier?.id
       payload.business_purpose = values.payment_reason
       break

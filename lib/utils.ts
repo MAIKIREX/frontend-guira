@@ -24,7 +24,7 @@ export function getErrorMessage(error: unknown, fallbackMessage = 'Ha ocurrido u
   }
 
   if (typeof error === 'object') {
-    const axiosError = error as any;
+    const axiosError = error as { response?: { data?: { message?: string | string[] } } };
     if (axiosError.response?.data?.message) {
       const msg = axiosError.response.data.message;
       return Array.isArray(msg) ? msg[0] : msg;

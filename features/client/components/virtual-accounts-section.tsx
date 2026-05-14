@@ -80,7 +80,7 @@ export function VirtualAccountsSection({ isApproved }: VirtualAccountsSectionPro
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-4xl font-extrabold text-foreground tracking-tight">Cuentas Virtuales</h2>
           <p className="text-sm text-muted-foreground/60 mt-1.5 font-medium">

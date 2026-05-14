@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { validateCryptoAddress, isAllowedNetwork } from '@/lib/guira-crypto-config'
+import { validateCryptoAddress, isAllowedNetwork, type AllowedNetwork } from '@/lib/guira-crypto-config'
 import {
   Loader2,
   Plus,
@@ -92,7 +92,7 @@ function isValidBlockchainAddress(address: string, network?: string): boolean {
 
   // Si tenemos red específica y es una red permitida, usar validador centralizado
   if (network && isAllowedNetwork(network)) {
-    return validateCryptoAddress(trimmed, network as any)
+    return validateCryptoAddress(trimmed, network as AllowedNetwork)
   }
 
   // Fallback genérico: acepta cualquiera de los formatos conocidos

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { ReconciliationAdminService } from '@/services/admin/reconciliation.admin.service'
 
 export interface AdminReconciliationState {
-  reports: any[]
+  reports: unknown[]
 }
 
 export function useAdminReconciliation() {

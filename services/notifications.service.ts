@@ -18,7 +18,7 @@ export const NotificationsService = {
    * Obtiene las últimas notificaciones del usuario autenticado.
    */
   async getLatest(params?: PaginationParams & { unread_only?: boolean }): Promise<Notification[]> {
-    const res = await apiGet<any>('/notifications', { params })
+    const res = await apiGet<Notification[] | { data: Notification[] }>('/notifications', { params })
     return (res && Array.isArray(res.data)) ? res.data : (Array.isArray(res) ? res : [])
   },
 

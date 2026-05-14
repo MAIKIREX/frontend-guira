@@ -343,6 +343,7 @@ export function SupplierForm({
 
     const emailValid = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(watchEmail ?? '')
     if (!emailValid) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDuplicateInfo(null)
       return
     }
@@ -524,20 +525,15 @@ export function SupplierForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmitForm)} className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-        <div className="flex items-center gap-4">
-          <Button disabled={disabled} onClick={onBack} size="icon" type="button" variant="outline">
-            <ArrowLeft className="size-4" />
-          </Button>
-          <div>
-            <h2 className="text-xl font-semibold">
-              {editingSupplier ? 'Editar Proveedor' : addingRailTo ? 'Añadir método de cobro' : 'Nuevo Proveedor'}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {addingRailTo
-                ? `Agrega un nuevo rail de pago a ${addingRailTo.name}.`
-                : 'Configura los datos del destinatario para futuros pagos.'}
-            </p>
-          </div>
+        <div>
+          <h2 className="text-xl font-semibold">
+            {editingSupplier ? 'Editar Proveedor' : addingRailTo ? 'Añadir método de cobro' : 'Nuevo Proveedor'}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {addingRailTo
+              ? `Agrega un nuevo rail de pago a ${addingRailTo.name}.`
+              : 'Configura los datos del destinatario para futuros pagos.'}
+          </p>
         </div>
 
         <StepProgressRail currentStep={currentStep} getStepLabel={getSupplierStepLabel} steps={SUPPLIER_STEP_ORDER} />
@@ -736,7 +732,10 @@ export function SupplierForm({
                     )}
                   />
 
-                  <div className="flex justify-end pt-4">
+                  <div className="flex justify-between pt-4">
+                    <GuiraButton disabled={disabled} onClick={onBack} type="button" variant="outline" iconStart={ArrowLeft}>
+                      Atrás
+                    </GuiraButton>
                     <GuiraButton disabled={disabled} onClick={handleNext} type="button" arrowNext>
                       Continuar a Detalles
                     </GuiraButton>
@@ -1559,7 +1558,7 @@ export function SupplierForm({
                   )}
 
                   <div className="flex justify-between pt-4">
-                    <GuiraButton disabled={disabled} onClick={handleBack} type="button" variant="ghost" iconStart={ArrowLeft}>
+                    <GuiraButton disabled={disabled} onClick={handleBack} type="button" variant="outline" iconStart={ArrowLeft}>
                       Volver
                     </GuiraButton>
                     <GuiraButton disabled={disabled || form.formState.isSubmitting} type="submit">

@@ -408,7 +408,7 @@ function BankAccountFormDialog({
     setIsSubmitting(true)
     setError(null)
     try {
-      const payload: any = {
+      const payload: { bank_name: string; account_number: string; account_holder: string; account_type: string; change_reason?: string } = {
         bank_name: bankName.trim(),
         account_number: accountNumber.trim(),
         account_holder: accountHolder.trim(),
@@ -418,9 +418,9 @@ function BankAccountFormDialog({
         payload.change_reason = changeReason.trim()
       }
       await onSubmit(payload)
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.message ?? err?.message ?? 'Error inesperado.'
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string }
+      const msg = e?.response?.data?.message ?? e?.message ?? 'Error inesperado.'
       setError(msg)
       toast.error(msg)
     } finally {

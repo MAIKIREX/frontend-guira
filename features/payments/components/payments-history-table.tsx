@@ -364,16 +364,16 @@ export function PaymentsHistoryTable({
           <p className="text-sm font-medium text-muted-foreground">No hay resultados con los filtros actuales.</p>
         </div>
       ) : (
-        <div className="flex-1 overflow-x-auto bg-background">
-          <Table>
+        <div className="flex-1 min-w-0 overflow-x-auto bg-background">
+          <Table className="min-w-[800px]">
             <TableHeader>
               <TableRow className="border-border/50 hover:bg-transparent bg-muted/[0.02]">
                 <TableHead className="text-[0.62rem] font-extrabold uppercase tracking-[0.12em] text-muted-foreground py-3.5 pl-6">Expediente</TableHead>
                 <TableHead className="text-[0.62rem] font-extrabold uppercase tracking-[0.12em] text-muted-foreground py-3.5">Estado</TableHead>
-                <TableHead className="text-[0.62rem] font-extrabold uppercase tracking-[0.12em] text-muted-foreground py-3.5 hidden md:table-cell">Tipo / Riel</TableHead>
+                <TableHead className="text-[0.62rem] font-extrabold uppercase tracking-[0.12em] text-muted-foreground py-3.5">Tipo / Riel</TableHead>
                 <TableHead className="text-[0.62rem] font-extrabold uppercase tracking-[0.12em] text-muted-foreground py-3.5 text-right">Origen</TableHead>
                 <TableHead className="text-[0.62rem] font-extrabold uppercase tracking-[0.12em] text-muted-foreground py-3.5 text-right">Destino</TableHead>
-                <TableHead className="text-[0.62rem] font-extrabold uppercase tracking-[0.12em] text-muted-foreground py-3.5 hidden lg:table-cell">Fecha</TableHead>
+                <TableHead className="text-[0.62rem] font-extrabold uppercase tracking-[0.12em] text-muted-foreground py-3.5">Fecha</TableHead>
                 <TableHead className="text-[0.62rem] font-extrabold uppercase tracking-[0.12em] text-muted-foreground py-3.5 text-right pr-6">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -521,7 +521,7 @@ function OrderSummaryRow({
       </TableCell>
 
       {/* Tipo / Riel */}
-      <TableCell className="hidden md:table-cell py-4">
+      <TableCell className="py-4">
         <div className="flex flex-col gap-1">
           <span className="text-xs font-medium text-foreground">{humanizeOrderType(order)}</span>
           <span className="text-[0.68rem] text-muted-foreground">{humanizeRail(order)}</span>
@@ -549,7 +549,7 @@ function OrderSummaryRow({
       </TableCell>
 
       {/* Fecha */}
-      <TableCell className="hidden lg:table-cell py-4">
+      <TableCell className="py-4">
         <span className="text-xs text-muted-foreground">{format(new Date(order.created_at), 'dd/MM/yyyy')}</span>
       </TableCell>
 

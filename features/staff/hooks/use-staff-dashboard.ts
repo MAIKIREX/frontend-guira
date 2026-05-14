@@ -23,7 +23,9 @@ import type { PaymentOrder } from '@/types/payment-order'
 import type { Profile } from '@/types/profile'
 import type { AdminComplianceReview } from '@/services/admin/compliance.admin.service'
 import type { AdminBridgePayout } from '@/services/admin/bridge.admin.service'
-import type { StaffOnboardingRecord } from '@/types/staff'
+import type { StaffOnboardingRecord, StaffSupportTicket } from '@/types/staff'
+import type { FeeConfigRow, AppSettingRow, PsavConfigRow } from '@/types/payment-order'
+import type { AuditLog } from '@/types/activity-log'
 
 export interface StaffDashboardState {
   orders: PaymentOrder[]
@@ -64,10 +66,10 @@ export function useStaffDashboard() {
         ConfigAdminService.getFeesConfig(),
         ConfigAdminService.getPsavConfigs(),
         ConfigAdminService.getSettings(),
-        ConfigAdminService.getAuditLogs({ limit: 200 } as any),
+        ConfigAdminService.getAuditLogs({ limit: 200 }),
       ])
 
-      const extractData = (res: any) => (res && Array.isArray(res.data)) ? res.data : (Array.isArray(res) ? res : [])
+      const extractData = (res: unknown) => (res && Array.isArray((res as { data?: unknown }).data)) ? (res as { data: unknown[] }).data : (Array.isArray(res) ? res : [])
 
       setState({
         orders: extractData(ordersRes),
@@ -130,8 +132,8 @@ export function useStaffDashboard() {
       if (!current) return current
       return {
         ...current,
-        supportTickets: current.supportTickets.map((t: any) =>
-          t.id === (updatedTicket as any).id ? updatedTicket : t
+        supportTickets: current.supportTickets.map((t) =>
+          (t as { id?: string }).id === (updatedTicket as { id?: string }).id ? updatedTicket : t
         ),
       }
     })
@@ -151,12 +153,12 @@ export function useStaffDashboard() {
     snapshot: state ? {
       onboarding: mapReviewsToOnboardingRecords(state.complianceReviews), // C7 FIX: mapper explícito
       orders: state.orders,
-      support: state.supportTickets as any,
+      support: state.supportTickets as unknown as StaffSupportTicket[],
       users: state.users,
-      feesConfig: state.feesConfig as any,
-      appSettings: state.appSettings as any,
-      psavConfigs: state.psavConfigs as any,
-      auditLogs: state.auditLogs as any,
+      feesConfig: state.feesConfig as unknown as FeeConfigRow[],
+      appSettings: state.appSettings as unknown as AppSettingRow[],
+      psavConfigs: state.psavConfigs as unknown as PsavConfigRow[],
+      auditLogs: state.auditLogs as unknown as AuditLog[],
     } : null,
     state,
     loading,

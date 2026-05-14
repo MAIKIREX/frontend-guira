@@ -15,7 +15,8 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { PaymentsService } from '@/services/payments.service'
+import { PaymentsService, type CreateWalletRampOrderDto, type CreateInterbankOrderDto } from '@/services/payments.service'
+import type { CreateSupplierPayload } from '@/types/supplier'
 import type { PaymentOrder, AppSettingRow, FeeConfigRow, PsavConfigRow, CreatePaymentOrderInput, SupplierUpsertInput, OrderFileField } from '@/types/payment-order'
 import type { Supplier } from '@/types/supplier'
 import type { ActivityLog } from '@/types/activity-log'
@@ -121,7 +122,7 @@ export function usePaymentsModule() {
   // ── Suppliers ─────────────────────────────────────────────────
 
   const createSupplier = useCallback(async (dto: SupplierUpsertInput) => {
-    const supplier = await PaymentsService.createSupplier(dto as any)
+    const supplier = await PaymentsService.createSupplier(dto as unknown as CreateSupplierPayload)
     setState((current) => {
       if (!current) return current
       return {
@@ -133,7 +134,7 @@ export function usePaymentsModule() {
   }, [])
 
   const updateSupplier = useCallback(async (supplierId: string, dto: Partial<SupplierUpsertInput>) => {
-    const supplier = await PaymentsService.updateSupplier(supplierId, dto as any)
+    const supplier = await PaymentsService.updateSupplier(supplierId, dto as unknown as Partial<CreateSupplierPayload>)
     setState((current) => {
       if (!current) return current
       return {
@@ -167,7 +168,7 @@ export function usePaymentsModule() {
    * como parte del mismo flujo — el frontend solo envía el archivo.
    */
   const createOrder = useCallback(async (
-    input: any,
+    input: Record<string, unknown>,
     qrFile?: File | null,
     supportFile?: File | null
   ) => {
@@ -196,9 +197,9 @@ export function usePaymentsModule() {
       if (finalInput.flow_type === 'bridge_wallet_to_crypto') {
         console.log('[DEBUG bridge_wallet_to_crypto] Payload final enviado al backend:', JSON.stringify(finalInput, null, 2))
       }
-      order = await PaymentsService.createWalletRampOrder(finalInput as any)
+      order = await PaymentsService.createWalletRampOrder(finalInput as unknown as CreateWalletRampOrderDto)
     } else {
-      order = await PaymentsService.createInterbankOrder(finalInput as any)
+      order = await PaymentsService.createInterbankOrder(finalInput as unknown as CreateInterbankOrderDto)
     }
 
     mergeOrder(order)

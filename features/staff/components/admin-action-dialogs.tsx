@@ -1200,6 +1200,14 @@ export function ChangeRoleDialog({ actor, onUpdated, user }: { actor: StaffActor
     ? (['client', 'staff', 'admin', 'super_admin'] as const)
     : (['client', 'staff'] as const)
 
+  const form = useForm<AdminChangeRoleValues>({
+    resolver: zodResolver(adminChangeRoleSchema),
+    defaultValues: {
+      role: user.role,
+      reason: '',
+    },
+  })
+
   // No mostrar si el actor intenta cambiar su propio rol
   const isSelf = actor.userId === user.id
   if (isSelf) return null
@@ -1210,14 +1218,6 @@ export function ChangeRoleDialog({ actor, onUpdated, user }: { actor: StaffActor
     admin: { label: 'Admin', color: 'text-amber-700 dark:text-amber-300' },
     super_admin: { label: 'Super Admin', color: 'text-rose-700 dark:text-rose-300' },
   }
-
-  const form = useForm<AdminChangeRoleValues>({
-    resolver: zodResolver(adminChangeRoleSchema),
-    defaultValues: {
-      role: user.role,
-      reason: '',
-    },
-  })
 
   // Reset form when dialog opens with current user role
   const handleOpenChange = (nextOpen: boolean) => {
@@ -1235,9 +1235,10 @@ export function ChangeRoleDialog({ actor, onUpdated, user }: { actor: StaffActor
       setOpen(false)
       form.reset()
       await onUpdated({ ...user, ...updatedProfile, role: values.role as Profile['role'] }, 'replace')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update role', error)
-      const message = error?.response?.data?.message || error?.message || 'No se pudo cambiar el rol.'
+      const e = error as { response?: { data?: { message?: string } }; message?: string }
+      const message = e?.response?.data?.message || e?.message || 'No se pudo cambiar el rol.'
       toast.error(message)
     }
   }
@@ -2206,7 +2207,7 @@ export function RateConfigDialog({
 }) {
   const [open, setOpen] = useState(false)
   const form = useForm<AdminRateConfigValues>({
-    resolver: zodResolver(adminRateConfigSchema) as any,
+    resolver: zodResolver(adminRateConfigSchema),
     defaultValues: {
       rate: record.rate,
       spread_percent: record.spread_percent ?? 0,
@@ -2215,7 +2216,7 @@ export function RateConfigDialog({
 
   async function submit(values: AdminRateConfigValues) {
     try {
-      const pairId = (record as any).pair || `${record.from_currency}_${record.to_currency}`
+      const pairId = (record as ExchangeRatePair & { pair?: string }).pair || `${record.from_currency}_${record.to_currency}`
       const updatedRecord = await ConfigAdminService.updateExchangeRate(
         pairId,
         values.rate,
@@ -2249,7 +2250,7 @@ export function RateConfigDialog({
             <CircleDollarSign className="size-6" />
           </div>
           <div className="space-y-0.5">
-            <DialogTitle className="text-lg font-bold">Ajustar Tasa: {(record as any).pair || `${record.from_currency}_${record.to_currency}`}</DialogTitle>
+            <DialogTitle className="text-lg font-bold">Ajustar Tasa: {(record as ExchangeRatePair & { pair?: string }).pair || `${record.from_currency}_${record.to_currency}`}</DialogTitle>
             <DialogDescription className="text-xs text-amber-700/80 font-medium dark:text-amber-300/80">
               Modificando la base y el spread porcentual.
             </DialogDescription>

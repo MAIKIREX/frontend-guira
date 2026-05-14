@@ -179,11 +179,12 @@ export function MonthlyFlowsCard() {
   const selected = monthOptions.find((m) => m.value === selectedMonth) ?? monthOptions[0]
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true)
     const toEndOfDay = `${selected.to}T23:59:59`
 
     // Solo transacciones completadas exitosamente (settled)
-    LedgerService.getEntries({ from: selected.from, to: toEndOfDay, status: 'settled', limit: 500 } as any)
+    LedgerService.getEntries({ from: selected.from, to: toEndOfDay, status: 'settled', limit: 500 })
       .then((response) => {
         const items = response.entries ?? []
         console.log(`[MonthlyFlows] Fetched ${items.length} entries for ${selected.from} → ${selected.to}`)
