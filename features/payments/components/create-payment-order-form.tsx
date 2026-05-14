@@ -736,7 +736,7 @@ export function CreatePaymentOrderForm({
       setCreatingOrder(true)
       const formValues = form.getValues()
       const selectedSup = suppliers.find(s => s.id === formValues.supplier_id)
-      const payload = buildPaymentOrderPayload(formValues, userId, selectedSup)
+      const payload = buildPaymentOrderPayload(formValues, userId, selectedSup as Record<string, unknown> | undefined)
       if (clientReason) {
         payload.client_reason = clientReason
       }
