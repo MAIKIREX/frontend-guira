@@ -349,12 +349,12 @@ export function PaymentsHistoryTable({
               <span>Exportar</span>
               <ChevronDown className="size-3 text-muted-foreground" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem className="cursor-pointer gap-2 text-sm" onClick={() => handleExport('excel')}>
+            <DropdownMenuContent align="end" className="">
+              <DropdownMenuItem className="cursor-pointer hover:bg-muted/50 gap-2 text-sm" onClick={() => handleExport('excel')}>
                 <FileSpreadsheet className="size-4 text-emerald-500" />
-                Descargar Excel (.xlsx)
+                Descargar Excel
               </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer gap-2 text-sm" onClick={() => handleExport('pdf')}>
+              <DropdownMenuItem className="cursor-pointer hover:bg-muted/50 gap-2 text-sm" onClick={() => handleExport('pdf')}>
                 <FileText className="size-4 text-red-400" />
                 Descargar PDF
               </DropdownMenuItem>

@@ -747,7 +747,7 @@ export function CreatePaymentOrderForm({
 
       // El backend retorna { _type: 'review_request', review } cuando el monto supera el límite
       if (result?._type === 'review_request') {
-        setReviewRequest(result.review)
+        setReviewRequest(result.review as OrderReviewRequest | null)
         setShowReviewReasonModal(false)
         setReviewReason('')
         setStep('review_requested')
