@@ -787,7 +787,7 @@ function SectionDiffBlock({ section }: { section: DiffSection }) {
 function DocumentBlock({
   document,
   caseTypeLabel,
-  fieldObservations,
+  fieldObservations = {},
   onAddObservation,
   onRemoveObservation,
 }: {

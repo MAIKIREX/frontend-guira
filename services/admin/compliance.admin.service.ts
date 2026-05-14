@@ -49,6 +49,23 @@ export interface ComplianceListParams {
   assigned_to?: string
 }
 
+export interface AdminComplianceActivityEvent {
+  id?: string
+  decision?: string
+  reason?: string
+  actor_id?: string
+  created_at?: string
+  metadata?: Record<string, unknown>
+}
+
+export interface AdminComplianceActivityComment {
+  id?: string
+  author_id?: string
+  body?: string
+  is_internal?: boolean
+  created_at?: string
+}
+
 // ── Servicio ────────────────────────────────────────────────────────
 
 export const ComplianceAdminService = {
@@ -70,8 +87,8 @@ export const ComplianceAdminService = {
    * Obtiene los events y comments de un review para el tab de Actividad.
    * Reutiliza el endpoint de detalle.
    */
-  async getReviewActivity(reviewId: string): Promise<{ events: unknown[]; comments: unknown[] }> {
-    const raw = await apiGet<{ events?: unknown[]; comments?: unknown[] }>(`/admin/compliance/reviews/${reviewId}`)
+  async getReviewActivity(reviewId: string): Promise<{ events: AdminComplianceActivityEvent[]; comments: AdminComplianceActivityComment[] }> {
+    const raw = await apiGet<{ events?: AdminComplianceActivityEvent[]; comments?: AdminComplianceActivityComment[] }>(`/admin/compliance/reviews/${reviewId}`)
     return {
       events: raw.events ?? [],
       comments: raw.comments ?? [],

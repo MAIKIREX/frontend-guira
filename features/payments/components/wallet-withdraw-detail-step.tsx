@@ -161,7 +161,14 @@ export function WalletWithdrawDetailStep({
   }, [method, selectedOriginCurrency, selectedCryptoNetwork, selectedDestCurrency])
 
   // ── Cascada off-ramp: auto-clear invalid selections ──
-  const handleSourceTokenChange = useCallback((token: string, fieldOnChange: (v: string) => void) => {
+  const handleSourceTokenChange = useCallback((token: string | null, fieldOnChange: (v: string) => void) => {
+    if (!token) {
+      fieldOnChange('')
+      form.setValue('crypto_network', '', { shouldValidate: false })
+      form.setValue('destination_currency', '', { shouldValidate: false })
+      return
+    }
+
     fieldOnChange(token)
     const newNetworks = getOffRampSameTokenNetworks(token)
     const currentNetwork = form.getValues('crypto_network')
@@ -179,7 +186,13 @@ export function WalletWithdrawDetailStep({
     }
   }, [form])
 
-  const handleCryptoNetworkChange = useCallback((network: string, fieldOnChange: (v: string) => void) => {
+  const handleCryptoNetworkChange = useCallback((network: string | null, fieldOnChange: (v: string) => void) => {
+    if (!network) {
+      fieldOnChange('')
+      form.setValue('destination_currency', '', { shouldValidate: false })
+      return
+    }
+
     fieldOnChange(network)
     const srcToken = form.getValues('origin_currency')
     if (srcToken) {
@@ -360,8 +373,8 @@ export function WalletWithdrawDetailStep({
     }
 
     const onChangeHandler = method === 'crypto'
-      ? (v: string, onChange: (v: string) => void) => handleSourceTokenChange(v, onChange)
-      : (v: string, onChange: (v: string) => void) => onChange(v)
+      ? (v: string | null, onChange: (v: string) => void) => handleSourceTokenChange(v, onChange)
+      : (v: string | null, onChange: (v: string) => void) => onChange(v ?? '')
 
     return (
       <FormField

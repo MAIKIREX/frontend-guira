@@ -131,7 +131,13 @@ export function WalletRampDetailStep({
   // ── Cascada: auto-clear cuando la selección queda inválida ──
   // IMPORTANT: Base UI Select treats '' as a valid value that doesn't match
   // any item, causing the component to freeze. Use undefined to clear.
-  const handleNetworkChange = useCallback((network: string, fieldOnChange: (v: string) => void) => {
+  const handleNetworkChange = useCallback((network: string | null, fieldOnChange: (v: string) => void) => {
+    if (!network) {
+      fieldOnChange('')
+      form.setValue('origin_currency', '', { shouldValidate: false })
+      return
+    }
+
     fieldOnChange(network)
     // Limpiar moneda origen si ya no es válida para la nueva red + destino seleccionado
     const destCurrency = form.getValues('wallet_ramp_destination_currency')
@@ -146,8 +152,8 @@ export function WalletRampDetailStep({
     }
   }, [form])
 
-  const handleSourceCurrencyChange = useCallback((currency: string, fieldOnChange: (v: string) => void) => {
-    fieldOnChange(currency)
+  const handleSourceCurrencyChange = useCallback((currency: string | null, fieldOnChange: (v: string) => void) => {
+    fieldOnChange(currency ?? '')
   }, [])
 
   // ── Resolución de moneda para labels ──

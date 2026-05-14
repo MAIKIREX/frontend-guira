@@ -339,10 +339,10 @@ export function getFiatBoStaticMinAmount(sourceCurrency: string): number {
  * @returns Array de tokens origen habilitados
  */
 export function getFiatBoAvailableSourceCurrencies(
-  psavAccounts: Array<{ currency: string; crypto_network?: string; type?: string; is_active?: boolean }>
+  psavAccounts: Array<{ currency?: string; crypto_network?: string; type?: string | null; is_active?: boolean }>
 ): string[] {
   const cryptoPsavs = psavAccounts.filter(
-    (p) => (p.type === 'crypto' || !p.type) && (p.is_active !== false)
+    (p) => Boolean(p.currency) && (p.type === 'crypto' || !p.type) && (p.is_active !== false)
   )
 
   return FIAT_BO_OFF_RAMP_SOURCE_CURRENCIES.filter((srcCurrency) => {
@@ -351,7 +351,7 @@ export function getFiatBoAvailableSourceCurrencies(
     // Buscar cuenta PSAV con exactamente la misma divisa
     return cryptoPsavs.some((psav) => {
       const net = (psav.crypto_network ?? '').toLowerCase()
-      const cur = psav.currency.toLowerCase()
+      const cur = psav.currency?.toLowerCase() ?? ''
       return cur === srcCurrency && (routes[net]?.[cur] ?? 0) > 0
     })
   })
@@ -363,17 +363,17 @@ export function getFiatBoAvailableSourceCurrencies(
  */
 export function getFiatBoMinAmountForSource(
   sourceCurrency: string,
-  psavAccounts: Array<{ currency: string; crypto_network?: string; type?: string; is_active?: boolean }>
+  psavAccounts: Array<{ currency?: string; crypto_network?: string; type?: string | null; is_active?: boolean }>
 ): number {
   const srcLower = sourceCurrency.toLowerCase()
   const routes = FIAT_BO_OFF_RAMP_ROUTES[srcLower]
   if (!routes) return 0
 
   const cryptoPsavs = psavAccounts.filter(
-    (p) => (p.type === 'crypto' || !p.type) && (p.is_active !== false)
+    (p) => Boolean(p.currency) && (p.type === 'crypto' || !p.type) && (p.is_active !== false)
   )
 
-  const psav = cryptoPsavs.find((p) => p.currency.toLowerCase() === srcLower)
+  const psav = cryptoPsavs.find((p) => p.currency?.toLowerCase() === srcLower)
   if (!psav) return 0
 
   const net = (psav.crypto_network ?? '').toLowerCase()

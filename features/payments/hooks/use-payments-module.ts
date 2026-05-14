@@ -186,7 +186,7 @@ export function usePaymentsModule() {
       supportUrl = await PaymentsService.uploadFileToStorage(supportFile, 'payment-receipts')
     }
 
-    const finalInput = {
+    const finalInput: Record<string, unknown> = {
       ...inputRaw,
       supporting_document_url: supportUrl,
       ...(qrUrl ? { destination_qr_url: qrUrl } : {}),

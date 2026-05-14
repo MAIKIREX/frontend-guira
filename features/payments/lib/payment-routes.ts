@@ -110,11 +110,23 @@ export function resolveFlowType(route: SupportedPaymentRoute, deliveryMethod?: s
   }
 }
 
+type SupplierBankDetails = {
+  wallet_address?: string
+  wallet_network?: string
+}
+
+function getSupplierBankDetails(supplier?: Record<string, unknown>): SupplierBankDetails {
+  return typeof supplier?.bank_details === 'object' && supplier.bank_details !== null
+    ? supplier.bank_details as SupplierBankDetails
+    : {}
+}
+
 export function buildPaymentOrderPayload(
   values: PaymentOrderFormValues,
   userId: string,
   supplier?: Record<string, unknown>
 ): Record<string, unknown> {
+  const supplierBankDetails = getSupplierBankDetails(supplier)
   const flowType = resolveFlowType(values.route, values.delivery_method, values.wallet_ramp_method, values.wallet_ramp_withdraw_method)
   const isWalletRamp = [
     'fiat_bo_to_bridge_wallet', 'crypto_to_bridge_wallet',
@@ -143,8 +155,8 @@ export function buildPaymentOrderPayload(
       break
     case 'bolivia_to_wallet':
       // 1.3 Crypto (Fondeo fiat local entonces no necesita source network)
-      payload.destination_address = values.crypto_address || supplier?.bank_details?.wallet_address
-      payload.destination_network = (values.crypto_network || supplier?.bank_details?.wallet_network)?.toLowerCase()
+      payload.destination_address = values.crypto_address || supplierBankDetails.wallet_address
+      payload.destination_network = (values.crypto_network || supplierBankDetails.wallet_network)?.toLowerCase()
       payload.destination_currency = values.destination_currency?.toLowerCase()
       break
     case 'wallet_to_wallet':
