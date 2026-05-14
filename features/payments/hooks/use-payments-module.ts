@@ -168,32 +168,34 @@ export function usePaymentsModule() {
    * como parte del mismo flujo — el frontend solo envía el archivo.
    */
   const createOrder = useCallback(async (
-    input: Record<string, unknown>,
+    input: CreatePaymentOrderInput,
     qrFile?: File | null,
     supportFile?: File | null
   ) => {
+    const inputRaw = input as unknown as Record<string, unknown>
+
     // Subir QR bancario (solo world_to_bolivia) → destination_qr_url
     let qrUrl: string | undefined = undefined
-    if (qrFile && input.flow_type === 'world_to_bolivia') {
+    if (qrFile && inputRaw.flow_type === 'world_to_bolivia') {
       qrUrl = await PaymentsService.uploadFileToStorage(qrFile, 'payment-receipts')
     }
 
     // Subir documento de respaldo → supporting_document_url
-    let supportUrl = input.supporting_document_url
+    let supportUrl = inputRaw.supporting_document_url
     if (supportFile) {
       supportUrl = await PaymentsService.uploadFileToStorage(supportFile, 'payment-receipts')
     }
 
     const finalInput = {
-      ...input,
+      ...inputRaw,
       supporting_document_url: supportUrl,
       ...(qrUrl ? { destination_qr_url: qrUrl } : {}),
     }
 
     let order: PaymentOrder;
     const rampFlows = ['fiat_bo_to_bridge_wallet', 'crypto_to_bridge_wallet', 'bridge_wallet_to_fiat_bo', 'bridge_wallet_to_crypto', 'bridge_wallet_to_fiat_us', 'wallet_to_fiat']
-    
-    if (rampFlows.includes(finalInput.flow_type)) {
+
+    if (rampFlows.includes(finalInput.flow_type as string)) {
       if (finalInput.flow_type === 'bridge_wallet_to_crypto') {
         console.log('[DEBUG bridge_wallet_to_crypto] Payload final enviado al backend:', JSON.stringify(finalInput, null, 2))
       }

@@ -553,7 +553,7 @@ export function StaffOrdersTable({
                       </div>
 
                       <div className="flex justify-end">
-                        <OrderDetailDialog actor={actor} onUpdated={replaceOrder} order={order} />
+                        <OrderDetailDialog actor={actor} onUpdated={replaceOrder} order={order} clientName={userNameMap.get(order.user_id)} />
                       </div>
                     </CardContent>
                   </Card>
@@ -614,7 +614,7 @@ export function StaffOrdersTable({
                         </TableCell>
                         <TableCell>
                           <div className="flex justify-end">
-                            <OrderDetailDialog actor={actor} onUpdated={replaceOrder} order={order} />
+                            <OrderDetailDialog actor={actor} onUpdated={replaceOrder} order={order} clientName={userNameMap.get(order.user_id)} />
                           </div>
                         </TableCell>
                       </TableRow>

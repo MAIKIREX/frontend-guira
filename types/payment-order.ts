@@ -205,6 +205,8 @@ export interface PaymentOrder {
   deposit_id?: string
   va_deposit_status?: string
   sender_name?: string
+  // ── Joined by admin endpoint ──
+  suppliers?: { id: string; name: string } | null
 }
 
 export interface FeeConfigRow {

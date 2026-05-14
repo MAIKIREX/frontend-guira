@@ -309,7 +309,7 @@ function getPaymentStatusColor(status: string) {
   return 'bg-red-500/15 text-red-700 dark:text-red-300'
 }
 
-export function OrderDetailDialog({ actor, onUpdated, order }: { actor: StaffActor; onUpdated: (order: PaymentOrder) => Promise<void> | void; order: PaymentOrder }) {
+export function OrderDetailDialog({ actor, onUpdated, order, clientName }: { actor: StaffActor; onUpdated: (order: PaymentOrder) => Promise<void> | void; order: PaymentOrder; clientName?: string }) {
   const destinationInfo = buildOrderDestinationInfo(order)
   const summaryCards = buildOrderSummaryCards(order)
   const documentItems = buildOrderDocumentItems(order)
@@ -399,8 +399,9 @@ export function OrderDetailDialog({ actor, onUpdated, order }: { actor: StaffAct
             {/* Originator row */}
             <div className="flex items-center gap-x-8 gap-y-3 border-b border-border/30 px-5 py-4 sm:px-7 flex-wrap">
               <div>
-                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Originador</div>
-                <div className="mt-1 text-sm font-medium text-foreground">{order.user_id?.slice(0, 12)}…</div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Cliente</div>
+                {clientName && <div className="mt-1 text-sm font-semibold text-foreground">{clientName}</div>}
+                <div className={clientName ? 'text-xs text-muted-foreground font-mono' : 'mt-1 text-sm font-medium text-foreground font-mono'}>{order.user_id?.slice(0, 12)}…</div>
               </div>
               <div>
                 <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Fecha de solicitud</div>
@@ -705,6 +706,10 @@ function buildOrderDestinationInfo(order: PaymentOrder) {
   if (order.flow_category === 'wallet_ramp') {
     push('Wallet Bridge', order.wallet_id)
 
+    // ── Proveedor (si la orden tiene supplier embebido por el JOIN del admin endpoint) ──
+    const supplierName = order.suppliers?.name
+    if (supplierName) push('Proveedor', supplierName)
+
     const instr = order.bridge_source_deposit_instructions as Record<string, string> | undefined
     if (instr?.type === 'virtual_account') {
       push('Banco VA', instr.bank_name)
@@ -720,17 +725,50 @@ function buildOrderDestinationInfo(order: PaymentOrder) {
       push('Monto a depositar (bruto)', instr.amount_to_deposit ? `${instr.amount_to_deposit} ${instr.currency?.toUpperCase() ?? ''}`.trim() : undefined)
       push('Instrucción PSAV', instr.label)
     }
+
+    // ── bridge_wallet_to_fiat_us: destino es cuenta bancaria del proveedor en Bridge ──
+    if (order.flow_type === 'bridge_wallet_to_fiat_us') {
+      push('Moneda de destino', order.destination_currency)
+      push('Ref. cuenta Bridge', order.external_account_id)
+      if (!supplierName && order.supplier_id) push('Proveedor ID', order.supplier_id.slice(0, 8))
+    }
+
+    // ── bridge_wallet_to_fiat_bo: destino es cuenta bancaria boliviana del cliente ──
+    if (order.flow_type === 'bridge_wallet_to_fiat_bo') {
+      push('Banco destino (cliente)', order.destination_bank_name)
+      push('Cuenta destino', order.destination_account_number)
+      push('Titular', order.destination_account_holder)
+    }
+
+    // ── bridge_wallet_to_crypto: dirección de crypto externa ──
+    if (order.flow_type === 'bridge_wallet_to_crypto') {
+      push('Dirección destino', order.destination_address)
+      push('Red destino', order.destination_network)
+    }
+
+    // ── crypto_to_bridge_wallet: dirección de origen externa ──
+    if (order.flow_type === 'crypto_to_bridge_wallet') {
+      push('Dirección origen', order.source_address)
+      push('Red origen', order.source_network)
+    }
   }
 
-  push('Banco destino', order.destination_bank_name)
-  push('Cuenta destino', order.destination_account_number)
-  push('Titular destino', order.destination_account_holder)
-  push('Dirección destino', order.destination_address)
-  push('Red destino', order.destination_network)
-  push('Dirección origen', order.source_address)
-  push('Red origen', order.source_network)
+  // Campos genéricos (se aplican a interbank y flujos no cubiertos arriba)
+  if (order.flow_category !== 'wallet_ramp') {
+    push('Banco destino', order.destination_bank_name)
+    push('Cuenta destino', order.destination_account_number)
+    push('Titular destino', order.destination_account_holder)
+    push('Dirección destino', order.destination_address)
+    push('Red destino', order.destination_network)
+    push('Dirección origen', order.source_address)
+    push('Red origen', order.source_network)
+  }
+
   push('Motivo', order.business_purpose)
+  push('Notas', order.notes)
+  push('Remitente (VA)', order.sender_name)
   push('Referencia', order.tx_hash ?? order.provider_reference)
+  if (order.failure_reason) push('Motivo de fallo', order.failure_reason)
 
   // 2. Fallback a metadata legacy
   if (items.length <= 4 && meta) {
