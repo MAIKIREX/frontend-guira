@@ -1,6 +1,6 @@
 'use client'
 
-import { useForm } from 'react-hook-form'
+import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { loginSchema, type LoginFormValues } from '../schemas/login.schema'
 import { Button } from '@/components/ui/button'
@@ -25,7 +25,7 @@ const fadeUp = {
 
 export function LoginForm() {
   const form = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
+    resolver: zodResolver(loginSchema) as unknown as Resolver<LoginFormValues>,
     defaultValues: { email: '', password: '' },
   })
 

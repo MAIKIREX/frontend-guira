@@ -1,6 +1,6 @@
 'use client'
 
-import { useFieldArray, useForm } from 'react-hook-form'
+import { useFieldArray, useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { companyOnboardingSchema, type CompanyOnboardingValues } from '../schemas/company-onboarding.schema'
 import { Button } from '@/components/ui/button'
@@ -74,7 +74,7 @@ export function CompanyForm({
   }
 
   const form = useForm<CompanyOnboardingValues>({
-    resolver: zodResolver(companyOnboardingSchema),
+    resolver: zodResolver(companyOnboardingSchema) as unknown as Resolver<CompanyOnboardingValues>,
     defaultValues: {
       legal_name:                     (formData.legal_name as string) || '',
       trade_name:                     (formData.trade_name as string) || '',

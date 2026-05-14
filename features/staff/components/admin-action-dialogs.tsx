@@ -79,7 +79,7 @@ import type { StaffActor } from '@/types/staff'
 export function CreateUserDialog({ actor, onUpdated }: { actor: StaffActor; onUpdated: (profile: Profile | null) => Promise<void> | void }) {
   const [open, setOpen] = useState(false)
   const form = useForm<AdminCreateUserValues>({
-    resolver: zodResolver(adminCreateUserSchema),
+    resolver: zodResolver(adminCreateUserSchema) as unknown as Resolver<AdminCreateUserValues>,
     defaultValues: {
       email: '',
       password: '',
@@ -1201,7 +1201,7 @@ export function ChangeRoleDialog({ actor, onUpdated, user }: { actor: StaffActor
     : (['client', 'staff'] as const)
 
   const form = useForm<AdminChangeRoleValues>({
-    resolver: zodResolver(adminChangeRoleSchema),
+    resolver: zodResolver(adminChangeRoleSchema) as unknown as Resolver<AdminChangeRoleValues>,
     defaultValues: {
       role: user.role,
       reason: '',
@@ -1335,7 +1335,7 @@ export function ChangeRoleDialog({ actor, onUpdated, user }: { actor: StaffActor
 
 export function ArchiveDeleteUserDialog({ action, actor, onUpdated, user }: { action: 'archive' | 'delete'; actor: StaffActor; onUpdated: (user: Profile | null, mode: 'replace' | 'remove' | 'noop') => Promise<void> | void; user: Profile }) {
   const [open, setOpen] = useState(false)
-  const form = useForm<AdminReasonValues>({ resolver: zodResolver(adminReasonSchema), defaultValues: { reason: '' } })
+  const form = useForm<AdminReasonValues>({ resolver: zodResolver(adminReasonSchema) as unknown as Resolver<AdminReasonValues>, defaultValues: { reason: '' } })
 
   async function submit(values: AdminReasonValues) {
     try {
@@ -1381,7 +1381,7 @@ export function ArchiveDeleteUserDialog({ action, actor, onUpdated, user }: { ac
 
 export function UnarchiveUserDialog({ actor, onUpdated, user }: { actor: StaffActor; onUpdated: (user: Profile | null, mode: 'replace' | 'remove' | 'noop') => Promise<void> | void; user: Profile }) {
   const [open, setOpen] = useState(false)
-  const form = useForm<AdminReasonValues>({ resolver: zodResolver(adminReasonSchema), defaultValues: { reason: '' } })
+  const form = useForm<AdminReasonValues>({ resolver: zodResolver(adminReasonSchema) as unknown as Resolver<AdminReasonValues>, defaultValues: { reason: '' } })
 
   async function submit(values: AdminReasonValues) {
     try {
@@ -1425,7 +1425,7 @@ export function UnarchiveUserDialog({ actor, onUpdated, user }: { actor: StaffAc
 
 export function ResetPasswordDialog({ actor, email, onUpdated }: { actor: StaffActor; email: string; onUpdated: (user: Profile | null, mode: 'replace' | 'remove' | 'noop') => Promise<void> | void }) {
   const [open, setOpen] = useState(false)
-  const form = useForm<AdminReasonValues>({ resolver: zodResolver(adminReasonSchema), defaultValues: { reason: '' } })
+  const form = useForm<AdminReasonValues>({ resolver: zodResolver(adminReasonSchema) as unknown as Resolver<AdminReasonValues>, defaultValues: { reason: '' } })
 
   async function submit(values: AdminReasonValues) {
     try {
@@ -1651,7 +1651,7 @@ export function AppSettingDialog({ actor, onUpdated, record }: { actor: StaffAct
   const [open, setOpen] = useState(false)
   const valueKind = getAppSettingValueKind(record.value)
   const form = useForm<AdminAppSettingValues>({
-    resolver: zodResolver(adminAppSettingSchema),
+    resolver: zodResolver(adminAppSettingSchema) as unknown as Resolver<AdminAppSettingValues>,
     defaultValues: { value: formatAppSettingValue(record.value), reason: '' },
   })
 
@@ -1752,7 +1752,7 @@ function PsavUpsertDialog({ actor, label, onUpdated, record }: { actor: StaffAct
   const [previewUrl, setPreviewUrl] = useState<string | null>(record?.qr_url as string || null)
   
   const form = useForm<AdminPsavRecordValues>({
-    resolver: zodResolver(adminPsavRecordSchema),
+    resolver: zodResolver(adminPsavRecordSchema) as unknown as Resolver<AdminPsavRecordValues>,
     defaultValues: {
       name: (record?.name as string) ?? '',
       type: (record?.type as 'bank_bo' | 'bank_us' | 'crypto') ?? 'bank_bo',
@@ -2081,7 +2081,7 @@ export function PsavConfigDialogs({ actor, onUpdated, record }: { actor: StaffAc
 
 function PsavDeleteDialog({ actor, onUpdated, record }: { actor: StaffActor; onUpdated: (record: PsavConfigRow | null, mode: 'replace' | 'remove') => void; record: PsavConfigRow }) {
   const [open, setOpen] = useState(false)
-  const form = useForm<AdminReasonValues>({ resolver: zodResolver(adminReasonSchema), defaultValues: { reason: '' } })
+  const form = useForm<AdminReasonValues>({ resolver: zodResolver(adminReasonSchema) as unknown as Resolver<AdminReasonValues>, defaultValues: { reason: '' } })
 
   async function submit(values: AdminReasonValues) {
     try {
@@ -2207,7 +2207,7 @@ export function RateConfigDialog({
 }) {
   const [open, setOpen] = useState(false)
   const form = useForm<AdminRateConfigValues>({
-    resolver: zodResolver(adminRateConfigSchema),
+    resolver: zodResolver(adminRateConfigSchema) as unknown as Resolver<AdminRateConfigValues>,
     defaultValues: {
       rate: record.rate,
       spread_percent: record.spread_percent ?? 0,

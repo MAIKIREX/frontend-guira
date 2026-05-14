@@ -1,6 +1,6 @@
 'use client'
 
-import { useForm } from 'react-hook-form'
+import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { personalOnboardingSchema, type PersonalOnboardingValues } from '../schemas/personal-onboarding.schema'
 import { Button } from '@/components/ui/button'
@@ -68,7 +68,7 @@ export function PersonalForm({
 
   const form = useForm<PersonalOnboardingValues>({
 
-    resolver: zodResolver(personalOnboardingSchema),
+    resolver: zodResolver(personalOnboardingSchema) as unknown as Resolver<PersonalOnboardingValues>,
     defaultValues: {
       first_name:                    (formData.first_name as string) || '',
       middle_name:                   (formData.middle_name as string) || '',

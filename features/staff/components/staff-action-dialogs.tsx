@@ -152,7 +152,7 @@ export function OnboardingDetailDialog({ actor, record, onUpdated }: { actor: St
 function OnboardingActionDialog({ actor, defaultStatus, onUpdated, record }: { actor: StaffActor; defaultStatus: StaffOnboardingActionValues['status']; onUpdated: (record: StaffOnboardingRecord) => Promise<void> | void; record: StaffOnboardingRecord }) {
   const [open, setOpen] = useState(false)
   const form = useForm<StaffOnboardingActionValues>({
-    resolver: zodResolver(staffOnboardingActionSchema),
+    resolver: zodResolver(staffOnboardingActionSchema) as unknown as Resolver<StaffOnboardingActionValues>,
     defaultValues: { status: defaultStatus, reason: '' },
   })
 
@@ -220,7 +220,7 @@ function OnboardingActionDialog({ actor, defaultStatus, onUpdated, record }: { a
 export function SupportTicketActions({ actor, onUpdated, ticket }: { actor: StaffActor; onUpdated: (ticket: StaffSupportTicket) => Promise<void> | void; ticket: StaffSupportTicket }) {
   const [open, setOpen] = useState(false)
   const form = useForm<StaffSupportActionValues>({
-    resolver: zodResolver(staffSupportActionSchema),
+    resolver: zodResolver(staffSupportActionSchema) as unknown as Resolver<StaffSupportActionValues>,
     defaultValues: { status: ticket.status ?? 'open', reason: '' },
   })
 
@@ -1128,7 +1128,7 @@ function formatNumericValue(value: unknown) {
 function OrderReasonActionDialog({ actor, action, blockedReason, label, onUpdated, order }: { actor: StaffActor; action: 'failed'; blockedReason?: string | null; label: string; onUpdated: (order: PaymentOrder) => Promise<void> | void; order: PaymentOrder }) {
   const [open, setOpen] = useState(false)
   const form = useForm<StaffReasonValues>({
-    resolver: zodResolver(staffReasonSchema),
+    resolver: zodResolver(staffReasonSchema) as unknown as Resolver<StaffReasonValues>,
     defaultValues: { reason: '', notify_user: true }
   })
 
@@ -1256,7 +1256,7 @@ function OrderQuoteDialog({ actor, onUpdated, order }: { actor: StaffActor; onUp
 function OrderSentDialog({ actor, onUpdated, order }: { actor: StaffActor; onUpdated: (order: PaymentOrder) => Promise<void> | void; order: PaymentOrder }) {
   const [open, setOpen] = useState(false)
   const currentReference = typeof order.metadata === 'object' && order.metadata && 'reference' in order.metadata ? String(order.metadata.reference ?? '') : ''
-  const form = useForm<StaffOrderSentValues>({ resolver: zodResolver(staffOrderSentSchema), defaultValues: { reference: currentReference, provider_reference: '', reason: '' } })
+  const form = useForm<StaffOrderSentValues>({ resolver: zodResolver(staffOrderSentSchema) as unknown as Resolver<StaffOrderSentValues>, defaultValues: { reference: currentReference, provider_reference: '', reason: '' } })
 
   async function submit(values: StaffOrderSentValues) {
     try {
@@ -1313,7 +1313,7 @@ function OrderSentDialog({ actor, onUpdated, order }: { actor: StaffActor; onUpd
 function OrderCompletionDialog({ actor, onUpdated, order }: { actor: StaffActor; onUpdated: (order: PaymentOrder) => Promise<void> | void; order: PaymentOrder }) {
   const [open, setOpen] = useState(false)
   const [file, setFile] = useState<File | null>(null)
-  const form = useForm<StaffOrderCompletionValues>({ resolver: zodResolver(staffOrderCompletionSchema), defaultValues: { reason: '' } })
+  const form = useForm<StaffOrderCompletionValues>({ resolver: zodResolver(staffOrderCompletionSchema) as unknown as Resolver<StaffOrderCompletionValues>, defaultValues: { reason: '' } })
 
   async function submit(values: StaffOrderCompletionValues) {
     if (!file) {

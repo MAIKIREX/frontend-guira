@@ -1,6 +1,6 @@
 'use client'
 
-import { useForm } from 'react-hook-form'
+import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { recoverySchema, type RecoveryFormValues } from '../schemas/recovery.schema'
 import { Button } from '@/components/ui/button'
@@ -27,7 +27,7 @@ export function RecoveryForm() {
   const [sent, setSent] = useState(false)
 
   const form = useForm<RecoveryFormValues>({
-    resolver: zodResolver(recoverySchema),
+    resolver: zodResolver(recoverySchema) as unknown as Resolver<RecoveryFormValues>,
     defaultValues: { email: '' },
   })
 

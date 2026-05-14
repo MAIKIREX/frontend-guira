@@ -1,6 +1,6 @@
 'use client'
 
-import { useForm } from 'react-hook-form'
+import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { updatePasswordSchema, type UpdatePasswordFormValues } from '../schemas/update-password.schema'
 import { Button } from '@/components/ui/button'
@@ -26,7 +26,7 @@ export function UpdatePasswordForm() {
   const router = useRouter()
 
   const form = useForm<UpdatePasswordFormValues>({
-    resolver: zodResolver(updatePasswordSchema),
+    resolver: zodResolver(updatePasswordSchema) as unknown as Resolver<UpdatePasswordFormValues>,
     defaultValues: { password: '' },
   })
 

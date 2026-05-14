@@ -1,6 +1,6 @@
 'use client'
 
-import { useForm } from 'react-hook-form'
+import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { registerSchema, type RegisterFormValues } from '../schemas/register.schema'
 import { Button } from '@/components/ui/button'
@@ -28,7 +28,7 @@ const fadeUp = {
 export function RegisterForm() {
   const router = useRouter()
   const form = useForm<RegisterFormValues>({
-    resolver: zodResolver(registerSchema),
+    resolver: zodResolver(registerSchema) as unknown as Resolver<RegisterFormValues>,
     defaultValues: { fullName: '', email: '', password: '', acceptTerms: true },
   })
 

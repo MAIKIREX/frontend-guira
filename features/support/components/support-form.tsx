@@ -1,6 +1,6 @@
 'use client'
 
-import { useForm } from 'react-hook-form'
+import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { supportSchema, type SupportValues } from '../schemas/support.schema'
 import { GuiraButton } from '@/components/shared/guira-button'
@@ -15,7 +15,7 @@ import { toast } from 'sonner'
 export function SupportForm({ onSuccess }: { onSuccess?: () => void }) {
   const { user } = useAuthStore()
   const form = useForm<SupportValues>({
-    resolver: zodResolver(supportSchema),
+    resolver: zodResolver(supportSchema) as unknown as Resolver<SupportValues>,
     defaultValues: {
       subject: '',
       message: '',
