@@ -743,7 +743,7 @@ export function CreatePaymentOrderForm({
       if (payload.flow_type === 'bridge_wallet_to_crypto') {
         console.log('[DEBUG bridge_wallet_to_crypto] Payload construido en form:', JSON.stringify(payload, null, 2))
       }
-      const result = await onCreateOrder(payload, qrFile, supportFile) as PaymentOrder & { _type?: string; review?: unknown }
+      const result = await onCreateOrder(payload as unknown as CreatePaymentOrderInput, qrFile, supportFile) as PaymentOrder & { _type?: string; review?: unknown }
 
       // El backend retorna { _type: 'review_request', review } cuando el monto supera el límite
       if (result?._type === 'review_request') {

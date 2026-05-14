@@ -45,14 +45,14 @@ const VA_DEPOSIT_FLOW_STAGES: Array<{ key: PaymentOrder['status']; label: string
 
 /** Visual config for va_deposit_status badges — Oceanic Trust palette */
 const VA_STATUS_CONFIG: Record<string, { label: string; badgeClass: string }> = {
-  funds_received:    { label: 'Fondos Recibidos',       badgeClass: 'border-warning/40 bg-warning/10 text-warning-foreground dark:text-warning' },
-  funds_scheduled:   { label: 'ACH en Tránsito',        badgeClass: 'border-primary/40 bg-primary/10 text-primary dark:text-[#8AB4FF]' },
-  payment_submitted: { label: 'Procesando Pago',        badgeClass: 'border-accent/40 bg-accent/10 text-accent-foreground dark:text-accent' },
-  payment_processed: { label: 'Confirmado',             badgeClass: 'border-success/40 bg-success/10 text-success dark:text-success' },
-  in_review:         { label: 'En Revisión',            badgeClass: 'border-warning/40 bg-warning/10 text-warning-foreground dark:text-warning' },
-  refund_in_flight:  { label: 'Reembolso en Proceso',   badgeClass: 'border-destructive/40 bg-destructive/10 text-destructive dark:text-[#FF8080]' },
-  refunded:          { label: 'Reembolsado',            badgeClass: 'border-destructive/40 bg-destructive/10 text-destructive' },
-  refund_failed:     { label: 'Reembolso Fallido',      badgeClass: 'border-destructive/40 bg-destructive/10 text-destructive' },
+  funds_received: { label: 'Fondos Recibidos', badgeClass: 'border-warning/40 bg-warning/10 text-warning-foreground dark:text-warning' },
+  funds_scheduled: { label: 'ACH en Tránsito', badgeClass: 'border-primary/40 bg-primary/10 text-primary dark:text-[#8AB4FF]' },
+  payment_submitted: { label: 'Procesando Pago', badgeClass: 'border-accent/40 bg-accent/10 text-accent-foreground dark:text-accent' },
+  payment_processed: { label: 'Confirmado', badgeClass: 'border-success/40 bg-success/10 text-success dark:text-success' },
+  in_review: { label: 'En Revisión', badgeClass: 'border-warning/40 bg-warning/10 text-warning-foreground dark:text-warning' },
+  refund_in_flight: { label: 'Reembolso en Proceso', badgeClass: 'border-destructive/40 bg-destructive/10 text-destructive dark:text-[#FF8080]' },
+  refunded: { label: 'Reembolsado', badgeClass: 'border-destructive/40 bg-destructive/10 text-destructive' },
+  refund_failed: { label: 'Reembolso Fallido', badgeClass: 'border-destructive/40 bg-destructive/10 text-destructive' },
 }
 
 /** Stages for wallet-withdraw flows (Bridge wallet to fiat/crypto — no external deposit needed) */
@@ -274,31 +274,36 @@ export function PaymentsHistoryTable({
 
       {/* ── Toolbar ── */}
       <section className="shrink-0 flex flex-col">
-        <div className="flex flex-col gap-5 border-b border-border/50 px-6 py-5 xl:flex-row xl:items-center xl:justify-between">
-          <div>
+        <div className="flex flex-col gap-4 border-b border-border/50 px-4 py-5 sm:px-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
             <p className="text-[0.62rem] font-extrabold uppercase tracking-[0.2em] text-muted-foreground mb-1">
               Bitácora operativa
             </p>
-            <h3 className="text-lg font-bold tracking-tight text-foreground">Expedientes</h3>
-            <p className="mt-0.5 max-w-lg text-xs text-muted-foreground">
+            <h3 className="text-xl font-bold tracking-tight text-foreground sm:text-4xl">Expedientes</h3>
+            <p className="mt-1 max-w-lg text-xs leading-relaxed text-muted-foreground">
               Consulta el estado, valida documentos y sigue cada tramo de ejecución desde una sola vista.
             </p>
           </div>
-          <div className="flex items-center gap-6 shrink-0">
-            <ToolbarMetric label="Visibles" value={String(filteredOrders.length).padStart(2, '0')} />
-            <div className="h-8 w-px bg-border/50" />
+          <div className="grid grid-cols-2 gap-2 lg:flex lg:items-center lg:gap-6 lg:shrink-0">
             <ToolbarMetric
+              align="left"
+              label="Visibles"
+              value={String(filteredOrders.length).padStart(2, '0')}
+            />
+            <div className="hidden h-8 w-px bg-border/50 lg:block" />
+            <ToolbarMetric
+              align="left"
               label="En curso"
               value={String(filteredOrders.filter((o) => isOpenForActions(o)).length).padStart(2, '0')}
             />
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 border-b border-border/50 bg-muted/[0.02] px-6 py-4 md:flex-row md:items-center">
-          <div className="relative flex-1">
+        <div className="grid gap-2 border-b border-border/50 bg-muted/[0.02] px-4 py-3 sm:px-6 md:grid-cols-[minmax(0,1fr)_minmax(12rem,14rem)_auto] md:items-center md:gap-3">
+          <div className="relative min-w-0">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/50" />
             <Input
-              className="h-9 rounded-lg border-border/60 bg-background pl-9 text-sm focus-visible:ring-1 focus-visible:ring-primary/50 transition-shadow"
+              className="h-10 rounded-xl border-border/60 bg-background pl-9 text-sm transition-shadow focus-visible:ring-1 focus-visible:ring-primary/50 md:h-9 md:rounded-lg"
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Buscar por expediente, proveedor o monto…"
               value={search}
@@ -306,7 +311,7 @@ export function PaymentsHistoryTable({
           </div>
 
           <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | PaymentOrder['status'])}>
-            <SelectTrigger className="h-9 rounded-lg border-border/60 bg-background text-sm md:w-52 focus:ring-1 focus:ring-primary/50">
+            <SelectTrigger className="h-10 w-full rounded-xl border-border/60 bg-background text-sm focus:ring-1 focus:ring-primary/50 md:h-9 md:rounded-lg px-3">
               <SelectValue placeholder="Filtrar por estado">
                 {STATUS_FILTER_LABELS[statusFilter] ?? statusFilter}
               </SelectValue>
@@ -329,7 +334,7 @@ export function PaymentsHistoryTable({
             <DropdownMenuTrigger
               render={
                 <Button
-                  className="h-9 rounded-lg gap-2 border-border/60 bg-background text-sm font-medium hover:bg-muted/50 transition-colors"
+                  className="h-10 w-full justify-between gap-2 rounded-xl border-border/60 bg-background text-sm font-medium transition-colors hover:bg-muted/50 md:h-9 md:w-auto md:justify-center md:rounded-lg"
                   disabled={!!busyKey?.startsWith('export-')}
                   type="button"
                   variant="outline"
@@ -341,7 +346,7 @@ export function PaymentsHistoryTable({
               ) : (
                 <Download className="size-3.5" />
               )}
-              <span className="hidden sm:inline">Exportar</span>
+              <span>Exportar</span>
               <ChevronDown className="size-3 text-muted-foreground" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
@@ -454,10 +459,10 @@ export function PaymentsHistoryTable({
         busyKey={busyKey}
         files={files}
         onClose={() => setSelectedOrderId(null)}
-        onCancel={selectedOrder ? () => handleCancel(selectedOrder) : () => {}}
+        onCancel={selectedOrder ? () => handleCancel(selectedOrder) : () => { }}
         onUpload={handleUpload}
         onFileChange={setFiles}
-        onDownloadPdf={selectedOrder ? () => handleDownloadPdf(selectedOrder) : () => {}}
+        onDownloadPdf={selectedOrder ? () => handleDownloadPdf(selectedOrder) : () => { }}
       />
     </div>
   )
@@ -608,7 +613,7 @@ function OrderDetailSheet({
 }) {
   if (!order) {
     return (
-      <Sheet open={false} onOpenChange={() => {}}>
+      <Sheet open={false} onOpenChange={() => { }}>
         <SheetContent side="right" className="sm:max-w-xl lg:max-w-2xl w-full p-0" />
       </Sheet>
     )
@@ -1283,11 +1288,16 @@ function SectionHeading({ title }: { title: string }) {
 }
 
 // ── ToolbarMetric ─────────────────────────────────────────────────────────────
-function ToolbarMetric({ label, value }: { label: string; value: string }) {
+function ToolbarMetric({ align = 'right', label, value }: { align?: 'left' | 'right'; label: string; value: string }) {
   return (
-    <div className="text-right">
+    <div
+      className={cn(
+        'rounded-xl border border-border/45 bg-background/45 px-3 py-2 lg:border-0 lg:bg-transparent lg:p-0',
+        align === 'right' ? 'text-right' : 'text-left lg:text-right'
+      )}
+    >
       <p className="text-[0.62rem] font-extrabold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
-      <p className="mt-0.5 font-mono text-2xl font-bold tracking-tight text-foreground">{value}</p>
+      <p className="mt-0.5 font-mono text-xl font-bold tracking-tight text-foreground sm:text-2xl">{value}</p>
     </div>
   )
 }
