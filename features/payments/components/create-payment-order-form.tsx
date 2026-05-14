@@ -82,6 +82,7 @@ import {
 } from '@/features/payments/schemas/payment-order.schema'
 import type {
   AppSettingRow,
+  BridgeDepositInstructionsPayload,
   CreatePaymentOrderInput,
   FeeConfigRow,
   PaymentOrder,
@@ -461,7 +462,7 @@ export function CreatePaymentOrderForm({
     // El cliente debe ver psav_deposit_instructions (cuenta bancaria boliviana donde depositar BOB).
     const isFiatBo = createdOrder?.flow_type === 'fiat_bo_to_bridge_wallet'
 
-    const bridgeDeposit = createdOrder?.bridge_source_deposit_instructions;
+    const bridgeDeposit = createdOrder?.bridge_source_deposit_instructions as BridgeDepositInstructionsPayload | undefined;
     if (!isFiatBo && bridgeDeposit && Object.keys(bridgeDeposit).length > 0) {
       if (bridgeDeposit.type === 'virtual_account') {
         return [{
