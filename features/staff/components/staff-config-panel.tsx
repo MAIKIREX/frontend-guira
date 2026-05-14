@@ -302,7 +302,7 @@ function ConfigPanelInner({
                   <div className="flex flex-col items-center gap-4 mt-2">
                     <div className="flex items-center gap-3">
                       <span className="font-mono text-xs text-muted-foreground">
-                        {record.pair || `${record.from_currency}_${record.to_currency}`}
+                        {record.pair}
                       </span>
                       <span className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md">
                         Spread {record.spread_percent ?? 0}%

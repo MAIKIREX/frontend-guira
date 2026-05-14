@@ -802,7 +802,7 @@ function DocumentBlock({
 
   function handleConfirm() {
     if (!draft.trim()) return
-    onAddObservation(docKey, draft.trim())
+    onAddObservation?.(docKey, draft.trim())
     setDraft('')
     setEditing(false)
   }
@@ -870,7 +870,7 @@ function DocumentBlock({
               <button
                 type="button"
                 className="flex size-6 shrink-0 items-center justify-center rounded text-amber-600 hover:bg-red-500/10 hover:text-red-600 dark:text-amber-400"
-                onClick={() => onRemoveObservation(docKey)}
+                onClick={() => onRemoveObservation?.(docKey)}
               >
                 <X className="size-3.5" />
               </button>

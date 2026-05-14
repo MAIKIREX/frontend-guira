@@ -66,6 +66,14 @@ export interface AdminComplianceActivityComment {
   created_at?: string
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === 'object' && value !== null ? value as Record<string, unknown> : {}
+}
+
+function asString(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value : fallback
+}
+
 // ── Servicio ────────────────────────────────────────────────────────
 
 export const ComplianceAdminService = {
@@ -104,38 +112,39 @@ export const ComplianceAdminService = {
    */
   async getOnboardingDetail(reviewId: string): Promise<StaffOnboardingDetail> {
     const raw = await apiGet<Record<string, unknown>>(`/admin/compliance/reviews/${reviewId}`)
+    const profile = asRecord(raw.profile)
 
     // C10 FIX: Usamos profile.onboarding_status (valor BD correcto)
     // en lugar de review.status ('open'/'closed').
     const record: StaffOnboardingRecord = {
       id: reviewId,
-      user_id: raw.user_id ?? 'unknown-user',
-      type: raw.onboarding_type ?? 'personal',
-      status: (raw.profile?.onboarding_status ?? raw.application_status ?? 'in_review') as StaffOnboardingRecord['status'],
-      data: raw.application_data ?? {},
-      previous_data: raw.previous_data ?? null,
+      user_id: asString(raw.user_id, 'unknown-user'),
+      type: asString(raw.onboarding_type, 'personal') as StaffOnboardingRecord['type'],
+      status: (profile.onboarding_status ?? raw.application_status ?? 'in_review') as StaffOnboardingRecord['status'],
+      data: asRecord(raw.application_data),
+      previous_data: raw.previous_data ? asRecord(raw.previous_data) : null,
       observations: (raw.comments as Array<{ body: string }> | null)?.[0]?.body,
-      bridge_customer_id: raw.profile?.bridge_customer_id ?? undefined,
-      created_at: (raw.opened_at ?? '') as string,
-      updated_at: (raw.closed_at ?? raw.opened_at ?? '') as string,
+      bridge_customer_id: asString(profile.bridge_customer_id) || undefined,
+      created_at: asString(raw.opened_at),
+      updated_at: asString(raw.closed_at, asString(raw.opened_at)),
       profiles: raw.profile
         ? {
-            full_name: raw.profile.full_name,
-            email: raw.profile.email,
-            onboarding_status: raw.profile.onboarding_status,
+            full_name: asString(profile.full_name) || undefined,
+            email: asString(profile.email) || undefined,
+            onboarding_status: asString(profile.onboarding_status) || undefined,
           }
         : null,
     }
 
     const documents: StaffDocumentRecord[] = ((raw.documents as Record<string, unknown>[] | undefined) ?? []).map((doc) => ({
-      id: doc.id,
+      id: asString(doc.id) || undefined,
       onboarding_id: reviewId,
-      user_id: doc.user_id,
-      doc_type: doc.document_type ?? doc.description ?? 'document',
-      storage_path: doc.storage_path ?? '',
-      mime_type: doc.mime_type,
-      created_at: doc.created_at ?? undefined,
-      signed_url: doc.signed_url ?? null,
+      user_id: asString(doc.user_id, asString(raw.user_id, 'unknown-user')),
+      doc_type: asString(doc.document_type, asString(doc.description, 'document')),
+      storage_path: asString(doc.storage_path),
+      mime_type: asString(doc.mime_type) || null,
+      created_at: asString(doc.created_at) || undefined,
+      signed_url: asString(doc.signed_url) || null,
     }))
 
     return { record, documents }

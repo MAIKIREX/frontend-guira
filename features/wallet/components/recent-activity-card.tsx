@@ -97,9 +97,10 @@ export function RecentActivityCard() {
   useEffect(() => {
     PaymentsService.getOrders({ limit: 5 })
       .then((raw) => {
+        const response = raw as typeof raw & { items?: PaymentOrder[] }
         const items: PaymentOrder[] = Array.isArray(raw) ? raw
           : Array.isArray(raw?.data) ? raw.data
-          : Array.isArray(raw?.items) ? raw.items : []
+          : Array.isArray(response.items) ? response.items : []
         items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         setOrders(items.slice(0, 5))
       })

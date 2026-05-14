@@ -2191,7 +2191,7 @@ function ConfigPanel({
                       <Badge variant="secondary">{interbankFees.length}</Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">Comisiones para operaciones entre bancos y de/hacia cuentas en el exterior.</p>
-                    <Accordion type="single" collapsible className="w-full mt-4">
+                    <Accordion className="w-full mt-4">
                       <AccordionItem value="interbank">
                         <AccordionTrigger className="text-sm font-medium">Ver Configuraciones</AccordionTrigger>
                         <AccordionContent>
@@ -2208,7 +2208,7 @@ function ConfigPanel({
                       <Badge variant="secondary">{rampOnFees.length + rampOffFees.length}</Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">Comisiones para operaciones on-ramp (depósitos) y off-ramp (retiros).</p>
-                    <Accordion type="multiple" className="w-full mt-4">
+                    <Accordion multiple className="w-full mt-4">
                       <AccordionItem value="deposits">
                         <AccordionTrigger className="text-sm font-medium">Depósitos (On-Ramp)</AccordionTrigger>
                         <AccordionContent>
@@ -2231,7 +2231,7 @@ function ConfigPanel({
                         <h3 className="text-lg font-semibold tracking-tight">Otras Comisiones</h3>
                         <Badge variant="secondary">{otherFees.length}</Badge>
                       </div>
-                      <Accordion type="single" collapsible className="w-full mt-4">
+                      <Accordion className="w-full mt-4">
                         <AccordionItem value="others">
                           <AccordionTrigger className="text-sm font-medium">Ver Configuraciones</AccordionTrigger>
                           <AccordionContent>
@@ -2286,7 +2286,7 @@ function ConfigPanel({
                     {formatRateValue(record.rate)}
                   </div>
                   <div className="mt-2 flex items-center justify-between">
-                    <div className="text-xs text-muted-foreground">Par: `{record.pair || `${record.from_currency}_${record.to_currency}`}`</div>
+                    <div className="text-xs text-muted-foreground">Par: `{record.pair}`</div>
                     <div className="inline-flex items-center rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
                       Spread: {record.spread_percent ?? 0}%
                     </div>
@@ -3251,19 +3251,19 @@ export function StaffReviewsPanel({ actor }: { actor: StaffActor }) {
             </div>
 
             {/* Motivo de negocio del expediente original */}
-            {selected.request_payload?.business_purpose && (
+            {Boolean(selected.request_payload?.business_purpose) && (
               <div className="rounded-xl bg-muted/30 p-4 space-y-1">
                 <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Motivo de pago (expediente)</p>
-                <p className="text-sm leading-relaxed">{selected.request_payload.business_purpose as string}</p>
+                <p className="text-sm leading-relaxed">{String(selected.request_payload.business_purpose)}</p>
               </div>
             )}
 
             {/* Documento de respaldo adjunto al expediente */}
-            {selected.request_payload?.supporting_document_url && (
+            {typeof selected.request_payload?.supporting_document_url === 'string' && (
               <div className="rounded-xl bg-muted/30 p-4 space-y-1">
                 <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Documento de respaldo</p>
                 <a
-                  href={selected.request_payload.supporting_document_url as string}
+                  href={selected.request_payload.supporting_document_url}
                   target="_blank"
                   rel="noreferrer"
                   className="text-sm text-primary underline break-all"

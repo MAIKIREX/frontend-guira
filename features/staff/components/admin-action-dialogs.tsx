@@ -76,6 +76,15 @@ import type { AppSettingRow, FeeConfigRow, PsavConfigRow } from '@/types/payment
 import type { Profile } from '@/types/profile'
 import type { StaffActor } from '@/types/staff'
 
+type RateConfigRecord = {
+  id?: string
+  pair?: string
+  from_currency?: string
+  to_currency?: string
+  rate: number
+  spread_percent?: number
+}
+
 export function CreateUserDialog({ actor, onUpdated }: { actor: StaffActor; onUpdated: (profile: Profile | null) => Promise<void> | void }) {
   const [open, setOpen] = useState(false)
   const form = useForm<AdminCreateUserValues>({
@@ -2203,7 +2212,7 @@ export function RateConfigDialog({
 }: {
   actor: StaffActor
   onUpdated: (record: ExchangeRatePair) => Promise<void> | void
-  record: ExchangeRatePair
+  record: RateConfigRecord
 }) {
   const [open, setOpen] = useState(false)
   const form = useForm<AdminRateConfigValues>({
@@ -2216,7 +2225,8 @@ export function RateConfigDialog({
 
   async function submit(values: AdminRateConfigValues) {
     try {
-      const pairId = (record as ExchangeRatePair & { pair?: string }).pair || `${record.from_currency}_${record.to_currency}`
+      const pairId = record.pair || (record.from_currency && record.to_currency ? `${record.from_currency}_${record.to_currency}` : record.id)
+      if (!pairId) throw new Error('No se pudo identificar el par de cambio.')
       const updatedRecord = await ConfigAdminService.updateExchangeRate(
         pairId,
         values.rate,
@@ -2250,7 +2260,7 @@ export function RateConfigDialog({
             <CircleDollarSign className="size-6" />
           </div>
           <div className="space-y-0.5">
-            <DialogTitle className="text-lg font-bold">Ajustar Tasa: {(record as ExchangeRatePair & { pair?: string }).pair || `${record.from_currency}_${record.to_currency}`}</DialogTitle>
+            <DialogTitle className="text-lg font-bold">Ajustar Tasa: {record.pair || (record.from_currency && record.to_currency ? `${record.from_currency}_${record.to_currency}` : record.id)}</DialogTitle>
             <DialogDescription className="text-xs text-amber-700/80 font-medium dark:text-amber-300/80">
               Modificando la base y el spread porcentual.
             </DialogDescription>

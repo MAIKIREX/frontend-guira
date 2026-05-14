@@ -338,10 +338,10 @@ export function OrderDetailDialog({ actor, onUpdated, order, clientName }: { act
     if (!addr) return null
     return {
       address: addr,
-      network: (instr.payment_rail ?? instr.chain ?? 'solana').toUpperCase(),
-      currency: (instr.currency ?? 'USDC').toUpperCase(),
+      network: (instr?.payment_rail ?? instr?.chain ?? 'solana').toUpperCase(),
+      currency: (instr?.currency ?? 'USDC').toUpperCase(),
       bridgeTransferId: order.bridge_transfer_id as string | undefined,
-      amountToDeposit: instr.amount_to_deposit ?? null,
+      amountToDeposit: instr?.amount_to_deposit ?? null,
     }
   }, [order.bridge_source_deposit_instructions, order.flow_type, order.status, order.bridge_transfer_id])
 
