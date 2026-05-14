@@ -10,6 +10,16 @@ import { GuiraButton } from '@/components/shared/guira-button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { SupplierForm } from '@/features/payments/components/supplier-form'
 import { cn } from '@/lib/utils'
 import type { Supplier, PaymentRail, CreateSupplierPayload } from '@/types/supplier'
@@ -79,42 +89,42 @@ function RailChip({
   const flagCode = RAIL_FLAG_CODES[supplier.payment_rail]
 
   return (
-    <div className="group/chip flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/20 px-3 py-1.5 text-sm transition-colors hover:border-border hover:bg-muted/40">
-      <span className="flex size-4 shrink-0 items-center justify-center">
+    <div className="group/chip flex w-full md:w-auto items-center gap-2 md:gap-1.5 rounded-xl md:rounded-full border border-border/60 bg-muted/20 px-4 py-2.5 md:px-3 md:py-1.5 text-base md:text-sm transition-colors hover:border-border hover:bg-muted/40">
+      <span className="flex size-5 md:size-4 shrink-0 items-center justify-center">
         {isCrypto ? (
-          <Bitcoin className="size-3.5 text-primary" />
+          <Bitcoin className="size-4 md:size-3.5 text-primary" />
         ) : flagCode ? (
           <Flag code={flagCode} className="h-full w-full rounded-sm object-cover" />
         ) : (
-          <UserRound className="size-3.5 text-muted-foreground" />
+          <UserRound className="size-4 md:size-3.5 text-muted-foreground" />
         )}
       </span>
-      <span className="font-medium">
+      <span className="font-medium truncate">
         {isCrypto
           ? `${network ? network.charAt(0).toUpperCase() + network.slice(1) : 'Crypto'} · ${currency ?? 'USDC'}`
           : RAIL_LABELS[supplier.payment_rail]}
       </span>
       {supplier.bridge_external_account_id && (
-        <CheckCircle2 className="size-3 text-emerald-500" />
+        <CheckCircle2 className="size-4 md:size-3 text-emerald-500 shrink-0" />
       )}
-      <div className="ml-0.5 flex items-center gap-0.5 md:hidden md:group-hover/chip:flex">
+      <div className="ml-auto flex items-center gap-2 md:gap-0.5 md:hidden md:group-hover/chip:flex shrink-0">
         <button
           type="button"
           disabled={disabled}
           onClick={onEdit}
-          className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-background hover:text-foreground disabled:opacity-50"
+          className="rounded-full p-1.5 md:p-0.5 text-muted-foreground transition-colors hover:bg-background hover:text-foreground disabled:opacity-50"
           title="Editar"
         >
-          <Pencil className="size-3" />
+          <Pencil className="size-4 md:size-3" />
         </button>
         <button
           type="button"
           disabled={disabled}
           onClick={onDelete}
-          className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+          className="rounded-full p-1.5 md:p-0.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
           title="Eliminar"
         >
-          <Trash2 className="size-3" />
+          <Trash2 className="size-4 md:size-3" />
         </button>
       </div>
     </div>
@@ -134,6 +144,8 @@ export function SuppliersSection({
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [methodFilter, setMethodFilter] = useState<'all' | PaymentRail>('all')
+  const [supplierToDelete, setSupplierToDelete] = useState<Supplier | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const groupedSuppliers = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase()
@@ -179,18 +191,24 @@ export function SuppliersSection({
     }
   }
 
-  async function handleDelete(supplier: Supplier) {
-    if (!supplier.id || !confirm(`¿Eliminar "${supplier.name}" (${RAIL_LABELS[supplier.payment_rail]})?`)) {
-      return
-    }
+  async function executeDelete() {
+    if (!supplierToDelete?.id) return
+    setIsDeleting(true)
     try {
-      await onDeleteSupplier(supplier.id)
-      if (editingSupplier?.id === supplier.id) setEditingSupplier(null)
+      await onDeleteSupplier(supplierToDelete.id)
+      if (editingSupplier?.id === supplierToDelete.id) setEditingSupplier(null)
       toast.success('Proveedor eliminado.')
     } catch (error) {
       console.error('Failed to delete supplier', error)
       toast.error('No se pudo eliminar el proveedor.')
+    } finally {
+      setIsDeleting(false)
+      setSupplierToDelete(null)
     }
+  }
+
+  function handleDeleteClick(supplier: Supplier) {
+    setSupplierToDelete(supplier)
   }
 
   function handleCreate() {
@@ -332,14 +350,14 @@ export function SuppliersSection({
                       </div>
 
                       {/* Rails del contacto */}
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-col md:flex-row md:flex-wrap gap-2">
                         {group.rails.map((supplier) => (
                           <RailChip
                             key={supplier.id}
                             supplier={supplier}
                             disabled={disabled}
                             onEdit={() => handleEdit(supplier)}
-                            onDelete={() => handleDelete(supplier)}
+                            onDelete={() => handleDeleteClick(supplier)}
                           />
                         ))}
 
@@ -350,9 +368,9 @@ export function SuppliersSection({
                             size="sm"
                             disabled={disabled}
                             onClick={() => handleAddRail(group)}
-                            className="h-8 rounded-full border-dashed px-3 text-xs text-muted-foreground hover:border-primary/50 hover:text-primary"
+                            className="h-11 md:h-8 w-full md:w-auto rounded-xl md:rounded-full border-dashed px-4 md:px-3 text-sm md:text-xs text-muted-foreground hover:border-primary/50 hover:text-primary"
                           >
-                            <Plus className="mr-1 size-3" />
+                            <Plus className="mr-2 md:mr-1 size-4 md:size-3" />
                             Añadir método
                           </Button>
                         )}
@@ -365,6 +383,30 @@ export function SuppliersSection({
           </Card>
         </>
       )}
+
+      <AlertDialog open={!!supplierToDelete} onOpenChange={(open) => !open && !isDeleting && setSupplierToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar proveedor?</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Estás seguro de que deseas eliminar a <strong>{supplierToDelete?.name}</strong> y su cuenta de <strong>{supplierToDelete ? RAIL_LABELS[supplierToDelete.payment_rail] : ''}</strong>? Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => {
+                e.preventDefault()
+                executeDelete()
+              }}
+            >
+              {isDeleting ? 'Eliminando...' : 'Eliminar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -3077,7 +3077,7 @@ function AnimatedStepPanel({ children }: { children: React.ReactNode }) {
       className="space-y-6 border-0 bg-transparent p-0 shadow-none"
       exit={{ opacity: 0, y: -10, filter: 'blur(3px)' }}
       initial={{ opacity: 0, y: 16, filter: 'blur(4px)' }}
-      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] as const }}
     >
       {children}
     </motion.section>
