@@ -408,7 +408,7 @@ function BankAccountFormDialog({
     setIsSubmitting(true)
     setError(null)
     try {
-      const payload: { bank_name: string; account_number: string; account_holder: string; account_type: string; change_reason?: string } = {
+      const payload: { bank_name: string; account_number: string; account_holder: string; account_type: 'savings' | 'checking'; change_reason?: string } = {
         bank_name: bankName.trim(),
         account_number: accountNumber.trim(),
         account_holder: accountHolder.trim(),

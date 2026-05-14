@@ -411,6 +411,7 @@ export function StaffOrdersTable({
   replaceOrder,
 }: Pick<StaffDashboardLoadedState, 'snapshot' | 'actor' | 'replaceOrder'>) {
   const orders = snapshot.orders
+  const userNameMap = new Map(snapshot.users.map((u) => [u.id, u.full_name]))
   const [activeTab, setActiveTab] = useState<'orders' | 'transfers' | 'reviews'>('orders')
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -441,6 +442,7 @@ export function StaffOrdersTable({
     const matchesSearch = matchesQuery(deferredQuery, [
       order.id,
       order.user_id,
+      userNameMap.get(order.user_id),
       resolvedType,
       order.status,
       order.currency ?? order.origin_currency,
@@ -515,6 +517,7 @@ export function StaffOrdersTable({
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
                           <div className="font-medium text-foreground">#{order.id.slice(0, 8)}</div>
+                          <div className="text-sm text-foreground/80">{userNameMap.get(order.user_id) ?? '—'}</div>
                           <div className="mt-1 text-xs text-muted-foreground">{formatDate(order.created_at)}</div>
                         </div>
                         <div className="flex flex-col items-end gap-1">
@@ -563,8 +566,8 @@ export function StaffOrdersTable({
                 <TableHeader>
                   <TableRow>
                     <TableHead>ID</TableHead>
+                    <TableHead>Cliente</TableHead>
                     <TableHead>Tipo</TableHead>
-
                     <TableHead>Monto</TableHead>
                     <TableHead>Estado</TableHead>
                     <TableHead>Archivos</TableHead>
@@ -573,15 +576,19 @@ export function StaffOrdersTable({
                 </TableHeader>
                 <TableBody>
                   {orders.length === 0 ? (
-                    <EmptyRow colSpan={6} message="No hay ordenes disponibles." />
+                    <EmptyRow colSpan={7} message="No hay ordenes disponibles." />
                   ) : hasActiveFilters && filteredOrders.length === 0 ? (
-                    <EmptyRow colSpan={6} message="No hay resultados con los filtros actuales." />
+                    <EmptyRow colSpan={7} message="No hay resultados con los filtros actuales." />
                   ) : (
                     filteredOrders.map((order) => (
                       <TableRow key={order.id}>
                         <TableCell>
                           <div className="font-medium">#{order.id.slice(0, 8)}</div>
                           <div className="text-xs text-muted-foreground">{formatDate(order.created_at)}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium">{userNameMap.get(order.user_id) ?? '—'}</div>
+                          <div className="text-xs text-muted-foreground font-mono">{order.user_id.slice(0, 8)}</div>
                         </TableCell>
                         <TableCell>{order.flow_type ?? order.order_type ?? '—'}</TableCell>
 
