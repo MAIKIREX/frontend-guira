@@ -8,7 +8,7 @@
  *        apiGet('/admin/activity/:userId') — solo para admins
  */
 import { apiGet } from '@/lib/api/client'
-import type { ActivityLog } from '@/types/activity-log'
+import type { ActivityLog, AuditLog } from '@/types/activity-log'
 import type { PaginationParams } from '@/lib/api/types'
 
 export interface ActivityFilter extends PaginationParams {
@@ -37,7 +37,7 @@ export const ActivityService = {
   /**
    * Obtiene todos los logs de auditoria del sistema (staff actions, etc).
    */
-  async getAuditLogs(params?: PaginationParams): Promise<unknown[]> {
-    return apiGet<unknown[]>('/admin/audit-logs', { params })
+  async getAuditLogs(params?: PaginationParams): Promise<AuditLog[]> {
+    return apiGet<AuditLog[]>('/admin/audit-logs', { params })
   },
 }
