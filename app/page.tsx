@@ -8,6 +8,8 @@ import { ThemeToggle } from '@/components/theme/theme-toggle'
 import { GuiraButton } from '@/components/shared/guira-button'
 
 /* ── Animation variants ── */
+const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1]
+
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
   show: (i: number) => ({
@@ -16,7 +18,7 @@ const fadeUp = {
     transition: {
       delay: i * 0.08,
       duration: 0.5,
-      ease: [0.16, 1, 0.3, 1],
+      ease: EASE,
     },
   }),
 }
@@ -29,7 +31,7 @@ const scaleIn = {
     transition: {
       delay: i * 0.08,
       duration: 0.5,
-      ease: [0.16, 1, 0.3, 1],
+      ease: EASE,
     },
   }),
 }

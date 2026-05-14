@@ -30,7 +30,7 @@ export interface AddingRailTo {
   usedNetworks: string[]
 }
 
-const RAIL_LABELS: Record<PaymentRail, string> = {
+export const RAIL_LABELS: Record<PaymentRail, string> = {
   ach: 'ACH (USD)',
   wire: 'Wire (USD)',
   sepa: 'SEPA (EUR)',
@@ -42,7 +42,7 @@ const RAIL_LABELS: Record<PaymentRail, string> = {
   crypto: 'Crypto',
 }
 
-const RAIL_FLAG_CODES: Record<PaymentRail, string | null> = {
+export const RAIL_FLAG_CODES: Record<PaymentRail, string | null> = {
   ach: 'US',
   wire: 'US',
   sepa: 'EU',

@@ -16,7 +16,7 @@ import { interactiveClickableCardClassName, cn } from '@/lib/utils'
 import { ALLOWED_NETWORKS, NETWORK_LABELS, ADDRESS_VALIDATORS, validateCryptoAddress } from '@/lib/guira-crypto-config'
 import type { AllowedNetwork } from '@/lib/guira-crypto-config'
 import type { Supplier, PaymentRail, CreateSupplierPayload } from '@/types/supplier'
-import type { AddingRailTo } from '@/features/payments/components/suppliers-section'
+import { RAIL_LABELS, RAIL_FLAG_CODES, type AddingRailTo } from '@/features/payments/components/suppliers-section'
 import { PaymentsService } from '@/services/payments.service'
 
 interface DuplicateInfo {
@@ -258,7 +258,10 @@ export function SupplierForm({
   onSubmitSupplier,
   onSwitchToAddRail,
 }: SupplierFormProps) {
-  const [currentStep, setCurrentStep] = useState<FormStep>('general')
+  const isEditMode = !!editingSupplier
+  const [currentStep, setCurrentStep] = useState<FormStep>(
+    editingSupplier ? 'accounts' : 'general'
+  )
   const [duplicateInfo, setDuplicateInfo] = useState<DuplicateInfo | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -527,16 +530,49 @@ export function SupplierForm({
       <form onSubmit={form.handleSubmit(onSubmitForm)} className="mx-auto flex w-full max-w-3xl flex-col gap-6">
         <div>
           <h2 className="text-xl font-semibold">
-            {editingSupplier ? 'Editar Proveedor' : addingRailTo ? 'Añadir método de cobro' : 'Nuevo Proveedor'}
+            {isEditMode
+              ? 'Editar método de pago'
+              : addingRailTo
+              ? 'Añadir método de cobro'
+              : 'Nuevo Proveedor'}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {addingRailTo
+            {isEditMode
+              ? 'Modifica los datos de la cuenta. El método de pago no puede cambiarse.'
+              : addingRailTo
               ? `Agrega un nuevo rail de pago a ${addingRailTo.name}.`
               : 'Configura los datos del destinatario para futuros pagos.'}
           </p>
         </div>
 
-        <StepProgressRail currentStep={currentStep} getStepLabel={getSupplierStepLabel} steps={SUPPLIER_STEP_ORDER} />
+        {!isEditMode && (
+          <StepProgressRail currentStep={currentStep} getStepLabel={getSupplierStepLabel} steps={SUPPLIER_STEP_ORDER} />
+        )}
+
+        {isEditMode && editingSupplier && (
+          <div className="flex items-center gap-3 rounded-xl border border-border/50 bg-muted/30 px-4 py-3">
+            <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/70 bg-background">
+              {editingSupplier.payment_rail === 'crypto'
+                ? <Bitcoin className="size-4 text-primary" />
+                : RAIL_FLAG_CODES[editingSupplier.payment_rail]
+                  ? <Flag code={RAIL_FLAG_CODES[editingSupplier.payment_rail]!} className="h-full w-full object-cover" />
+                  : <Building2 className="size-4 text-muted-foreground" />
+              }
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="truncate text-sm font-semibold">{editingSupplier.name}</span>
+                <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                  {RAIL_LABELS[editingSupplier.payment_rail]}
+                </span>
+              </div>
+              {editingSupplier.contact_email && (
+                <div className="truncate text-xs text-muted-foreground">{editingSupplier.contact_email}</div>
+              )}
+            </div>
+            <span className="shrink-0 text-xs text-muted-foreground">Bloqueado</span>
+          </div>
+        )}
 
         <AnimatePresence mode="wait">
           <motion.div
@@ -747,9 +783,13 @@ export function SupplierForm({
             {currentStep === 'accounts' && (
               <div className="flex flex-col gap-6">
                 <div className="space-y-1">
-                  <h3 className="text-xl font-semibold tracking-tight">Detalles Bancarios</h3>
+                  <h3 className="text-xl font-semibold tracking-tight">
+                    {isEditMode ? 'Editar detalles de cuenta' : 'Detalles Bancarios'}
+                  </h3>
                   <p className="text-sm text-muted-foreground">
-                    Completa la información necesaria para envíos vía <strong>{RAIL_OPTIONS.find(r => r.value === selectedRail)?.label}</strong>.
+                    {isEditMode
+                      ? `Actualiza los datos para ${RAIL_LABELS[editingSupplier!.payment_rail]}.`
+                      : <>Completa la información necesaria para envíos vía <strong>{RAIL_OPTIONS.find(r => r.value === selectedRail)?.label}</strong>.</>}
                   </p>
                 </div>
                 <div className="space-y-6">
@@ -1558,11 +1598,17 @@ export function SupplierForm({
                   )}
 
                   <div className="flex justify-between pt-4">
-                    <GuiraButton disabled={disabled} onClick={handleBack} type="button" variant="outline" iconStart={ArrowLeft}>
-                      Volver
+                    <GuiraButton
+                      disabled={disabled}
+                      onClick={isEditMode ? onBack : handleBack}
+                      type="button"
+                      variant="outline"
+                      iconStart={ArrowLeft}
+                    >
+                      {isEditMode ? 'Cancelar' : 'Volver'}
                     </GuiraButton>
                     <GuiraButton disabled={disabled || form.formState.isSubmitting} type="submit">
-                      Guardar Proveedor
+                      {isEditMode ? 'Guardar cambios' : 'Guardar Proveedor'}
                     </GuiraButton>
                   </div>
                 </div>
