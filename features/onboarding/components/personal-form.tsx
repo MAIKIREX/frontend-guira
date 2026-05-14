@@ -264,7 +264,7 @@ export function PersonalForm({
         // F3: campo renombrado — se envía como expected_monthly_payments_usd al backend
         expected_monthly_payments_usd: data.expected_monthly_payments_usd as CreatePersonDto['expected_monthly_payments_usd'],
         // F5: employment_status (P1, opcional)
-        employment_status:             data.employment_status || undefined,
+        employment_status:             data.employment_status as CreatePersonDto['employment_status'] || undefined,
         // F-OCC: most_recent_occupation reemplaza el campo de texto libre anterior
         most_recent_occupation:        data.most_recent_occupation || undefined,
       })
