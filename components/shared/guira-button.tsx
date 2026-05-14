@@ -132,8 +132,9 @@ const guiraButtonVariants = cva(
 )
 
 export interface GuiraButtonProps
-  extends Omit<HTMLMotionProps<"button">, "ref">,
+  extends Omit<HTMLMotionProps<"button">, "ref" | "children">,
     VariantProps<typeof guiraButtonVariants> {
+  children?: React.ReactNode
   /** Icono de Lucide al inicio del botón */
   iconStart?: LucideIcon
   /** Icono de Lucide al final del botón */
