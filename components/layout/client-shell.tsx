@@ -151,7 +151,7 @@ export function ClientShell({
           </header>
 
           {/* Mobile menu trigger */}
-          <div className="sticky top-4 z-40 flex px-4 md:hidden">
+          <div className="sticky top-4 z-40 flex items-center justify-between px-4 md:hidden">
             <Button
               variant="outline"
               size="icon"
@@ -160,6 +160,11 @@ export function ClientShell({
             >
               <MenuIcon className="size-4" />
             </Button>
+
+            <div className="flex items-center gap-2">
+              <NotificationBell />
+              <ThemeToggle />
+            </div>
           </div>
 
           <main className="flex-1 px-5 py-8 md:px-8 md:py-7">
