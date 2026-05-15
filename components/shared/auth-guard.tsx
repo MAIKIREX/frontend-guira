@@ -61,7 +61,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       isSyncingRef.current = true
       console.log('AuthGuard: syncProfileAndRedirect starting for', session.user.id)
       
-      const profile = await getProfileWithRetry(session.user.id)
+      const profile = await getProfileWithRetry(session.user.id, session.access_token)
       if (profile) {
         setSession(session)
         setUser(session.user)
@@ -165,7 +165,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-async function getProfileWithRetry(userId: string) {
+async function getProfileWithRetry(userId: string, token?: string) {
   let lastError: unknown = null
 
   for (let i = 0; i < PROFILE_RETRY_DELAYS_MS.length; i++) {
@@ -177,7 +177,7 @@ async function getProfileWithRetry(userId: string) {
 
     try {
       console.log(`AuthGuard: getProfile attempt ${i}`)
-      const profile = await ProfileService.getProfile()
+      const profile = await ProfileService.getProfile(token)
       if (profile) {
         console.log('AuthGuard: profile found on attempt', i)
         return profile

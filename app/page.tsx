@@ -81,11 +81,12 @@ export default function HomePage() {
         >
           <motion.div custom={0} variants={scaleIn}>
             <Image
-              src="/LOGO GUIRRA CON LETRA VERTICAL.svg"
+              src="/LOGO GUIRRA 02.png"
               alt="Guira"
-              width={200}
-              height={200}
+              width={320}
+              height={320}
               className="drop-shadow-lg"
+              style={{ height: "auto" }}
               priority
             />
           </motion.div>

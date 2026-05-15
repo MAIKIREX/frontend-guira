@@ -34,11 +34,12 @@ export default function PublicLayout({
         {/* Logo + Brand copy */}
         <div className="relative z-10 flex flex-col items-center gap-8 px-12">
           <Image
-            src="/LOGO GUIRRA CON LETRA VERTICAL.svg"
+            src="/LOGO GUIRRA 02.png"
             alt="Guira"
-            width={180}
-            height={180}
+            width={320}
+            height={320}
             className="drop-shadow-lg"
+            style={{ height: "auto" }}
             priority
           />
           <div className="space-y-3 text-center max-w-[340px]">

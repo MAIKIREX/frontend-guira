@@ -14,8 +14,9 @@ export const ProfileService = {
    * Obtiene el perfil del usuario autenticado.
    * El backend extrae el userId del JWT (no se pasa como parámetro).
    */
-  async getProfile(): Promise<Profile> {
-    return apiGet<Profile>('/profiles/me')
+  async getProfile(token?: string): Promise<Profile> {
+    const config = token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+    return apiGet<Profile>('/profiles/me', config)
   },
 
   /**

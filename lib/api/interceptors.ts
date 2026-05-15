@@ -11,38 +11,37 @@ let failedQueue: Array<{
 
 function processQueue(error: unknown, token: string | null = null) {
   failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error)
-    } else {
-      prom.resolve(token!)
-    }
+    if (error) prom.reject(error)
+    else prom.resolve(token!)
   })
   failedQueue = []
 }
 
 /**
  * REQUEST INTERCEPTOR
- * Extrae el JWT de la sesión activa de Supabase y lo adjunta al header Authorization.
- * 
- * Flujo:
- * 1. Obtener sesión actual de Supabase
- * 2. Si hay access_token, adjuntarlo como Bearer
- * 3. Si no hay sesión, enviar request sin token (el backend devolverá 401)
+ * Adjunta el JWT de Supabase al header Authorization, a menos que el llamador
+ * ya haya proporcionado uno (e.g. AuthGuard pasando el token directamente).
  */
 export async function attachAuthToken(
   config: InternalAxiosRequestConfig,
 ): Promise<InternalAxiosRequestConfig> {
+  // Early-exit si ya viene Authorization — evita timing issues en el boot
+  // .has() en AxiosHeaders 1.x es case-insensitive
+  const hasAuth = config.headers?.has
+    ? config.headers.has('Authorization')
+    : !!config.headers?.Authorization
+  if (hasAuth) return config
+
   try {
     const supabase = createClient()
     const { data: { session } } = await supabase.auth.getSession()
 
     if (session?.access_token) {
-      config.headers = config.headers || {}
+      config.headers ??= {} as InternalAxiosRequestConfig['headers']
       config.headers.Authorization = `Bearer ${session.access_token}`
     }
   } catch (error) {
     console.warn('[API Interceptor] No se pudo obtener sesión Supabase:', error)
-    // Continuar sin token — el backend rechazará si es requerido
   }
 
   return config
@@ -50,7 +49,6 @@ export async function attachAuthToken(
 
 /**
  * RESPONSE SUCCESS INTERCEPTOR
- * Pasa la respuesta sin modificar. El unwrap de `.data` se hace en los helpers tipados.
  */
 export function handleResponseSuccess(response: AxiosResponse): AxiosResponse {
   return response
@@ -58,29 +56,20 @@ export function handleResponseSuccess(response: AxiosResponse): AxiosResponse {
 
 /**
  * RESPONSE ERROR INTERCEPTOR
- * Maneja errores de forma centralizada:
- * 
- * - 401 Unauthorized: Intenta refresh de sesión y retry del request original
- * - 403 Forbidden: Usuario no tiene permisos (rol insuficiente)
- * - 422 Unprocessable: Errores de validación del backend (DTOs)
- * - 429 Too Many Requests: Rate limit alcanzado
- * - 500+ Server Error: Error interno del backend
- * - Network Error: Sin conexión al backend
+ * - 401: Refresca la sesión y reintenta usando la instancia `api` (con interceptores).
+ * - Resto de códigos: lanza ApiError tipado.
  */
 export async function handleResponseError(error: unknown): Promise<never> {
-  // Import dinámico de axios para acceder a isAxiosError
   const axios = (await import('axios')).default
 
   if (!axios.isAxiosError(error) || !error.response) {
-    // Error de red o timeout
-    const apiError = new ApiError(
+    throw new ApiError(
       0,
       'NETWORK_ERROR',
       'No se pudo conectar con el servidor. Verifica tu conexión a internet.',
       undefined,
       new Date().toISOString()
     )
-    throw apiError
   }
 
   const { response, config: originalConfig } = error
@@ -89,41 +78,52 @@ export async function handleResponseError(error: unknown): Promise<never> {
 
   // ── 401: Token expirado → Refresh + Retry ──────────
   if (status === 401 && originalConfig && !retryConfig.__isRetry) {
+    retryConfig.__isRetry = true
+
     if (isRefreshing) {
-      // Ya hay un refresh en curso, encolar este request
-      return new Promise((resolve, reject) => {
+      // Encolar mientras hay un refresh en curso
+      return new Promise<string>((resolve, reject) => {
         failedQueue.push({ resolve, reject })
-      }).then((token) => {
-        originalConfig.headers = originalConfig.headers || {}
+      }).then(async (token) => {
         originalConfig.headers.Authorization = `Bearer ${token}`
-        return axios.request(originalConfig)
-      })
+        // Usar la instancia api (con interceptores) para el reintento
+        const { api } = await import('./client')
+        return api.request(originalConfig)
+      }) as Promise<never>
     }
 
     isRefreshing = true
-    retryConfig.__isRetry = true
 
     try {
       const supabase = createClient()
       const { data: { session }, error: refreshError } = await supabase.auth.refreshSession()
 
       if (refreshError || !session?.access_token) {
-        processQueue(refreshError, null)
-        // Sesión no recuperable — redirigir a login
-        window.location.href = '/login?reason=session_expired'
-        throw refreshError
+        // Construir error explícito para no hacer throw null
+        const sessionError: unknown = refreshError ?? new ApiError(
+          401, 'UNAUTHORIZED', 'Sesión expirada', undefined, new Date().toISOString()
+        )
+        processQueue(sessionError, null)
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login?reason=session_expired'
+        }
+        throw sessionError
       }
 
       const newToken = session.access_token
       processQueue(null, newToken)
 
-      // Reintentar el request original con el nuevo token
-      originalConfig.headers = originalConfig.headers || {}
       originalConfig.headers.Authorization = `Bearer ${newToken}`
-      return axios.request(originalConfig)
-    } catch (refreshError) {
-      processQueue(refreshError, null)
-      throw refreshError
+      // Usar la instancia api para que errores del reintento pasen por nuestros interceptores
+      const { api } = await import('./client')
+      return api.request(originalConfig) as Promise<never>
+    } catch (err) {
+      processQueue(err, null)
+      // Normalizar a ApiError para que los callers siempre reciban un tipo consistente
+      if (err instanceof ApiError) throw err
+      throw new ApiError(
+        401, 'UNAUTHORIZED', 'Sesión expirada o inválida', undefined, new Date().toISOString()
+      )
     } finally {
       isRefreshing = false
     }
@@ -131,15 +131,13 @@ export async function handleResponseError(error: unknown): Promise<never> {
 
   // ── Construir error tipado para el resto de códigos ──
   const backendError = response.data as Record<string, unknown> | undefined
-  const apiError = new ApiError(
+  throw new ApiError(
     status,
     getErrorCode(status, backendError),
     getErrorMessage(status, backendError),
     backendError?.details as Record<string, string[]> | undefined,
     new Date().toISOString()
   )
-
-  throw apiError
 }
 
 // ── Helpers internos ─────────────────────────────────────
