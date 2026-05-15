@@ -101,11 +101,12 @@ export function SidebarUtilities({
         <DropdownMenuContent 
           align="end" 
           side={mobile || collapsed ? "right" : "top"} 
-          className="w-48"
+          className="w-48 dark:bg-secondary dark:border dark:border-primary/20 dark:shadow-lg"
         >
           <DropdownMenuItem 
             onClick={handleLogout} 
-            className="text-red-500 hover:text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/50 cursor-pointer flex items-center py-2"
+            variant="destructive"
+            className="cursor-pointer flex items-center py-2"
           >
             <LogOut className="mr-2 size-4" />
             <span className="font-medium">Salir</span>
