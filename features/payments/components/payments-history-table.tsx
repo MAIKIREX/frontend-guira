@@ -545,12 +545,24 @@ function OrderSummaryRow({
 
       {/* Monto Destino */}
       <TableCell className="text-right py-4">
-        <div className="flex flex-col items-end gap-0.5">
-          <span className="font-mono text-sm font-bold tabular-nums text-foreground">
-            {(order.amount_converted ?? order.amount_destination ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
-          <span className="text-[0.65rem] font-medium text-muted-foreground">{order.destination_currency ?? order.currency ?? ''}</span>
-        </div>
+        {order.flow_type === 'va_deposit' ? (
+          <div className="flex flex-col items-end gap-0.5">
+            <span className="font-mono text-sm font-bold tabular-nums text-foreground">
+              {(order.amount_destination ?? order.net_amount ?? order.amount ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+            <span className="text-[0.65rem] font-medium text-muted-foreground">
+              {order.destination_currency ?? 'USDC'}
+              {order.destination_network ? ` · ${order.destination_network}` : ''}
+            </span>
+          </div>
+        ) : (
+          <div className="flex flex-col items-end gap-0.5">
+            <span className="font-mono text-sm font-bold tabular-nums text-foreground">
+              {(order.amount_converted ?? order.amount_destination ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+            <span className="text-[0.65rem] font-medium text-muted-foreground">{order.destination_currency ?? order.currency ?? ''}</span>
+          </div>
+        )}
       </TableCell>
 
       {/* Fecha */}
